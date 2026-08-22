@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { runSync } from '../lib/sync';
+import { retryPendingReminders } from '../lib/push';
+import { db } from '../db/db';
 
 const INTERVAL_MS = 60_000;
 
@@ -8,7 +10,23 @@ const INTERVAL_MS = 60_000;
 export function SyncRunner() {
   useEffect(() => {
     const sync = () => {
-      if (document.visibilityState === 'visible') void runSync().catch(() => {});
+      if (document.visibilityState !== 'visible') return;
+      void runSync().catch(() => {});
+      // Заодно — напоминания, которые не удалось поставить раньше. Задачу
+      // заводят на ходу, там же чаще всего и пропадает сеть, а повторить
+      // попытку было некому: напоминание просто не срабатывало.
+      void retryPendingReminders(async (ids) => {
+        const rows = await db.tasks.bulkGet(ids);
+        return rows
+          .filter((t): t is NonNullable<typeof t> => Boolean(t) && !t!.deletedAt && !t!.completedAt)
+          .map((t) => ({
+            id: t.id,
+            title: t.title,
+            dueDate: t.dueDate ?? null,
+            dueTime: t.dueTime ?? null,
+            remindBefore: t.remindBefore ?? null,
+          }));
+      }).catch(() => {});
     };
     sync(); // при запуске
     document.addEventListener('visibilitychange', sync);

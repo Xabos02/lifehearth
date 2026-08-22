@@ -5,6 +5,8 @@ import type { Task } from '../db/types';
 // Алиас: в этом файле t — общепринятое имя задачи в параметрах.
 import { t as tr } from './i18n';
 
+import { clearReminderRetry, pendingReminderRetries, queueReminderRetry } from './reminderQueue';
+
 const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
 // Публичный VAPID-ключ (пара к секрету воркера). Безопасно держать в коде.
 const VAPID_PUBLIC =
@@ -139,17 +141,26 @@ export async function scheduleReminder(t: ReminderTask): Promise<void> {
       ? tr('Через {n}\u00A0мин · {time}', { n: t.remindBefore, time: t.dueTime ?? '' })
       : tr('Уже пора · {time}', { time: t.dueTime ?? '' });
   try {
-    await fetch(`${WORKER_URL}/schedule`, {
+    const res = await fetch(`${WORKER_URL}/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ taskId: t.id, fireAt, title: t.title, body, subscription: storedSub() }),
     });
+    // Проверяем ответ, а не только отсутствие исключения: сервер мог ответить
+    // отказом, и тогда напоминания тоже нет.
+    if (!res.ok) throw new Error(`schedule ${res.status}`);
+    clearReminderRetry(t.id);
   } catch {
-    /* офлайн — переедет при следующем сохранении */
+    // Раньше здесь стояло молчание с обещанием «переедет при следующем
+    // сохранении» — но переезжать было некому: повтор случался, только если
+    // человек снова откроет эту же задачу и сохранит её. Напоминание,
+    // заведённое в метро, не срабатывало никогда.
+    queueReminderRetry(t.id);
   }
 }
 
 export async function cancelReminder(taskId: string): Promise<void> {
+  clearReminderRetry(taskId);
   if (!storedSub()) return;
   try {
     await fetch(`${WORKER_URL}/cancel`, {
@@ -184,6 +195,30 @@ export async function schedulePush(
 /** Снять пуш по произвольному id. */
 export async function cancelPush(id: string): Promise<void> {
   return cancelReminder(id);
+}
+
+/** Повторить постановку напоминаний, которые не удалось поставить раньше.
+ *
+ *  Вызывается при возвращении в приложение и при появлении сети. Задачи
+ *  читаются из базы заново: пока напоминание ждало повтора, срок могли
+ *  передвинуть или задачу выполнить, и ставить нужно то, что есть сейчас, а не
+ *  то, что было в момент неудачи. */
+export async function retryPendingReminders(
+  load: (ids: string[]) => Promise<ReminderTask[]>,
+): Promise<number> {
+  const ids = pendingReminderRetries();
+  if (!ids.length || !storedSub()) return 0;
+  const tasks = await load(ids);
+  const known = new Set(tasks.map((t) => t.id));
+  // Задачи, которых больше нет (удалили, пока ждали сети), снимаем с очереди —
+  // иначе она копилась бы вечно.
+  for (const id of ids) if (!known.has(id)) clearReminderRetry(id);
+  let done = 0;
+  for (const t of tasks) {
+    await scheduleReminder(t);
+    if (!pendingReminderRetries().includes(t.id)) done++;
+  }
+  return done;
 }
 
 /** После включения пушей — переставить напоминания всех будущих задач. */
