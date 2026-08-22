@@ -121,3 +121,50 @@ describe('повтор постановки', () => {
     expect(pendingReminderRetries()).toEqual(['t1']);
   });
 });
+
+describe('постановка напоминания при сбое', () => {
+  const task = {
+    id: 't1',
+    title: 'Позвонить в банк',
+    dueDate: '2099-01-01',
+    dueTime: '14:30',
+    remindBefore: 15,
+  };
+
+  beforeEach(() => {
+    store.clear();
+    vi.resetModules();
+    localStorage.setItem('life-hub-push-sub', JSON.stringify({ endpoint: 'https://push/x' }));
+  });
+
+  it('нет сети — задача попадает в очередь повторов', async () => {
+    globalThis.fetch = (() => Promise.reject(new Error('офлайн'))) as typeof fetch;
+    const { scheduleReminder } = await import('./push');
+
+    await scheduleReminder(task);
+
+    expect(pendingReminderRetries()).toEqual(['t1']);
+  });
+
+  it('сервер ответил отказом — тоже в очередь: напоминания нет', async () => {
+    // Без проверки ответа отказ выглядел бы как успех: исключения нет, значит
+    // «поставили». А напоминания при этом не существует.
+    globalThis.fetch = (() => Promise.resolve(new Response('', { status: 500 }))) as typeof fetch;
+    const { scheduleReminder } = await import('./push');
+
+    await scheduleReminder(task);
+
+    expect(pendingReminderRetries()).toEqual(['t1']);
+  });
+
+  it('удачная постановка снимает задачу с очереди', async () => {
+    queueReminderRetry('t1');
+    globalThis.fetch = (() =>
+      Promise.resolve(new Response('{"ok":true}', { status: 200 }))) as typeof fetch;
+    const { scheduleReminder } = await import('./push');
+
+    await scheduleReminder(task);
+
+    expect(pendingReminderRetries()).toEqual([]);
+  });
+});
