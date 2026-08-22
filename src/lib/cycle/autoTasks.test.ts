@@ -114,6 +114,42 @@ describe('planAutoTasks', () => {
     expect(p.reschedule).toEqual([{ id: 'auto-1', dueDate: '2026-08-10' }]);
   });
 
+  it('не трогает задачу, к которой человек дописал заметку', () => {
+    // Задачу, поставленную приложением, человек дополняет: дописывает, что
+    // именно купить, заводит чек-лист, двигает срок под свой график. Раньше
+    // всё это не считалось следом правки — и приложение возвращало свою дату,
+    // отменяя перенос.
+    const p = planAutoTasks({
+      settings: withAutoTasks(),
+      prediction: prediction('2026-08-14'),
+      existing: [task({ dueDate: '2026-08-06', notes: 'взять в «Магните», там дешевле' })],
+      today: TODAY,
+    });
+    expect(p.reschedule).toEqual([]);
+  });
+
+  it('не трогает задачу с чек-листом', () => {
+    const p = planAutoTasks({
+      settings: withAutoTasks(),
+      prediction: prediction('2026-08-14'),
+      existing: [
+        task({ dueDate: '2026-08-06', checklist: [{ id: 'c1', text: 'ночные', done: false }] }),
+      ],
+      today: TODAY,
+    });
+    expect(p.reschedule).toEqual([]);
+  });
+
+  it('не трогает задачу, привязанную к проекту или цели', () => {
+    const p = planAutoTasks({
+      settings: withAutoTasks(),
+      prediction: prediction('2026-08-14'),
+      existing: [task({ dueDate: '2026-08-06', projectId: 'p1' })],
+      today: TODAY,
+    });
+    expect(p.reschedule).toEqual([]);
+  });
+
   it('не трогает задачу, которую человек переименовал', () => {
     const p = planAutoTasks({
       settings: withAutoTasks(),

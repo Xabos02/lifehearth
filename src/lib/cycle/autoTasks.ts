@@ -83,18 +83,32 @@ const titleFor = (tpl: AutoTaskTemplate, neutral: boolean): string =>
 
 /** Задачу редактировали руками? Тогда она больше не наша.
  *
- *  Проверяем по заголовку, а не по updatedAt: отметка «выполнено» тоже меняет
- *  updatedAt, и по нему любая закрытая задача выглядела бы отредактированной. */
+ *  Проверяем по updatedAt нельзя: отметка «выполнено» тоже его меняет, и по
+ *  нему любая закрытая задача выглядела бы отредактированной. Поэтому смотрим
+ *  на следы правки — то, чего у только что созданной задачи не бывает.
+ *
+ *  Заголовка мало. Задачу, поставленную приложением, человек дополняет:
+ *  дописывает заметку, заводит чек-лист, двигает срок под свой график. Раньше
+ *  всё это не считалось: приложение при следующем пересчёте возвращало свою
+ *  дату, и перенесённая на выходные задача снова оказывалась в будни. */
 function isUntouched(task: Task, template: AutoTaskTemplate): boolean {
   // Заголовок хранится в задаче на языке, действовавшем при создании, — после
   // смены языка задача не должна считаться «переименованной». Сверяем со всеми
   // известными формами шаблона: русскими и их словарными переводами.
-  return [
+  const sameTitle = [
     template.title,
     template.directTitle,
     EN[template.title] ?? template.title,
     EN[template.directTitle] ?? template.directTitle,
   ].includes(task.title);
+  if (!sameTitle) return false;
+  // Дописанная заметка, заведённый чек-лист, добавленные снимки, привязка к
+  // проекту или цели — всё это следы того, что задачу взяли в работу.
+  if ((task.notes ?? '').trim()) return false;
+  if ((task.checklist ?? []).length > 0) return false;
+  if ((task.photos ?? []).length > 0) return false;
+  if (task.projectId || task.goalId) return false;
+  return true;
 }
 
 export function planAutoTasks(input: PlanInput): AutoTaskPlan {
