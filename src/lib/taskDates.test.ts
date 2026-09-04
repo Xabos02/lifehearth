@@ -1,8 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { formatDueRange, nextWindowStart, taskOnDay } from './taskDates';
 import { addDaysKey, todayKey } from './dates';
 
 describe('срок-период задачи', () => {
+  // «Сегодня», «Завтра», «Вчера» подставляются относительно текущей даты, поэтому
+  // календарь фиксируем. Иначе тест с захардкоженными датами краснеет ровно в те
+  // дни, когда один из концов диапазона попадает в окно относительных слов —
+  // «28 августа — 3 сентября» превращается в «28 августа — Вчера» 4 сентября.
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-15T12:00:00'));
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it('точечный срок актуален ровно в свой день', () => {
     const t = { dueDate: '2026-08-25', startDate: null };
     expect(taskOnDay(t, '2026-08-25')).toBe(true);
