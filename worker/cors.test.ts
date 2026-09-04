@@ -37,7 +37,7 @@ const CLIENT_HEADERS = [
   'X-Family-Owner', // исключение участника: src/lib/family/familyKeys.ts
 ];
 
-const ORIGIN = 'https://xabos161rus-pixel.github.io';
+const ORIGIN = 'https://xabos02.github.io';
 
 async function preflight(path: string) {
   return worker.default.fetch(

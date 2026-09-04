@@ -23,7 +23,7 @@ vi.mock('cloudflare:workers', () => ({
 
 const worker = await import('./src/index.js');
 
-const ORIGIN = 'https://xabos161rus-pixel.github.io';
+const ORIGIN = 'https://xabos02.github.io';
 
 interface PullRow {
   tbl: string;

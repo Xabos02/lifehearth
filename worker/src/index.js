@@ -588,7 +588,7 @@ function echoReply(messages, systemPrompt) {
 // чего не существует, — а прилетает он автоматически, кроном раз в минуту,
 // как только меняется хэш бандла на GitHub Pages.
 const DEFAULT_UPDATE_TEXT = 'Приложение обновилось — откройте, чтобы посмотреть, что нового';
-const APP_INDEX_URL = 'https://xabos161rus-pixel.github.io/life-hub/index.html';
+const APP_INDEX_URL = 'https://xabos02.github.io/life-hub/index.html';
 
 /** Разослать пуш «вышло обновление» всем подписчикам. Возвращает число доставок. */
 async function broadcastUpdate(env, bodyText) {

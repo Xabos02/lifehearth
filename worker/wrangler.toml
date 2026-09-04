@@ -4,14 +4,14 @@ compatibility_date = "2024-12-01"
 
 # Публичные переменные (не секреты).
 [vars]
-ALLOW_ORIGIN = "https://xabos161rus-pixel.github.io"
+ALLOW_ORIGIN = "https://xabos02.github.io"
 VAPID_PUBLIC = "BCi0yalmrjjC4elVs1vwAzGASoESrlpDA5ImcuB-u6kOVQf00Zc-GIK79WIBe7sQp5Y3_IBD96l8JEpccCj9Ws8"
 # Контакт для push-служб. Здесь стоит адрес приложения, а НЕ личная почта:
 # это поле уходит открытым текстом в заголовке каждого уведомления, и Apple с
 # Google связывали бы все устройства всех семей с одним частным ящиком.
 # Спецификация (RFC 8292) допускает и mailto:, и https: — второй решает задачу
 # «с кем связаться по поводу этих пушей», ничего не раскрывая о человеке.
-VAPID_SUBJECT = "https://xabos161rus-pixel.github.io/life-hub/"
+VAPID_SUBJECT = "https://xabos02.github.io/life-hub/"
 
 # KV для напоминаний. id подставляется после `wrangler kv namespace create REMINDERS`.
 [[kv_namespaces]]
