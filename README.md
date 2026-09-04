@@ -97,7 +97,7 @@ Push в `main` → GitHub Actions собирает фронт и публику�
 
 Приложение писал Claude вместе с владельцем — **Владиславом Скляровым
 (Xabos), Москва** — в чатах Claude Code. Второй репозиторий,
-[claude-ecosystem](https://github.com/xabos161rus-pixel/claude-ecosystem), —
+[claude-ecosystem](https://github.com/Xabos02/claude-ecosystem), —
 его рабочая база: профиль и правила работы (`CLAUDE.md`), память, проекты
 и архив всех чатов Claude Code (`memory/chats/index.md`), включая те, из
 которых вырос этот код.
