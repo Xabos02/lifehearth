@@ -21,7 +21,7 @@ async function seedAutoTask(id: string, extra: Record<string, unknown> = {}) {
     deletedAt: null,
     completedAt: null,
   } as never);
-  if (Object.keys(extra).length) await db.tasks.update(id, extra);
+  if (Object.keys(extra).length) await db.tasks.update(id, extra as never);
 }
 
 describe('выключение связки с задачами', () => {
