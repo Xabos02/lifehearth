@@ -238,6 +238,106 @@ test.describe('обмен между двумя устройствами', () =>
     await ctxB.close();
   });
 
+  test('правка догоняет ОТКРЫТУЮ заметку, а не ждёт перезапуска', async ({ browser }) => {
+    // Содержимое грузится в редактор один раз: живая привязка перетирала бы
+    // текст под руками при автосохранении. Обратная сторона — приехавшая
+    // правка не показывалась, пока экран открыт. Владелец описал это так:
+    // «добавленное фото в заметки появляется на маке только после перезагрузки
+    // приложения».
+    const server = makeServer();
+    const rawKey = randomRawKey();
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
+    const phone = await device(ctxA, server, rawKey);
+    const mac = await device(ctxB, server, rawKey);
+
+    const id = await phone.evaluate(async () => {
+      const [{ db }, { create }] = await Promise.all([
+        import('/src/db/db.ts'),
+        import('/src/db/repo.ts'),
+      ]);
+      const n = await create(db.notes, {
+        title: 'Покупки',
+        content: '<div>Покупки</div>',
+        tags: [],
+        pinned: false,
+        folderId: null,
+      });
+      return n.id as string;
+    });
+    await sync(phone);
+    await sync(mac);
+
+    // На маке заметка ОТКРЫТА и человек в неё не печатает.
+    await mac.goto(`/notes/${id}`);
+    await expect(mac.locator('.note-editor')).toContainText('Покупки');
+
+    // На телефоне дописали и вставили фото.
+    await phone.evaluate(async (id) => {
+      const [{ db }, { update }] = await Promise.all([
+        import('/src/db/db.ts'),
+        import('/src/db/repo.ts'),
+      ]);
+      await update(db.notes, id, {
+        content:
+          '<div>Покупки</div><div>Молоко</div><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==">',
+      });
+    }, id);
+    await sync(phone);
+    await sync(mac);
+
+    // Без перезагрузки страницы: и текст, и фото на экране.
+    await expect(mac.locator('.note-editor')).toContainText('Молоко');
+    await expect(mac.locator('.note-editor img')).toHaveCount(1);
+
+    await ctxA.close();
+    await ctxB.close();
+  });
+
+  test('пока человек печатает, чужая правка текст не перебивает', async ({ browser }) => {
+    // Обратная сторона подхвата: набранное под руками перетирать нельзя ни при
+    // каких условиях. Вместо этого — предупреждение.
+    const server = makeServer();
+    const rawKey = randomRawKey();
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
+    const phone = await device(ctxA, server, rawKey);
+    const mac = await device(ctxB, server, rawKey);
+
+    const id = await phone.evaluate(async () => {
+      const [{ db }, { create }] = await Promise.all([
+        import('/src/db/db.ts'),
+        import('/src/db/repo.ts'),
+      ]);
+      const n = await create(db.notes, {
+        title: 'Идеи', content: '<div>Идеи</div>', tags: [], pinned: false, folderId: null,
+      });
+      return n.id as string;
+    });
+    await sync(phone);
+    await sync(mac);
+
+    await mac.goto(`/notes/${id}`);
+    await mac.locator('.note-editor').click();
+    await mac.keyboard.type(' — моя строка');
+
+    await phone.evaluate(async (id) => {
+      const [{ db }, { update }] = await Promise.all([
+        import('/src/db/db.ts'),
+        import('/src/db/repo.ts'),
+      ]);
+      await update(db.notes, id, { content: '<div>Идеи</div><div>чужая строка</div>' });
+    }, id);
+    await sync(phone);
+    await sync(mac);
+
+    await expect(mac.locator('.note-editor')).toContainText('моя строка');
+    await expect(mac.getByText(/изменили на другом устройстве/)).toBeVisible();
+
+    await ctxA.close();
+    await ctxB.close();
+  });
+
   test('отказ сервера превращается в понятную причину, а не в молчание', async ({ browser }) => {
     // Фоновый обмен запускается сам и ошибку никому не показывал: приложение
     // могло неделями ничего не возить, а на экране стояла старая дата. Дата

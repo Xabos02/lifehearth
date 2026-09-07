@@ -114,6 +114,10 @@ export function NoteEditorPage() {
 
   const editorRef = useRef<HTMLDivElement>(null);
   const savedIdRef = useRef<string | null>(null);
+  /** Штамп версии, которую редактор сейчас показывает (своей или пришедшей).
+   *  По нему отличаем правку с ДРУГОГО устройства от собственного
+   *  автосохранения — иначе каждое своё сохранение выглядело бы как чужое. */
+  const knownAtRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
   const deletedRef = useRef(false);
   const initializedRef = useRef(false);
@@ -221,6 +225,7 @@ export function NoteEditorPage() {
       if (cancelled || !n || n.deletedAt || initializedRef.current) return;
       initializedRef.current = true;
       savedIdRef.current = n.id;
+      knownAtRef.current = n.updatedAt;
       setPinned(n.pinned);
       setEditedAt(n.updatedAt);
       if (editorRef.current) {
@@ -244,6 +249,40 @@ export function NoteEditorPage() {
 
   const toast = useToast();
 
+  // Правка, пришедшая с другого устройства.
+  //
+  // Содержимое грузится в редактор ОДИН раз (см. эффект выше): живая привязка
+  // перетирала бы текст под руками при автосохранении. Обратная сторона —
+  // приехавшая правка не показывалась вовсе, пока экран открыт: владелец
+  // добавлял фото в заметку на телефоне, а на маке его не было до перезапуска
+  // приложения.
+  //
+  // Компромисс по цене ошибки: подхватываем молча только когда перетирать
+  // нечего — нет несохранённых правок и курсор не в тексте. Иначе просто
+  // говорим, что версия разошлась: чужой текст поверх набираемого не кладём
+  // ни при каких условиях.
+  const [remoteChanged, setRemoteChanged] = useState(false);
+  const liveNote = useLiveQuery(
+    () => (isNew || !routeId ? undefined : db.notes.get(routeId)),
+    [routeId, isNew],
+  );
+  useEffect(() => {
+    if (!liveNote || liveNote.deletedAt || !initializedRef.current) return;
+    if (!liveNote.updatedAt || liveNote.updatedAt === knownAtRef.current) return;
+    const el = editorRef.current;
+    if (!el) return;
+    const typing = dirtyRef.current || document.activeElement === el;
+    if (typing) {
+      setRemoteChanged(true);
+      return;
+    }
+    el.innerHTML = liveNote.content || '';
+    knownAtRef.current = liveNote.updatedAt;
+    setEditedAt(liveNote.updatedAt);
+    setPinned(liveNote.pinned);
+    setRemoteChanged(false);
+  }, [liveNote, isNew]);
+
   const flush = useCallback(async () => {
     const el = editorRef.current;
     if (deletedRef.current || !dirtyRef.current || !el || savingRef.current) return;
@@ -261,6 +300,8 @@ export function NoteEditorPage() {
           content: html,
           pinned: pinnedRef.current,
         });
+        // Свою же запись не должны принять за чужую: запоминаем её штамп.
+        knownAtRef.current = (await db.notes.get(savedIdRef.current))?.updatedAt ?? null;
       } else if (plain || hasImage) {
         // Пустую новую заметку не сохраняем (как в iOS).
         const created = await create(db.notes, {
@@ -271,6 +312,7 @@ export function NoteEditorPage() {
           folderId: folderRef.current,
         });
         savedIdRef.current = created.id;
+        knownAtRef.current = created.updatedAt;
         navigate(`/notes/${created.id}`, { replace: true });
       }
       // Флаг «есть несохранённое» снимаем ТОЛЬКО после успешной записи.
@@ -666,6 +708,12 @@ export function NoteEditorPage() {
             getLang() === 'ru' ? "d MMMM yyyy 'г'., HH:mm" : 'MMMM d, yyyy · HH:mm',
             { locale: dateLocale() },
           )}
+        </p>
+      )}
+
+      {remoteChanged && (
+        <p className="mb-3 rounded-xl bg-warning/10 px-3 py-2 text-xs leading-snug text-warning">
+          {t('Заметку изменили на другом устройстве. Пока вы печатаете, мы её не трогаем — ваш текст сохранится поверх.')}
         </p>
       )}
 

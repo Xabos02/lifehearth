@@ -1351,6 +1351,8 @@ export const EN: Record<string, string> = {
   'Формат': 'Format',
   'Список задач': 'Checklist',
   'Вложить': 'Attach',
+  'Заметку изменили на другом устройстве. Пока вы печатаете, мы её не трогаем — ваш текст сохранится поверх.':
+    'This note was changed on another device. While you type we leave it alone — your text will be saved over it.',
   'сервер не признал это устройство — подключите его заново':
     'the server did not recognise this device — connect it again',
   'запись не поместилась на сервере': 'a record was too large for the server',
