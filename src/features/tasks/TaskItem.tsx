@@ -7,6 +7,7 @@ import {
 import type { Project, Task } from '../../db/types';
 import { HIT_SLOP_44, TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressBar } from '../../components/ui/ProgressBar';
+import { PhotoViewer } from '../../components/ui/PhotoViewer';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { remove, update } from '../../db/repo';
@@ -97,6 +98,7 @@ export function TaskItem({
     pointerId: 0,
     axis: 'none' as 'none' | 'x' | 'y', // directional lock: ось жеста, пока не определена — не свайпим
   });
+  const [viewerAt, setViewerAt] = useState<number | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const rowRef = useRef<HTMLDivElement>(null);
 
@@ -310,18 +312,39 @@ export function TaskItem({
           )}
           {task.photos && task.photos.length > 0 && (
             <div className="mt-1.5 flex gap-1.5">
+              {/* Снимок — кнопка, а не картинка. Раньше тап по нему всплывал в
+                  строку и открывал форму задачи: рассмотреть фото было нельзя
+                  вовсе, хотя прикрепляют его именно для этого. */}
               {task.photos.slice(0, 4).map((src, i) => (
-                <img
+                <button
                   key={i}
-                  src={src}
-                  alt=""
-                  className="size-12 rounded-lg border border-hairline object-cover"
-                />
+                  type="button"
+                  aria-label={t('Открыть фото')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Удержание и свайп заканчиваются кликом тоже — но это не
+                    // тап по фото, и просмотрщик им открывать нельзя.
+                    if (drag.current.longPressed || drag.current.moved) return;
+                    setViewerAt(i);
+                  }}
+                  className="size-12 shrink-0 overflow-hidden rounded-lg border border-hairline active:opacity-70"
+                >
+                  <img src={src} alt="" className="size-full object-cover" />
+                </button>
               ))}
               {task.photos.length > 4 && (
-                <span className="flex size-12 items-center justify-center rounded-lg bg-surface-2 text-xs text-muted">
+                <button
+                  type="button"
+                  aria-label={t('Открыть фото')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (drag.current.longPressed || drag.current.moved) return;
+                    setViewerAt(4);
+                  }}
+                  className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-xs text-muted active:opacity-70"
+                >
                   +{task.photos.length - 4}
-                </span>
+                </button>
               )}
             </div>
           )}
@@ -394,6 +417,13 @@ export function TaskItem({
           )}
         </div>
       </div>
+      {viewerAt != null && task.photos && (
+        <PhotoViewer
+          photos={task.photos}
+          index={viewerAt}
+          onClose={() => setViewerAt(null)}
+        />
+      )}
     </div>
   );
 }

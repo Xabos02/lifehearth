@@ -37,6 +37,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Hint } from '../../components/ui/Hint';
 import { getLang, t } from '../../lib/i18n';
 import { useToast } from '../../components/ui/toastContext';
+import { PhotoViewer } from '../../components/ui/PhotoViewer';
 import {
   compressImage,
   ImageDecodeError,
@@ -1674,15 +1675,10 @@ export function ChatTab({ familyId }: { familyId: string }) {
         )}
       </Sheet>
 
-      {/* Фото на весь экран (тап по фото в ленте) — закрытие тапом. */}
-      {viewImage && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 p-3"
-          onClick={() => setViewImage(null)}
-        >
-          <img src={viewImage} alt="" className="max-h-full max-w-full rounded-xl object-contain" />
-        </div>
-      )}
+      {/* Фото на весь экран (тап по фото в ленте). Общий компонент с задачами:
+          там снимков у одной записи бывает несколько, здесь всегда один —
+          счётчик и листание в этом случае не появляются. */}
+      {viewImage && <PhotoViewer photos={[viewImage]} onClose={() => setViewImage(null)} />}
     </div>
   );
 }
