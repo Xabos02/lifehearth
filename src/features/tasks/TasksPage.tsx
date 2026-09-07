@@ -148,12 +148,40 @@ function useHoldToReorder(
   const pointerIdRef = useRef(0);
   const reorderable = Boolean(onReorderStart);
 
-  const cancelPress = () => {
-    if (pressTimer.current != null) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
+  // Снять взведённое удержание и убрать сторожа окна.
+  //
+  // Ссылка обязана быть одной и той же на всё время жизни: ею и вешаем
+  // слушатели, и снимаем, а removeEventListener сверяет функции по
+  // идентичности — пересоздай её на рендере, и сторож остался бы висеть.
+  const cancelPressRef = useRef<(() => void) | null>(null);
+  if (!cancelPressRef.current) {
+    cancelPressRef.current = () => {
+      if (pressTimer.current != null) {
+        clearTimeout(pressTimer.current);
+        pressTimer.current = null;
+      }
+      const self = cancelPressRef.current!;
+      window.removeEventListener('pointerup', self);
+      window.removeEventListener('pointercancel', self);
+    };
+  }
+  const cancelPress = cancelPressRef.current;
+
+  // Отпускание пальца ловим на ОКНЕ, а не только на самом заголовке.
+  //
+  // Обработчик заголовка видит отпускание, лишь когда оно пришло в него: палец
+  // соскользнул на соседний элемент, строку перерисовало, экран сменился — и
+  // события нет. Тогда таймер срабатывал уже после конца касания: перенос
+  // стартовал без пальца, плашка приклеивалась к экрану, и убрать её было
+  // нечем — pointerup больше не придёт. Окно видит отпускание всегда.
+  const armReleaseGuard = () => {
+    window.addEventListener('pointerup', cancelPress);
+    window.addEventListener('pointercancel', cancelPress);
   };
+
+  // Та же подстраховка, что в строке задачи: снять висящий таймер при
+  // размонтировании заголовка.
+  useEffect(() => cancelPress, [cancelPress]);
   const endHeaderDrag = () => {
     const el = headerRef.current;
     if (!el) return;
@@ -174,7 +202,7 @@ function useHoldToReorder(
       pointerIdRef.current = e.pointerId;
       cancelPress();
       pressTimer.current = window.setTimeout(() => {
-        pressTimer.current = null;
+        cancelPress(); // таймер отработал: снимаем сторожа окна
         longFired.current = true;
         const el = headerRef.current;
         if (el) {
@@ -187,6 +215,7 @@ function useHoldToReorder(
         }
         onReorderStart?.(startPt.current);
       }, LONG_PRESS_MS);
+      armReleaseGuard();
     },
     onPointerMove: (e: ReactPointerEvent<HTMLButtonElement>) => {
       if (pressTimer.current == null) return;
