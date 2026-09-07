@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { APP_VERSION, RELEASES, pushTextFor } from './changelog';
+import { APP_VERSION, RELEASES, compareVersions, pushTextFor } from './changelog';
 
 const LIMIT = 140;
 
@@ -10,8 +10,17 @@ describe('changelog', () => {
 
   it('выпуски идут от новых к старым', () => {
     for (let i = 1; i < RELEASES.length; i++) {
-      expect(RELEASES[i - 1].version > RELEASES[i].version).toBe(true);
+      expect(compareVersions(RELEASES[i - 1].version, RELEASES[i].version)).toBe(1);
     }
+  });
+
+  it('двузначная часть версии больше однозначной', () => {
+    // Ловушка строкового сравнения: '1.10.0' < '1.9.0' по буквам. Пока
+    // сравнение было строковым, первый же выпуск 1.10.0 не показался бы.
+    expect(compareVersions('1.10.0', '1.9.0')).toBe(1);
+    expect(compareVersions('2.0.0', '1.99.0')).toBe(1);
+    expect(compareVersions('1.9.1', '1.9.1')).toBe(0);
+    expect(compareVersions('1.9', '1.9.1')).toBe(-1);
   });
 
   it('у каждого выпуска есть дата и хотя бы один пункт', () => {

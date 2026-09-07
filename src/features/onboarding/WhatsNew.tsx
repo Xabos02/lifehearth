@@ -4,7 +4,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
-import { APP_VERSION, RELEASES } from '../../lib/changelog';
+import { APP_VERSION, RELEASES, compareVersions } from '../../lib/changelog';
 import { formatRu } from '../../lib/dates';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
@@ -63,7 +63,7 @@ export function WhatsNew() {
 
   // Показываем все выпуски новее виденного: человек мог пропустить несколько
   // обновлений подряд, и «что нового» только про последнее его обманет.
-  const fresh = RELEASES.filter((r) => (seen ? r.version > seen : false));
+  const fresh = RELEASES.filter((r) => (seen ? compareVersions(r.version, seen) > 0 : false));
   const list = fresh.length > 0 ? fresh : RELEASES.slice(0, 1);
 
   if (!open) return null;

@@ -10,7 +10,7 @@
 // когда сети может не быть вовсе.
 
 export interface Release {
-  /** Версия. Растёт по порядку; сравнивается как строка при сортировке. */
+  /** Версия. Растёт по порядку; сравнивать только через compareVersions. */
   version: string;
   /** Дата выпуска, 'YYYY-MM-DD'. */
   date: string;
@@ -156,6 +156,22 @@ export const RELEASES: Release[] = [
 
 /** Текущая версия приложения. */
 export const APP_VERSION = RELEASES[0]?.version ?? '0.0.0';
+
+/** Сравнить версии по числам, а не по буквам: -1, 0 или 1.
+ *
+ *  Строкой сравнивать нельзя: '1.10.0' < '1.9.0', потому что символ '1'
+ *  меньше '9'. До сих пор не жгло только потому, что второе число ни разу
+ *  не доросло до десяти, — а на первом же таком выпуске окно «что нового»
+ *  сочло бы новый выпуск старым и не показало его вовсе. */
+export function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d > 0 ? 1 : -1;
+  }
+  return 0;
+}
 
 /** Короткий текст для push-уведомления.
  *
