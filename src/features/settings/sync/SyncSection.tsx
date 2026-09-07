@@ -9,7 +9,7 @@ import {
 import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/toastContext';
 import { db } from '../../../db/db';
-import { getSyncConfig } from '../../../lib/syncState';
+import { getSyncConfig, patchSyncConfig } from '../../../lib/syncState';
 import { createSyncAccount, disableSync, runSync } from '../../../lib/sync';
 import { PairingSheet } from './PairingSheet';
 import { t } from '../../../lib/i18n';
@@ -67,6 +67,36 @@ export function SyncSection() {
       // проблеме надо сказать, иначе потерю данных не заметить.
       if (r && r.skipped > 0) toast(t('Синхронизировано · получено {pulled}, отправлено {pushed}, пропущено {skipped}', { pulled: r.pulled, pushed: r.pushed, skipped: r.skipped }));
       else if (r) toast(t('Синхронизировано · получено {pulled}, отправлено {pushed}', { pulled: r.pulled, pushed: r.pushed }));
+    } catch {
+      toast(t('Не удалось синхронизировать. Проверьте связь и попробуйте ещё раз'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Перечитать всё заново: сбросить курсоры и прогнать полный круг.
+   *
+   *  Аварийный выход для состояния «обмен идёт успешно, а данные не ходят».
+   *  Курсоры — единственное, что помнит устройство между кругами, и именно
+   *  они ломаются незаметно: уехали в будущее — и сервер честно отвечает
+   *  «нового нет» на каждый запрос. Защита от этого теперь стоит в самом
+   *  обмене, но кнопка нужна и на случай причин, до которых защита не
+   *  добралась: сбрасывать нечего, кроме этих двух меток, а данные при этом
+   *  не теряются — записи применяются только если свежее локальных.
+   */
+  async function handleResync() {
+    if (busy) return;
+    if (
+      !window.confirm(
+        t('Перечитать всё заново? Приложение заново отправит и получит все записи. Ничего не потеряется — это займёт больше времени, чем обычный обмен.'),
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      await patchSyncConfig({ lastPullAt: '', lastPushAt: '' });
+      const r = await runSync();
+      if (r) toast(t('Синхронизировано · получено {pulled}, отправлено {pushed}', { pulled: r.pulled, pushed: r.pushed }));
     } catch {
       toast(t('Не удалось синхронизировать. Проверьте связь и попробуйте ещё раз'));
     } finally {
@@ -144,6 +174,13 @@ export function SyncSection() {
               <QrCode size={ICON.base} />
               {t('Показать QR для другого устройства')}
             </Button>
+            <button
+              className="w-full text-sm text-muted active:opacity-60"
+              disabled={busy}
+              onClick={() => void handleResync()}
+            >
+              {t('Перечитать всё заново')}
+            </button>
             {/* ID аккаунта нужен для allowlist AI-прокси в Worker (AI_ALLOWED_ACCOUNTS):
                 значение вводится в дашборде Cloudflare руками, поэтому кнопка копирования. */}
             <button

@@ -338,6 +338,87 @@ test.describe('обмен между двумя устройствами', () =>
     await ctxB.close();
   });
 
+  test('курсор приёма из будущего чинится сам, а не глушит приём навсегда', async ({ browser }) => {
+    // Курсор приёма приложение берёт НЕ у себя, а с сервера: это метка времени
+    // последней полученной записи, а ставит её то устройство, которое запись
+    // создало. Одно устройство с убежавшими часами — и курсор всех остальных
+    // прыгает в будущее. Дальше сервер честно отвечает «новее ничего нет» на
+    // каждый запрос, и устройство НАВСЕГДА перестаёт получать что-либо. Молча:
+    // ошибки нет, обмен «успешен», данные просто не приходят.
+    const server = makeServer();
+    const rawKey = randomRawKey();
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
+    const mac = await device(ctxA, server, rawKey);
+    const phone = await device(ctxB, server, rawKey);
+
+    await mac.evaluate(async () => {
+      const [{ db }, { create }] = await Promise.all([
+        import('/src/db/db.ts'),
+        import('/src/db/repo.ts'),
+      ]);
+      await create(db.tasks, {
+        title: 'Отправить Кате ноутбук', notes: '', projectId: null, goalId: null, priority: 0,
+        dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: null,
+        checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+      });
+    });
+    await sync(mac);
+
+    // У телефона курсор уехал на год вперёд.
+    await phone.evaluate(async () => {
+      const { db } = await import('/src/db/db.ts');
+      const c = await db.sync.get('config');
+      const future = new Date(Date.now() + 365 * 24 * 3600_000).toISOString();
+      await db.sync.put({ ...c, lastPullAt: `${future}|zzz` });
+    });
+
+    await sync(phone);
+    expect(await tasksOf(phone), 'приём молчит из-за курсора в будущем').toContain(
+      'Отправить Кате ноутбук',
+    );
+
+    await ctxA.close();
+    await ctxB.close();
+  });
+
+  test('курсор отправки из будущего не запирает правки на устройстве', async ({ browser }) => {
+    // Зеркальная поломка: часы отъехали НАЗАД, и всё написанное после этого
+    // получает штамп «старее» курсора — то есть не попадает в окно отправки
+    // никогда. Человек пишет на маке, а на телефоне пусто.
+    const server = makeServer();
+    const rawKey = randomRawKey();
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
+    const mac = await device(ctxA, server, rawKey);
+    const phone = await device(ctxB, server, rawKey);
+
+    await mac.evaluate(async () => {
+      const { db } = await import('/src/db/db.ts');
+      const c = await db.sync.get('config');
+      const future = new Date(Date.now() + 365 * 24 * 3600_000).toISOString();
+      await db.sync.put({ ...c, lastPushAt: future });
+    });
+    await mac.evaluate(async () => {
+      const [{ db }, { create }] = await Promise.all([
+        import('/src/db/db.ts'),
+        import('/src/db/repo.ts'),
+      ]);
+      await create(db.tasks, {
+        title: 'Купить тетрадь', notes: '', projectId: null, goalId: null, priority: 0,
+        dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: null,
+        checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+      });
+    });
+
+    await sync(mac);
+    await sync(phone);
+    expect(await tasksOf(phone), 'правка заперта курсором отправки').toContain('Купить тетрадь');
+
+    await ctxA.close();
+    await ctxB.close();
+  });
+
   test('отказ сервера превращается в понятную причину, а не в молчание', async ({ browser }) => {
     // Фоновый обмен запускается сам и ошибку никому не показывал: приложение
     // могло неделями ничего не возить, а на экране стояла старая дата. Дата

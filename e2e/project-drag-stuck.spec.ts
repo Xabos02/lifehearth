@@ -44,10 +44,15 @@ async function seed(page: Page) {
  *  заголовка его не увидит — ровно как на телефоне, когда палец соскользнул
  *  или строку перерисовало между нажатием и отпусканием. */
 async function pressAndReleaseElsewhere(page: Page, name: string) {
+  // Ждём сам заголовок, а не общий признак экрана: в CI список проектов
+  // дорисовывается позже, и evaluate успевал не найти кнопку — тест падал на
+  // undefined вместо того, чтобы проверять поведение.
+  await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
   await page.evaluate((name) => {
     const header = [...document.querySelectorAll('button')].find((b) =>
       b.textContent?.includes(name),
-    )!;
+    );
+    if (!header) throw new Error(`заголовок «${name}» не найден на экране`);
     const r = header.getBoundingClientRect();
     const opts = {
       bubbles: true,
@@ -99,10 +104,12 @@ test('уход с экрана во время удержания не оста�
   await openApp(page, '/tasks');
   await seed(page);
 
+  await expect(page.getByText('Бизнес', { exact: true }).first()).toBeVisible();
   await page.evaluate(() => {
     const header = [...document.querySelectorAll('button')].find((b) =>
       b.textContent?.includes('Бизнес'),
-    )!;
+    );
+    if (!header) throw new Error('заголовок «Бизнес» не найден на экране');
     const r = header.getBoundingClientRect();
     header.dispatchEvent(
       new PointerEvent('pointerdown', {

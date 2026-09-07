@@ -1351,6 +1351,9 @@ export const EN: Record<string, string> = {
   'Формат': 'Format',
   'Список задач': 'Checklist',
   'Вложить': 'Attach',
+  'Перечитать всё заново': 'Re-sync everything',
+  'Перечитать всё заново? Приложение заново отправит и получит все записи. Ничего не потеряется — это займёт больше времени, чем обычный обмен.':
+    'Re-sync everything? The app will send and receive all records again. Nothing is lost — it just takes longer than a normal exchange.',
   'Заметку изменили на другом устройстве. Пока вы печатаете, мы её не трогаем — ваш текст сохранится поверх.':
     'This note was changed on another device. While you type we leave it alone — your text will be saved over it.',
   'сервер не признал это устройство — подключите его заново':

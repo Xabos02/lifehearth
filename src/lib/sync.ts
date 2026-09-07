@@ -351,10 +351,43 @@ async function rewindIfTablesGrew(c: SyncConfig): Promise<string> {
   return '';
 }
 
+/** Сколько курсору позволено обгонять часы устройства, прежде чем считать его
+ *  сломанным. Секунды набегают законно — расхождение часов между телефоном и
+ *  ноутбуком, задержка сети. Сутки — уже не расхождение. */
+const CURSOR_FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000;
+
+/** Курсор, уехавший в будущее, чинится сам.
+ *
+ *  Курсор приёма приложение берёт НЕ у себя, а с сервера: это метка времени
+ *  последней полученной записи, а метку ставит то устройство, которое запись
+ *  создало. Стоит одному устройству с убежавшими вперёд часами отправить хоть
+ *  одну запись — и курсор всех остальных прыгает в её будущее. После этого
+ *  сервер честно отвечает «новее ничего нет» на каждый запрос, и устройство
+ *  НАВСЕГДА перестаёт получать что-либо. Молча: ошибки нет, обмен «успешен»,
+ *  данные просто не приходят.
+ *
+ *  Курсор отправки ломается зеркально: часы отъехали назад — и новые правки
+ *  получают штамп МЕНЬШЕ курсора, то есть не попадают в окно отправки никогда.
+ *
+ *  Лечение одно и то же: сбросить курсор и перечитать/переотправить с начала.
+ *  Это безопасно — запись применяется, только если свежее локальной, а сервер
+ *  принимает по тому же правилу. Цена — один полный круг, единожды. */
+export function cursorFromFuture(cursor: string, now: number): boolean {
+  if (!cursor) return false;
+  // Курсор приёма составной: «updatedAt|id».
+  const at = Date.parse(cursor.split('|')[0]);
+  return Number.isFinite(at) && at > now + CURSOR_FUTURE_TOLERANCE_MS;
+}
+
 async function pull(c: SyncConfig): Promise<{ applied: number; skipped: number }> {
   let applied = 0;
   let skipped = 0;
   let since = await rewindIfTablesGrew(c);
+  if (cursorFromFuture(since, Date.now())) {
+    console.warn(`sync: курсор приёма из будущего (${since}) — перечитываем с начала`);
+    since = '';
+    await patchSyncConfig({ lastPullAt: '' });
+  }
   for (;;) {
     const page = await pullPage(c, since);
     applied += page.applied;
@@ -390,6 +423,13 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
   // окна отсекает всё, что записано после снятия курсора, — оно уедет
   // следующим циклом.
   const cutoff = new Date().toISOString();
+  // Курсор отправки из будущего — часы устройства отъехали назад. Всё, что
+  // человек написал после этого, оказывается «старее» курсора и не уезжает
+  // никогда. Отправляем с начала: сервер разберётся по времени правки.
+  const from = cursorFromFuture(c.lastPushAt, Date.now()) ? '' : c.lastPushAt;
+  if (from !== c.lastPushAt) {
+    console.warn(`sync: курсор отправки из будущего (${c.lastPushAt}) — отправляем с начала`);
+  }
   // Окно ПОЛУОТКРЫТОЕ: [lastPushAt, cutoff). Верхняя граница строгая, иначе
   // запись, созданная в ту же миллисекунду, что и cutoff, но уже после его
   // снятия, не попадёт ни в это окно (её ещё нет в базе), ни в следующее
@@ -403,7 +443,7 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
     const rows = await db
       .table<Row>(name)
       .where('updatedAt')
-      .between(c.lastPushAt, cutoff, true, false)
+      .between(from, cutoff, true, false)
       .toArray();
     for (const row of rows) fresh.push({ name, row });
   }
@@ -426,7 +466,7 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
   // человека семейных групп — одна-две. Индекс ради этого не нужен, а вот
   // отбор нужен: без него отправлялись бы все подключения при каждом пуше.
   const famFresh = (await db.family.toArray()).filter(
-    (f) => typeof f.updatedAt === 'string' && f.updatedAt >= c.lastPushAt && f.updatedAt < cutoff,
+    (f) => typeof f.updatedAt === 'string' && f.updatedAt >= from && f.updatedAt < cutoff,
   );
   for (const f of famFresh) {
     const keysRaw: Record<string, string> = {};
