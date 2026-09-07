@@ -1,4 +1,4 @@
-// Life Hub бэкенд (Cloudflare Worker) — пуши + E2E-синхронизация.
+// LifeHearth бэкенд (Cloudflare Worker) — пуши + E2E-синхронизация.
 // HTTP:
 //   /health                  — проверка живости
 //   /schedule, /cancel       — напоминания (push), KV REMINDERS

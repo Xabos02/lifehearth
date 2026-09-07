@@ -1,4 +1,4 @@
--- Life Hub: схема E2E-синхронизации (D1 / SQLite).
+-- LifeHearth: схема E2E-синхронизации (D1 / SQLite).
 -- Применять: wrangler d1 migrations apply life-hub-sync  (--local для теста).
 
 -- Аккаунты: один на пользователя. token_hash = SHA-256 от bearer-токена.

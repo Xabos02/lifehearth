@@ -42,7 +42,7 @@ import type {
 
 export const SCHEMA_VERSION = 20;
 
-export class LifeHubDB extends Dexie {
+export class LifeHearthDB extends Dexie {
   projects!: Table<Project, string>;
   tasks!: Table<Task, string>;
   goals!: Table<Goal, string>;
@@ -88,6 +88,12 @@ export class LifeHubDB extends Dexie {
   llmMessages!: Table<LlmMessage, string>;
 
   constructor() {
+    // Имя базы в IndexedDB — 'life-hub', и менять его нельзя НИКОГДА, даже
+    // теперь, когда приложение называется LifeHearth. Браузер ищет базу по
+    // имени: под новым он откроет пустую, а всё, что человек накопил,
+    // останется лежать под старым именем — невидимым для приложения. Это
+    // ровно то, что выглядит как «данные пропали». Имя внутреннее, человек
+    // его нигде не видит.
     super('life-hub');
     this.version(1).stores({
       projects: 'id, sortOrder',
@@ -369,7 +375,7 @@ export class LifeHubDB extends Dexie {
   }
 }
 
-export const db = new LifeHubDB();
+export const db = new LifeHearthDB();
 
 export const DEFAULT_SETTINGS: Settings = {
   id: 'app',
