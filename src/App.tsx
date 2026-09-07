@@ -165,6 +165,9 @@ export default function App() {
                 серединой прокрутки. */}
             <div
               id="app-scroll"
+              // data-app-scroll: по этой метке Sheet находит контейнер, чтобы
+              // заморозить прокрутку под открытой формой.
+              data-app-scroll
               className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
               style={{ overscrollBehavior: 'contain', marginBottom: 'var(--fab-strip, 0px)' }}
             >

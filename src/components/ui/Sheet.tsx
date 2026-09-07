@@ -50,6 +50,26 @@ export function Sheet({ open, onClose, title, children }: Props) {
     }
   }, [open]);
 
+  // Пока форма открыта, страница под ней не прокручивается вовсе.
+  //
+  // overscroll-contain на самой панели останавливает перетекание прокрутки,
+  // но остаются пути мимо неё: палец на затемнении, инерция, колесо мыши над
+  // краем. Замораживаем прокручиваемый контейнер приложения и возвращаем ему
+  // ровно ту позицию, на которой человек остановился, — иначе форма
+  // закрывается, а список оказывается не там, где был.
+  useEffect(() => {
+    if (!open) return;
+    const scroller = document.querySelector<HTMLElement>('[data-app-scroll]');
+    if (!scroller) return;
+    const prev = scroller.style.overflowY;
+    const at = scroller.scrollTop;
+    scroller.style.overflowY = 'hidden';
+    return () => {
+      scroller.style.overflowY = prev;
+      scroller.scrollTop = at;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   function handlePointerDown(e: PointerEvent<HTMLDivElement>) {
@@ -94,7 +114,9 @@ export function Sheet({ open, onClose, title, children }: Props) {
   return createPortal(
     <div className="fixed inset-0 z-50">
       <div
-        className="absolute inset-0 animate-fade-in bg-black/60"
+        // touch-none: перетаскивание по затемнению — это не прокрутка. Без
+        // него палец на подложке двигал страницу под шторкой.
+        className="absolute inset-0 animate-fade-in touch-none bg-black/60"
         // Решение принимаем на pointerdown, а не на click: браузер снимает
         // фокус с поля сам, ещё до клика, и к обработчику click проверять уже
         // нечего — активным элементом будет body.
@@ -123,7 +145,10 @@ export function Sheet({ open, onClose, title, children }: Props) {
       />
       <div
         ref={panelRef}
-        className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto rounded-t-[1.6rem] border-t border-hairline bg-elevated pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
+        // overscroll-contain обязателен: без него прокрутка внутри панели,
+        // дойдя до края, перетекает на страницу ПОД ней — и экран приложения
+        // уезжает вместе с формой. Со стороны это выглядит как «всё плавает».
+        className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto overscroll-contain rounded-t-[1.6rem] border-t border-hairline bg-elevated pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
         style={{
           // Панель поднимается ровно на высоту клавиатуры, а её потолок на ту
           // же величину опускается — иначе поднятая панель упёрлась бы в
