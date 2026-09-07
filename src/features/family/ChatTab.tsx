@@ -384,23 +384,37 @@ function MessageRow({
     g.current.y0 = e.clientY;
     g.current.onImage = Boolean((e.target as Element).closest('img'));
     clearLp();
-    const msg = m;
     g.current.lpTimer = setTimeout(() => {
+      // Отмечаем удержание и даём отклик, но меню открываем не здесь, а на
+      // отпускании.
+      //
+      // Раньше меню выскакивало прямо из таймера, и палец, задержавшийся на
+      // сообщении хотя бы на полсекунды, терял право на свайп: жест уже был
+      // объявлен «удержанием» и движение игнорировалось. Со стороны это
+      // выглядит как «свайп не работает» — человек ведёт вправо, а ответ не
+      // прикрепляется. Между тем задержаться перед движением естественно:
+      // сначала находишь нужное сообщение глазами, потом ведёшь.
       g.current.mode = 'longpress';
       try {
         navigator.vibrate?.(10);
       } catch {
         /* iOS игнорирует */
       }
-      onMenu(msg);
     }, LONG_PRESS_MS);
   }
 
   function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
     const s = g.current;
-    if (s.mode === 'skip' || s.mode === 'longpress') return;
+    if (s.mode === 'skip') return;
     const dx = e.clientX - s.x0;
     const dy = e.clientY - s.y0;
+    // Палец задержался, а потом пошёл вправо — это всё-таки свайп, а не
+    // удержание. Меню откроется только если отпустить не двигаясь.
+    if (s.mode === 'longpress' && dx > 8 && Math.abs(dx) > Math.abs(dy)) {
+      s.mode = 'idle';
+    } else if (s.mode === 'longpress') {
+      return;
+    }
     if (s.mode === 'idle' && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
       clearLp(); // палец пошёл — это не long-press
       if (dx > 0 && Math.abs(dx) > Math.abs(dy)) {
@@ -426,7 +440,13 @@ function MessageRow({
       s.mode = 'idle';
       return;
     }
-    if (s.mode === 'longpress' || s.mode === 'skip') {
+    if (s.mode === 'longpress') {
+      // Держал и отпустил, не двигая пальцем, — вот теперь меню.
+      s.mode = 'idle';
+      onMenu(m);
+      return;
+    }
+    if (s.mode === 'skip') {
       s.mode = 'idle';
       return;
     }
