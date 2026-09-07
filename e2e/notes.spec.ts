@@ -526,7 +526,7 @@ test.describe('фото и файлы в заметке', () => {
   test('заметка из одного фото сохраняется и переживает перезагрузку', async ({ page }) => {
     await newNote(page);
     await page
-      .locator('input[type="file"][accept="image/*"]')
+      .locator('input[type="file"]')
       .setInputFiles({ name: 'фото.png', mimeType: 'image/png', buffer: PNG_1PX });
     // Сжатие кладёт фото в текст встроенным JPEG.
     await expect(page.locator('.note-editor img')).toHaveAttribute('src', /^data:image\//);
@@ -554,10 +554,23 @@ test.describe('фото и файлы в заметке', () => {
     await expect(page.locator('.note-editor img')).toHaveAttribute('src', /^data:image\//);
   });
 
+  test('картинка через ту же кнопку уходит в текст, а не вложением', async ({ page }) => {
+    // Кнопка вложения одна на всё: куда попадёт выбранное, решает тип файла.
+    // Раньше кнопок было две, и обе открывали одинаковое системное меню iOS —
+    // выбранное через «Файл» фото приезжало карточкой вложения вместо текста.
+    await newNote(page);
+    await page
+      .locator('input[type="file"]')
+      .setInputFiles({ name: 'снимок.png', mimeType: 'image/png', buffer: PNG_1PX });
+
+    await expect(page.locator('.note-editor img')).toHaveAttribute('src', /^data:image\//);
+    await expect(page.getByTestId('note-attachments')).toHaveCount(0);
+  });
+
   test('файл прикладывается карточкой, переживает перезагрузку и удаляется', async ({ page }) => {
     await newNote(page);
     await page
-      .locator('input[type="file"]:not([accept])')
+      .locator('input[type="file"]')
       .setInputFiles({
         name: 'отчёт.txt',
         mimeType: 'text/plain',
@@ -707,13 +720,14 @@ test.describe('вложенные папки', () => {
   });
 });
 
-// Полоса редактора — как в Apple Notes: пять входов без горизонтального
-// скролла, стили текста собраны за кнопкой «Aa».
+// Полоса редактора — как в Apple Notes: несколько входов без горизонтального
+// скролла, стили текста собраны за кнопкой «Aa». Вложение одно на всё: две
+// кнопки открывали одинаковое системное меню и путали.
 test.describe('панель инструментов', () => {
   test('полоса помещается без скролла, «Aa» открывает и закрывает стили', async ({ page }) => {
     await newNote(page);
-    // Пять кнопок полосы видны сразу.
-    for (const name of ['Формат', 'Список задач', 'Фото', 'Файл', 'Отменить']) {
+    // Кнопки полосы видны сразу.
+    for (const name of ['Формат', 'Список задач', 'Вложить', 'Отменить']) {
       await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
     }
     // Контейнер полосы не скроллится вбок.

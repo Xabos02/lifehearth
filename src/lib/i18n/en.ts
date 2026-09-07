@@ -1350,6 +1350,7 @@ export const EN: Record<string, string> = {
   'Нумерованный список': 'Numbered list',
   'Формат': 'Format',
   'Список задач': 'Checklist',
+  'Вложить': 'Attach',
 
   // === Задачи ===
   'Редактировать подпроект': 'Edit subproject',

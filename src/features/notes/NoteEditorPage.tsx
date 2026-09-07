@@ -19,7 +19,6 @@ import {
   GChecklist as ListChecks,
   GItalic,
   GNumbers as ListOrdered,
-  GPhoto,
   GStrike,
   GTrash as Trash2,
   GUndo as Undo2,
@@ -302,7 +301,6 @@ export function NoteEditorPage() {
 
   // === Фото и файлы ===
 
-  const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Куда смотрела каретка в момент нажатия кнопки: системный пикер уводит
   // фокус, и к возвращению выбранного файла выделение уже потеряно.
@@ -742,19 +740,21 @@ export function NoteEditorPage() {
       {/* Файлы-вложения — под текстом. Картинки живут в самом тексте. */}
       <NoteAttachments files={attachments} onDelete={(fid) => void deleteAttachment(fid)} />
 
-      {/* Скрытые инпуты кнопок «Фото» и «Файл». value сбрасывается, чтобы
-          повторный выбор того же файла сработал. */}
-      <input
-        ref={photoInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = '';
-          if (f) void addPhoto(f);
-        }}
-      />
+      {/* Одно скрытое поле выбора на всё вложение.
+          
+          Было два — «Фото» (accept="image/*") и «Файл» (без accept), — и они
+          делали разное: первое вставляло картинку в текст, второе клало файл
+          вложением под текстом. Но выбор-то идёт в СИСТЕМНОМ меню iOS, а оно
+          у обоих начинается с «Медиатеки»: отличить их в момент выбора нельзя,
+          и фото, выбранное через «Файл», приезжало вложением вместо текста.
+          Человек видел две кнопки, делающие на вид одно и то же.
+          
+          Теперь кнопка одна, а куда попадёт выбранное — решает тип файла:
+          картинка идёт в текст (так ведут себя все заметочники), остальное —
+          вложением. accept не ставим: без него системное меню даёт и
+          «Медиатеку», и «Снять фото», и «Выбрать файл» — все пути из одного
+          места. value сбрасывается, чтобы повторный выбор того же файла
+          сработал. */}
       <input
         ref={fileInputRef}
         type="file"
@@ -762,7 +762,9 @@ export function NoteEditorPage() {
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = '';
-          if (f) void addFile(f);
+          if (!f) return;
+          if (f.type.startsWith('image/')) void addPhoto(f);
+          else void addFile(f);
         }}
       />
 
@@ -875,16 +877,14 @@ export function NoteEditorPage() {
           <ToolBtn
             onClick={() => {
               // Позицию каретки запоминаем сейчас: пикер уведёт фокус, и к
-              // моменту выбора файла выделение уже будет потеряно.
+              // моменту выбора файла выделение уже будет потеряно. Нужна она
+              // только картинке — но какой файл выберут, здесь ещё неизвестно.
               caretBeforePickRef.current = editorRef.current ? caretOffset(editorRef.current) : null;
-              photoInputRef.current?.click();
+              fileInputRef.current?.click();
             }}
-            label={t('Фото')}
+            label={t('Вложить')}
             bare
           >
-            <GPhoto size={ICON.header} strokeWidth={STROKE_STRONG} />
-          </ToolBtn>
-          <ToolBtn onClick={() => fileInputRef.current?.click()} label={t('Файл')} bare>
             <GAttach size={ICON.header} strokeWidth={STROKE_STRONG} />
           </ToolBtn>
           <ToolBtn onClick={() => exec('undo')} label={t('Отменить')} bare>
