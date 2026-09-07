@@ -3,7 +3,8 @@
 
 import type { Task } from '../db/types';
 // Алиас: в этом файле t — общепринятое имя задачи в параметрах.
-import { t as tr } from './i18n';
+import { getLang, t as tr } from './i18n';
+import { plural } from './plural';
 
 import { clearReminderRetry, pendingReminderRetries, queueReminderRetry } from './reminderQueue';
 
@@ -13,7 +14,7 @@ const VAPID_PUBLIC =
   'BCi0yalmrjjC4elVs1vwAzGASoESrlpDA5ImcuB-u6kOVQf00Zc-GIK79WIBe7sQp5Y3_IBD96l8JEpccCj9Ws8';
 const SUB_KEY = 'life-hub-push-sub';
 
-type ReminderTask = Pick<Task, 'id' | 'title' | 'dueDate' | 'dueTime' | 'remindBefore'>;
+export type ReminderTask = Pick<Task, 'id' | 'title' | 'dueDate' | 'dueTime' | 'remindBefore'>;
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -118,28 +119,66 @@ async function registerGlobalPush(sub: unknown): Promise<void> {
   }
 }
 
-/** Абсолютное время срабатывания (epoch ms) или null, если задача не годится. */
-function fireAtFor(t: ReminderTask): number | null {
-  if (!t.dueDate || !t.dueTime || t.remindBefore == null) return null;
+/** Во сколько напоминать о задаче, у которой есть день, но нет времени.
+ *
+ *  Раньше такой задаче напоминание было недоступно вовсе: считать время
+ *  срабатывания не от чего. А «на день» — самый частый способ поставить срок:
+ *  «завтра сдать отчёт» пишется без часа. Утро — единственный ответ, который
+ *  не надо спрашивать: напоминание приходит к началу дня, а не среди ночи и
+ *  не когда день уже прошёл. */
+export const ALLDAY_REMIND_TIME = '09:00';
+
+/** Абсолютное время срабатывания (epoch ms) или null, если задача не годится.
+ *
+ *  Экспортируется ради юнитов: тут арифметика дат и подстановка утреннего часа
+ *  — ровно то место, где ошибка не видна глазом и всплывает уведомлением не в
+ *  тот день. */
+export function reminderFireAt(t: ReminderTask): number | null {
+  if (!t.dueDate || t.remindBefore == null) return null;
   // Локальный разбор: 'YYYY-MM-DDTHH:mm:00' трактуется как местное время.
-  const start = new Date(`${t.dueDate}T${t.dueTime}:00`).getTime();
+  const start = new Date(`${t.dueDate}T${t.dueTime || ALLDAY_REMIND_TIME}:00`).getTime();
   if (Number.isNaN(start)) return null;
   return start - t.remindBefore * 60_000;
+}
+
+/** «Через сколько» словами. Минуты годятся до часа, часы — до суток, дальше
+ *  дни: «Через 1440 мин» — это не текст уведомления, это отчёт машины. */
+function leftText(min: number): string {
+  const en = getLang() === 'en';
+  if (min >= 1440) {
+    const d = Math.round(min / 1440);
+    return en ? `${d}\u00A0d` : `${d}\u00A0${plural(d, ['день', 'дня', 'дней'])}`;
+  }
+  if (min >= 60) {
+    const h = Math.round(min / 60);
+    return en ? `${h}\u00A0h` : `${h}\u00A0ч`;
+  }
+  return en ? `${min}\u00A0min` : `${min}\u00A0мин`;
+}
+
+/** Вторая строка уведомления: сколько осталось и к какому времени. У задачи
+ *  без часа времени нет — и обещать его в тексте нельзя. */
+function bodyFor(t: ReminderTask): string {
+  const before = t.remindBefore ?? 0;
+  if (before === 0) {
+    return t.dueTime ? tr('Уже пора · {time}', { time: t.dueTime }) : tr('Сегодня');
+  }
+  const left = leftText(before);
+  return t.dueTime
+    ? tr('Через {left} · {time}', { left, time: t.dueTime })
+    : tr('Через {left}', { left });
 }
 
 /** Ставит/обновляет напоминание задачи на Worker (или снимает, если не годится). */
 export async function scheduleReminder(t: ReminderTask): Promise<void> {
   if (!storedSub()) return; // пуши не включены — нечего ставить
-  const fireAt = fireAtFor(t);
+  const fireAt = reminderFireAt(t);
   if (fireAt == null || fireAt < Date.now()) {
     await cancelReminder(t.id);
     return;
   }
   // Тон уведомлений: без эмодзи, коротко и по делу (title — название задачи).
-  const body =
-    t.remindBefore && t.remindBefore > 0
-      ? tr('Через {n}\u00A0мин · {time}', { n: t.remindBefore, time: t.dueTime ?? '' })
-      : tr('Уже пора · {time}', { time: t.dueTime ?? '' });
+  const body = bodyFor(t);
   try {
     const res = await fetch(`${WORKER_URL}/schedule`, {
       method: 'POST',

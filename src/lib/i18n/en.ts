@@ -1351,6 +1351,15 @@ export const EN: Record<string, string> = {
   'Формат': 'Format',
   'Список задач': 'Checklist',
   'Вложить': 'Attach',
+  'Через {left} · {time}': 'In {left} · {time}',
+  'Через {left}': 'In {left}',
+  'В день задачи': 'On the day',
+  '1 день': '1 day',
+  '2 дня': '2 days',
+  '3 дня': '3 days',
+  'неделю': 'a week',
+  'У задачи без времени напоминание приходит утром, в {time}':
+    'A task without a time is reminded in the morning, at {time}',
 
   // === Задачи ===
   'Редактировать подпроект': 'Edit subproject',

@@ -25,7 +25,7 @@ import { TaskCheck } from '../../components/ui/Checkbox';
 import { MicButton } from '../../components/ui/MicButton';
 import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { PRESET_COLORS } from '../../lib/colors';
-import { cancelReminder, scheduleReminder } from '../../lib/push';
+import { ALLDAY_REMIND_TIME, cancelReminder, scheduleReminder } from '../../lib/push';
 import { compressImage } from '../../lib/image';
 import { syncTaskPhotos } from '../../lib/taskPhotos';
 import { t } from '../../lib/i18n';
@@ -66,8 +66,23 @@ const REC_INTERVAL_LABELS: Record<Exclude<RecType, 'none'>, string> = {
 const DURATION_PRESETS = [
   5, 10, 15, 20, 30, 45, 60, 90, 120, 150, 180, 240, 300, 360, 480, 600, 720, 900, 1080, 1440,
 ];
-// Напоминание — за сколько до начала, вплоть до суток.
-const REMIND_PRESETS = [5, 10, 15, 30, 45, 60, 120, 180, 360, 720, 1440];
+// Напоминание — за сколько до начала. Дни нужны не для красоты: подготовиться
+// к чему-то за пару суток нельзя, если самый дальний вариант — двадцать четыре
+// часа. Ровно этого не хватало владельцу.
+const REMIND_PRESETS = [5, 10, 15, 30, 45, 60, 120, 180, 360, 720, 1440, 2880, 4320, 10080];
+// У задачи без времени («завтра сдать отчёт») минуты и часы бессмысленны: «за
+// 15 минут» до чего? Остаются дни, и приходит напоминание утром.
+const REMIND_PRESETS_ALLDAY = [1440, 2880, 4320, 10080];
+
+/** Подпись варианта напоминания. Дни словами: «за 24 ч» вместо «за день» —
+ *  это подпись для машины, человек так о сроках не думает. */
+function formatRemind(min: number): string {
+  if (min === 10080) return t('неделю');
+  if (min === 4320) return t('3 дня');
+  if (min === 2880) return t('2 дня');
+  if (min === 1440) return t('1 день');
+  return formatDuration(min);
+}
 
 /** Человекочитаемая длительность: «15м», «1ч», «1ч 30м». */
 function formatDuration(min: number): string {
@@ -245,7 +260,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         startDate: range.startDate,
         dueTime: dueDate ? dueTime : null,
         duration: dueDate ? duration : null,
-        remindBefore: dueTime ? remindBefore : null,
+        remindBefore: dueDate ? remindBefore : null,
         checklist,
         photos,
         recurrence: buildRecurrence(),
@@ -717,24 +732,33 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 ))}
               </Select>
             </Field>
-            {dueTime && (
-              <Field label={t('Напоминание')}>
-                <Select
-                  value={remindBefore ?? ''}
-                  onChange={(e) =>
-                    setRemindBefore(e.target.value === '' ? null : Number(e.target.value))
-                  }
-                >
-                  <option value="">{t('Выкл')}</option>
-                  <option value="0">{t('Вовремя')}</option>
-                  {REMIND_PRESETS.map((m) => (
-                    <option key={m} value={m}>
-                      {t('за {d}', { d: formatDuration(m) })}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            )}
+            {/* Напоминание доступно любой задаче со сроком, а не только той, у
+                которой задано время. «Завтра сдать отчёт» пишут без часа — и
+                именно такой задаче напоминание нужнее всего; раньше поле для
+                неё просто не показывалось. */}
+            <Field label={t('Напоминание')}>
+              <Select
+                value={remindBefore ?? ''}
+                onChange={(e) =>
+                  setRemindBefore(e.target.value === '' ? null : Number(e.target.value))
+                }
+              >
+                <option value="">{t('Выкл')}</option>
+                <option value="0">{dueTime ? t('Вовремя') : t('В день задачи')}</option>
+                {(dueTime ? REMIND_PRESETS : REMIND_PRESETS_ALLDAY).map((m) => (
+                  <option key={m} value={m}>
+                    {t('за {d}', { d: formatRemind(m) })}
+                  </option>
+                ))}
+              </Select>
+              {!dueTime && remindBefore != null && (
+                <p className="mt-1.5 text-xs leading-snug text-muted">
+                  {t('У задачи без времени напоминание приходит утром, в {time}', {
+                    time: ALLDAY_REMIND_TIME,
+                  })}
+                </p>
+              )}
+            </Field>
           </>
         )}
 
