@@ -148,24 +148,26 @@ function useHoldToReorder(
   const pointerIdRef = useRef(0);
   const reorderable = Boolean(onReorderStart);
 
-  // Снять взведённое удержание и убрать сторожа окна.
+  // Снятие взведённого удержания живёт в ref, а не в обычной функции.
   //
-  // Ссылка обязана быть одной и той же на всё время жизни: ею и вешаем
-  // слушатели, и снимаем, а removeEventListener сверяет функции по
-  // идентичности — пересоздай её на рендере, и сторож остался бы висеть.
-  const cancelPressRef = useRef<(() => void) | null>(null);
-  if (!cancelPressRef.current) {
-    cancelPressRef.current = () => {
+  // Им же вешается и снимается сторож окна, а removeEventListener сверяет
+  // функции по идентичности: пересоздай её на рендере — и сторож остался бы
+  // висеть. Ref даёт один экземпляр на всё время жизни заголовка.
+  const cancelRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    cancelRef.current = () => {
       if (pressTimer.current != null) {
         clearTimeout(pressTimer.current);
         pressTimer.current = null;
       }
-      const self = cancelPressRef.current!;
-      window.removeEventListener('pointerup', self);
-      window.removeEventListener('pointercancel', self);
+      window.removeEventListener('pointerup', cancelRef.current);
+      window.removeEventListener('pointercancel', cancelRef.current);
     };
-  }
-  const cancelPress = cancelPressRef.current;
+    // Та же подстраховка, что в строке задачи: снять висящий таймер при
+    // размонтировании заголовка.
+    return () => cancelRef.current();
+  }, []);
+  const cancelPress = () => cancelRef.current();
 
   // Отпускание пальца ловим на ОКНЕ, а не только на самом заголовке.
   //
@@ -175,13 +177,9 @@ function useHoldToReorder(
   // стартовал без пальца, плашка приклеивалась к экрану, и убрать её было
   // нечем — pointerup больше не придёт. Окно видит отпускание всегда.
   const armReleaseGuard = () => {
-    window.addEventListener('pointerup', cancelPress);
-    window.addEventListener('pointercancel', cancelPress);
+    window.addEventListener('pointerup', cancelRef.current);
+    window.addEventListener('pointercancel', cancelRef.current);
   };
-
-  // Та же подстраховка, что в строке задачи: снять висящий таймер при
-  // размонтировании заголовка.
-  useEffect(() => cancelPress, [cancelPress]);
   const endHeaderDrag = () => {
     const el = headerRef.current;
     if (!el) return;
