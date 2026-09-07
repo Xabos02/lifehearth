@@ -364,6 +364,11 @@ test.describe('обмен между двумя устройствами', () =>
       });
     });
     await sync(mac);
+    // Первый круг телефона — служебный: он записывает набор известных таблиц.
+    // Без него срабатывала бы ДРУГАЯ защита (перечитать всё после релиза,
+    // добавившего таблицу), она сбрасывала курсор сама, и проверка оказалась
+    // бы пустой — мутация это и показала.
+    await sync(phone);
 
     // У телефона курсор уехал на год вперёд.
     await phone.evaluate(async () => {
@@ -373,9 +378,24 @@ test.describe('обмен между двумя устройствами', () =>
       await db.sync.put({ ...c, lastPullAt: `${future}|zzz` });
     });
 
+    // Чтобы было что получать: заводим на маке ещё одну задачу уже ПОСЛЕ
+    // порчи курсора.
+    await mac.evaluate(async () => {
+      const [{ db }, { create }] = await Promise.all([
+        import('/src/db/db.ts'),
+        import('/src/db/repo.ts'),
+      ]);
+      await create(db.tasks, {
+        title: 'Замерить крышку унитаза', notes: '', projectId: null, goalId: null, priority: 0,
+        dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: null,
+        checklist: [], recurrence: null, tags: [], sortOrder: 2000,
+      });
+    });
+    await sync(mac);
+
     await sync(phone);
     expect(await tasksOf(phone), 'приём молчит из-за курсора в будущем').toContain(
-      'Отправить Кате ноутбук',
+      'Замерить крышку унитаза',
     );
 
     await ctxA.close();
