@@ -63,7 +63,7 @@ jobs:
             "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/calls/turn_keys" \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
             -H "Content-Type: application/json" \
-            --data '{"name":"life-hub"}')
+            --data '{"name":"lifehearth"}')
           node - "$RESP" <<'EOF'
           const j = JSON.parse(process.argv[2]);
           if (!j.success) {

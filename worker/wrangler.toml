@@ -11,7 +11,7 @@ VAPID_PUBLIC = "BCi0yalmrjjC4elVs1vwAzGASoESrlpDA5ImcuB-u6kOVQf00Zc-GIK79WIBe7sQ
 # Google связывали бы все устройства всех семей с одним частным ящиком.
 # Спецификация (RFC 8292) допускает и mailto:, и https: — второй решает задачу
 # «с кем связаться по поводу этих пушей», ничего не раскрывая о человеке.
-VAPID_SUBJECT = "https://xabos02.github.io/life-hub/"
+VAPID_SUBJECT = "https://xabos02.github.io/lifehearth/"
 
 # KV для напоминаний. id подставляется после `wrangler kv namespace create REMINDERS`.
 [[kv_namespaces]]

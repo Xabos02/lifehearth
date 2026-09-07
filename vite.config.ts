@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig(({ command }) => ({
   // в dev — корень (удобнее для предпросмотра), в проде — путь GitHub Pages
-  base: command === 'build' ? '/life-hub/' : '/',
+  base: command === 'build' ? '/lifehearth/' : '/',
   // vitest берёт конфиг отсюда. e2e/** исключаем: там Playwright, и его
   // test() при запуске под vitest падает с «did not expect test() to be called
   // here» — два раннера на одном расширении .spec.ts.
@@ -31,8 +31,8 @@ export default defineConfig(({ command }) => ({
         short_name: 'LifeHearth',
         description: 'Личный центр управления жизнью',
         lang: 'ru',
-        start_url: '/life-hub/',
-        scope: '/life-hub/',
+        start_url: '/lifehearth/',
+        scope: '/lifehearth/',
         display: 'standalone',
         orientation: 'portrait',
         // theme_color красит системный хром (строка статуса на Android, полоса
@@ -53,20 +53,20 @@ export default defineConfig(({ command }) => ({
         // поддерживает — там вход в /share идёт через ярлык Shortcuts и кнопку
         // «Вставить из буфера»). GET-навигация ловится SPA-роутером на /share.
         share_target: {
-          action: '/life-hub/share',
+          action: '/lifehearth/share',
           method: 'GET',
           params: { title: 'title', text: 'text', url: 'url' },
         },
         // Пункты по долгому нажатию на иконку (это WebKit поддерживает и на iOS).
         shortcuts: [
-          { name: 'Быстрый захват', url: '/life-hub/share' },
-          { name: 'Новая заметка', url: '/life-hub/notes/new' },
-          { name: 'Новая задача', url: '/life-hub/tasks' },
+          { name: 'Быстрый захват', url: '/lifehearth/share' },
+          { name: 'Новая заметка', url: '/lifehearth/notes/new' },
+          { name: 'Новая задача', url: '/lifehearth/tasks' },
         ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
-        navigateFallback: '/life-hub/index.html',
+        navigateFallback: '/lifehearth/index.html',
         // skipWaiting+clientsClaim: новый SW не ждёт в waiting, а сразу
         // активируется и перехватывает открытую страницу → controllerchange →
         // авто-reload на свежую версию (иначе обновление откладывалось до
