@@ -68,7 +68,13 @@ export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: strin
             {/* Короткая формулировка намеренно: длинная растягивала баннер на
                 три строки и вместе с остальной шапкой выталкивала чат за экран. */}
             <span className="min-w-0 flex-1">{t('Уведомления')}</span>
-            <button onClick={() => void enableFamilyPush()} className="shrink-0 font-semibold text-accent active:opacity-60">
+            {/* Зона касания у текстовой кнопки была 72×22 — вдвое ниже нормы.
+                Расширяем невидимо: поднимать сам баннер нельзя, его высоту
+                выгрызали ради строк переписки. */}
+            <button
+              onClick={() => void enableFamilyPush()}
+              className={`shrink-0 font-semibold text-accent active:opacity-60 ${HIT_SLOP_44}`}
+            >
               {/* «Включить» в словаре занято звуком чата ('Unmute') — здесь смысл
                   «разрешить уведомления», английская ветка явная. */}
               {getLang() === 'en' ? 'Turn on' : 'Включить'}
@@ -76,7 +82,10 @@ export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: strin
             <button
               onClick={() => setPushHidden(true)}
               aria-label={t('Скрыть')}
-              className={`ml-1 shrink-0 p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+              // ml-3, а не ml-1: у крестика зона расширена до 44 при ширине ~26,
+              // то есть выходит на 9px за края — при зазоре 4px она залезала на
+              // «Включить», и «скрыть» срабатывало вместо «разрешить».
+              className={`ml-3 shrink-0 p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
               <X size={ICON.action} />
             </button>

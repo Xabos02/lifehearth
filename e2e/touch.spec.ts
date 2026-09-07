@@ -105,7 +105,7 @@ test('расширение зоны касания не сдвигает кно�
 // Так лупа «Искать в переписке» отбирала нажатия у кнопки звонка. Звонок —
 // не та кнопка, которую прощают за случайное нажатие: он поднимает трезвон у
 // человека на том конце.
-test('зоны касания соседних кнопок не перекрываются', async ({ page }) => {
+test('семейный чат: зоны касания не меньше 44 и не налезают друг на друга', async ({ page }) => {
   await openApp(page, '/more/family');
   await page.evaluate(async () => {
     const { db } = await import('/src/db/db.ts');
@@ -142,8 +142,8 @@ test('зоны касания соседних кнопок не перекры�
       const cy = r.top + r.height / 2;
       return { left: cx - w / 2, right: cx + w / 2, top: cy - h / 2, bottom: cy + h / 2 };
     };
-    const header = document.querySelector('header')!;
-    const btns = [...header.querySelectorAll('button, a[href]')].filter((el) => {
+    const root = document.querySelector('#root')!;
+    const btns = [...root.querySelectorAll('button, a[href]')].filter((el) => {
       const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
       return cs.visibility !== 'hidden' && cs.pointerEvents !== 'none' && r.width > 0 && r.height > 0;
@@ -171,4 +171,9 @@ test('зоны касания соседних кнопок не перекры�
   });
 
   expect(overlaps).toEqual([]);
+
+  // Экран семьи не входит в список аудита 44×44 выше — тот ходит по адресам
+  // без данных, а без семьи шапка чата не рисуется вовсе. Проверяем здесь,
+  // на посеянной семье: иначе кнопка звонка так и осталась бы 40×40.
+  expect(await small(page), 'мелкие зоны в семейном чате').toEqual([]);
 });
