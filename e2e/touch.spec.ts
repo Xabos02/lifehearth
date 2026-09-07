@@ -94,3 +94,81 @@ test('расширение зоны касания не сдвигает кно�
   });
   expect(bad).toEqual([]);
 });
+
+// Зоны касания соседних кнопок не должны налезать друг на друга.
+//
+// 44×44 — только половина требования. Кнопка шириной 36px с расширенной до 44
+// зоной выходит на 4px за свои края в каждую сторону; поставь такие в ряд с
+// зазором 4px — и зоны сомкнутся. Палец, целящийся в одну, попадает в соседнюю,
+// причём внешне всё выглядит просторно: перекрываются невидимые части.
+//
+// Так лупа «Искать в переписке» отбирала нажатия у кнопки звонка. Звонок —
+// не та кнопка, которую прощают за случайное нажатие: он поднимает трезвон у
+// человека на том конце.
+test('зоны касания соседних кнопок не перекрываются', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    const key = await generateKey();
+    const ts = new Date().toISOString();
+    await db.family.put({
+      id: 'f1', familyId: 'f1', familyToken: 't', familyKey: key, familyName: 'Наши',
+      selfMemberId: 'me', lastSeq: 1, lastReadSeq: 1, enabled: true, joinedAt: ts,
+      keyEpoch: 0, keyRing: { '0': key },
+    } as never);
+    await db.familyMembers.bulkPut([
+      { id: 'me', familyId: 'f1', seq: 1, displayName: 'Влад', color: '#5b7cfa', joinedAt: ts, leftAt: null, removedAt: null },
+      { id: 'p1', familyId: 'f1', seq: 2, displayName: 'Отец', color: '#10b981', joinedAt: ts, leftAt: null, removedAt: null },
+    ] as never[]);
+  });
+  await page.goto('/more/family?g=f1');
+  await expect(page.getByRole('button', { name: 'Искать в переписке' })).toBeVisible();
+
+  const overlaps = await page.evaluate(() => {
+    /** Реальная зона касания: сама кнопка плюс расширяющий ::after. */
+    const hitRect = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      const a = getComputedStyle(el, '::after');
+      let w = r.width;
+      let h = r.height;
+      if (a.content !== 'none' && a.position === 'absolute') {
+        const pw = parseFloat(a.width);
+        const ph = parseFloat(a.height);
+        if (Number.isFinite(pw) && pw > w) w = pw;
+        if (Number.isFinite(ph) && ph > h) h = ph;
+      }
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      return { left: cx - w / 2, right: cx + w / 2, top: cy - h / 2, bottom: cy + h / 2 };
+    };
+    const header = document.querySelector('header')!;
+    const btns = [...header.querySelectorAll('button, a[href]')].filter((el) => {
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      return cs.visibility !== 'hidden' && cs.pointerEvents !== 'none' && r.width > 0 && r.height > 0;
+    });
+    const bad: string[] = [];
+    for (let i = 0; i < btns.length; i++) {
+      for (let j = i + 1; j < btns.length; j++) {
+        const a = btns[i];
+        const b = btns[j];
+        // Вложенные друг в друга — законный случай (кнопка внутри кликабельной
+        // карточки), меряем только соседей.
+        if (a.contains(b) || b.contains(a)) continue;
+        const ra = hitRect(a);
+        const rb = hitRect(b);
+        const dx = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
+        const dy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+        if (dx > 0 && dy > 0) {
+          const name = (el: Element) =>
+            (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24);
+          bad.push(`«${name(a)}» и «${name(b)}» налезают на ${Math.round(dx)}×${Math.round(dy)}px`);
+        }
+      }
+    }
+    return bad;
+  });
+
+  expect(overlaps).toEqual([]);
+});

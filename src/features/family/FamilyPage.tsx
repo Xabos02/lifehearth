@@ -162,7 +162,12 @@ function ScreenWithStatus({
       subtitle={current.removedAt ? undefined : status}
       backTo="/home"
       right={
-        <div className="flex items-center gap-1">
+        // gap-3, а не gap-1: обе кнопки шириной 36px, но зона касания у каждой
+        // расширена до 44 — то есть выходит на 4px за края. При зазоре в 4px
+        // зоны смыкались, и палец над лупой попадал в звонок. Звонок — не та
+        // кнопка, которую прощают за случайное нажатие: он поднимает трезвон у
+        // человека на том конце. 12px дают 4px чистого зазора между зонами.
+        <div className="flex items-center gap-3">
           {action && ActionIcon && (
             <button
               onClick={action.onPress}
