@@ -10,3 +10,8 @@ playwright-report
 .playwright
 en-shots/
 pw.chrome.config.ts
+
+# Собранная дизайн-канва: редактор и содержимое в одном файле на 2+ МБ,
+# пересобирается helper'ом скилла /design из design/*.dc.html и canvas.json.
+# В истории держим только исходники артбордов.
+design/lifehearth-interface.html

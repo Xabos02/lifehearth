@@ -1,0 +1,19 @@
+:root{
+  --bg:oklch(0.168 0.013 283);
+  --surface:oklch(0.214 0.016 284);
+  --surface-2:oklch(0.258 0.018 284);
+  --elevated:oklch(0.236 0.018 284);
+  --border:oklch(0.32 0.018 284);
+  --hairline:oklch(1 0 0 / 0.06);
+  --text:oklch(0.965 0.006 286);
+  --muted:oklch(0.675 0.022 282);
+  --accent:oklch(0.72 0.18 264);
+  --accent-2:oklch(0.67 0.21 300);
+  --accent-fill:oklch(0.562 0.18 264);
+  --danger:oklch(0.70 0.185 20);
+  --success:oklch(0.80 0.16 158);
+  --warning:oklch(0.83 0.135 80);
+  --frost:oklch(0.78 0.125 225);
+  --shadow-card:0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px -12px oklch(0 0 0 / 0.55);
+  --shadow-accent:0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);
+}

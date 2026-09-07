@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body{margin:0;background:oklch(0.168 0.013 283);font-family:Inter,-apple-system,system-ui,sans-serif}
+    a{color:oklch(0.72 0.18 264)}a:hover{color:oklch(0.78 0.18 264)}
+    .sheet{width:820px;background:oklch(0.168 0.013 283);color:oklch(0.965 0.006 286);padding:24px;
+      font-size:17px;line-height:1.45;display:flex;flex-direction:column;gap:20px;box-sizing:border-box}
+    .h2{font-size:20px;font-weight:600;letter-spacing:-0.01em;margin:0}
+    .note{font-size:13px;color:oklch(0.675 0.022 282);margin:2px 0 0;max-width:64ch}
+    .cols{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:18px;align-items:start}
+    .label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;
+      color:oklch(0.675 0.022 282);margin:0 0 8px}
+    .phone{width:343px}
+    .card{background:oklch(0.214 0.016 284);border:1px solid oklch(1 0 0 / 0.06);border-radius:16px;overflow:hidden;
+      box-shadow:0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px -12px oklch(0 0 0 / 0.55)}
+    .rubric{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;
+      color:oklch(0.675 0.022 282);margin:0 0 6px 4px}
+    .row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-top:1px solid oklch(1 0 0 / 0.06);min-height:44px;box-sizing:border-box}
+    .row:first-child{border-top:0}
+    .muted{color:oklch(0.675 0.022 282)}
+    .foot{font-size:13px;color:oklch(0.675 0.022 282);margin:6px 4px 0;line-height:1.4}
+    .tile{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none;
+      background:color-mix(in oklab, oklch(0.72 0.18 264) 16%, transparent);color:oklch(0.72 0.18 264)}
+    .val{font-size:15px;color:oklch(0.675 0.022 282);flex:none}
+    .warn{color:oklch(0.83 0.135 80)}
+    .old{color:oklch(0.83 0.135 80);font-weight:600}
+    .new{color:oklch(0.80 0.16 158);font-weight:600}
+    .big{font-size:15px;line-height:1.45;padding:12px 14px;color:oklch(0.675 0.022 282)}
+  </style>
+</helmet>
+
+<div class="sheet">
+  <div>
+    <h2 class="h2">Настройки: 4,3 экрана прокрутки → один</h2>
+    <p class="note">Замер: лента 3139px при экране 736px. Треть длины — абзацы-объяснения ВНУТРИ строк:
+      «Включить уведомления» с пояснением 177px, предупреждение про браузер 144px, состав копии 144px,
+      «Раздел ИИ» 187px, ссылка для установки 197px. Строка настройки не должна быть местом для абзаца.</p>
+  </div>
+
+  <div class="cols">
+    <div>
+      <p class="label"><span class="old">Было</span> · объяснение внутри строки</p>
+      <div class="phone">
+        <p class="rubric">Уведомления</p>
+        <div class="card">
+          <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
+            <span style="display:block;text-align:center;background:oklch(0.562 0.18 264);color:#fff;
+              font-weight:600;border-radius:12px;padding:11px">Включить уведомления</span>
+            <span style="font-size:15px" class="muted">Нужны для напоминаний о задачах («напомнить за 15 минут»),
+              сообщений семейного чата и звонков. Без них приложение будет молчать, даже когда открыто.</span>
+          </div>
+          <div class="row"><span style="flex:1">Звук сообщений</span><span class="val">Три ноты ›</span></div>
+          <div class="row"><span style="flex:1">Звук звонка</span><span class="val">Классический ›</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="label"><span class="new">Стало</span> · объяснение под группой</p>
+      <div class="phone">
+        <p class="rubric">Уведомления</p>
+        <div class="card">
+          <div class="row">
+            <span class="tile">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a6 6 0 0 0-6 6c0 3-2 4-2 5h16c0-1-2-2-2-5a6 6 0 0 0-6-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+            </span>
+            <span style="flex:1">Уведомления</span>
+            <span style="width:44px;height:26px;border-radius:999px;background:oklch(0.258 0.018 284);
+              display:flex;align-items:center;padding:3px;box-sizing:border-box;flex:none">
+              <span style="width:20px;height:20px;border-radius:999px;background:oklch(0.675 0.022 282)"></span>
+            </span>
+          </div>
+          <div class="row"><span style="flex:1">Звук сообщений</span><span class="val">Три ноты ›</span></div>
+          <div class="row"><span style="flex:1">Звук звонка</span><span class="val">Классический ›</span></div>
+        </div>
+        <p class="foot">Напоминания о задачах, сообщения семейного чата и звонки. Без них приложение молчит.</p>
+      </div>
+      <p class="note" style="margin-top:10px">Переключатель вместо кнопки-плашки, объяснение — сноской под
+        группой, как в системных настройках. 177px → 44px, и смысл на месте.</p>
+    </div>
+  </div>
+
+  <div style="padding:12px 14px;border-radius:12px;border:1px solid color-mix(in oklab, oklch(0.80 0.16 158) 34%, transparent);background:color-mix(in oklab, oklch(0.80 0.16 158) 8%, transparent)">
+    <p style="margin:0;font-size:15px;line-height:1.45"><b style="color:oklch(0.80 0.16 158)">Сделано:</b>
+      лента настроек 3139 → 1698px (4,3 экрана → 2,3). Оформление 451 → 261, уведомления 363 → 273,
+      данные с хранилищем 909 → 165, приложение 846 → 452.</p>
+    <p class="note" style="margin:6px 0 0">Появились Row / LinkRow / ButtonRow и переключатель вместо
+      сегментов «Выкл / Вкл». Выбор цвета — ряд образцов; признак выбора — кольцо, а не галочка:
+      белый глиф на светлом акценте давал 2.62:1 при норме 3, это поймал прогон контраста.</p>
+  </div>
+
+  <div>
+    <h2 class="h2">Структура: что остаётся на главном экране, а что уходит вглубь</h2>
+    <p class="note">«Данные» (768px) и «Приложение» (846px) — это половина всей ленты. Внутри — вещи,
+      которые открывают раз в жизни: экспорт, импорт, установка, обучение. Им место на своих экранах,
+      а в списке — строка со значением.</p>
+  </div>
+
+  <div class="cols">
+    <div>
+      <p class="label"><span class="new">Главный экран настроек</span> · ~1 экран</p>
+      <div class="phone">
+        <p class="rubric">Оформление</p>
+        <div class="card">
+          <div class="row"><span style="flex:1">Тема</span><span class="val">Тёмная ›</span></div>
+          <div class="row"><span style="flex:1">Цвет</span><span class="val">Индиго ›</span></div>
+          <div class="row"><span style="flex:1">Язык</span><span class="val">Русский ›</span></div>
+        </div>
+
+        <p class="rubric" style="margin-top:14px">Уведомления</p>
+        <div class="card">
+          <div class="row"><span style="flex:1">Уведомления</span><span class="val">Выключены ›</span></div>
+          <div class="row"><span style="flex:1">Звуки</span><span class="val">Три ноты ›</span></div>
+        </div>
+
+        <p class="rubric" style="margin-top:14px">Данные</p>
+        <div class="card">
+          <div class="row"><span style="flex:1">Синхронизация</span><span class="val">Выключена ›</span></div>
+          <div class="row"><span style="flex:1">Копии и восстановление</span><span class="val warn">нет копии ›</span></div>
+          <div class="row"><span style="flex:1">Хранилище</span><span class="val">0,0 МБ ›</span></div>
+        </div>
+
+        <p class="rubric" style="margin-top:14px">Приложение</p>
+        <div class="card">
+          <div class="row"><span style="flex:1">Разделы</span><span class="val">›</span></div>
+          <div class="row"><span style="flex:1">Раздел «ИИ»</span><span class="val">Выключен ›</span></div>
+          <div class="row"><span style="flex:1">Корзина</span><span class="val">›</span></div>
+          <div class="row"><span style="flex:1">Установка и восстановление</span><span class="val">›</span></div>
+          <div class="row"><span style="flex:1">Подсказки и обучение</span><span class="val">›</span></div>
+        </div>
+        <p class="foot">Версия 1.8.0 · что нового</p>
+      </div>
+    </div>
+
+    <div>
+      <p class="label">Подэкран «Копии и восстановление»</p>
+      <div class="phone">
+        <div class="card">
+          <div class="row"><span style="flex:1">Копия в облаке</span>
+            <span style="width:44px;height:26px;border-radius:999px;background:oklch(0.258 0.018 284);
+              display:flex;align-items:center;padding:3px;box-sizing:border-box;flex:none">
+              <span style="width:20px;height:20px;border-radius:999px;background:oklch(0.675 0.022 282)"></span>
+            </span>
+          </div>
+          <div class="row"><span style="flex:1">Последняя копия</span><span class="val warn">никогда</span></div>
+        </div>
+        <p class="foot">Зашифрованная копия всех данных под вашим ключом. Доступна при включённой синхронизации.</p>
+
+        <div class="card" style="margin-top:14px">
+          <div class="row"><span style="flex:1">Сохранить копию в файл</span><span class="val">›</span></div>
+          <div class="row"><span style="flex:1">Восстановить из файла</span><span class="val">›</span></div>
+          <div class="row"><span style="flex:1">Сохранить ключ доступа</span><span class="val">›</span></div>
+        </div>
+        <p class="foot">В копию входит всё: задачи, заметки, финансы, семейный чат и разговоры с ИИ.
+          Ключ доступа храните отдельно — без него облачные данные не восстановить.</p>
+
+        <div class="card" style="margin-top:14px;border-color:color-mix(in oklab, oklch(0.83 0.135 80) 30%, transparent)">
+          <div class="big"><b class="warn">Браузер не гарантирует сохранность.</b> Если открывать приложение
+            вкладкой, Safari стирает данные сайта после недели без визитов. Установите на «Домой» и держите копию.</div>
+        </div>
+      </div>
+      <p class="note" style="margin-top:10px">Всё про копии — в одном месте, включая ключ доступа.
+        Предупреждение стоит там, где человек принимает решение, а не на общем экране.</p>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

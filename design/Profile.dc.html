@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body{margin:0;background:oklch(0.168 0.013 283);font-family:Inter,-apple-system,system-ui,sans-serif}
+    a{color:oklch(0.72 0.18 264)}a:hover{color:oklch(0.78 0.18 264)}
+    .sheet{width:820px;background:oklch(0.168 0.013 283);color:oklch(0.965 0.006 286);padding:24px;
+      font-size:17px;line-height:1.45;display:flex;flex-direction:column;gap:20px;box-sizing:border-box}
+    .h2{font-size:20px;font-weight:600;letter-spacing:-0.01em;margin:0}
+    .note{font-size:13px;color:oklch(0.675 0.022 282);margin:2px 0 0;max-width:64ch}
+    .cols{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:18px;align-items:start}
+    .label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;
+      color:oklch(0.675 0.022 282);margin:0 0 8px}
+    .phone{width:343px}
+    .card{background:oklch(0.214 0.016 284);border:1px solid oklch(1 0 0 / 0.06);border-radius:16px;overflow:hidden;
+      box-shadow:0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px -12px oklch(0 0 0 / 0.55)}
+    .row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-top:1px solid oklch(1 0 0 / 0.06);min-height:44px;box-sizing:border-box}
+    .row:first-child{border-top:0}
+    .muted{color:oklch(0.675 0.022 282)}
+    .foot{font-size:13px;color:oklch(0.675 0.022 282);margin:6px 4px 0;line-height:1.4}
+    .field{background:oklch(0.258 0.018 284);border-radius:12px;padding:10px 12px;font-size:17px}
+    .old{color:oklch(0.83 0.135 80);font-weight:600}
+    .new{color:oklch(0.80 0.16 158);font-weight:600}
+    .avatar{width:72px;height:72px;border-radius:999px;background:oklch(0.258 0.018 284);
+      display:flex;align-items:center;justify-content:center;color:oklch(0.675 0.022 282);position:relative;flex:none}
+    .badge{position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;border-radius:999px;
+      background:oklch(0.562 0.18 264);display:flex;align-items:center;justify-content:center;color:#fff;
+      box-shadow:0 0 0 3px oklch(0.214 0.016 284)}
+  </style>
+</helmet>
+
+<div class="sheet">
+  <div>
+    <h2 class="h2">Профиль: форма превращается в карточку о себе</h2>
+    <p class="note">Сейчас это анкета: аватар с кнопкой занимают 300px до первого поля, четыре поля идут
+      столбиком, а внизу «Сохранить» — при том что везде в приложении (и даже здесь у пола) изменения
+      сохраняются сами. Плюс дата рождения показывается как «06/29/1998»: нативное поле берёт формат из
+      локали браузера, а не из языка приложения.</p>
+  </div>
+
+  <div class="cols">
+    <div>
+      <p class="label"><span class="old">Было</span> · 1079px, анкета</p>
+      <div class="phone">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0">
+          <div class="avatar" style="width:96px;height:96px">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 21c0-4 3.5-6 7-6s7 2 7 6"/></svg>
+          </div>
+          <span style="background:oklch(0.258 0.018 284);border-radius:999px;padding:10px 18px;font-size:15px;font-weight:600">Добавить фото</span>
+        </div>
+        <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:12px">
+          <span><span class="muted" style="display:block;font-size:15px;margin-bottom:4px">Имя</span><span class="field" style="display:block">Влад</span></span>
+          <span><span class="muted" style="display:block;font-size:15px;margin-bottom:4px">Дата рождения</span>
+            <span class="field" style="display:flex;justify-content:space-between"><span class="old">06/29/1998</span><span class="muted">▦</span></span></span>
+          <span><span class="muted" style="display:block;font-size:15px;margin-bottom:4px">Рост, см</span><span class="field" style="display:block">178</span></span>
+          <span><span class="muted" style="display:block;font-size:15px;margin-bottom:4px">Вес, кг</span><span class="field" style="display:block">70</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="label"><span class="new">Стало</span> · шапка + строки</p>
+      <div class="phone">
+        <div class="card" style="display:flex;align-items:center;gap:14px;padding:14px">
+          <span class="avatar">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 21c0-4 3.5-6 7-6s7 2 7 6"/></svg>
+            <span class="badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>
+            </span>
+          </span>
+          <span style="min-width:0;flex:1">
+            <span style="display:block;font-size:20px;font-weight:600;letter-spacing:-0.01em">Влад</span>
+            <span style="display:block;font-size:15px" class="muted">27 лет · 178 см · 70 кг</span>
+          </span>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="row"><span style="flex:1">Имя</span><span class="muted">Влад</span></div>
+          <div class="row"><span style="flex:1">Дата рождения</span>
+            <span style="text-align:right"><span style="display:block">29 июня 1998</span>
+              <span style="display:block;font-size:13px" class="muted">27 лет</span></span></div>
+          <div class="row"><span style="flex:1">Рост</span><span class="muted">178 см</span></div>
+          <div class="row"><span style="flex:1">Вес</span><span class="muted">70 кг</span></div>
+          <div class="row"><span style="flex:1">Индекс массы тела</span>
+            <span style="text-align:right"><span style="display:block;font-weight:600">22,1</span>
+              <span style="display:block;font-size:13px;color:oklch(0.80 0.16 158)">норма</span></span></div>
+        </div>
+        <p class="foot">Изменения сохраняются сами, как везде в приложении.</p>
+
+        <div class="card" style="margin-top:14px">
+          <div class="row"><span style="flex:1">Пол</span>
+            <span style="display:flex;gap:4px;padding:3px;border-radius:10px;background:oklch(0.258 0.018 284)">
+              <span style="padding:5px 12px;border-radius:8px;font-size:15px" class="muted">Женский</span>
+              <span style="padding:5px 12px;border-radius:8px;font-size:15px;background:oklch(0.562 0.18 264);color:#fff;font-weight:600">Мужской</span>
+            </span></div>
+        </div>
+        <p class="foot">Определяет набор разделов: «Женские дни» есть только в женском профиле. Записи при смене не удаляются.</p>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <h2 class="h2">Что чинится по сути, а не по виду</h2>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="row"><span style="flex:1"><b>Дата рождения читается</b> — «29 июня 1998» и возраст рядом</span>
+      <span class="muted" style="font-size:13px;text-align:right">нативное поле оставляем для ввода:<br>системный календарь удобнее своего</span></div>
+    <div class="row"><span style="flex:1"><b>Сохранение само</b>, без кнопки</span>
+      <span class="muted" style="font-size:13px;text-align:right">пол и так сохранялся сразу —<br>две разные механики на одном экране</span></div>
+    <div class="row"><span style="flex:1"><b>Рост и вес превращаются в смысл</b> — ИМТ с оценкой</span>
+      <span class="muted" style="font-size:13px;text-align:right">данные уже введены,<br>вывод из них человек делает сам</span></div>
+    <div class="row"><span style="flex:1"><b>Профиль не уезжает на второе устройство</b></span>
+      <span class="muted" style="font-size:13px;text-align:right">settings device-local: тема и язык —<br>правильно, имя и фото — нет</span></div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
