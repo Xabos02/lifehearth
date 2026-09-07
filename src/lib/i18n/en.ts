@@ -1351,6 +1351,15 @@ export const EN: Record<string, string> = {
   'Формат': 'Format',
   'Список задач': 'Checklist',
   'Вложить': 'Attach',
+  'сервер не признал это устройство — подключите его заново':
+    'the server did not recognise this device — connect it again',
+  'запись не поместилась на сервере': 'a record was too large for the server',
+  'сервер отвечает ошибкой — попробуйте позже': 'the server is failing — try again later',
+  'сервер ответил отказом ({status})': 'the server refused ({status})',
+  'нет связи с сервером': 'no connection to the server',
+  'Последняя попытка не удалась ({when}): {why}': 'Last attempt failed ({when}): {why}',
+  'Этот ID должен совпадать на всех ваших устройствах. Разный ID — разные аккаунты, и данные между ними не ходят: подключите второе устройство по QR.':
+    'This ID must match on all your devices. Different IDs mean different accounts, and data never travels between them — connect the second device by QR.',
   'Через {left} · {time}': 'In {left} · {time}',
   'Через {left}': 'In {left}',
   'В день задачи': 'On the day',

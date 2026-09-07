@@ -513,7 +513,7 @@ export async function runSync(): Promise<{
     // Фоновый цикл запускается сам и ошибку никому не показывает: раньше она
     // жила только в переменной модуля и пропадала при перезагрузке. Оставляем
     // след в настройках, чтобы экран синхронизации мог сказать честно.
-    await noteSyncFailure();
+    await noteSyncFailure(humanReason(e));
     throw e;
   } finally {
     running = false;
@@ -534,12 +534,39 @@ async function noteOversized(count: number): Promise<void> {
   }
 }
 
+/** Причина отказа человеческим языком.
+ *
+ *  Код ошибки сам по себе ничего не говорит тому, кто открыл экран
+ *  синхронизации. А чинится всё по-разному: 401/403 — устройство отвязали или
+ *  токен протух, лечится переподключением; отказ сети — ждать связи; 5xx —
+ *  сервер, ждать. Раньше всё это выглядело одинаково: «последняя попытка не
+ *  удалась». */
+function humanReason(e: unknown): string {
+  const s = String(e);
+  const code = /\b(pull|push)\s+(\d{3})/.exec(s);
+  if (code) {
+    const status = Number(code[2]);
+    if (status === 401 || status === 403)
+      return t('сервер не признал это устройство — подключите его заново');
+    if (status === 413) return t('запись не поместилась на сервере');
+    if (status >= 500) return t('сервер отвечает ошибкой — попробуйте позже');
+    return t('сервер ответил отказом ({status})', { status });
+  }
+  if (/Failed to fetch|NetworkError|network/i.test(s)) return t('нет связи с сервером');
+  return s.replace(/^Error:\s*/, '');
+}
+
 /** Отметить неудачу обмена. Ошибки записи настроек глотаем: если уж и она не
  *  прошла, то показывать всё равно негде, а ронять цикл из-за пометки нельзя. */
-async function noteSyncFailure(): Promise<void> {
+async function noteSyncFailure(reason: string): Promise<void> {
   try {
     const s = await db.settings.get('app');
-    if (s) await db.settings.put({ ...s, syncFailedAt: new Date().toISOString() });
+    if (s)
+      await db.settings.put({
+        ...s,
+        syncFailedAt: new Date().toISOString(),
+        syncFailedReason: reason,
+      });
   } catch {
     /* негде отметить — не беда */
   }
@@ -548,7 +575,8 @@ async function noteSyncFailure(): Promise<void> {
 async function clearSyncFailure(): Promise<void> {
   try {
     const s = await db.settings.get('app');
-    if (s?.syncFailedAt) await db.settings.put({ ...s, syncFailedAt: null });
+    if (s?.syncFailedAt)
+      await db.settings.put({ ...s, syncFailedAt: null, syncFailedReason: null });
   } catch {
     /* негде отметить — не беда */
   }

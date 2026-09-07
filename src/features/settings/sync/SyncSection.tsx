@@ -34,6 +34,10 @@ export function SyncSection() {
   // Отметку о неудаче ставит фоновый цикл — читаем её живым запросом, чтобы
   // строка исчезла сама, как только обмен пройдёт.
   const failedAt = useLiveQuery(async () => (await db.settings.get('app'))?.syncFailedAt ?? null, []);
+  const failedReason = useLiveQuery(
+    async () => (await db.settings.get('app'))?.syncFailedReason ?? null,
+    [],
+  );
   // Записи, которые сервер не примет никогда (сейчас это задачи с десятком
   // фотографий: снимки лежат прямо в строке задачи). Обмен из-за них больше не
   // встаёт, но человек должен знать, что эти задачи живут только здесь.
@@ -115,7 +119,14 @@ export function SyncSection() {
                     {/* Фоновый обмен идёт сам и об ошибках молчал: он мог не
                         работать неделями, а здесь стояла просто старая дата. */}
                     <span className="text-warning">
-                      {t('Последняя попытка не удалась: {when}', { when: formatSyncedAt(failedAt) })}
+                      {failedReason
+                        ? t('Последняя попытка не удалась ({when}): {why}', {
+                            when: formatSyncedAt(failedAt),
+                            why: failedReason,
+                          })
+                        : t('Последняя попытка не удалась: {when}', {
+                            when: formatSyncedAt(failedAt),
+                          })}
                     </span>
                   </>
                 )}
@@ -145,6 +156,14 @@ export function SyncSection() {
               </span>
               <Copy size={ICON.action} className="shrink-0 text-muted" />
             </button>
+            {/* Самая частая причина «данные не появляются» — устройства в
+                РАЗНЫХ аккаунтах: синхронизация настраивается на каждом
+                отдельно, и после переустановки приложения её надо подключить
+                заново. Понять это по одному лишь ID было невозможно: он тут
+                стоял без единого слова о том, зачем он и с чем его сверять. */}
+            <p className="text-xs leading-snug text-muted">
+              {t('Этот ID должен совпадать на всех ваших устройствах. Разный ID — разные аккаунты, и данные между ними не ходят: подключите второе устройство по QR.')}
+            </p>
             <button
               className="w-full pt-1 text-sm text-danger active:opacity-60"
               onClick={() => void handleDisable()}
