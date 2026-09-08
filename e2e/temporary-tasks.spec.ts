@@ -53,12 +53,12 @@ test('без помеченных задач группы нет — подпи�
   await openApp(page, '/tasks');
   await seed(page);
 
-  await expect(page.getByText('Временные', { exact: true })).toHaveCount(0);
-  expect(await shown(page)).toEqual([
+  await expect.poll(() => shown(page)).toEqual([
     'Снять деньги',
     'Вести учёт расходов',
     'Проверять остатки',
   ]);
+  await expect(page.getByText('Временные', { exact: true })).toHaveCount(0);
 });
 
 test('помеченная задача уходит вниз под подпись «Временные»', async ({ page }) => {
@@ -67,7 +67,7 @@ test('помеченная задача уходит вниз под подпи�
 
   await expect(page.getByText('Временные', { exact: true })).toBeVisible();
   // Порядок постоянных между собой сохранён, временная — в конце.
-  expect(await shown(page)).toEqual([
+  await expect.poll(() => shown(page)).toEqual([
     'Вести учёт расходов',
     'Проверять остатки',
     'Снять деньги',
@@ -94,13 +94,15 @@ test('выключатель в настройках возвращает еди
     .toBe(false);
   await page.goto('/tasks');
 
-  await expect(page.getByText('Временные', { exact: true })).toHaveCount(0);
-  // Порядок вернулся к общему sortOrder, а пометка на задаче никуда не делась.
-  expect(await shown(page)).toEqual([
+  // Ждём ИТОГОВЫЙ список, а не первый кадр после перехода. Проверка «подписи
+  // нет» сама по себе проходит и на пустом DOM посреди навигации — порядок её
+  // страхует: пустой список ей не подойдёт.
+  await expect.poll(() => shown(page)).toEqual([
     'Снять деньги',
     'Вести учёт расходов',
     'Проверять остатки',
   ]);
+  await expect(page.getByText('Временные', { exact: true })).toHaveCount(0);
   expect(
     await page.evaluate(async () => {
       const { db } = await import('/src/db/db.ts');
@@ -118,7 +120,7 @@ test('пометка ставится из формы задачи и сразу
   await page.getByRole('button', { name: 'Сохранить' }).click();
 
   await expect(page.getByText('Временные', { exact: true })).toBeVisible();
-  expect(await shown(page)).toEqual([
+  await expect.poll(() => shown(page)).toEqual([
     'Вести учёт расходов',
     'Проверять остатки',
     'Снять деньги',

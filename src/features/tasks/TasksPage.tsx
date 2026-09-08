@@ -93,6 +93,20 @@ const DRAG_CANCEL_MOVE = 8; // сдвиг до старта = скролл, а �
  *  полоса, где вложение не срабатывает вовсе. */
 const SECTION_GAP = 48;
 
+/** Поставить плашку-«призрак» под палец.
+ *
+ *  Вне компонента намеренно: чистая функция от узла и координаты, она ничего
+ *  не замыкает. Замкни она ref с позицией — линтер React справедливо запретил
+ *  бы менять этот ref дальше по коду (значение, отданное хуку, менять нельзя),
+ *  а меняется он на каждом движении пальца.
+ *
+ *  transform, а не left/top: left/top заставляют браузер пересчитывать
+ *  раскладку каждый кадр, transform уходит в композитор. */
+function placeGhost(el: HTMLElement | null, x: number, y: number) {
+  if (!el) return;
+  el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+}
+
 /** Ближайший прокручиваемый предок (overflow-y auto/scroll с переполнением). */
 function getScrollParent(node: HTMLElement | null): HTMLElement | null {
   let el = node?.parentElement ?? null;
@@ -668,7 +682,18 @@ export function TasksPage() {
   // Задача, которую сейчас тащим (захвачена long-press внутри TaskItem).
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
   // Координаты пальца для «призрака» у курсора.
-  const [pointer, setPointer] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Координата пальца НЕ состояние.
+  //
+  // Была: setPointer на каждом pointermove, то есть до 120 раз в секунду
+  // перерисовывался весь экран задач — все секции, все строки. Мемоизации в
+  // разделе нет ни одной, так что перерисовывалось действительно всё. Платой
+  // была та самая «неточность жеста»: плашка отставала от пальца, подсветка
+  // обновлялась с задержкой, человек правил прицел по устаревшей картинке.
+  //
+  // Теперь положение плашки пишется прямо в узел, один раз за кадр, в том же
+  // цикле кадров, который и так крутится во время переноса. Событие движения
+  // больше не вызывает ни одного рендера.
+  const ghostRef = useRef<HTMLDivElement>(null);
   // То же в ref — читается в RAF-цикле авто-скролла без устаревшего замыкания.
   const pointerRef = useRef({ x: 0, y: 0 });
   // Ключ секции под пальцем (projectId | NONE) — для подсветки drop-зоны.
@@ -709,7 +734,6 @@ export function TasksPage() {
   const onProjectReorderStart = useCallback((p: Project, at: { x: number; y: number }) => {
     pointerRef.current = at; // стартовая позиция пальца — «призрак» из неё, не из угла
     startXRef.current = at.x; // от неё же считается сдвиг, решающий уровень
-    setPointer(at);
     const idx = projectsRef.current.findIndex((x) => x.id === p.id);
     projInsertRef.current = idx;
     setProjInsertIndex(idx);
@@ -748,7 +772,6 @@ export function TasksPage() {
     const key = task.projectId ?? NONE;
     dropKeyRef.current = key;
     pointerRef.current = at; // стартовая позиция пальца — иначе «призрак» из угла
-    setPointer(at);
     setDraggingTask(task);
     setDropKey(key);
   }, []);
@@ -820,7 +843,6 @@ export function TasksPage() {
     const move = (e: PointerEvent) => {
       e.preventDefault(); // блокируем скролл, пока тащим
       pointerRef.current = { x: e.clientX, y: e.clientY };
-      setPointer({ x: e.clientX, y: e.clientY });
       if (!moved && Math.hypot(e.clientX - startPoint.x, e.clientY - startPoint.y) > DRAG_START_THRESHOLD) {
         moved = true;
       }
@@ -839,6 +861,7 @@ export function TasksPage() {
       // сдвинется, dt не должен внезапно оказаться огромным.
       const dt = last ? Math.min(now - last, 50) : 0;
       last = now;
+      placeGhost(ghostRef.current, pointerRef.current.x, pointerRef.current.y);
       if (moved) {
         const y = pointerRef.current.y;
         if (scroller) {
@@ -948,7 +971,10 @@ export function TasksPage() {
     // На время drag глушим скролл страницы (свой авто-скролл — программный).
     const prevTouch = document.body.style.touchAction;
     document.body.style.touchAction = 'none';
-    if (scroller) raf = requestAnimationFrame(tick);
+    // Цикл кадров запускается ВСЕГДА, а не только когда есть куда скроллить:
+    // теперь он же двигает плашку у пальца. Раньше при коротком списке
+    // (scroller === null) он не стартовал вовсе — и плашка осталась бы стоять.
+    raf = requestAnimationFrame(tick);
     return () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('touchmove', preventScroll);
@@ -1040,7 +1066,6 @@ export function TasksPage() {
     const move = (e: PointerEvent) => {
       e.preventDefault();
       pointerRef.current = { x: e.clientX, y: e.clientY };
-      setPointer({ x: e.clientX, y: e.clientY });
       if (!moved && Math.hypot(e.clientX - startPoint.x, e.clientY - startPoint.y) > DRAG_START_THRESHOLD) {
         moved = true;
       }
@@ -1051,6 +1076,7 @@ export function TasksPage() {
     const tick = (now: number) => {
       const dt = last ? Math.min(now - last, 50) : 0;
       last = now;
+      placeGhost(ghostRef.current, pointerRef.current.x, pointerRef.current.y);
       if (moved) {
         const y = pointerRef.current.y;
         if (scroller) {
@@ -1156,7 +1182,10 @@ export function TasksPage() {
     window.addEventListener('pointercancel', cancel);
     const prevTouch = document.body.style.touchAction;
     document.body.style.touchAction = 'none';
-    if (scroller) raf = requestAnimationFrame(tick);
+    // Цикл кадров запускается ВСЕГДА, а не только когда есть куда скроллить:
+    // теперь он же двигает плашку у пальца. Раньше при коротком списке
+    // (scroller === null) он не стартовал вовсе — и плашка осталась бы стоять.
+    raf = requestAnimationFrame(tick);
     return () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('touchmove', preventScroll);
@@ -1651,19 +1680,34 @@ export function TasksPage() {
         onClose={() => setFreezeSheetOpen(false)}
       />
 
+      {/* Плашка-«призрак» у пальца. Внешний узел двигается transform'ом из
+          placeGhost (без рендера), внутренний несёт смещение относительно
+          пальца — иначе Tailwind-классы -translate-y-1/2 / translate-x-3 и
+          позиция дрались бы за одно и то же свойство transform. */}
       {draggingTask && (
         <div
-          className="pointer-events-none fixed z-[70] max-w-[70vw] -translate-y-1/2 translate-x-3 truncate rounded-xl border border-border bg-elevated px-3 py-2 text-sm font-medium shadow-lg shadow-black/30 opacity-90"
-          style={{ left: pointer.x, top: pointer.y }}
+          ref={(el) => {
+            // Позицию ставим в момент появления узла, до первого кадра: иначе
+            // плашка мелькает из левого верхнего угла.
+            ghostRef.current = el;
+            placeGhost(el, pointerRef.current.x, pointerRef.current.y);
+          }}
+          className="pointer-events-none fixed top-0 left-0 z-[70] will-change-transform"
         >
-          {draggingTask.title}
+          <div className="max-w-[70vw] -translate-y-1/2 translate-x-3 truncate rounded-xl border border-border bg-elevated px-3 py-2 text-sm font-medium opacity-90 shadow-lg shadow-black/30">
+            {draggingTask.title}
+          </div>
         </div>
       )}
       {draggingProject && (
         <div
-          className="pointer-events-none fixed z-[70] max-w-[78vw] -translate-y-1/2 translate-x-3 rounded-xl border border-accent bg-elevated px-3 py-2 shadow-lg shadow-black/30 opacity-95"
-          style={{ left: pointer.x, top: pointer.y }}
+          ref={(el) => {
+            ghostRef.current = el;
+            placeGhost(el, pointerRef.current.x, pointerRef.current.y);
+          }}
+          className="pointer-events-none fixed top-0 left-0 z-[70] will-change-transform"
         >
+          <div className="max-w-[78vw] -translate-y-1/2 translate-x-3 rounded-xl border border-accent bg-elevated px-3 py-2 opacity-95 shadow-lg shadow-black/30">
           <span className="block truncate text-sm font-semibold">
             {draggingProject.emoji} {draggingProject.name}
           </span>
@@ -1676,6 +1720,7 @@ export function TasksPage() {
           <span className="block truncate text-xs font-medium text-accent">
             {dropHint}
           </span>
+          </div>
         </div>
       )}
     </Screen>
