@@ -25,9 +25,9 @@ import {
   recoverAccess,
   registerMember,
 } from './familyKeys';
+import { reconnectDelay } from './reconnectDelay';
 
 const WS_URL = 'wss://life-hub-push.xabos161rus.workers.dev';
-const RECONNECT_MS = 3000;
 const PING_MS = 25_000;
 // Сколько символов dataURL безопасно уходит одним WS-фреймом. Лимит фрейма —
 // 1 МиБ, а полезная нагрузка раздувается шифрованием и JSON примерно в 1,33
@@ -119,6 +119,9 @@ class FamilyEngine {
   private ws: WebSocket | null = null;
   private state: ConnState = 'offline';
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  // Сколько попыток подряд не дали соединения. Держит паузу между ними —
+  // см. reconnectDelay. Обнуляется, как только сервер сказал ready.
+  private reconnectAttempt = 0;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   // Ждём ли ответ на последний пинг. Признак «замороженного» сокета: он
   // OPEN, отправка не падает, но собеседника на том конце уже нет.
@@ -514,6 +517,7 @@ class FamilyEngine {
           const fresh = await this.cfg();
           if (fresh && m.items?.length) await this.applyBatch(fresh, m.items);
         } else if (m.type === 'ready') {
+          this.reconnectAttempt = 0; // связь есть — следующий разрыв начинает счёт заново
           this.setState('online');
           if (Array.isArray(m.online)) this.setPresence(m.online);
           this.setLastSeen(m.lastSeen);
@@ -660,15 +664,18 @@ class FamilyEngine {
 
   private scheduleReconnect() {
     if (!this.wantConnected || this.reconnectTimer) return;
+    const wait = reconnectDelay(this.reconnectAttempt);
+    this.reconnectAttempt += 1;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       void this.connect();
-    }, RECONNECT_MS);
+    }, wait);
   }
 
   disconnect() {
     this.wantConnected = false;
     this.connecting = false;
+    this.reconnectAttempt = 0;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
