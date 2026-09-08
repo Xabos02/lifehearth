@@ -17,7 +17,14 @@ export function ProgressRing({
 }: Props) {
   const r = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * r;
-  const clamped = Math.max(0, Math.min(100, value));
+  // NaN тоже зажимаем в ноль.
+  //
+  // Math.min/max с NaN дают NaN, он уезжает в strokeDashoffset, и React ругается
+  // «Received NaN for the strokeDashoffset attribute», а кольцо рисуется пустым
+  // ободом без объяснения. Приходит NaN оттуда, где делят на ноль: цель без
+  // измеримого показателя, проект без задач, привычка без плана. Виноват не
+  // компонент, но падать на его глазах он не обязан — ноль честнее NaN.
+  const clamped = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">

@@ -57,7 +57,7 @@ function Ring({ value, color }: { value: number; color: string }) {
         strokeWidth={STROKE}
         strokeLinecap="round"
         strokeDasharray={c}
-        strokeDashoffset={c * (1 - value / 100)}
+        strokeDashoffset={c * (1 - (Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0) / 100)}
         transform={`rotate(-90 ${RING / 2} ${RING / 2})`}
         className="transition-[stroke-dashoffset] duration-500 motion-reduce:transition-none"
       />

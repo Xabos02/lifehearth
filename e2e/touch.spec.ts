@@ -40,8 +40,47 @@ async function small(page: Page): Promise<string[]> {
   });
 }
 
+/** Насыпать экранам содержимого.
+ *
+ *  Аудит ходил по адресам с ПУСТОЙ базой — и не видел ни строки задачи, ни
+ *  заголовка проекта, ни карандаша подпроекта: на пустом экране их просто нет.
+ *  Сторож смотрел на пустые состояния и был доволен. Поэтому мелкие кнопки в
+ *  самом нагруженном разделе приложения дожили до ручного разбора. */
+async function seedForAudit(page: Page) {
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    const task = (id: string, title: string, projectId: string | null, extra = {}) => ({
+      ...base(id), title, notes: '', projectId, goalId: null, priority: 0,
+      dueDate: null, dueTime: null, duration: null, remindBefore: null,
+      completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: 1000, ...extra,
+    });
+    const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    await db.projects.bulkPut([
+      { ...base('a1'), name: 'Бизнес', color: '#5b7cfa', emoji: '💼', sortOrder: 1000, archivedAt: null, parentId: null },
+      { ...base('a2'), name: 'Поставщики', color: '#f59e0b', emoji: '📦', sortOrder: 1000, archivedAt: null, parentId: 'a1' },
+    ] as never[]);
+    await db.tasks.bulkPut([
+      task('at1', 'Позвонить поставщику', 'a1'),
+      // Просроченная: у неё появляется кнопка «пропустить», которой нет у обычной.
+      task('at2', 'Отправить документы', 'a1', { dueDate: yesterday }),
+      task('at3', 'Сверить остатки', 'a2'),
+      task('at4', 'Задача без проекта', null),
+      task('at5', 'Уже сделано', 'a1', { completedAt: now }),
+    ] as never[]);
+    await db.goals.bulkPut([
+      { ...base('ag1'), title: 'Закончить обучение', description: '', targetDate: null, status: 'active', metric: null, sortOrder: 0 },
+    ] as never[]);
+    await db.notes.bulkPut([
+      { ...base('an1'), title: 'Заметка', content: '<div>Заметка</div>', tags: [], pinned: false, folderId: null },
+    ] as never[]);
+  });
+}
+
 test('зона касания не меньше 44×44', async ({ page }) => {
   await openApp(page);
+  await seedForAudit(page);
   const bad = new Set<string>();
   for (const path of SCREENS) {
     await page.evaluate((p) => {
@@ -125,7 +164,17 @@ test('семейный чат: зоны касания не меньше 44 и �
   await page.goto('/more/family?g=f1');
   await expect(page.getByRole('button', { name: 'Искать в переписке' })).toBeVisible();
 
-  const overlaps = await page.evaluate(() => {
+  const overlaps = await overlapsOn(page);
+  expect(overlaps).toEqual([]);
+
+  // Экран семьи не входит в список аудита 44×44 выше — тот ходит по адресам
+  // без семьи, а без неё шапка чата не рисуется вовсе.
+  expect(await small(page), 'мелкие зоны в семейном чате').toEqual([]);
+});
+
+/** Пары кнопок, чьи зоны касания налезают друг на друга, на текущем экране. */
+async function overlapsOn(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
     /** Реальная зона касания: сама кнопка плюс расширяющий ::after. */
     const hitRect = (el: Element) => {
       const r = el.getBoundingClientRect();
@@ -153,6 +202,29 @@ test('семейный чат: зоны касания не меньше 44 и �
       for (let j = i + 1; j < btns.length; j++) {
         const a = btns[i];
         const b = btns[j];
+        // Плавающие элементы лежат ПОВЕРХ списка по замыслу: кнопка «+» и
+        // таб-бар прибиты к экрану, а не стоят в потоке. Их перекрытие с
+        // содержимым — вопрос компоновки («лента должна кончаться выше
+        // кнопки»), а не промаха пальцем, и меряется оно не здесь.
+        const floating = (el: Element) => {
+          const pos = getComputedStyle(el).position;
+          return pos === 'fixed' || pos === 'sticky';
+        };
+        if (floating(btns[i]) || floating(btns[j])) continue;
+        // И только соседей ВНУТРИ одной прокручиваемой области. Зона нижней
+        // видимой строки списка вылезает за его край и формально накрывает
+        // таб-бар — но там она обрезана и пальцу недоступна: это артефакт
+        // замера, а не промах.
+        const scrollerOf = (el: Element | null): Element | null => {
+          let cur = el?.parentElement ?? null;
+          while (cur) {
+            const oy = getComputedStyle(cur).overflowY;
+            if (oy === 'auto' || oy === 'scroll') return cur;
+            cur = cur.parentElement;
+          }
+          return null;
+        };
+        if (scrollerOf(btns[i]) !== scrollerOf(btns[j])) continue;
         // Вложенные друг в друга — законный случай (кнопка внутри кликабельной
         // карточки), меряем только соседей.
         if (a.contains(b) || b.contains(a)) continue;
@@ -170,10 +242,28 @@ test('семейный чат: зоны касания не меньше 44 и �
     return bad;
   });
 
-  expect(overlaps).toEqual([]);
+}
 
-  // Экран семьи не входит в список аудита 44×44 выше — тот ходит по адресам
-  // без данных, а без семьи шапка чата не рисуется вовсе. Проверяем здесь,
-  // на посеянной семье: иначе кнопка звонка так и осталась бы 40×40.
-  expect(await small(page), 'мелкие зоны в семейном чате').toEqual([]);
+test('раздел «Задачи»: зоны касания не налезают друг на друга', async ({ page }) => {
+  // Заголовкам, «Выполненным» и кнопкам добавления подняли высоту до нормы —
+  // а рядом с заголовком стоит карандаш. Здесь и проверяется, что от лечения
+  // одного не заболело другое: невидимые зоны не должны перекрываться.
+  await openApp(page, '/tasks');
+  await seedForAudit(page);
+  await page.goto('/tasks');
+  await expect(page.getByText('Позвонить поставщику')).toBeVisible();
+
+  // Одно перекрытие оставлено НАМЕРЕННО и названо здесь поимённо, чтобы оно
+  // было видно, а не молча терялось в общем «ок».
+  //
+  // У просроченной задачи слева от чекбокса появляется «пропустить», и между
+  // ними 12.75px при зонах по 44. Развести их по-настоящему негде: это левый
+  // край строки на телефоне. Решение принято раньше и записано в TaskItem —
+  // «в спорной полосе выигрывает чекбокс: он ниже по DOM и он же основное
+  // действие строки». Пропуск доступен и свайпом влево.
+  const KNOWN = ['«Пропущено — не выполнено» и «Выполнить» налезают на 12×44px'];
+  const found = await overlapsOn(page);
+  expect(found.filter((x) => !KNOWN.includes(x))).toEqual([]);
+  // Если известное перекрытие исчезло само — исключение пора убрать.
+  expect(found, 'известное перекрытие пропало — снимите исключение').toEqual(KNOWN);
 });

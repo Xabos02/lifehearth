@@ -316,10 +316,12 @@ function SubSection({
         highlight ? 'border-accent bg-accent/10 ring-2 ring-accent' : ''
       } ${isReorderSource ? 'opacity-40' : ''}`}
     >
-      <div className="mb-1.5 flex items-center gap-1 pr-1">
+      {/* gap-3 по той же причине, что и у проекта: зона карандаша вылезает
+          влево на 8.6px и при зазоре в 4px накрывала правый край заголовка. */}
+      <div className="mb-1.5 flex items-center gap-3 pr-1">
         <button
           {...headerProps}
-          className={`flex min-w-0 flex-1 items-center gap-1.5 text-left ${
+          className={`flex min-w-0 flex-1 items-center gap-1.5 py-2.5 text-left ${
             reorderable ? 'select-none [-webkit-touch-callout:none] [-webkit-user-select:none]' : ''
           }`}
         >
@@ -336,7 +338,7 @@ function SubSection({
         <button
           onClick={onEdit}
           aria-label={t('Редактировать подпроект')}
-          className="p-1.5 text-muted active:opacity-60"
+          className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
         >
           <Pencil size={ICON.inline} />
         </button>
@@ -349,6 +351,11 @@ function SubSection({
 /** Сворачиваемая секция с заголовком, счётчиком и (опц.) карандашом.
  *  dropRef/dropKey/highlight — для drag-and-drop: вся секция служит drop-зоной,
  *  ключ цели читается из data-drop-key узла. */
+// Высота заголовков задана вертикальными отступами, а не невидимым
+// расширителем зоны: рядом с заголовком стоит карандаш, и два невидимых
+// прямоугольника по 44px налезли бы друг на друга — палец по заголовку
+// открывал бы правку. Настоящая высота этого не допускает и заодно читается
+// глазами: до сих пор строка папки была ниже строки задачи под ней.
 function Section({
   title,
   icon,
@@ -389,13 +396,15 @@ function Section({
         highlight ? 'bg-accent/10 ring-2 ring-accent' : ''
       } ${isReorderSource ? 'opacity-40' : ''}`}
     >
-      {/* gap-2 (8.5px), а не gap-1: зона касания карандаша вылезает на 8.6px
-          влево, и при зазоре 4.25px она накрывала правый край заголовка —
-          промах открывал бы редактирование проекта вместо сворачивания секции. */}
-      <div className="mb-2 flex items-center gap-2 px-1">
+      {/* gap-3 (12.75px). Восьми не хватило: зона касания карандаша вылезает
+          на 8.6px влево, и остаток перекрытия держался на десятых долях —
+          промах открывал бы редактирование проекта вместо сворачивания
+          секции. Двенадцать дают честный зазор, а не ноль в пределах
+          округления. Проверяется тестом перекрытия зон в e2e/touch.spec.ts. */}
+      <div className="mb-2 flex items-center gap-3 px-1">
         <button
           {...headerProps}
-          className={`flex flex-1 items-center gap-1.5 text-left ${
+          className={`flex flex-1 items-center gap-1.5 py-2.5 text-left ${
             reorderable ? 'select-none [-webkit-touch-callout:none] [-webkit-user-select:none]' : ''
           }`}
         >
@@ -493,7 +502,7 @@ function CompletedSubsection({
     <div className="mt-2">
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-sm text-muted active:opacity-60"
+        className="flex w-full items-center gap-1.5 px-1 py-2.5 text-left text-sm text-muted active:opacity-60"
       >
         <ChevronRight
           size={ICON.inline}
@@ -529,7 +538,7 @@ function FrozenSection({
   return (
     <section className="mb-12">
       <div className="mb-2 flex items-center gap-1 px-1">
-        <button onClick={onToggle} className="flex flex-1 items-center gap-1.5 text-left">
+        <button onClick={onToggle} className="flex flex-1 items-center gap-1.5 py-2.5 text-left">
           <ChevronDown
             size={ICON.base}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
@@ -606,7 +615,7 @@ function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; onAddSu
       <button
         onClick={onClick}
         aria-label={t('Добавить задачу')}
-        className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
+        className="flex items-center gap-1.5 px-1 py-3 text-sm font-medium text-accent active:opacity-60"
       >
         <Plus size={ICON.inline} /> {t('Задача')}
       </button>
@@ -614,7 +623,7 @@ function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; onAddSu
         <button
           onClick={onAddSubproject}
           aria-label={t('Добавить подпроект')}
-          className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-muted active:opacity-60"
+          className="flex items-center gap-1.5 px-1 py-3 text-sm font-medium text-muted active:opacity-60"
         >
           <FolderPlus size={ICON.inline} /> {t('Подпроект')}
         </button>
