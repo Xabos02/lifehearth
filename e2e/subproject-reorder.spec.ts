@@ -44,16 +44,24 @@ async function order(page: Page): Promise<string[]> {
   });
 }
 
-/** Взять заголовок за название и дождаться, что перенос начался. */
+/** Взять заголовок за название и дождаться, что перенос начался.
+ *
+ *  Возвращает точку захвата. Вести потом надо строго от неё по вертикали:
+ *  уровень задаётся ГОРИЗОНТАЛЬНЫМ сдвигом от точки нажатия, и если тянуть по
+ *  координате левого края подписи, на широком названии сдвиг перевалит порог —
+ *  жест честно превратится в «вынести наружу». Локально ширина подписи была
+ *  меньше порога, в CI шрифт шире, и сборка падала на подписи плашки. */
 async function hold(page: Page, name: string) {
   const el = page.getByText(name, { exact: true }).first();
   await el.scrollIntoViewIfNeeded();
-  await el.hover();
+  const box = (await el.boundingBox())!;
+  const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  await page.mouse.move(at.x, at.y);
   await page.mouse.down();
   await expect(page.locator('.fixed.z-\\[70\\]'), 'перенос не стартовал — плашки нет').toBeVisible({
     timeout: 2000,
   });
-  return el;
+  return at;
 }
 
 test('подпроект переезжает выше своего соседа', async ({ page }) => {
@@ -61,11 +69,10 @@ test('подпроект переезжает выше своего соседа
   await seed(page);
   expect(await order(page)).toEqual(['Поставщики', 'Реклама', 'Отчёты']);
 
-  await hold(page, 'Отчёты');
-  // Ведём строго вертикально: горизонталь меняла бы УРОВЕНЬ, а не порядок.
+  const at = await hold(page, 'Отчёты');
+  // Ведём строго вертикально ОТ ТОЧКИ ЗАХВАТА: горизонталь меняла бы уровень.
   const target = (await page.getByText('Поставщики', { exact: true }).first().boundingBox())!;
-  const from = (await page.getByText('Отчёты', { exact: true }).first().boundingBox())!;
-  await page.mouse.move(from.x + 10, target.y - 6, { steps: 12 });
+  await page.mouse.move(at.x, target.y - 6, { steps: 12 });
   await page.waitForTimeout(200);
   await page.mouse.up();
 
@@ -78,10 +85,9 @@ test('пока подпроект остаётся внутри папки, по
   await openApp(page, '/tasks');
   await seed(page);
 
-  await hold(page, 'Реклама');
+  const at = await hold(page, 'Реклама');
   const target = (await page.getByText('Поставщики', { exact: true }).first().boundingBox())!;
-  const from = (await page.getByText('Реклама', { exact: true }).first().boundingBox())!;
-  await page.mouse.move(from.x + 10, target.y - 6, { steps: 12 });
+  await page.mouse.move(at.x, target.y - 6, { steps: 12 });
 
   await expect(page.locator('.fixed.z-\\[70\\]')).toContainText('Поменяет порядок');
   await page.mouse.up();
