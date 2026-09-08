@@ -450,6 +450,7 @@ function TaskCard({
   onDragStart,
   draggingId,
   dropIndex,
+  dividerAt,
 }: {
   tasks: Task[];
   projectById: Map<string, Project>;
@@ -461,6 +462,8 @@ function TaskCard({
   draggingId?: string | null;
   /** Зазор вставки перетаскиваемой задачи (0..N) — рисуем линию. null — нет. */
   dropIndex?: number | null;
+  /** С какого места начинаются временные задачи — там подпись. null — нет. */
+  dividerAt?: number | null;
 }) {
   return (
     <div
@@ -468,6 +471,13 @@ function TaskCard({
     >
       {tasks.map((task, i) => (
         <Fragment key={task.id}>
+          {dividerAt === i && (
+            // Подпись, а не вторая карточка: разрыв на два блока сломал бы
+            // счёт зазора вставки при переносе, а глазу хватает и строки.
+            <p className="px-0 pt-3 pb-1 text-2xs font-semibold tracking-wide text-muted uppercase">
+              {t('Временные')}
+            </p>
+          )}
           {dropIndex === i && <TaskDropLine />}
           <TaskItem
             task={task}
@@ -1111,6 +1121,18 @@ export function TasksPage() {
     () => new Set(settingsRow?.collapsedProjects ?? []),
     [settingsRow?.collapsedProjects],
   );
+  // Группировка временных задач. По умолчанию включена и при этом невидима:
+  // пока ни одна задача не помечена временной, разделять нечего и подписи нет.
+  const groupTemporary = settingsRow?.groupTemporary !== false;
+  /** С какого места в списке начинаются временные — там встанет подпись. */
+  const dividerOf = useCallback(
+    (list: Task[]) => {
+      if (!groupTemporary) return null;
+      const i = list.findIndex((x) => x.temporary);
+      return i >= 0 ? i : null;
+    },
+    [groupTemporary],
+  );
   // Одноразовый перенос ранее сохранённого состояния из localStorage в settings —
   // чтобы у тех, у кого оно уцелело, свёрнутость не сбросилась при обновлении.
   const collapsedMigrated = useRef(false);
@@ -1219,10 +1241,19 @@ export function TasksPage() {
       if (arr) arr.push(task);
       else map.set(key, [task]);
     }
-    // Ручной порядок: по sortOrder (перетаскивание задаёт позицию).
-    for (const arr of map.values()) arr.sort((a, b) => a.sortOrder - b.sortOrder);
+    // Ручной порядок: по sortOrder (перетаскивание задаёт позицию). Временные
+    // при включённой группировке уходят в конец — и порядок НА ЭКРАНЕ должен
+    // совпасть с порядком в этом массиве: по нему считается зазор вставки при
+    // переносе (refreshDrop) и по нему же раздаются sortOrder при отпускании.
+    // Разойдись они — задача падала бы не туда, куда человек её вёл.
+    for (const arr of map.values())
+      arr.sort((a, b) =>
+        groupTemporary && Boolean(a.temporary) !== Boolean(b.temporary)
+          ? Number(Boolean(a.temporary)) - Number(Boolean(b.temporary))
+          : a.sortOrder - b.sortOrder,
+      );
     return map;
-  }, [tasks]);
+  }, [tasks, groupTemporary]);
   // Актуальные активные задачи по проектам — для finish-обработчика drag.
   useEffect(() => {
     activeByProjectRef.current = activeByProject;
@@ -1404,6 +1435,7 @@ export function TasksPage() {
                       onDragStart={onDragStart}
                       draggingId={draggingTask?.id ?? null}
                       dropIndex={draggingTask && dropKey === p.id ? taskDropIndex : null}
+                      dividerAt={dividerOf(list)}
                     />
                   )}
                   <AddTaskRow
@@ -1445,6 +1477,7 @@ export function TasksPage() {
                             dropIndex={
                               draggingTask && dropKey === sub.id ? taskDropIndex : null
                             }
+                            dividerAt={dividerOf(subList)}
                           />
                         )}
                         <AddTaskRow onClick={() => openTask(null, sub.id)} />
@@ -1484,6 +1517,7 @@ export function TasksPage() {
                   onDragStart={onDragStart}
                   draggingId={draggingTask?.id ?? null}
                   dropIndex={draggingTask && dropKey === NONE ? taskDropIndex : null}
+                  dividerAt={dividerOf(noProjectTasks)}
                 />
               )}
               <AddTaskRow onClick={() => openTask(null, null)} />

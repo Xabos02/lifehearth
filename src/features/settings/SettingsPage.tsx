@@ -11,6 +11,7 @@ import {
   GBot as Bot,
   GLearning as GraduationCap,
   GBellRing as BellRing,
+  GTasks as ListChecks,
 } from '../../components/ui/glyphs';
 import { ACCENTS } from '../../lib/accents';
 import { getLang, resolveLang, t } from '../../lib/i18n';
@@ -331,6 +332,17 @@ export function SettingsPage() {
                 checked={Boolean(settings.aiEnabled)}
                 onChange={(on) => void updateSettings({ aiEnabled: on })}
                 label={t('Раздел «ИИ»')}
+              />
+            </Row>
+            {/* Группировка временных задач. По умолчанию включена и при этом
+                незаметна: пока ни одна задача не помечена временной, разделять
+                нечего. Выключатель — для тех, кто так о задачах не думает:
+                навязанная группировка в чужой голове только мешает. */}
+            <Row icon={ListChecks} label={t('Временные задачи отдельно')}>
+              <Switch
+                checked={settings.groupTemporary !== false}
+                onChange={(on) => void updateSettings({ groupTemporary: on })}
+                label={t('Временные задачи отдельно')}
               />
             </Row>
             <LinkRow icon={Trash2} label={t('Корзина')} to="/more/trash" />

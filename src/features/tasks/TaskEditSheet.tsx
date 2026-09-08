@@ -21,6 +21,7 @@ import { Hint } from '../../components/ui/Hint';
 import { useToast } from '../../components/ui/toastContext';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { Switch } from '../../components/ui/Switch';
 import { TaskCheck } from '../../components/ui/Checkbox';
 import { MicButton } from '../../components/ui/MicButton';
 import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
@@ -155,6 +156,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
     task ? task.goalId : (defaults?.goalId ?? null),
   );
   const [priority, setPriority] = useState<Priority>(task?.priority ?? 0);
+  const [temporary, setTemporary] = useState(Boolean(task?.temporary));
   const [dueDate, setDueDate] = useState<string | null>(
     task ? task.dueDate : (defaults?.dueDate ?? null),
   );
@@ -256,6 +258,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         projectId,
         goalId,
         priority,
+        temporary,
         dueDate: range.dueDate,
         startDate: range.startDate,
         dueTime: dueDate ? dueTime : null,
@@ -639,6 +642,23 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
             onChange={(v) => setPriority(Number(v) as Priority)}
           />
         </Field>
+
+        {/* Разовое поручение. Пометка ставится руками, а не угадывается по
+            сроку: дедлайн у постоянной задачи бывает не реже, чем у разовой,
+            и догадка врала бы ровно на них. */}
+        <div className="flex items-center justify-between gap-3 py-1">
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">{t('Временная')}</span>
+            <span className="block text-xs leading-snug text-muted">
+              {t('Соберётся отдельной группой внизу проекта')}
+            </span>
+          </span>
+          <Switch
+            checked={temporary}
+            onChange={setTemporary}
+            label={t('Временная')}
+          />
+        </div>
 
         <div>
           {/* Период: «сдать с 10 по 25». Начало — отдельным полем над сроком,
