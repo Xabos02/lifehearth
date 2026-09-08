@@ -150,3 +150,73 @@ for (const theme of ['dark', 'light'] as const) {
     });
   }
 }
+
+// Карточка обязана отличаться от фона под ней.
+//
+// Проверки выше меряют текст на поверхности. А поверхность может слиться с
+// фоном, и тогда текст читается, но списка как предмета на экране нет: строки
+// висят в пустоте. Так и было — 1.09:1 между карточкой и фоном, то есть
+// граница существовала только в разметке.
+//
+// Порог 1.12 — не идеал, а нижняя граница «видно, что это карточка». Ставить
+// выше нельзя произвольно: светлее фон под светлым текстом означает меньше
+// контраст самого текста, и это уже разговор с владельцем, а не правка.
+test('тёмная тема: карточка отличается от фона', async ({ page }) => {
+  await openApp(page, '/tasks');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    await db.projects.put({ ...base('c1'), name: 'Дела', color: '#5b7cfa', emoji: '📁', sortOrder: 1000, archivedAt: null } as never);
+    await db.tasks.put({
+      ...base('ct1'), title: 'Задача', notes: '', projectId: 'c1', goalId: null, priority: 0,
+      dueDate: null, dueTime: null, duration: null, remindBefore: null,
+      completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+    } as never);
+  });
+  await page.goto('/tasks');
+  await expect(page.getByText('Задача', { exact: true }).first()).toBeVisible();
+
+  const ratio = await page.evaluate(() => {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 1;
+    const ctx = cv.getContext('2d', { willReadFrequently: true })!;
+    // Через canvas: getComputedStyle отдаёт oklch(...), и наивный разбор читал
+    // бы три числа как RGB.
+    const lum = (css: string) => {
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = css;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      const ch = (v: number) => {
+        const x = v / 255;
+        return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b);
+    };
+    const card = document.querySelector('.card');
+    if (!card) throw new Error('карточки на экране нет — проверять нечего');
+    const cardBg = getComputedStyle(card).backgroundColor;
+    // Подложку ищем ВВЕРХ по предкам до первого непрозрачного фона, а не берём
+    // с body: у body намеренно стоит цвет таб-бара (он виден только в зазорах
+    // safe-area), а сам экран рисует каркас приложения. Замер по body показывал
+    // 1.01:1 и говорил про несуществующую пару цветов.
+    let node: HTMLElement | null = card.parentElement;
+    let pageBg = 'rgb(0, 0, 0)';
+    while (node) {
+      const bg = getComputedStyle(node).backgroundColor;
+      if (bg && !/rgba?\(0, 0, 0, 0\)|transparent/.test(bg)) {
+        pageBg = bg;
+        break;
+      }
+      node = node.parentElement;
+    }
+    const a = lum(cardBg);
+    const b = lum(pageBg);
+    const hi = Math.max(a, b);
+    const lo = Math.min(a, b);
+    return (hi + 0.05) / (lo + 0.05);
+  });
+
+  expect(ratio, `карточка сливается с фоном: ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(1.12);
+});
