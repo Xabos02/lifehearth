@@ -89,16 +89,26 @@ export function describeRecurrence(rec: Recurrence): string {
       if (en) return `Every ${rec.interval} days`;
       return `${plural(rec.interval, ['Каждый', 'Каждые', 'Каждые'])} ${rec.interval} ${plural(rec.interval, ['день', 'дня', 'дней'])}`;
     case 'weekly': {
+      // Фраза собирается ЦЕЛИКОМ в каждой ветке, а не приклеиванием префикса к
+      // готовой самостоятельной фразе. Приклеивание давало «Каждые 2 недели По
+      // Пн, Ср» — заглавная буква посреди предложения, — а без выбранных дней
+      // и вовсе «Каждые 2 недели Еженедельно»: прямое самопротиворечие. Видно
+      // это под каждой повторяющейся задачей и в обоих языках.
       const days = [...rec.weekdays].sort((a, b) => a - b).map((d) => t(WEEKDAY_LABELS[d - 1]));
-      const prefix =
-        rec.interval === 1
-          ? ''
-          : en
-            ? `Every ${rec.interval} weeks `
-            : `${plural(rec.interval, ['Каждую', 'Каждые', 'Каждые'])} ${rec.interval} ${plural(rec.interval, ['неделю', 'недели', 'недель'])} `;
+      const list = days.join(', ');
+      if (rec.interval === 1) return days.length ? t('По {days}', { days: list }) : t('Еженедельно');
+      if (en) {
+        return days.length
+          ? `Every ${rec.interval} weeks on ${list}`
+          : `Every ${rec.interval} weeks`;
+      }
+      // Русский — исходный язык, словарь ему не нужен; зато нужно склонение,
+      // которого литеральный ключ словаря не выражает.
+      const every = plural(rec.interval, ['Каждую', 'Каждые', 'Каждые']);
+      const weeks = plural(rec.interval, ['неделю', 'недели', 'недель']);
       return days.length
-        ? `${prefix}${t('По {days}', { days: days.join(', ') })}`
-        : `${prefix}${t('Еженедельно')}`;
+        ? `${every} ${rec.interval} ${weeks} по ${list}`
+        : `${every} ${rec.interval} ${weeks}`;
     }
     case 'monthly':
       return rec.interval === 1

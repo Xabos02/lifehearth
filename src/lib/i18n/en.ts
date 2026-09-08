@@ -1351,6 +1351,18 @@ export const EN: Record<string, string> = {
   'Формат': 'Format',
   'Список задач': 'Checklist',
   'Вложить': 'Attach',
+  // Утечки, найденные сторожем покрытия (i18nCoverage.test.ts). До него они
+  // были невидимы: непереведённый ключ показывается по-русски и ничем не
+  // сигналит.
+  'нет': 'no',
+  'Изменить задачу': 'Edit task',
+  'Изменить цель накоплений': 'Edit savings goal',
+  'Не удалось сохранить заметку. Текст на экране цел — попробуйте ещё раз':
+    'Could not save the note. The text on screen is intact — try again',
+  'Последняя попытка не удалась: {when}': 'Last attempt failed: {when}',
+  'Данные только на этом устройстве': 'Data lives only on this device',
+  'Напоминания не придут при закрытом приложении':
+    'Reminders will not arrive while the app is closed',
   'Порядок подпроектов обновлён': 'Subproject order updated',
   'Временные': 'One-off',
   'Временная': 'One-off',
