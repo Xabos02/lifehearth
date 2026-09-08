@@ -30,8 +30,11 @@ import {
 import { t } from './i18n';
 import { getSyncConfig, patchSyncConfig, saveSyncConfig, clearSyncConfig } from './syncState';
 
-// Экспорт: адрес воркера переиспользует клиент AI-прокси (lib/ai/aiClient.ts).
-export const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
+// Адрес живёт в lib/workerUrl.ts — одна точка на всё приложение. Отсюда он
+// ре-экспортируется, потому что на него уже ссылается клиент AI-прокси
+// (lib/ai/aiClient.ts) и ломать его импорт незачем.
+export { WORKER_URL } from './workerUrl';
+import { WORKER_URL } from './workerUrl';
 const PUSH_CHUNK = 200;
 // Потолок пачки по объёму — по той же причине, что и на приёме: двести кусков
 // вложений в одном теле запроса это сто мегабайт, которые не уйдут никогда.

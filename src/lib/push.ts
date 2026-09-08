@@ -8,7 +8,7 @@ import { plural } from './plural';
 
 import { clearReminderRetry, pendingReminderRetries, queueReminderRetry } from './reminderQueue';
 
-const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
+import { WORKER_URL } from './workerUrl';
 // Публичный VAPID-ключ (пара к секрету воркера). Безопасно держать в коде.
 const VAPID_PUBLIC =
   'BCi0yalmrjjC4elVs1vwAzGASoESrlpDA5ImcuB-u6kOVQf00Zc-GIK79WIBe7sQp5Y3_IBD96l8JEpccCj9Ws8';

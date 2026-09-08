@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import type { BrowserContext, Page, Route } from '@playwright/test';
-import { openApp, test } from './fixtures';
+import { openApp, test, WORKER_MATCH } from './fixtures';
 
 // Обмен данными между ДВУМЯ устройствами — от правки на одном до появления её
 // на другом.
@@ -95,7 +95,7 @@ async function device(
 ): Promise<Page> {
   // Ловим ТОЛЬКО адрес воркера. Шаблон по '/sync/' цеплял и модули самого
   // приложения — и вместо них уходил 404, отчего оно не поднималось вовсе.
-  await ctx.route(/workers\.dev/, server.handle);
+  await ctx.route(WORKER_MATCH, server.handle);
   const page = await ctx.newPage();
   await openApp(page, '/tasks');
   await page.evaluate(async (rawKey) => {
@@ -446,7 +446,7 @@ test.describe('обмен между двумя устройствами', () =>
     // нет сети, и когда сервер отвязал устройство, а чинится это по-разному.
     const rawKey = randomRawKey();
     const ctx = await browser.newContext();
-    await ctx.route(/workers\.dev/, (route) =>
+    await ctx.route(WORKER_MATCH, (route) =>
       route.fulfill({ status: 401, contentType: 'application/json', body: '{"error":"unauthorized"}' }),
     );
     const page = await ctx.newPage();

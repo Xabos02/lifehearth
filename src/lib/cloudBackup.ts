@@ -8,7 +8,7 @@ import { encryptJSON, decryptJSON } from './crypto';
 import { getSyncConfig } from './syncState';
 import type { SyncConfig } from '../db/types';
 
-const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
+import { WORKER_URL } from './workerUrl';
 
 // Порог чанка по plaintext-байтам. D1: значение одной колонки ≤ 2 МБ, а
 // base64url-шифротекст раздувает объём ~на треть — держим консервативно.

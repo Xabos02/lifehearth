@@ -16,7 +16,7 @@ import { startRingtone, stopRingtone } from './ringtone';
 import { tuneOpusSdp } from './callTuning';
 import { t } from '../i18n';
 
-const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
+import { WORKER_URL } from '../workerUrl';
 const RING_TIMEOUT_MS = 30_000;
 // Сколько ждём самовосстановления после 'disconnected' до ICE-restart.
 // 6 секунд: короткие провалы мобильной сети укладываются, а человек ещё не

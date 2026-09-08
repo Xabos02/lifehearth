@@ -27,7 +27,7 @@ import {
 } from './familyKeys';
 import { reconnectDelay } from './reconnectDelay';
 
-const WS_URL = 'wss://life-hub-push.xabos161rus.workers.dev';
+import { WORKER_WS_URL as WS_URL } from '../workerUrl';
 const PING_MS = 25_000;
 // Сколько символов dataURL безопасно уходит одним WS-фреймом. Лимит фрейма —
 // 1 МиБ, а полезная нагрузка раздувается шифрованием и JSON примерно в 1,33

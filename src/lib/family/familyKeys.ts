@@ -43,7 +43,8 @@ import {
 import { getFamilyConfig, patchFamilyConfig } from './familyState';
 import { t } from '../i18n';
 
-export const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
+export { WORKER_URL } from '../workerUrl';
+import { WORKER_URL } from '../workerUrl';
 
 /** Содержимое личного конверта: новый ключ группы и новый токен доступа. */
 interface SealedKeyPayload {
