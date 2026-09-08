@@ -326,6 +326,11 @@ function SubSection({
       ref={dropRef}
       data-drop-key={project.id}
       data-sub-of={project.parentId ?? ''}
+      // Рельс слева красится цветом самого подпроекта, а не волосяной линией:
+      // у той контраст к фону около 1.1 — она есть в разметке и отсутствует на
+      // экране. Вложенность держалась на одном отступе в 20px, который ни с чем
+      // на экране не совпадает, и цель для пальца была ничем не обозначена.
+      style={highlight ? undefined : { borderLeftColor: project.color }}
       className={`mt-3 ml-1.5 rounded-2xl border-l-2 border-hairline pl-3 transition-[background-color,opacity] ${
         highlight ? 'border-accent bg-accent/10 ring-2 ring-accent' : ''
       } ${isReorderSource ? 'opacity-40' : ''}`}
@@ -335,7 +340,9 @@ function SubSection({
       <div className="mb-1.5 flex items-center gap-3 pr-1">
         <button
           {...headerProps}
-          className={`flex min-w-0 flex-1 items-center gap-1.5 py-2.5 text-left ${
+          // py-3, а не py-2.5: заголовок стал мельче кеглем, и высота зоны
+          // касания просела с 44 до 42. Отступ добирает норму обратно.
+          className={`flex min-w-0 flex-1 items-center gap-1.5 py-3 text-left ${
             reorderable ? 'select-none [-webkit-touch-callout:none] [-webkit-user-select:none]' : ''
           }`}
         >
@@ -346,8 +353,15 @@ function SubSection({
           <span className="flex shrink-0 items-center">
             <ProjectFolderIcon project={project} size={ICON.action} />
           </span>
-          <h3 className="truncate text-base font-semibold tracking-tight">{project.name}</h3>
-          <span className="text-sm text-muted">{count}</span>
+          {/* Регистром и цветом, а не жирностью. От названия задачи заголовок
+              отличался ровно на одну ступень веса при том же кегле — папка
+              читалась как чуть более жирная задача, а не как контейнер. Кегль
+              трогать нельзя: этот заголовок ещё и ручка переноса, его высоту
+              специально поднимали до нормы зоны касания. */}
+          <h3 className="truncate text-sm font-semibold tracking-wide text-muted uppercase">
+            {project.name}
+          </h3>
+          <span className="text-xs text-muted/70">{count}</span>
         </button>
         <button
           onClick={onEdit}
