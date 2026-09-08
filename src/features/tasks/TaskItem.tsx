@@ -114,13 +114,34 @@ export function TaskItem({
     }
   };
 
-  const clearLongPress = () => {
-    clearTimeout(longPressTimer.current);
-    longPressTimer.current = undefined;
-  };
+  // Снятие взведённого удержания живёт в ref: им же вешается и снимается
+  // сторож окна, а removeEventListener сверяет функции по идентичности —
+  // пересоздай её на рендере, и сторож остался бы висеть.
+  const cancelRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    cancelRef.current = () => {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = undefined;
+      window.removeEventListener('pointerup', cancelRef.current);
+      window.removeEventListener('pointercancel', cancelRef.current);
+    };
+    // Подстраховка: снять висящий таймер при размонтировании строки.
+    return () => cancelRef.current();
+  }, []);
+  const clearLongPress = () => cancelRef.current();
 
-  // Подстраховка: снять висящий таймер при размонтировании строки.
-  useEffect(() => clearLongPress, []);
+  // Отпускание пальца ловим на ОКНЕ, а не только на самой строке.
+  //
+  // Ровно тот же провал, что уже починен у заголовков проектов: обработчик
+  // строки видит отпускание, лишь когда оно пришло в неё. Палец соскользнул на
+  // соседнюю строку, список перерисовало, экран сменился — события нет, таймер
+  // остаётся взведённым и срабатывает уже ПОСЛЕ конца касания. Перенос задачи
+  // начинается без пальца, плашка приклеивается к экрану, и убрать её нечем:
+  // pointerup больше не придёт. Окно видит конец касания всегда.
+  const armReleaseGuard = () => {
+    window.addEventListener('pointerup', cancelRef.current);
+    window.addEventListener('pointercancel', cancelRef.current);
+  };
 
   const handleToggle = async () => {
     setDx(0);
@@ -190,6 +211,7 @@ export function TaskItem({
         }
         onDragStart(task, { x: drag.current.x, y: drag.current.y });
       }, LONG_PRESS_MS);
+      armReleaseGuard();
     }
   };
   const onMove = (e: PointerEvent<HTMLDivElement>) => {

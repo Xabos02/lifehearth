@@ -99,6 +99,46 @@ test('следующий тап не переносит проект сам со
   expect(await order()).toEqual(before);
 });
 
+test('строка задачи: отпускание мимо неё тоже не запускает перенос', async ({ page }) => {
+  // Тот же провал, что у заголовков, но в строке задачи: разбор нашёл, что
+  // сторожа отпускания на окне там не было вовсе. Обработчик строки видит
+  // отпускание, только когда оно пришло в неё, — а палец соскальзывает на
+  // соседнюю строку постоянно, строки высотой в сорок пикселей стоят вплотную.
+  await openApp(page, '/tasks');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    await db.projects.clear();
+    await db.tasks.clear();
+    await db.projects.bulkPut([
+      { ...base('p1'), name: 'Бизнес', color: '#5b7cfa', emoji: '💼', sortOrder: 1000, archivedAt: null },
+    ]);
+    await db.tasks.put({
+      ...base('t1'), title: 'Позвонить поставщику', notes: '', projectId: 'p1', goalId: null,
+      priority: 0, dueDate: null, dueTime: null, duration: null, remindBefore: null,
+      completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+    } as never);
+  });
+  await page.goto('/tasks');
+  await expect(page.getByText('Позвонить поставщику')).toBeVisible();
+
+  await page.evaluate(() => {
+    const row = document.querySelector('[data-task-id]');
+    if (!row) throw new Error('строка задачи не найдена');
+    const r = row.getBoundingClientRect();
+    const opts = {
+      bubbles: true, cancelable: true, pointerId: 1, pointerType: 'touch', isPrimary: true,
+      clientX: r.left + 60, clientY: r.top + r.height / 2,
+    };
+    row.dispatchEvent(new PointerEvent('pointerdown', opts));
+    document.body.dispatchEvent(new PointerEvent('pointerup', opts));
+  });
+  await page.waitForTimeout(700);
+
+  await expect(page.locator(GHOST), 'плашка переноса задачи висит без пальца').toHaveCount(0);
+});
+
 test('уход с экрана во время удержания не оставляет плашку', async ({ page }) => {
   // Второй путь к тому же: заголовок размонтирован раньше, чем сработал таймер.
   await openApp(page, '/tasks');
