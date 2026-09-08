@@ -697,6 +697,11 @@ export function TasksPage() {
   const [dropParent, setDropParent] = useState<string | null>(null);
   const dropParentRef = useRef<string | null>(null);
   const projInsertRef = useRef<number | null>(null);
+  // Зазор среди СВОИХ соседей — когда подпроект остаётся внутри родителя.
+  // Считается отдельно от projInsertIndex: тот меряется по проектам верхнего
+  // уровня, и для соседей внутри папки он ничего не значит.
+  const [subInsertIndex, setSubInsertIndex] = useState<number | null>(null);
+  const subInsertRef = useRef<number | null>(null);
   const projectsRef = useRef<Project[]>([]);
   const childrenRef = useRef<Map<string, Project[]>>(new Map());
   const startXRef = useRef(0);
@@ -1005,6 +1010,24 @@ export function TasksPage() {
           : dx < -NEST_DX
             ? null
             : (dp.parentId ?? null);
+      // Зазор среди соседей по папке — по их собственным секциям, а не по
+      // верхнему уровню. Без него подпроект внутри родителя было НЕ переставить
+      // вовсе: жест шёл, линия рисовалась, при отпускании не происходило
+      // ничего.
+      const was = dp.parentId ?? null;
+      let subIdx = 0;
+      if (was) {
+        for (const sib of childrenRef.current.get(was) ?? []) {
+          const el = sectionNodes.current.get(sib.id);
+          if (!el || !el.isConnected) continue;
+          const r = el.getBoundingClientRect();
+          if (y > r.top + r.height / 2) subIdx++;
+        }
+      }
+      if (subIdx !== subInsertRef.current) {
+        subInsertRef.current = subIdx;
+        setSubInsertIndex(subIdx);
+      }
       if (idx !== projInsertRef.current) {
         projInsertRef.current = idx;
         setProjInsertIndex(idx);
@@ -1048,9 +1071,11 @@ export function TasksPage() {
     };
     const resetDragState = () => {
       projInsertRef.current = null;
+      subInsertRef.current = null;
       dropParentRef.current = null;
       setDraggingProject(null);
       setProjInsertIndex(null);
+      setSubInsertIndex(null);
       setDropParent(null);
     };
     const finish = () => {
@@ -1091,6 +1116,28 @@ export function TasksPage() {
               if (cur && cur.sortOrder !== order) void update(db.projects, id, { sortOrder: order });
             });
             toast(t('Порядок проектов обновлён'));
+          }
+        }
+      } else {
+        // Уровень тот же и он вложенный — переставляем среди СВОИХ соседей.
+        // Этой ветки не было вовсе: подпроект внутри родителя проваливался
+        // мимо обеих, жест выполнялся, а результата не было и объяснения тоже.
+        // Порядка у подпроектов при этом не существовало в принципе: он
+        // задавался моментом создания и после этого не менялся ничем.
+        const sibs = childrenRef.current.get(was) ?? [];
+        const ids = sibs.map((x) => x.id);
+        const from = ids.indexOf(dp.id);
+        const at = subInsertRef.current;
+        if (from !== -1 && at != null) {
+          const next = ids.filter((id) => id !== dp.id);
+          next.splice(at > from ? at - 1 : at, 0, dp.id);
+          if (next.some((id, i) => ids[i] !== id)) {
+            next.forEach((id, i) => {
+              const cur = sibs.find((x) => x.id === id);
+              const order = (i + 1) * 1000;
+              if (cur && cur.sortOrder !== order) void update(db.projects, id, { sortOrder: order });
+            });
+            toast(t('Порядок подпроектов обновлён'));
           }
         }
       }
@@ -1186,6 +1233,17 @@ export function TasksPage() {
   // Идёт вложение, а не смена порядка: сигналы на экране должны показывать
   // одно и то же, иначе жест до самого отпускания выглядит переупорядочиванием.
   const nesting = Boolean(draggingProject) && dropParent !== (draggingProject?.parentId ?? null);
+  // Линия вставки рисуется РОВНО там, где перенос и правда произойдёт.
+  //
+  // Раньше условием было «не вложение» — и подпроект, который остаётся внутри
+  // своего родителя, получал линию между чужими папками верхнего уровня: она
+  // обещала переезд, которого не будет. А при выносе наружу линии не было
+  // вовсе, хотя проект действительно менял место (в конец верхнего уровня,
+  // позиция при этом не выбирается — значит и обещать её нечем).
+  const wasParent = draggingProject?.parentId ?? null;
+  const reorderingTop = Boolean(draggingProject) && dropParent === null && wasParent === null;
+  const reorderingSubs =
+    Boolean(draggingProject) && dropParent !== null && dropParent === wasParent;
 
   const dropHint = useMemo(() => {
     if (!draggingProject) return '';
@@ -1202,7 +1260,11 @@ export function TasksPage() {
     if (hasKids && dropParent === was) {
       return t('Внутри уже есть подпроекты — вложить нельзя');
     }
-    if (dropParent === was) return was ? t('Останется здесь') : t('Поменяет порядок');
+    // «Останется здесь» было честно, пока подпроект внутри родителя нельзя
+    // было переставить вовсе. Теперь можно — и подпись обязана говорить то же,
+    // что сделает отпускание, иначе это второе взаимоисключающее обещание
+    // рядом с линией вставки.
+    if (dropParent === was) return t('Поменяет порядок');
     if (!dropParent) return t('Станет отдельным проектом');
     const name = projects.find((x) => x.id === dropParent)?.name ?? '';
     // «в конец» — не украшение: finish кладёт проект последним в списке нового
@@ -1412,7 +1474,7 @@ export function TasksPage() {
                     равно рисовалась и обещала «встанет сюда». Человек видел
                     два взаимоисключающих обещания разом: линию между папками и
                     подпись «Внутрь «Здоровье»». */}
-                {draggingProject && !nesting && projInsertIndex === i && <DropLine />}
+                {reorderingTop && projInsertIndex === i && <DropLine />}
                 <Section
                   title={p.name}
                   icon={<ProjectFolderIcon project={p} />}
@@ -1459,12 +1521,15 @@ export function TasksPage() {
                     onClick={() => openTask(null, p.id)}
                     onAddSubproject={() => openProject(null, p.id)}
                   />
-                  {subs.map((sub) => {
+                  {subs.map((sub, si) => {
                     const subList = activeByProject.get(sub.id) ?? [];
                     const subDone = completedByProject.get(sub.id) ?? [];
                     return (
+                      <Fragment key={sub.id}>
+                      {reorderingSubs && dropParent === p.id && subInsertIndex === si && (
+                        <DropLine />
+                      )}
                       <SubSection
-                        key={sub.id}
                         project={sub}
                         count={subList.length}
                         collapsed={collapsed.has(sub.id)}
@@ -1499,13 +1564,17 @@ export function TasksPage() {
                         )}
                         <AddTaskRow onClick={() => openTask(null, sub.id)} />
                       </SubSection>
+                      </Fragment>
                     );
                   })}
+                  {reorderingSubs && dropParent === p.id && subInsertIndex === subs.length && (
+                    <DropLine />
+                  )}
                 </Section>
               </Fragment>
             );
           })}
-          {draggingProject && !nesting && projInsertIndex === topProjects.length && <DropLine />}
+          {reorderingTop && projInsertIndex === topProjects.length && <DropLine />}
 
           {(noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
             <Section

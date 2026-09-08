@@ -1351,6 +1351,7 @@ export const EN: Record<string, string> = {
   'Формат': 'Format',
   'Список задач': 'Checklist',
   'Вложить': 'Attach',
+  'Порядок подпроектов обновлён': 'Subproject order updated',
   'Временные': 'One-off',
   'Временная': 'One-off',
   'Соберётся отдельной группой внизу проекта': 'Grouped separately at the bottom of the project',
