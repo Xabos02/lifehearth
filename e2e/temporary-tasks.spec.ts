@@ -81,6 +81,17 @@ test('выключатель в настройках возвращает еди
 
   await page.goto('/more/settings');
   await page.getByRole('switch', { name: 'Временные задачи отдельно' }).click();
+  // Ждём саму запись, а не скорость: настройка уезжает в IndexedDB, и переход
+  // на «Задачи» успевал случиться раньше — тест падал через раз в общем
+  // прогоне и проходил в одиночку.
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const { db } = await import('/src/db/db.ts');
+        return (await db.settings.get('app'))?.groupTemporary ?? null;
+      }),
+    )
+    .toBe(false);
   await page.goto('/tasks');
 
   await expect(page.getByText('Временные', { exact: true })).toHaveCount(0);

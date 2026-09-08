@@ -521,8 +521,15 @@ function CompletedSubsection({
         <span>{t('Выполненные')}</span>
         <span className="text-xs">{tasks.length}</span>
       </button>
+      {/* Раскрывается прямо в поток, без своей прокрутки.
+          
+          Была коробка max-h-72 с overflow-y-auto: 288 пикселей со вторым
+          скроллом ВНУТРИ страничного. Палец, крутящий список, попадал в неё и
+          вместо страницы прокручивал коробку — список под пальцем застревал
+          без всякой причины. Длинный список выполненных лучше листать вместе
+          со всей страницей: он всё равно свёрнут по умолчанию. */}
       {expanded && (
-        <div className="mt-1 max-h-72 overflow-y-auto">
+        <div className="mt-1">
           <TaskCard tasks={tasks} projectById={projectById} onEdit={onEdit} muted />
         </div>
       )}
@@ -1230,7 +1237,11 @@ export function TasksPage() {
   // «Пока нет задач» до ответа Dexie — самая заметная ложь в приложении:
   // человек с сотней задач видит её при каждом заходе. Проекты в том же
   // условии: без них список отрисовался бы без разбивки по секциям.
-  const loaded = useLoaded(tasksRaw, projectsRaw);
+  // Настройки — в том же условии: пока их нет, неизвестно, собирать ли
+  // временные задачи отдельно, и список отрисовался бы сгруппированным даже
+  // тому, кто группировку выключил. Мелькание порядка при каждом запуске
+  // выглядит как «список сам себя перекладывает».
+  const loaded = useLoaded(tasksRaw, projectsRaw, settingsRow);
 
   const activeByProject = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -1418,15 +1429,12 @@ export function TasksPage() {
                   onReorderStart={(at) => onProjectReorderStart(p, at)}
                   isReorderSource={draggingProject?.id === p.id}
                 >
-                  {doneList.length > 0 && (
-                    <CompletedSubsection
-                      tasks={doneList}
-                      projectById={projectById}
-                      onEdit={(task) => openTask(task, task.projectId)}
-                      expanded={expandedCompleted.has(p.id)}
-                      onToggle={() => toggleCompleted(p.id)}
-                    />
-                  )}
+                  {/* Живые задачи ПЕРВЫМИ, выполненные — под ними.
+                      
+                      Было наоборот: первое, что видно под названием папки, —
+                      сделанное. А рядом с ним счётчик самой папки считает
+                      только активные, и в одной строке стояли два числа про
+                      разное. Список открывают, чтобы увидеть, что осталось. */}
                   {list.length > 0 && (
                     <TaskCard
                       tasks={list}
@@ -1436,6 +1444,15 @@ export function TasksPage() {
                       draggingId={draggingTask?.id ?? null}
                       dropIndex={draggingTask && dropKey === p.id ? taskDropIndex : null}
                       dividerAt={dividerOf(list)}
+                    />
+                  )}
+                  {doneList.length > 0 && (
+                    <CompletedSubsection
+                      tasks={doneList}
+                      projectById={projectById}
+                      onEdit={(task) => openTask(task, task.projectId)}
+                      expanded={expandedCompleted.has(p.id)}
+                      onToggle={() => toggleCompleted(p.id)}
                     />
                   )}
                   <AddTaskRow
@@ -1458,15 +1475,6 @@ export function TasksPage() {
                         onReorderStart={(at) => onProjectReorderStart(sub, at)}
                         isReorderSource={draggingProject?.id === sub.id}
                       >
-                        {subDone.length > 0 && (
-                          <CompletedSubsection
-                            tasks={subDone}
-                            projectById={projectById}
-                            onEdit={(task) => openTask(task, task.projectId)}
-                            expanded={expandedCompleted.has(sub.id)}
-                            onToggle={() => toggleCompleted(sub.id)}
-                          />
-                        )}
                         {subList.length > 0 && (
                           <TaskCard
                             tasks={subList}
@@ -1478,6 +1486,15 @@ export function TasksPage() {
                               draggingTask && dropKey === sub.id ? taskDropIndex : null
                             }
                             dividerAt={dividerOf(subList)}
+                          />
+                        )}
+                        {subDone.length > 0 && (
+                          <CompletedSubsection
+                            tasks={subDone}
+                            projectById={projectById}
+                            onEdit={(task) => openTask(task, task.projectId)}
+                            expanded={expandedCompleted.has(sub.id)}
+                            onToggle={() => toggleCompleted(sub.id)}
                           />
                         )}
                         <AddTaskRow onClick={() => openTask(null, sub.id)} />
@@ -1500,15 +1517,6 @@ export function TasksPage() {
               dropKey={NONE}
               highlight={Boolean(draggingTask) && dropKey === NONE}
             >
-              {noProjectCompleted.length > 0 && (
-                <CompletedSubsection
-                  tasks={noProjectCompleted}
-                  projectById={projectById}
-                  onEdit={(task) => openTask(task, null)}
-                  expanded={expandedCompleted.has(NONE)}
-                  onToggle={() => toggleCompleted(NONE)}
-                />
-              )}
               {noProjectTasks.length > 0 && (
                 <TaskCard
                   tasks={noProjectTasks}
@@ -1518,6 +1526,15 @@ export function TasksPage() {
                   draggingId={draggingTask?.id ?? null}
                   dropIndex={draggingTask && dropKey === NONE ? taskDropIndex : null}
                   dividerAt={dividerOf(noProjectTasks)}
+                />
+              )}
+              {noProjectCompleted.length > 0 && (
+                <CompletedSubsection
+                  tasks={noProjectCompleted}
+                  projectById={projectById}
+                  onEdit={(task) => openTask(task, null)}
+                  expanded={expandedCompleted.has(NONE)}
+                  onToggle={() => toggleCompleted(NONE)}
                 />
               )}
               <AddTaskRow onClick={() => openTask(null, null)} />
