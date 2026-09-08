@@ -1351,6 +1351,8 @@ export const EN: Record<string, string> = {
   'Формат': 'Format',
   'Список задач': 'Checklist',
   'Вложить': 'Attach',
+  'Внутри уже есть подпроекты — вложить нельзя': 'It already has subprojects — cannot nest',
+  'Внутрь «{name}», в конец': 'Into “{name}”, at the end',
   'Перечитать всё заново': 'Re-sync everything',
   'Перечитать всё заново? Приложение заново отправит и получит все записи. Ничего не потеряется — это займёт больше времени, чем обычный обмен.':
     'Re-sync everything? The app will send and receive all records again. Nothing is lost — it just takes longer than a normal exchange.',

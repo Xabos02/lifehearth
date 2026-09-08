@@ -80,8 +80,18 @@ const LONG_PRESS_MS = 400; // удержание без движения → с�
 //
 // Сдвиг от точки нажатия не зависит ни от ширины экрана, ни от того, за какое
 // место схватились: не двинул по горизонтали — уровень не меняется вовсе.
-const NEST_DX = 40;
+// 26, а не 40. Сорок требовало дотянуться до точки, которой на экране нет:
+// заголовок подпроекта начинается на x≈36, и «вынести наружу» (dx < -40) при
+// хвате за шеврон означало x < 4. Симметрично ломалось вложение при хвате за
+// пустое место справа от имени — кнопка заголовка тянется до карандаша, и
+// уйти правее её края на 40px некуда. Двадцать шесть по-прежнему отличают
+// намеренный сдвиг от дрожи пальца, но обе стороны становятся достижимы.
+const NEST_DX = 26;
 const DRAG_CANCEL_MOVE = 8; // сдвиг до старта = скролл, а не drag — отменяем
+/** Внешний отступ между секциями-проектами (mb-12). Половина его с каждой
+ *  стороны отдаётся зоне попадания соседей — иначе между папками остаётся
+ *  полоса, где вложение не срабатывает вовсе. */
+const SECTION_GAP = 48;
 
 /** Ближайший прокручиваемый предок (overflow-y auto/scroll с переполнением). */
 function getScrollParent(node: HTMLElement | null): HTMLElement | null {
@@ -153,12 +163,39 @@ function useHoldToReorder(
   // Им же вешается и снимается сторож окна, а removeEventListener сверяет
   // функции по идентичности: пересоздай её на рендере — и сторож остался бы
   // висеть. Ref даёт один экземпляр на всё время жизни заголовка.
+  /** Показать, что удержание идёт.
+   *
+   *  Раньше между нажатием и стартом переноса не менялось НИЧЕГО: 400 мс
+   *  человек не знает, взял он папку или уже сорвал жест движением. Отсюда
+   *  два одинаково плохих исхода — повести палец рано (жест отменится как
+   *  скролл) или замереть с запасом и вести неуверенно. Неуверенное ведение и
+   *  есть «ищу точку».
+   *
+   *  Сжатие вешаем на саму кнопку заголовка, а НЕ на секцию: прямоугольник
+   *  секции служит зоной попадания при вложении, масштабировать его нельзя.
+   *  Вибрации здесь нет намеренно — WebKit её не поддерживает, а основная
+   *  платформа приложения это iPhone: сигнал обязан быть видимым. */
+  const showHold = (on: boolean) => {
+    const el = headerRef.current;
+    if (!el) return;
+    el.style.transition = on ? 'transform 400ms ease-out' : 'transform 120ms ease-out';
+    el.style.transform = on ? 'scale(0.97)' : '';
+  };
+
   const cancelRef = useRef<() => void>(() => {});
   useEffect(() => {
     cancelRef.current = () => {
       if (pressTimer.current != null) {
         clearTimeout(pressTimer.current);
         pressTimer.current = null;
+      }
+      // Снимаем сжатие здесь, а не в каждом обработчике: cancelPress зовётся
+      // из всех трёх путей отмены и из самого таймера — иначе заголовок
+      // оставался бы уменьшенным.
+      const el = headerRef.current;
+      if (el) {
+        el.style.transition = 'transform 120ms ease-out';
+        el.style.transform = '';
       }
       window.removeEventListener('pointerup', cancelRef.current);
       window.removeEventListener('pointercancel', cancelRef.current);
@@ -199,6 +236,7 @@ function useHoldToReorder(
       startPt.current = { x: e.clientX, y: e.clientY };
       pointerIdRef.current = e.pointerId;
       cancelPress();
+      showHold(true);
       pressTimer.current = window.setTimeout(() => {
         cancelPress(); // таймер отработал: снимаем сторожа окна
         longFired.current = true;
@@ -920,7 +958,16 @@ export function TasksPage() {
         if (!el || !el.isConnected) continue;
         const r = el.getBoundingClientRect();
         if (y > r.top + r.height / 2) idx++;
-        if (proj.id !== dp.id && y >= r.top && y <= r.bottom) hovered = proj.id;
+        // Зона попадания шире самой секции на половину зазора между ними.
+        //
+        // Между проектами стоит mb-12 — 48px, и в прямоугольник секции они не
+        // входят: там hovered был null, вложение молча не срабатывало, а
+        // подсказка на плашке переключалась обратно. Мёртвая полоса была шире
+        // цели: у свёрнутого проекта вся секция — заголовок ~28px. Человек
+        // ведёт папку к папке, на границе всё гаснет — отсюда «нужно прям
+        // точку искать».
+        if (proj.id !== dp.id && y >= r.top - SECTION_GAP / 2 && y <= r.bottom + SECTION_GAP / 2)
+          hovered = proj.id;
       }
       // Уровень меняется только при осознанном сдвиге вбок. Вправо — внутрь
       // того, над кем стоим; влево — наружу. Между порогами уровень остаётся
@@ -1105,10 +1152,25 @@ export function TasksPage() {
   const dropHint = useMemo(() => {
     if (!draggingProject) return '';
     const was = draggingProject.parentId ?? null;
+    // Отказ вложить перестаёт быть немым.
+    //
+    // У проекта, внутри которого уже лежат подпроекты, вкладывать некуда —
+    // и раньше это выглядело как непопадание: человек тянул вправо, тянул
+    // сильнее, а подпись оставалась «Поменяет порядок». Отличить «я не попал»
+    // от «так нельзя» было нечем, и обе жалобы владельца — «тяжело
+    // прикрепить» и «нельзя подпроект в подпроект» — приходят из этого
+    // одного места.
+    const hasKids = projects.some((x) => x.parentId === draggingProject.id && !x.archivedAt);
+    if (hasKids && dropParent === was) {
+      return t('Внутри уже есть подпроекты — вложить нельзя');
+    }
     if (dropParent === was) return was ? t('Останется здесь') : t('Поменяет порядок');
     if (!dropParent) return t('Станет отдельным проектом');
     const name = projects.find((x) => x.id === dropParent)?.name ?? '';
-    return t('Внутрь «{name}»', { name });
+    // «в конец» — не украшение: finish кладёт проект последним в списке нового
+    // родителя, позиция пальца при смене уровня не учитывается вовсе. Обещать
+    // место рядом значило бы дать второе невыполнимое обещание.
+    return t('Внутрь «{name}», в конец', { name });
   }, [draggingProject, dropParent, projects]);
 
   const childrenByParent = useMemo(() => {
