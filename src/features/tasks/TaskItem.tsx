@@ -308,22 +308,6 @@ export function TaskItem({
         onClick={onClick}
       >
         <span className={`w-1 shrink-0 self-stretch rounded-full ${PRIORITY_BAR[task.priority]}`} />
-        {overdue && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              void handleSkip();
-            }}
-            aria-label={t('Пропущено — не выполнено')}
-            // Хит-зона перекрывается с зоной чекбокса (между ними всего 12.75px):
-            // в спорной полосе выигрывает чекбокс — он ниже по DOM и он же
-            // основное действие строки.
-            className={`flex size-[22px] shrink-0 items-center justify-center rounded-[6px] active:scale-90 ${HIT_SLOP_44}`}
-            style={{ color: 'var(--app-warning)' }}
-          >
-            <SkipForward size={ICON.base} />
-          </button>
-        )}
         <TaskCheck checked={done} onChange={handleToggle} color={project?.color} />
         <div className="min-w-0 flex-1">
           {/* text-pretty + hyphens-auto: длинные слова переносятся по слогам с
@@ -445,6 +429,28 @@ export function TaskItem({
             </div>
           )}
         </div>
+        {overdue && (
+          // Кнопка пропуска — В КОНЦЕ строки, а не перед чекбоксом.
+          //
+          // Стоя первой, она сдвигала вправо всю строку на 32px: у
+          // просроченной задачи чекбокс оказывался не на одной вертикали с
+          // остальными, и левый край списка ломался ровно там, где взгляд и
+          // так тревожно останавливается. Плюс её зона касания налезала на
+          // зону чекбокса — двенадцать пикселей между двумя зонами по 44, — и
+          // это перекрытие пришлось записывать в тест как известное. Справа
+          // соседей нет, обе беды снимаются одним переносом.
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleSkip();
+            }}
+            aria-label={t('Пропущено — не выполнено')}
+            className={`mt-0.5 flex size-[22px] shrink-0 items-center justify-center rounded-[6px] active:scale-90 ${HIT_SLOP_44}`}
+            style={{ color: 'var(--app-warning)' }}
+          >
+            <SkipForward size={ICON.base} />
+          </button>
+        )}
       </div>
       {viewerAt != null && task.photos && (
         <PhotoViewer

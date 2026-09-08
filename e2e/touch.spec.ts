@@ -253,17 +253,45 @@ test('раздел «Задачи»: зоны касания не налезаю
   await page.goto('/tasks');
   await expect(page.getByText('Позвонить поставщику')).toBeVisible();
 
-  // Одно перекрытие оставлено НАМЕРЕННО и названо здесь поимённо, чтобы оно
-  // было видно, а не молча терялось в общем «ок».
-  //
-  // У просроченной задачи слева от чекбокса появляется «пропустить», и между
-  // ними 12.75px при зонах по 44. Развести их по-настоящему негде: это левый
-  // край строки на телефоне. Решение принято раньше и записано в TaskItem —
-  // «в спорной полосе выигрывает чекбокс: он ниже по DOM и он же основное
-  // действие строки». Пропуск доступен и свайпом влево.
-  const KNOWN = ['«Пропущено — не выполнено» и «Выполнить» налезают на 12×44px'];
-  const found = await overlapsOn(page);
-  expect(found.filter((x) => !KNOWN.includes(x))).toEqual([]);
-  // Если известное перекрытие исчезло само — исключение пора убрать.
-  expect(found, 'известное перекрытие пропало — снимите исключение').toEqual(KNOWN);
+  // Исключений больше нет. Было одно: у просроченной задачи «пропустить»
+  // стояло СЛЕВА от чекбокса, в двенадцати пикселях, при зонах по 44 — и
+  // считалось неизбежным, потому что развести их на левом краю телефона
+  // негде. Кнопка уехала в конец строки, где соседей нет, и вопрос снялся
+  // вместе с другой бедой того же расположения — сдвигом левого края списка.
+  expect(await overlapsOn(page)).toEqual([]);
+});
+
+test('просроченная задача не ломает левый край списка', async ({ page }) => {
+  // «Пропустить» стояло первым в строке и сдвигало вправо всё остальное на
+  // 32px: у просроченной задачи чекбокс оказывался не на одной вертикали с
+  // соседними, и ровный край списка ломался ровно там, где взгляд и так
+  // тревожно останавливается.
+  await openApp(page, '/tasks');
+  await seedForAudit(page);
+  await page.goto('/tasks');
+  await expect(page.getByText('Отправить документы', { exact: true })).toBeVisible();
+
+  // Сравниваем внутри ОДНОЙ секции: задача в подпроекте отступает вместе со
+  // своей папкой, и это законно — сдвиг уровня, а не поломка края.
+  const bySection = await page.evaluate(() => {
+    const groups: Record<string, { title: string; left: number }[]> = {};
+    for (const row of document.querySelectorAll('[data-task-id]')) {
+      const section = row.closest('[data-drop-key]');
+      const key = section?.getAttribute('data-drop-key') ?? 'нет секции';
+      const el = row.querySelector('button');
+      if (!el) continue;
+      (groups[key] ??= []).push({
+        title: row.querySelector('p')?.textContent?.trim() ?? '',
+        left: Math.round(el.getBoundingClientRect().left),
+      });
+    }
+    return groups;
+  });
+
+  const broken = Object.entries(bySection)
+    .filter(([, rows]) => new Set(rows.map((r) => r.left)).size > 1)
+    .map(([key, rows]) => `${key}: ${JSON.stringify(rows)}`);
+  expect(broken, 'внутри секции чекбоксы стоят на разной вертикали').toEqual([]);
+  // Страховка от пустого замера: секция с просроченной задачей обязана быть.
+  expect(Object.values(bySection).flat().length).toBeGreaterThan(2);
 });
