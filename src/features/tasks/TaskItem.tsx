@@ -59,7 +59,7 @@ export function TaskItem({
   onEdit?: (t: Task) => void;
   /** Опциональный: вызывается при long-press со стартовыми координатами пальца.
    *  Места без него (Today/Calendar/GoalDetail) просто не получают drag. */
-  onDragStart?: (t: Task, at: { x: number; y: number }) => void;
+  onDragStart?: (t: Task, at: { x: number; y: number; pointerId: number }) => void;
   /** Управляемый родителем визуальный сигнал «эта задача сейчас тащится». */
   isDragSource?: boolean;
   /** Скрыть метку проекта — на TasksPage задача уже под заголовком проекта. */
@@ -209,7 +209,14 @@ export function TaskItem({
             /* указатель уже неактивен */
           }
         }
-        onDragStart(task, { x: drag.current.x, y: drag.current.y });
+        // Палец, которым начат жест: без него любое чужое отпускание —
+        // ладонь, второй большой палец — прилетало в общий обработчик окна и
+        // коммитило перенос там, где задача в этот момент оказалась.
+        onDragStart(task, {
+          x: drag.current.x,
+          y: drag.current.y,
+          pointerId: drag.current.pointerId,
+        });
       }, LONG_PRESS_MS);
       armReleaseGuard();
     }

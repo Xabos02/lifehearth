@@ -162,7 +162,7 @@ function ProjectFolderIcon({ project, size = 18 }: { project: Project; size?: nu
  *  отмена по сдвигу пальца (это скролл, а не удержание) и подавление клика
  *  после удачного удержания (иначе секция ещё и свернётся). */
 function useHoldToReorder(
-  onReorderStart: ((at: { x: number; y: number }) => void) | undefined,
+  onReorderStart: ((at: { x: number; y: number; pointerId: number }) => void) | undefined,
   onToggle: () => void,
 ) {
   const pressTimer = useRef<number | null>(null);
@@ -263,7 +263,7 @@ function useHoldToReorder(
             /* указатель уже неактивен */
           }
         }
-        onReorderStart?.(startPt.current);
+        onReorderStart?.({ ...startPt.current, pointerId: pointerIdRef.current });
       }, LONG_PRESS_MS);
       armReleaseGuard();
     },
@@ -316,7 +316,7 @@ function SubSection({
   dropRef: (el: HTMLElement | null) => void;
   highlight?: boolean;
   /** Удержание заголовка — перенести подпроект. */
-  onReorderStart?: (at: { x: number; y: number }) => void;
+  onReorderStart?: (at: { x: number; y: number; pointerId: number }) => void;
   isReorderSource?: boolean;
   children: ReactNode;
 }) {
@@ -395,7 +395,7 @@ function Section({
   dropKey?: string;
   highlight?: boolean;
   /** Передаётся только реальным проектам — включает long-press переупорядочивания. */
-  onReorderStart?: (at: { x: number; y: number }) => void;
+  onReorderStart?: (at: { x: number; y: number; pointerId: number }) => void;
   /** Этот проект сейчас перетаскивают — приглушаем. */
   isReorderSource?: boolean;
   children: ReactNode;
@@ -471,7 +471,7 @@ function TaskCard({
   onEdit: (task: Task) => void;
   muted?: boolean;
   /** Передаётся только в активных секциях — включает drag переноса. */
-  onDragStart?: (task: Task, at: { x: number; y: number }) => void;
+  onDragStart?: (task: Task, at: { x: number; y: number; pointerId: number }) => void;
   /** id перетаскиваемой задачи для визуального сигнала источника. */
   draggingId?: string | null;
   /** Зазор вставки перетаскиваемой задачи (0..N) — рисуем линию. null — нет. */
@@ -730,8 +730,21 @@ export function TasksPage() {
   const projectsRef = useRef<Project[]>([]);
   const childrenRef = useRef<Map<string, Project[]>>(new Map());
   const startXRef = useRef(0);
+  /** Палец, которым начат текущий перенос.
+   *
+   *  Слушатели живут на ОКНЕ и до сих пор принимали события от любого пальца:
+   *  ладонь легла на экран во время переноса — её pointerup прилетал в finish,
+   *  и задача коммитилась туда, где оказалась, хотя первый палец ещё держал.
+   *  Теперь чужие события отбрасываются по этому идентификатору. */
+  const activePointerRef = useRef<number | null>(null);
 
-  const onProjectReorderStart = useCallback((p: Project, at: { x: number; y: number }) => {
+  const onProjectReorderStart = useCallback((p: Project, at: { x: number; y: number; pointerId: number }) => {
+    // Один жест за раз. Задачу и заголовок папки можно взять двумя пальцами
+    // одновременно — состояния независимы, — и тогда оба эффекта пишут
+    // body.touchAction: первый снявшийся вернёт пустое значение, второй —
+    // запомненное 'none', и прокрутка всего приложения умрёт до перезагрузки.
+    if (activePointerRef.current !== null) return;
+    activePointerRef.current = at.pointerId;
     pointerRef.current = at; // стартовая позиция пальца — «призрак» из неё, не из угла
     startXRef.current = at.x; // от неё же считается сдвиг, решающий уровень
     const idx = projectsRef.current.findIndex((x) => x.id === p.id);
@@ -768,7 +781,9 @@ export function TasksPage() {
     return best;
   }, []);
 
-  const onDragStart = useCallback((task: Task, at: { x: number; y: number }) => {
+  const onDragStart = useCallback((task: Task, at: { x: number; y: number; pointerId: number }) => {
+    if (activePointerRef.current !== null) return; // один жест за раз, см. выше
+    activePointerRef.current = at.pointerId;
     const key = task.projectId ?? NONE;
     dropKeyRef.current = key;
     pointerRef.current = at; // стартовая позиция пальца — иначе «призрак» из угла
@@ -841,6 +856,7 @@ export function TasksPage() {
     };
 
     const move = (e: PointerEvent) => {
+      if (e.pointerId !== activePointerRef.current) return; // чужой палец
       e.preventDefault(); // блокируем скролл, пока тащим
       pointerRef.current = { x: e.clientX, y: e.clientY };
       if (!moved && Math.hypot(e.clientX - startPoint.x, e.clientY - startPoint.y) > DRAG_START_THRESHOLD) {
@@ -889,6 +905,7 @@ export function TasksPage() {
     };
 
     const resetDragState = () => {
+      activePointerRef.current = null;
       dropKeyRef.current = null;
       taskDropIndexRef.current = null;
       setDraggingTask(null);
@@ -896,7 +913,8 @@ export function TasksPage() {
       setTaskDropIndex(null);
     };
 
-    const finish = () => {
+    const finish = (e: PointerEvent) => {
+      if (e.pointerId !== activePointerRef.current) return; // чужой палец
       const target = dropKeyRef.current;
       const idx = taskDropIndexRef.current;
       // Позиция ни разу не вычислялась — значит, палец так и не сдвинулся
@@ -958,7 +976,8 @@ export function TasksPage() {
     // самое, что отпускание пальца над целью. pointercancel сюда раньше не
     // отличался от finish и молча коммитил перенос туда, где палец случайно
     // оказался в момент прерывания.
-    const cancel = () => {
+    const cancel = (e: PointerEvent) => {
+      if (e.pointerId !== activePointerRef.current) return; // чужой палец
       resetDragState();
     };
 
@@ -1064,6 +1083,7 @@ export function TasksPage() {
       }
     };
     const move = (e: PointerEvent) => {
+      if (e.pointerId !== activePointerRef.current) return; // чужой палец
       e.preventDefault();
       pointerRef.current = { x: e.clientX, y: e.clientY };
       if (!moved && Math.hypot(e.clientX - startPoint.x, e.clientY - startPoint.y) > DRAG_START_THRESHOLD) {
@@ -1096,6 +1116,7 @@ export function TasksPage() {
       raf = requestAnimationFrame(tick);
     };
     const resetDragState = () => {
+      activePointerRef.current = null;
       projInsertRef.current = null;
       subInsertRef.current = null;
       dropParentRef.current = null;
@@ -1104,7 +1125,8 @@ export function TasksPage() {
       setSubInsertIndex(null);
       setDropParent(null);
     };
-    const finish = () => {
+    const finish = (e: PointerEvent) => {
+      if (e.pointerId !== activePointerRef.current) return; // чужой палец
       const insertIndex = projInsertRef.current;
       const parent = dropParentRef.current;
       const was = dp.parentId ?? null;
@@ -1172,7 +1194,8 @@ export function TasksPage() {
     };
     // Системный обрыв жеста не должен коммитить перенос — см. тот же разбор
     // в эффекте переноса задач.
-    const cancel = () => {
+    const cancel = (e: PointerEvent) => {
+      if (e.pointerId !== activePointerRef.current) return; // чужой палец
       resetDragState();
     };
     const preventScroll = (ev: TouchEvent) => ev.preventDefault();

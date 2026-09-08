@@ -170,3 +170,71 @@ test('уход с экрана во время удержания не оста�
 
   await expect(page.locator(GHOST), 'плашка пережила уход с экрана').toHaveCount(0);
 });
+
+// Чужой палец не завершает чужой жест.
+//
+// Слушатели переноса живут на ОКНЕ и принимали события от любого указателя:
+// тащишь задачу, ладонь или второй большой палец касается экрана — его
+// pointerup прилетает в обработчик завершения, и задача коммитится туда, где
+// оказалась в этот момент, хотя первый палец ещё держит. На телефоне ладонь
+// ложится на экран регулярно.
+test('отпускание вторым пальцем не завершает перенос задачи', async ({ page }) => {
+  await openApp(page, '/tasks');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    const task = (id: string, title: string, projectId: string, sortOrder: number) => ({
+      ...base(id), title, notes: '', projectId, goalId: null, priority: 0,
+      dueDate: null, dueTime: null, duration: null, remindBefore: null,
+      completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder,
+    });
+    await db.projects.clear();
+    await db.tasks.clear();
+    await db.projects.bulkPut([
+      { ...base('p1'), name: 'Бизнес', color: '#5b7cfa', emoji: '💼', sortOrder: 1000, archivedAt: null },
+    ] as never[]);
+    await db.tasks.bulkPut([
+      task('t1', 'Первая', 'p1', 1000),
+      task('t2', 'Вторая', 'p1', 2000),
+      task('t3', 'Третья', 'p1', 3000),
+    ] as never[]);
+  });
+  await page.goto('/tasks');
+  await expect(page.getByText('Третья', { exact: true })).toBeVisible();
+
+  const order = async () =>
+    page.evaluate(async () => {
+      const { db } = await import('/src/db/db.ts');
+      const rows = await db.tasks.toArray();
+      return rows.sort((a, b) => a.sortOrder - b.sortOrder).map((t) => t.title);
+    });
+  const before = await order();
+
+  // Берём третью задачу и ведём её вверх — как настоящим пальцем.
+  const el = page.getByText('Третья', { exact: true }).first();
+  await el.scrollIntoViewIfNeeded();
+  await el.hover();
+  const box = (await el.boundingBox())!;
+  await page.mouse.down();
+  await expect(page.locator(GHOST), 'перенос не стартовал').toBeVisible({ timeout: 2000 });
+  const target = (await page.getByText('Первая', { exact: true }).first().boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, target.y + 2, { steps: 10 });
+
+  // Ладонь: посторонний указатель отпускается посреди жеста.
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new PointerEvent('pointerup', {
+        bubbles: true, pointerId: 99, pointerType: 'touch', clientX: 10, clientY: 10,
+      }),
+    );
+  });
+  await page.waitForTimeout(200);
+
+  expect(await order(), 'чужой палец завершил перенос').toEqual(before);
+  await expect(page.locator(GHOST), 'плашка исчезла от чужого пальца').toBeVisible();
+
+  // А свой — завершает как раньше.
+  await page.mouse.up();
+  await expect.poll(order).not.toEqual(before);
+});
