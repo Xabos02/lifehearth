@@ -17,14 +17,21 @@ const realFetch = globalThis.fetch;
 
 /** Сервер встречи в памяти: та же логика, что в воркере, — первый ответ
  *  побеждает, конверт выдаётся один раз. */
-function mockPairServer() {
+function mockPairServer(opts: { accountExists?: boolean; records?: number } = {}) {
   const meets = new Map<string, { pubA: string; pubB?: string; sealed?: string }>();
+  const accountExists = opts.accountExists ?? true;
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     const res = (data: unknown, status = 200) =>
       new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 
+    // Восстановление по сохранённому ключу сперва спрашивает, есть ли такой
+    // аккаунт: сервер регистрирует незнакомый молча, и без этой проверки
+    // человек с ключом от несуществующего аккаунта видел успех и пустоту.
+    if (url.pathname === '/account/check') {
+      return accountExists ? res({ exists: true, records: opts.records ?? 0 }) : res({ exists: false });
+    }
     if (url.pathname === '/pair/offer') {
       meets.set(body.pairId, { pubA: body.pubA });
       return res({ ok: true });
@@ -144,7 +151,25 @@ describe('резервная копия доступа', () => {
 
     // И по нему по-прежнему можно подключиться — без всякой встречи.
     await db.sync.clear();
-    await connectSync(backup!);
+    const r = await connectSync(backup!);
     expect((await db.sync.get('config'))?.accountId).toBe('acc-1');
+    // Сервер сказал, сколько записей нашлось, — это увидит человек.
+    expect(r.records).toBe(0);
+  });
+
+  it('ключ верный, а аккаунта на сервере нет — говорим прямо, а не «подключено»', async () => {
+    await seedAccount();
+    const backup = await getBackupCode();
+    await db.sync.clear();
+
+    // Тот случай, ради которого проверка и заведена: сервер сменили или базу
+    // сбросили. Раньше сервер регистрировал незнакомый аккаунт молча, человек
+    // видел «Устройство подключено» и пустое приложение.
+    globalThis.fetch = realFetch;
+    mockPairServer({ accountExists: false });
+
+    await expect(connectSync(backup!)).rejects.toThrow(/аккаунта с этим ключом/i);
+    // И конфиг не сохранён: устройство не считает себя подключённым.
+    expect(await db.sync.get('config')).toBeUndefined();
   });
 });

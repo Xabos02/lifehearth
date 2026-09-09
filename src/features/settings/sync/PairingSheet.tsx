@@ -2,17 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 import {
-  Download,
-} from 'lucide-react';
-import {
   GCheck as Check,
   GCopy as Copy,
-  GAlert as TriangleAlert,
 } from '../../../components/ui/glyphs';
 import { Sheet } from '../../../components/ui/Sheet';
 import { Button } from '../../../components/ui/Button';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
-import { getBackupCode, startPairing, awaitPairing, connectSync, runSync } from '../../../lib/sync';
+import { startPairing, awaitPairing, connectSync, runSync } from '../../../lib/sync';
+import { extractRecoveryCode } from '../../../lib/recoveryKey';
 import { t } from '../../../lib/i18n';
 import { ICON } from '../../../components/ui/icons';
 
@@ -25,17 +22,17 @@ interface Props {
 
 const SCAN_TABS = [
   { value: 'scan' as const, label: 'Сканировать' },
-  { value: 'paste' as const, label: 'Вставить код' },
+  { value: 'paste' as const, label: 'Вставить ключ' },
 ];
 
 /** Диалог сопряжения устройств: показать свой QR/код (mode='show') либо
  *  подключиться к существующему аккаунту сканом/вводом (mode='connect'). */
 export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
   // --- show ---
-  // code — код ВСТРЕЧИ для QR (секретов не содержит), backupCode — пакет
-  // доступа целиком, он же резервная копия: уходит только в файл по кнопке.
+  // code — код ВСТРЕЧИ для QR: секретов не содержит, живёт 15 минут и гаснет
+  // после первого получения. Ключ восстановления здесь больше не показывается
+  // — у него свой экран, RecoveryKeySheet.
   const [code, setCode] = useState('');
-  const [backupCode, setBackupCode] = useState('');
   const [qrUrl, setQrUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [paired, setPaired] = useState(false);
@@ -57,14 +54,21 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
       if (busy) return;
       setBusy(true);
       setError('');
-      void connectSync(raw.trim())
+      // extractRecoveryCode: человек вставляет то, что у него в руках, — а в
+      // руках у него файл ключа целиком, с шапкой и переносами. Раньше поле
+      // принимало только голый код и на всё отвечало «проверьте код».
+      void connectSync(extractRecoveryCode(raw))
         .then(() => runSync())
         .then(() => {
           onConnected?.();
           onClose();
         })
-        .catch(() => {
-          setError(t('Не удалось подключить. Проверьте код и попробуйте снова.'));
+        .catch((e: unknown) => {
+          // Движок различает «код использован», «код устарел», «нет связи» и
+          // «аккаунт не найден» — и все эти тексты схлопывались в один общий,
+          // после которого человек по кругу пересканировал мёртвый QR.
+          const why = e instanceof Error && e.message ? e.message : '';
+          setError(why || t('Не удалось подключить. Проверьте код и попробуйте снова.'));
           setBusy(false);
         });
     };
@@ -80,13 +84,9 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
     const signal = { aborted: false };
     // Сброс отметки — внутри цепочки, а не синхронно в теле эффекта: иначе
     // линтер справедливо ругается на каскад перерисовок.
-    void getBackupCode().then((c) => {
-      if (signal.aborted) return;
-      setPaired(false);
-      setBackupCode(c ?? '');
-    });
     void startPairing().then(async (meet) => {
       if (!meet || signal.aborted) return;
+      setPaired(false);
       setCode(meet.code);
       setQrUrl(await QRCode.toDataURL(meet.code, { margin: 1, width: 260 }));
       const ok = await awaitPairing(meet.pairId, meet.priv, signal);
@@ -159,23 +159,8 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
     });
   }
 
-  function saveKeyFile() {
-    // В файл уходит именно пакет доступа, а не код встречи: файл сохраняют на
-    // случай потери телефона, и по коду встречи, который гаснет через четверть
-    // часа, потом ничего не восстановить.
-    const file = new File([backupCode], 'life-hub-sync-key.txt', { type: 'text/plain' });
-    const url = URL.createObjectURL(file);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = file.name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
   return (
-    <Sheet open={open} onClose={onClose} title={mode === 'show' ? t('Код для другого устройства') : t('Подключить устройство')}>
+    <Sheet open={open} onClose={onClose} title={mode === 'show' ? t('Код для другого устройства') : t('Подключить по ключу')}>
       {mode === 'show' ? (
         <div className="space-y-4">
           <p className="text-sm text-muted">
@@ -194,22 +179,14 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
               <img src={qrUrl} alt={t('QR-код сопряжения')} className="rounded-2xl bg-white p-3" width={260} height={260} />
             </div>
           )}
-          <div className="flex gap-2">
-            <Button variant="secondary" className="flex-1 inline-flex items-center justify-center gap-2" onClick={copyCode}>
-              {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
-              {copied ? t('Скопировано') : t('Скопировать код')}
-            </Button>
-            <Button variant="secondary" className="flex-1 inline-flex items-center justify-center gap-2" onClick={saveKeyFile}>
-              <Download size={ICON.base} />
-              {t('Сохранить ключ')}
-            </Button>
-          </div>
-          <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
-            <TriangleAlert size={ICON.base} className="mt-0.5 shrink-0" />
-            <span>
-              {t('Файл с ключом открывает все ваши данные — храните его как ключ от квартиры. Но сохранить его нужно обязательно: без ключа облачные данные не восстановить.')}
-            </span>
-          </div>
+          {/* Здесь только одноразовый код встречи. Ключ восстановления живёт
+              на своём экране (RecoveryKeySheet): рядом эти две кнопки
+              выглядели одинаково, хотя одна даёт 15 минут, а другая —
+              вечный доступ ко всем данным. */}
+          <Button variant="secondary" className="w-full inline-flex items-center justify-center gap-2" onClick={copyCode}>
+            {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
+            {copied ? t('Скопировано') : t('Скопировать код')}
+          </Button>
         </div>
       ) : (
         <div className="space-y-4">
@@ -230,7 +207,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
               <textarea
                 value={pasteVal}
                 onChange={(e) => setPasteVal(e.target.value)}
-                placeholder={t('Вставьте код сопряжения')}
+                placeholder={t('Вставьте ключ восстановления или код с другого устройства')}
                 rows={4}
                 className="w-full rounded-xl border border-border bg-surface p-3 font-mono text-xs"
               />

@@ -5,6 +5,7 @@ import {
   QrCode,
   Smartphone,
   ShieldCheck,
+  KeyRound,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/toastContext';
@@ -12,6 +13,7 @@ import { db } from '../../../db/db';
 import { getSyncConfig, patchSyncConfig } from '../../../lib/syncState';
 import { createSyncAccount, disableSync, runSync } from '../../../lib/sync';
 import { PairingSheet } from './PairingSheet';
+import { RecoveryKeySheet } from './RecoveryKeySheet';
 import { t } from '../../../lib/i18n';
 import { ICON } from '../../../components/ui/icons';
 import {
@@ -43,6 +45,13 @@ export function SyncSection() {
   // встаёт, но человек должен знать, что эти задачи живут только здесь.
   const oversized = useLiveQuery(async () => (await db.settings.get('app'))?.syncOversized ?? 0, []);
   const [sheet, setSheet] = useState<null | 'show' | 'connect'>(null);
+  const [keySheet, setKeySheet] = useState(false);
+  // Ключ сохранён — только если человек вставил сохранённое обратно и оно
+  // совпало. Скачанный файл этого не доказывает: он уходил и пустым, и не туда.
+  const keySavedAt = useLiveQuery(
+    async () => (await db.settings.get('app'))?.recoveryKeySavedAt ?? null,
+    [],
+  );
   const [busy, setBusy] = useState(false);
 
   async function handleCreate() {
@@ -52,7 +61,10 @@ export function SyncSection() {
       await createSyncAccount();
       await runSync().catch(() => {});
       toast(t('Синхронизация включена'));
-      setSheet('show'); // сразу показываем QR для второго устройства
+      // Сразу — ключ, а не QR. Раньше здесь открывался «Код для другого
+      // устройства»: человек с одним телефоном закрывал его не читая и
+      // оставался с облачными данными, которые нечем вернуть.
+      setKeySheet(true);
     } finally {
       setBusy(false);
     }
@@ -117,7 +129,17 @@ export function SyncSection() {
   }
 
   async function handleDisable() {
-    if (!window.confirm(t('Отключить синхронизацию на этом устройстве? Локальные данные останутся на месте.'))) return;
+    // Отключение стирает конфиг целиком, вместе с единственной копией ключа:
+    // после него облачная копия превращается в нечитаемый шифротекст. Прежний
+    // текст обещал ровно обратное — «локальные данные останутся на месте».
+    if (
+      !window.confirm(
+        keySavedAt
+          ? t('Отключить синхронизацию на этом устройстве? Записи на телефоне останутся. Ключ с телефона будет стёрт — вернуть облако можно будет только сохранённым файлом ключа.')
+          : t('Отключить синхронизацию? Ключ восстановления НЕ сохранён, а отключение стирает его с телефона: облачные записи после этого не вернуть ничем. Сначала сохраните ключ.'),
+      )
+    )
+      return;
     await disableSync();
     toast(t('Синхронизация отключена'));
   }
@@ -162,9 +184,32 @@ export function SyncSection() {
                 )}
               </span>
             </p>
+            {/* Пока ключ не сохранён, человек находится в состоянии «данные в
+                облаке есть, а вернуть их нечем» — и до этой правки не знал об
+                этом вовсе: экран показывал зелёное «Включена · E2E-шифрование».
+                Строка висит здесь, пока сохранность не подтверждена вставкой. */}
+            {!keySavedAt && (
+              <button
+                className="flex w-full items-start gap-2 rounded-xl bg-warning/10 p-3 text-left text-sm text-warning active:opacity-60"
+                onClick={() => setKeySheet(true)}
+              >
+                <KeyRound size={ICON.base} className="mt-0.5 shrink-0" />
+                <span>
+                  {t('Ключ восстановления не сохранён. Без него записи из облака не вернуть — сохраните файл сейчас.')}
+                </span>
+              </button>
+            )}
             <Button className="w-full inline-flex items-center justify-center gap-2" disabled={busy} onClick={() => void handleSyncNow()}>
               <RefreshCw size={ICON.base} className={busy ? 'animate-spin' : ''} />
               {t('Синхронизировать сейчас')}
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full inline-flex items-center justify-center gap-2"
+              onClick={() => setKeySheet(true)}
+            >
+              <KeyRound size={ICON.base} />
+              {keySavedAt ? t('Ключ восстановления · сохранён') : t('Сохранить ключ восстановления')}
             </Button>
             <Button
               variant="secondary"
@@ -173,6 +218,14 @@ export function SyncSection() {
             >
               <QrCode size={ICON.base} />
               {t('Показать QR для другого устройства')}
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full inline-flex items-center justify-center gap-2"
+              onClick={() => setSheet('connect')}
+            >
+              <Smartphone size={ICON.base} className="shrink-0" />
+              {t('У меня уже есть данные — подключить по ключу')}
             </Button>
             <button
               className="w-full text-sm text-muted active:opacity-60"
@@ -199,7 +252,7 @@ export function SyncSection() {
                 заново. Понять это по одному лишь ID было невозможно: он тут
                 стоял без единого слова о том, зачем он и с чем его сверять. */}
             <p className="text-xs leading-snug text-muted">
-              {t('Этот ID должен совпадать на всех ваших устройствах. Разный ID — разные аккаунты, и данные между ними не ходят: подключите второе устройство по QR.')}
+              {t('Этот ID должен совпадать на всех ваших устройствах: разный ID — разные аккаунты, и данные между ними не ходят. Хранить ID не нужно — он лежит внутри ключа восстановления.')}
             </p>
             <button
               className="w-full pt-1 text-sm text-danger active:opacity-60"
@@ -214,7 +267,7 @@ export function SyncSection() {
                 внутри карточки занимал 87px над кнопками, ради которых сюда и
                 заходят. */}
             <Button className="w-full" disabled={busy} onClick={() => void handleCreate()}>
-              {t('Включить на этом устройстве')}
+              {t('Включить синхронизацию')}
             </Button>
             <Button
               variant="secondary"
@@ -222,11 +275,13 @@ export function SyncSection() {
               onClick={() => setSheet('connect')}
             >
               <Smartphone size={ICON.base} className="shrink-0" />
-              {t('Подключить к другому устройству')}
+              {t('У меня уже есть данные — подключить по ключу')}
             </Button>
           </>
         )}
       </div>
+
+      <RecoveryKeySheet open={keySheet} saved={Boolean(keySavedAt)} onClose={() => setKeySheet(false)} />
 
       <PairingSheet
         open={sheet !== null}

@@ -683,6 +683,7 @@ export async function createSyncAccount(): Promise<void> {
     lastPushAt: '',
     lastSyncedAt: '',
   });
+  await enableCloudBackup();
 }
 
 /**
@@ -720,12 +721,32 @@ async function claimPairing(meet: { pairId: string; pub: string }): Promise<Pair
 
 /** Подключить это устройство к существующему аккаунту: по коду встречи или по
  *  сохранённой резервной копии доступа. */
-export async function connectSync(code: string): Promise<void> {
+export async function connectSync(code: string): Promise<{ records: number | null }> {
   // Код встречи (v:3) — не секрет: отвечаем своим одноразовым ключом и ждём
   // конверт с секретами. Старый пакет (v:1) остаётся рабочим: это резервная
   // копия доступа, сохранённая файлом, и восстановление по ней ломать нельзя.
   const meet = decodeMeet(code);
   const p = meet ? await claimPairing(meet) : decodePairing(code);
+  // Восстановление по сохранённому ключу — единственный путь, где аккаунта
+  // может не оказаться вовсе: у встречи он заведомо есть, её только что открыло
+  // живое устройство. Сервер регистрирует незнакомый аккаунт молча, поэтому
+  // спрашиваем отдельно и до сохранения конфига: иначе человек с верным ключом
+  // от несуществующего аккаунта получал бодрое «Устройство подключено» и пустое
+  // приложение — и не мог отличить успех от полной потери.
+  let records: number | null = null;
+  if (!meet) {
+    const check = await fetch(`${WORKER_URL}/account/check`, {
+      headers: { 'X-Account': p.accountId, Authorization: `Bearer ${p.authToken}` },
+    }).catch(() => null);
+    if (!check) throw new Error(t('Нет связи с сервером. Проверьте интернет и попробуйте снова.'));
+    if (check.status === 401)
+      throw new Error(t('Ключ не подошёл: сервер не признал доступ. Проверьте, что вставлен весь ключ целиком.'));
+    if (!check.ok) throw new Error(t('Сервер не отвечает. Попробуйте позже — данные никуда не денутся.'));
+    const body = (await check.json()) as { exists: boolean; records?: number };
+    if (!body.exists)
+      throw new Error(t('Аккаунта с этим ключом на сервере нет. Ключ верный по виду, но данных под ним не найдено.'));
+    records = body.records ?? null;
+  }
   const key = await importKeyRaw(p.key);
   await saveSyncConfig({
     id: 'config',
@@ -736,6 +757,26 @@ export async function connectSync(code: string): Promise<void> {
     lastPullAt: '',
     lastPushAt: '',
     lastSyncedAt: '',
+  });
+  await enableCloudBackup();
+  return { records };
+}
+
+/** Включить облачную копию вместе с обменом.
+ *
+ *  Обмен возит задачи, заметки, цели и финансы, но НЕ возит дневник цикла и
+ *  семейную переписку — они живут только в копии. Онбординг при этом обещает,
+ *  что «зашифрованная копия переживёт даже потерю телефона», а копия была
+ *  выключена по умолчанию и сама не включалась ничем: человек читал обещание,
+ *  включал синхронизацию и оставался без единой копии. Раз в неделю — это один
+ *  запрос к серверу в неделю, на лимиты это не влияет. */
+async function enableCloudBackup(): Promise<void> {
+  const s = await db.settings.get('app');
+  if (s?.autoBackup === 'cloud') return;
+  await db.settings.update('app', {
+    autoBackup: 'cloud',
+    autoBackupEvery: s?.autoBackupEvery ?? 'weekly',
+    updatedAt: new Date().toISOString(),
   });
 }
 

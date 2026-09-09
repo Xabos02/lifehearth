@@ -252,6 +252,34 @@ export default {
         return json({ error: 'not found' }, 404, origin);
       }
 
+      // Есть ли такой аккаунт — БЕЗ регистрации.
+      //
+      // authAccount доверяет первому обращению (trust on first use) и заводит
+      // неизвестный accountId сам. Для обмена это правильно, а для
+      // восстановления по ключу — ловушка: человек с верным ключом от аккаунта,
+      // которого на сервере нет (сервер сменили, базу сбросили), видел
+      // «Устройство подключено» и пустое приложение. Успех и полный провал
+      // выглядели одинаково, и дальше он мог затереть облачную копию снимком
+      // пустого телефона.
+      if (url.pathname === '/account/check' && request.method === 'GET') {
+        const accountId = request.headers.get('X-Account');
+        const auth = request.headers.get('Authorization') || '';
+        const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+        if (!accountId || !token) return json({ error: 'unauthorized' }, 401, origin);
+        const row = await env.DB.prepare('SELECT token_hash FROM accounts WHERE account_id = ?')
+          .bind(accountId)
+          .first();
+        if (!row) return json({ exists: false }, 200, origin);
+        if (row.token_hash !== (await sha256hex(token)))
+          return json({ error: 'unauthorized' }, 401, origin);
+        const cnt = await env.DB.prepare(
+          'SELECT COUNT(*) AS n FROM records WHERE account_id = ? AND deleted_at IS NULL',
+        )
+          .bind(accountId)
+          .first();
+        return json({ exists: true, records: Number(cnt?.n ?? 0) }, 200, origin);
+      }
+
       if (url.pathname === '/sync/push' && request.method === 'POST') {
         const accountId = await authAccount(request, env);
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
