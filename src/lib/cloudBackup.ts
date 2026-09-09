@@ -192,15 +192,29 @@ export async function pullAccountSnapshot(): Promise<BackupFile | null> {
  *  устройстве в этом месте всегда горело «копию ещё не делали» — ровно тот
  *  текст, который толкает человека нажать «Сохранить сейчас» и затереть
  *  единственную полную копию снапшотом пустого телефона. */
-export async function cloudBackupDate(): Promise<string | null> {
+export async function cloudBackupDate(): Promise<CloudDate> {
   const c = await getSyncConfig();
-  if (!c?.enabled) return null;
+  if (!c?.enabled) return { state: 'none' };
   try {
-    const res = await fetch(`${WORKER_URL}/backup/get`, { headers: authHeaders(c) });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { updatedAt: string | null; chunks?: unknown[] };
-    return data.chunks?.length ? data.updatedAt : null;
+    // МАНИФЕСТ, а не вся копия. Раньше ради одной даты качались мегабайты
+    // шифротекста, и на мобильном интернете это регулярно падало — а падение
+    // выглядело как «копии нет», то есть как приглашение нажать «Создать» и
+    // затереть настоящую копию снимком текущего телефона.
+    const meta = await fetchMeta(c);
+    return meta.total > 0 && meta.updatedAt
+      ? { state: 'have', updatedAt: meta.updatedAt }
+      : { state: 'none' };
   } catch {
-    return null;
+    // Не смогли проверить — это НЕ «копии нет». Разные состояния должны и
+    // выглядеть по-разному, иначе человек принимает сбой связи за потерю.
+    return { state: 'unknown' };
   }
 }
+
+/** Что известно про копию в облаке: она есть, её нет, или проверить не вышло.
+ *  Третье состояние заведено намеренно: до него сбой связи был неотличим от
+ *  отсутствия копии. */
+export type CloudDate =
+  | { state: 'have'; updatedAt: string }
+  | { state: 'none' }
+  | { state: 'unknown' };

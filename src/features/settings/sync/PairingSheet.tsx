@@ -164,7 +164,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
       {mode === 'show' ? (
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            {t('Отсканируйте этот QR на втором устройстве (Настройки → Синхронизация → Подключить).')}
+            {t('Отсканируйте этот QR на втором устройстве: Настройки → Синхронизация → «У меня уже есть данные — подключить по ключу».')}
           </p>
           {paired ? (
             <p className="flex items-center justify-center gap-2 text-sm font-semibold text-success">

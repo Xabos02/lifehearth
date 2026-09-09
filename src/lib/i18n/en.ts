@@ -882,18 +882,10 @@ export const EN: Record<string, string> = {
     'The app keeps tasks, notes, goals and finance on the device itself. Deleting the icon may make iOS wipe that data. A saved backup brings everything back — from exactly the same point.',
   'Как сохранить (любой из способов):': 'How to save (either way works):',
   'Резервная копия в файл.': 'Backup to a file.',
-  '«Настройки → Данные → Экспортировать резервную копию». Файл сохранится в «Файлы» (или iCloud Drive) и переживёт удаление приложения.':
-    'Settings → Data → Export a backup. The file lands in Files (or iCloud Drive) and survives deleting the app.',
   'Синхронизация (облако).': 'Sync (cloud).',
-  '«Настройки → Синхронизация → Включить». Зашифрованная копия ложится в облако под вашим ключом. Если у вас одно устройство — сохраните ключ: «Показать QR → Сохранить ключ», иначе после удаления восстановить облако будет нечем.':
-    'Settings → Sync → Enable. An encrypted copy goes to the cloud under your key. If you only have one device, save the key: “Show QR → Save key”, otherwise there will be nothing to restore the cloud with after deleting.',
   'Как вернуть после переустановки:': 'How to restore after reinstalling:',
   'Из файла.': 'From a file.',
-  'Откройте приложение → «Настройки → Данные → Импортировать резервную копию» → выберите сохранённый файл.':
-    'Open the app → Settings → Data → Import a backup → pick the saved file.',
   'Из синхронизации.': 'From sync.',
-  '«Настройки → Синхронизация → Подключить к другому устройству» → отсканируйте QR со второго устройства или вставьте сохранённый ключ.':
-    'Settings → Sync → Connect another device → scan the QR from your other device or paste the saved key.',
   'После восстановления данные снова на месте, а если оставить синхронизацию включённой — новые изменения будут сами уходить в облако.':
     'After restoring, your data is back in place, and with sync left on, new changes upload to the cloud on their own.',
   'Новое имя и значок': 'New name and icon',
@@ -904,21 +896,15 @@ export const EN: Record<string, string> = {
   'При удалении приложения задачи, заметки и всё остальное стираются с телефона. Сохраните копию — и вернёте всё за минуту, ровно с той же точки.':
     'Deleting the app wipes tasks, notes and everything else from the phone. Save a backup — and you’ll bring it all back in a minute, from exactly the same point.',
   'Сохраните данные': 'Save your data',
-  'Надёжнее всего — выгрузить файл: «Главная → Настройки → Данные → Экспортировать резервную копию» (ляжет в «Файлы»). Синхронизация тоже держит копию в облаке, но':
-    'The safest way is to export a file: Home → Settings → Data → Export a backup (it lands in Files). Sync also keeps a copy in the cloud, but',
   'ключ хранится только на телефоне': 'the key is stored only on the phone',
   'и сотрётся вместе с приложением. Если устройство одно — обязательно сохраните ключ: «Синхронизация → Показать QR → Сохранить ключ». Без ключа и без файла облако не восстановить.':
     'and gets wiped together with the app. If this is your only device, be sure to save the key: Sync → Show QR → Save key. Without the key and without a file the cloud cannot be restored.',
-  '«Главная → Настройки → Данные → Экспортировать резервную копию». Файл ляжет в «Файлы» и переживёт удаление приложения.':
-    'Home → Settings → Data → Export a backup. The file lands in Files and survives deleting the app.',
   'Переустановите': 'Reinstall',
   'Удалите старый значок с экрана «Домой». Откройте сайт в Safari, нажмите «Поделиться» → «На экран „Домой“».':
     'Remove the old icon from the Home Screen. Open the site in Safari, tap Share → Add to Home Screen.',
   'Верните данные': 'Restore your data',
   'Откройте приложение → «Импортировать резервную копию» (файл) или «Синхронизация → Подключить» и вставьте сохранённый ключ / QR со второго устройства. Всё продолжится с той же точки.':
     'Open the app → Import a backup (file), or Sync → Connect and paste the saved key / scan the QR from your other device. Everything continues from the same point.',
-  'Откройте приложение → «Настройки → Данные → Импортировать резервную копию» и выберите сохранённый файл. Всё продолжится с той же точки.':
-    'Open the app → Settings → Data → Import a backup and pick the saved file. Everything continues from the same point.',
   'Откройте эту ссылку в Safari:': 'Open this link in Safari:',
   'Скопировать ссылку': 'Copy link',
   'Не срочно — приложение работает и со старым значком. Это только чтобы обновить имя и иконку на экране «Домой».':
@@ -1593,8 +1579,6 @@ export const EN: Record<string, string> = {
   'Перетащите за ручку, чтобы изменить порядок. Нажмите на название — переименовать.':
     'Drag by the handle to reorder. Tap a name to rename it.',
   // Синхронизация
-  'Отсканируйте этот QR на втором устройстве (Настройки → Синхронизация → Подключить).':
-    'Scan this QR on your second device (Settings → Sync → Connect).',
   'Сохранить ключ': 'Save the key',
   'Любой, у кого есть этот код, получит доступ к данным и сможет их расшифровать. Не передавайте его и сохраните резервную копию — без ключа облачные данные не восстановить.':
     'Anyone with this code can access and decrypt your data. Keep it to yourself and store a backup — cloud data cannot be recovered without the key.',
@@ -1784,4 +1768,15 @@ export const EN: Record<string, string> = {
   'Ключ не подошёл: сервер не признал доступ. Проверьте, что вставлен весь ключ целиком.': 'The key did not work: the server rejected it. Check that you pasted the whole key.',
   'Нет связи с сервером. Проверьте интернет и попробуйте снова.': 'No connection to the server. Check your internet and try again.',
   'Сервер не отвечает. Попробуйте позже — данные никуда не денутся.': 'The server is not responding. Try later — your data is not going anywhere.',
+  'не удалось проверить': 'could not check',
+
+  // Инструкции: маршруты приведены к настоящим подписям экранов
+  '«Настройки → Копии и восстановление → Копия файлом → Сохранить в файл». Файл сохранится в «Файлы» (или iCloud Drive) и переживёт удаление приложения.': '“Settings → Backups → File backup → Save to file”. The file lands in Files (or iCloud Drive) and survives deleting the app.',
+  '«Настройки → Синхронизация → Включить синхронизацию». Зашифрованная копия ложится в облако под вашим ключом. Сразу после включения приложение попросит сохранить ключ восстановления — сохраните: без него облако не вернуть ничем.': '“Settings → Sync → Turn on sync”. An encrypted copy goes to the cloud under your key. Right after you turn it on the app asks you to save the recovery key — do save it: without it nothing brings the cloud back.',
+  'Откройте приложение → «Настройки → Копии и восстановление → Копия файлом → Восстановить» → выберите сохранённый файл.': 'Open the app → “Settings → Backups → File backup → Restore” → pick the saved file.',
+  '«Настройки → Синхронизация → У меня уже есть данные — подключить по ключу» → вставьте сохранённый ключ или отсканируйте QR со второго устройства.': '“Settings → Sync → I already have data — connect with a key” → paste the saved key or scan the QR from the second device.',
+  'Надёжнее всего — выгрузить файл: «Настройки → Копии и восстановление → Копия файлом → Сохранить в файл» (ляжет в «Файлы»). Синхронизация тоже держит копию в облаке, но': 'The safest way is a file: “Settings → Backups → File backup → Save to file” (it lands in Files). Sync also keeps a cloud copy, but',
+  '«Настройки → Копии и восстановление → Копия файлом → Сохранить в файл». Файл ляжет в «Файлы» и переживёт удаление приложения.': '“Settings → Backups → File backup → Save to file”. The file lands in Files and survives deleting the app.',
+  'Откройте приложение → «Настройки → Копии и восстановление → Копия файлом → Восстановить» и выберите сохранённый файл. Всё продолжится с той же точки.': 'Open the app → “Settings → Backups → File backup → Restore” and pick the saved file. Everything continues from the same point.',
+  'Отсканируйте этот QR на втором устройстве: Настройки → Синхронизация → «У меня уже есть данные — подключить по ключу».': 'Scan this QR on the second device: Settings → Sync → “I already have data — connect with a key”.',
 };

@@ -18,6 +18,7 @@ import {
 import {
   BackupWouldLoseDataError,
   cloudBackupDate,
+  type CloudDate,
   pushAccountSnapshot,
   pullAccountSnapshot,
 } from '../../lib/cloudBackup';
@@ -80,8 +81,11 @@ export function BackupPage() {
   const cloudRef = useRef(false);
   const syncCfg = useLiveQuery(() => db.sync.get('config'), []);
   const syncOn = Boolean(syncCfg?.enabled);
-  // undefined — ещё спрашиваем сервер, null — копии нет, строка — дата.
-  const [cloudDate, setCloudDate] = useState<string | null | undefined>(undefined);
+  // undefined — ещё спрашиваем сервер; дальше три РАЗНЫХ состояния: копия
+  // есть, копии нет, проверить не удалось. Третье прежде выглядело как второе,
+  // и сбой связи читался как «копии нет» — приглашение нажать «Создать» и
+  // затереть настоящую копию снимком текущего телефона.
+  const [cloudDate, setCloudDate] = useState<CloudDate | undefined>(undefined);
   useEffect(() => {
     if (!syncOn) return;
     let live = true;
@@ -183,7 +187,7 @@ export function BackupPage() {
         return;
       }
       await updateSettings({ lastCloudBackupAt: now(), cloudBackupBlocked: null });
-      setCloudDate(new Date().toISOString());
+      setCloudDate({ state: 'have', updatedAt: new Date().toISOString() });
       toast(t('Копия сохранена в облако'));
     } catch (e) {
       // Копия в облаке полнее, чем данные здесь. Хранение latest-only: запись
@@ -253,6 +257,19 @@ export function BackupPage() {
                 <span className="shrink-0 text-sm text-muted">{t('Недоступна')}</span>
               )}
             </Row>
+            {/* Восстановление вынесено ИЗ-ПОД тумблера автозаписи: раньше и
+                «Сохранить сейчас», и «Восстановить из облака» показывались
+                только при включённой автокопии. На новом телефоне тумблер
+                выключен по умолчанию, и человек, приехавший сюда возвращать
+                данные, видел один выключатель и делал вывод, что копии нет.
+                Тумблер — про расписание, восстановление — про беду. */}
+            {syncOn && (
+              <ButtonRow
+                label={t('Восстановить из облака')}
+                action={t('Начать')}
+                onClick={() => void handleCloudRestore()}
+              />
+            )}
             {syncOn && settings.autoBackup === 'cloud' && (
               <>
                 <Row label={t('Как часто')}>
@@ -283,8 +300,10 @@ export function BackupPage() {
                   value={
                     cloudDate === undefined ? (
                       <span className="opacity-60">{t('проверяем…')}</span>
-                    ) : cloudDate ? (
-                      formatRu(cloudDate.slice(0, 10), 'd MMMM yyyy')
+                    ) : cloudDate.state === 'have' ? (
+                      formatRu(cloudDate.updatedAt.slice(0, 10), 'd MMMM yyyy')
+                    ) : cloudDate.state === 'unknown' ? (
+                      <span className="text-muted">{t('не удалось проверить')}</span>
                     ) : (
                       <span className="font-semibold text-warning">{t('ещё не создана')}</span>
                     )
@@ -294,11 +313,6 @@ export function BackupPage() {
                   label={t('Сохранить сейчас')}
                   action={t('Создать')}
                   onClick={() => void handleCloudBackupNow()}
-                />
-                <ButtonRow
-                  label={t('Восстановить из облака')}
-                  action={t('Начать')}
-                  onClick={() => void handleCloudRestore()}
                 />
               </>
             )}
