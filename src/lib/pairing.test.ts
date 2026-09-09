@@ -157,6 +157,28 @@ describe('резервная копия доступа', () => {
     expect(r.records).toBe(0);
   });
 
+  it('сервер старой версии (404 на проверку) — восстановление всё равно проходит', async () => {
+    await seedAccount();
+    const backup = await getBackupCode();
+    await db.sync.clear();
+
+    // Порядок выкатки не должен решать судьбу человека с ключом в руках:
+    // пока сервер не знает маршрута проверки, идём прежним путём.
+    globalThis.fetch = realFetch;
+    const old = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/account/check') return new Response('{}', { status: 404 });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    globalThis.fetch = old as unknown as typeof fetch;
+
+    await connectSync(backup!);
+    expect((await db.sync.get('config'))?.accountId).toBe('acc-1');
+  });
+
   it('ключ верный, а аккаунта на сервере нет — говорим прямо, а не «подключено»', async () => {
     await seedAccount();
     const backup = await getBackupCode();

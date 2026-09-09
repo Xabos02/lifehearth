@@ -741,11 +741,17 @@ export async function connectSync(code: string): Promise<{ records: number | nul
     if (!check) throw new Error(t('Нет связи с сервером. Проверьте интернет и попробуйте снова.'));
     if (check.status === 401)
       throw new Error(t('Ключ не подошёл: сервер не признал доступ. Проверьте, что вставлен весь ключ целиком.'));
-    if (!check.ok) throw new Error(t('Сервер не отвечает. Попробуйте позже — данные никуда не денутся.'));
-    const body = (await check.json()) as { exists: boolean; records?: number };
-    if (!body.exists)
-      throw new Error(t('Аккаунта с этим ключом на сервере нет. Ключ верный по виду, но данных под ним не найдено.'));
-    records = body.records ?? null;
+    // 404 — сервер старой версии, этого маршрута он ещё не знает. Тогда идём
+    // прежним путём: проверка появится сама, когда сервер обновится. Ломать
+    // восстановление из-за порядка выкатки нельзя — человек с ключом в руках
+    // не должен зависеть от того, что и когда уехало на сервер.
+    if (check.status !== 404) {
+      if (!check.ok) throw new Error(t('Сервер не отвечает. Попробуйте позже — данные никуда не денутся.'));
+      const body = (await check.json()) as { exists: boolean; records?: number };
+      if (!body.exists)
+        throw new Error(t('Аккаунта с этим ключом на сервере нет. Ключ верный по виду, но данных под ним не найдено.'));
+      records = body.records ?? null;
+    }
   }
   const key = await importKeyRaw(p.key);
   await saveSyncConfig({
