@@ -1779,4 +1779,5 @@ export const EN: Record<string, string> = {
   '«Настройки → Копии и восстановление → Копия файлом → Сохранить в файл». Файл ляжет в «Файлы» и переживёт удаление приложения.': '“Settings → Backups → File backup → Save to file”. The file lands in Files and survives deleting the app.',
   'Откройте приложение → «Настройки → Копии и восстановление → Копия файлом → Восстановить» и выберите сохранённый файл. Всё продолжится с той же точки.': 'Open the app → “Settings → Backups → File backup → Restore” and pick the saved file. Everything continues from the same point.',
   'Отсканируйте этот QR на втором устройстве: Настройки → Синхронизация → «У меня уже есть данные — подключить по ключу».': 'Scan this QR on the second device: Settings → Sync → “I already have data — connect with a key”.',
+  'У меня уже были данные — восстановить': 'I already had data — restore it',
 };

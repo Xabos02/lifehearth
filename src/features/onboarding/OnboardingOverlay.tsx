@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   LayoutGrid,
@@ -72,6 +73,7 @@ const SLIDES: { icon: LucideIcon; title: string; text: string }[] = [
 export function OnboardingOverlay() {
   const settings = useLiveQuery(() => db.settings.get('app'), []);
   const [step, setStep] = useState(0);
+  const navigate = useNavigate();
   // Пока настройки не загрузились — не мигаем туром; пройден — не показываем.
   if (!settings || settings.onboardingDone) return null;
 
@@ -81,6 +83,15 @@ export function OnboardingOverlay() {
     // приложение сейчас, уже получил актуальный значок — окно о переустановке
     // ему не нужно.
     void updateSettings({ onboardingDone: now(), reinstallNoticeSeen: REINSTALL_NOTICE_VERSION });
+  };
+
+  /** Человек ставит приложение НЕ с нуля: телефон заменили, данные лежат в
+   *  облаке под его ключом. Раньше он проходил восемь слайдов и оказывался на
+   *  пустом экране без единой подсказки, откуда возвращать своё, — путь начинался
+   *  в настройках, куда ещё надо догадаться зайти. */
+  const restore = () => {
+    finish();
+    navigate('/more/settings');
   };
 
   const slide = SLIDES[step];
@@ -133,6 +144,18 @@ export function OnboardingOverlay() {
           {!last && <ChevronRight size={ICON.base} />}
         </button>
       </div>
+
+      {/* Развилка для того, кто переезжает, а не начинает: показываем на
+          последнем шаге, чтобы не сбивать первое знакомство. */}
+      <button
+        type="button"
+        onClick={restore}
+        className={`relative px-6 pb-[calc(env(safe-area-inset-bottom)+16px)] text-sm font-medium text-accent active:opacity-60 ${
+          last ? '' : 'invisible'
+        }`}
+      >
+        {t('У меня уже были данные — восстановить')}
+      </button>
     </div>
   );
 }
