@@ -2,12 +2,10 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
 import { Sheet } from '../../components/ui/Sheet';
-import { db } from '../../db/db';
-import { create, update } from '../../db/repo';
 import type { LearningItem } from '../../db/types';
-import { todayKey } from '../../lib/dates';
 import { formatDuration } from '../../lib/duration';
 import { t } from '../../lib/i18n';
+import { logSession } from './session';
 
 /** Быстрые кнопки. Своё время вводят редко — почти всегда занятие
  *  укладывается в одну из этих четырёх длительностей. */
@@ -43,26 +41,7 @@ function SessionForm({ item, onClose }: { item: LearningItem; onClose: () => voi
     if (savingRef.current) return;
     savingRef.current = true;
     try {
-      const date = todayKey();
-      const existing = (await db.learningLogs.where('itemId').equals(item.id).toArray()).find(
-        (l) => l.date === date && !l.deletedAt,
-      );
-      if (existing) {
-        // Занятия за день складываются, а не заменяют друг друга: вечером
-        // добавил ещё час — стало три, а не один.
-        await update(db.learningLogs, existing.id, {
-          minutes: (existing.minutes ?? 0) + total,
-          note: note.trim() || existing.note,
-        });
-      } else {
-        await create(db.learningLogs, {
-          itemId: item.id,
-          date,
-          value: item.progressCurrent,
-          minutes: total,
-          note: note.trim(),
-        });
-      }
+      await logSession(item, total, note);
       onClose();
     } finally {
       savingRef.current = false;

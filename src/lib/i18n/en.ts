@@ -1069,7 +1069,7 @@ export const EN: Record<string, string> = {
   'Изменить материал': 'Edit item',
   'Изменить план': 'Edit plan',
   'Одна строка — одна часть': 'One line — one part',
-  'Отставание {n}': '{n} behind',
+  'Отставание {n} {unit}': '{n} {unit} behind',
   'План': 'Plan',
   'План материала': 'Study plan',
   'План пуст': 'The plan is empty',

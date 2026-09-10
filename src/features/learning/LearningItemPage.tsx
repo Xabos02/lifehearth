@@ -95,7 +95,7 @@ export function LearningItemPage() {
           </p>
         )}
 
-        {sched && <Chart item={item} sched={sched} />}
+        {sched && <Chart item={item} sched={sched} unit={unit} />}
 
         <Button className="flex w-full items-center justify-center gap-2" onClick={() => setLogOpen(true)}>
           <Clock size={ICON.base} />
@@ -227,9 +227,11 @@ function Tile({
 function Chart({
   item,
   sched,
+  unit,
 }: {
   item: LearningItem;
   sched: NonNullable<ReturnType<typeof pace>>;
+  unit: string;
 }) {
   const W = 300;
   const H = 96;
@@ -289,7 +291,7 @@ function Chart({
           ? t('Срок прошёл')
           : sched.onTrack
             ? t('Идёшь по графику')
-            : t('Отставание {n}', { n: formatNum(Math.round(sched.debt)) })}
+            : t('Отставание {n} {unit}', { n: formatNum(Math.round(sched.debt)), unit })}
       </p>
     </div>
   );
