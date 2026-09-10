@@ -5,8 +5,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -55,83 +53,17 @@ import { unfreezeAll, unfreezeTask } from './taskActions';
 import { ICON, STROKE, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
 import { autoScrollStep } from './autoScroll';
-
-const NONE = '__none__';
-const FROZEN = '__frozen__'; // ключ свёрнутости секции «Заморожено»
-
-// Пока палец не отошёл от точки старта дальше этого порога, жест ещё не начат
-// по факту. Без него tick — он крутится каждый кадр сам по себе, независимо от
-// событий движения — успевал прокрутить список и переоценить drop-зону раньше,
-// чем человек вообще пошевелил пальцем: положил задачу на секцию у нижнего
-// края экрана — и список уже едет, а idx уже посчитан по чужой точке.
-const DRAG_START_THRESHOLD = 4;
-
-// Переупорядочивание проектов: удержание заголовка → drag.
-const LONG_PRESS_MS = 400; // удержание без движения → старт drag
-// Смена уровня при переносе проекта — по СДВИГУ пальца от точки нажатия, а не
-// по абсолютной координате.
-//
-// Абсолютный порог (было 64px от края) выглядел разумно ровно до замеров.
-// Название проекта начинается примерно с 68px — значит взявший папку за имя,
-// самую очевидную цель, уже стоял правее порога, и обычное переупорядочивание
-// молча превращалось во вложение. А шеврон и папка ПОДпроекта лежат левее —
-// и удержание за них с отпусканием НА МЕСТЕ выкидывало подпроект на верхний
-// уровень, хотя человек ничего не тянул.
-//
-// Сдвиг от точки нажатия не зависит ни от ширины экрана, ни от того, за какое
-// место схватились: не двинул по горизонтали — уровень не меняется вовсе.
-// 26, а не 40. Сорок требовало дотянуться до точки, которой на экране нет:
-// заголовок подпроекта начинается на x≈36, и «вынести наружу» (dx < -40) при
-// хвате за шеврон означало x < 4. Симметрично ломалось вложение при хвате за
-// пустое место справа от имени — кнопка заголовка тянется до карандаша, и
-// уйти правее её края на 40px некуда. Двадцать шесть по-прежнему отличают
-// намеренный сдвиг от дрожи пальца, но обе стороны становятся достижимы.
-const NEST_DX = 26;
-const DRAG_CANCEL_MOVE = 8; // сдвиг до старта = скролл, а не drag — отменяем
-/** Внешний отступ между секциями-проектами (mb-12). Половина его с каждой
- *  стороны отдаётся зоне попадания соседей — иначе между папками остаётся
- *  полоса, где вложение не срабатывает вовсе. */
-const SECTION_GAP = 48;
-
-/** Поставить плашку-«призрак» под палец.
- *
- *  Вне компонента намеренно: чистая функция от узла и координаты, она ничего
- *  не замыкает. Замкни она ref с позицией — линтер React справедливо запретил
- *  бы менять этот ref дальше по коду (значение, отданное хуку, менять нельзя),
- *  а меняется он на каждом движении пальца.
- *
- *  transform, а не left/top: left/top заставляют браузер пересчитывать
- *  раскладку каждый кадр, transform уходит в композитор. */
-function placeGhost(el: HTMLElement | null, x: number, y: number) {
-  if (!el) return;
-  el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-}
-
-/** Ближайший прокручиваемый предок (overflow-y auto/scroll с переполнением). */
-function getScrollParent(node: HTMLElement | null): HTMLElement | null {
-  let el = node?.parentElement ?? null;
-  while (el) {
-    const oy = getComputedStyle(el).overflowY;
-    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el;
-    el = el.parentElement;
-  }
-  return null;
-}
-
-/** Выкидывает из реестра секций узлы, вынутые из DOM. registerSection — ref-
- *  колбэк, и на detach (React вызывает его с el=null) он намеренно ничего не
- *  чистит: при перемонтировании новый узел с тем же ключом придёт раньше, чем
- *  успеет понадобиться старый, и ранняя чистка стирала бы его зря. Но если
- *  секцию снесли насовсем (проект удалили/свернули иерархию), запись в Map
- *  остаётся навсегда — а если она окажется ПЕРВОЙ, getScrollParent получит
- *  detached-узел, отдаст null, и авто-скролл не будет работать до перезагрузки
- *  страницы. Прогонять на каждый чих незачем: старт нового жеста — то самое
- *  место, где актуальность реестра важна, и где чистка обходится дёшево. */
-function pruneDetachedSections(nodes: Map<string, HTMLElement>) {
-  for (const [key, el] of nodes) {
-    if (!el.isConnected) nodes.delete(key);
-  }
-}
+import {
+  NONE,
+  FROZEN,
+  DRAG_START_THRESHOLD,
+  NEST_DX,
+  SECTION_GAP,
+  placeGhost,
+  getScrollParent,
+  pruneDetachedSections,
+} from './dragTuning';
+import { useHoldToReorder } from './useHoldToReorder';
 
 /** Иконка папки проекта: стандартная 📁 заменяется папкой в цвете проекта —
  *  выбранный при создании цвет виден прямо в списке. Своё эмодзи — как есть. */
@@ -152,149 +84,6 @@ function ProjectFolderIcon({ project, size = 18 }: { project: Project; size?: nu
 /** Вложенная секция подпроекта внутри секции родителя: свой заголовок с цветной
  *  папкой, счётчиком и карандашом, свои задачи и «+ Задача». Тоже drop-зона —
  *  задачу можно перетащить прямо в подпроект. */
-/** Удержание заголовка → перетаскивание секции.
- *
- *  Общая машинка для проектов и подпроектов: раньше она жила только внутри
- *  Section, из-за чего подпроект нельзя было сдвинуть вовсе. Тонкостей тут
- *  больше, чем кажется, и дублировать их вторым экземпляром — верный способ
- *  получить два разных поведения: блокировка нативного скролла ровно на время
- *  жеста, захват указателя (иначе вертикальный перенос заберёт себе iOS),
- *  отмена по сдвигу пальца (это скролл, а не удержание) и подавление клика
- *  после удачного удержания (иначе секция ещё и свернётся). */
-function useHoldToReorder(
-  onReorderStart: ((at: { x: number; y: number; pointerId: number }) => void) | undefined,
-  onToggle: () => void,
-) {
-  const pressTimer = useRef<number | null>(null);
-  const longFired = useRef(false);
-  const startPt = useRef({ x: 0, y: 0 });
-  const headerRef = useRef<HTMLButtonElement>(null);
-  const pointerIdRef = useRef(0);
-  const reorderable = Boolean(onReorderStart);
-
-  // Снятие взведённого удержания живёт в ref, а не в обычной функции.
-  //
-  // Им же вешается и снимается сторож окна, а removeEventListener сверяет
-  // функции по идентичности: пересоздай её на рендере — и сторож остался бы
-  // висеть. Ref даёт один экземпляр на всё время жизни заголовка.
-  /** Показать, что удержание идёт.
-   *
-   *  Раньше между нажатием и стартом переноса не менялось НИЧЕГО: 400 мс
-   *  человек не знает, взял он папку или уже сорвал жест движением. Отсюда
-   *  два одинаково плохих исхода — повести палец рано (жест отменится как
-   *  скролл) или замереть с запасом и вести неуверенно. Неуверенное ведение и
-   *  есть «ищу точку».
-   *
-   *  Сжатие вешаем на саму кнопку заголовка, а НЕ на секцию: прямоугольник
-   *  секции служит зоной попадания при вложении, масштабировать его нельзя.
-   *  Вибрации здесь нет намеренно — WebKit её не поддерживает, а основная
-   *  платформа приложения это iPhone: сигнал обязан быть видимым. */
-  const showHold = (on: boolean) => {
-    const el = headerRef.current;
-    if (!el) return;
-    el.style.transition = on ? 'transform 400ms ease-out' : 'transform 120ms ease-out';
-    el.style.transform = on ? 'scale(0.97)' : '';
-  };
-
-  const cancelRef = useRef<() => void>(() => {});
-  useEffect(() => {
-    cancelRef.current = () => {
-      if (pressTimer.current != null) {
-        clearTimeout(pressTimer.current);
-        pressTimer.current = null;
-      }
-      // Снимаем сжатие здесь, а не в каждом обработчике: cancelPress зовётся
-      // из всех трёх путей отмены и из самого таймера — иначе заголовок
-      // оставался бы уменьшенным.
-      const el = headerRef.current;
-      if (el) {
-        el.style.transition = 'transform 120ms ease-out';
-        el.style.transform = '';
-      }
-      window.removeEventListener('pointerup', cancelRef.current);
-      window.removeEventListener('pointercancel', cancelRef.current);
-    };
-    // Та же подстраховка, что в строке задачи: снять висящий таймер при
-    // размонтировании заголовка.
-    return () => cancelRef.current();
-  }, []);
-  const cancelPress = () => cancelRef.current();
-
-  // Отпускание пальца ловим на ОКНЕ, а не только на самом заголовке.
-  //
-  // Обработчик заголовка видит отпускание, лишь когда оно пришло в него: палец
-  // соскользнул на соседний элемент, строку перерисовало, экран сменился — и
-  // события нет. Тогда таймер срабатывал уже после конца касания: перенос
-  // стартовал без пальца, плашка приклеивалась к экрану, и убрать её было
-  // нечем — pointerup больше не придёт. Окно видит отпускание всегда.
-  const armReleaseGuard = () => {
-    window.addEventListener('pointerup', cancelRef.current);
-    window.addEventListener('pointercancel', cancelRef.current);
-  };
-  const endHeaderDrag = () => {
-    const el = headerRef.current;
-    if (!el) return;
-    el.style.touchAction = '';
-    try {
-      el.releasePointerCapture(pointerIdRef.current);
-    } catch {
-      /* указатель уже отпущен */
-    }
-  };
-
-  const headerProps = {
-    ref: headerRef,
-    onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
-      if (!reorderable) return;
-      longFired.current = false;
-      startPt.current = { x: e.clientX, y: e.clientY };
-      pointerIdRef.current = e.pointerId;
-      cancelPress();
-      showHold(true);
-      pressTimer.current = window.setTimeout(() => {
-        cancelPress(); // таймер отработал: снимаем сторожа окна
-        longFired.current = true;
-        const el = headerRef.current;
-        if (el) {
-          el.style.touchAction = 'none';
-          try {
-            el.setPointerCapture(pointerIdRef.current);
-          } catch {
-            /* указатель уже неактивен */
-          }
-        }
-        onReorderStart?.({ ...startPt.current, pointerId: pointerIdRef.current });
-      }, LONG_PRESS_MS);
-      armReleaseGuard();
-    },
-    onPointerMove: (e: ReactPointerEvent<HTMLButtonElement>) => {
-      if (pressTimer.current == null) return;
-      if (
-        Math.abs(e.clientX - startPt.current.x) > DRAG_CANCEL_MOVE ||
-        Math.abs(e.clientY - startPt.current.y) > DRAG_CANCEL_MOVE
-      ) {
-        cancelPress();
-      }
-    },
-    onPointerUp: () => {
-      cancelPress();
-      endHeaderDrag();
-    },
-    onPointerCancel: () => {
-      cancelPress();
-      endHeaderDrag();
-    },
-    onClick: (e: ReactMouseEvent<HTMLButtonElement>) => {
-      if (longFired.current) {
-        e.preventDefault();
-        longFired.current = false;
-        return;
-      }
-      onToggle();
-    },
-  };
-  return { reorderable, headerProps };
-}
 
 function SubSection({
   project,

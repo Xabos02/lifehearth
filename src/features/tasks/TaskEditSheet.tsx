@@ -29,6 +29,7 @@ import { PRESET_COLORS } from '../../lib/colors';
 import { ALLDAY_REMIND_TIME, cancelReminder, scheduleReminder } from '../../lib/push';
 import { compressImage } from '../../lib/image';
 import { syncTaskPhotos } from '../../lib/taskPhotos';
+import { formatDuration } from '../../lib/duration';
 import { t } from '../../lib/i18n';
 import { useAutoCapitalizeTextarea } from '../../lib/useAutoCapitalizeTextarea';
 import { usePomodoroActions } from '../focus/pomodoro';
@@ -84,14 +85,6 @@ function formatRemind(min: number): string {
   if (min === 2880) return t('2 дня');
   if (min === 1440) return t('1 день');
   return formatDuration(min);
-}
-
-/** Человекочитаемая длительность: «15м», «1ч», «1ч 30м». */
-function formatDuration(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  if (h === 0) return t('{m}\u00A0мин', { m });
-  return m === 0 ? t('{h}\u00A0ч', { h }) : t('{h}\u00A0ч {m}\u00A0мин', { h, m });
 }
 
 type TaskEditProps = {
