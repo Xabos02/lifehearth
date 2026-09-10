@@ -30,6 +30,7 @@ import { ALLDAY_REMIND_TIME, cancelReminder, scheduleReminder } from '../../lib/
 import { compressImage } from '../../lib/image';
 import { syncTaskPhotos } from '../../lib/taskPhotos';
 import { t } from '../../lib/i18n';
+import { useAutoCapitalizeTextarea } from '../../lib/useAutoCapitalizeTextarea';
 import { usePomodoro } from '../focus/pomodoro';
 import { ICON } from '../../components/ui/icons';
 
@@ -137,6 +138,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
   const pomodoro = usePomodoro();
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
+  // Заглавная в начале строки и после «2. » — как в заметках. Клавиатура iOS
+  // сама этого не делает: она смотрит на пунктуацию, а в списке точек нет.
+  useAutoCapitalizeTextarea(titleRef);
+  useAutoCapitalizeTextarea(notesRef);
 
   const handleFocus = () => {
     if (!task) return;

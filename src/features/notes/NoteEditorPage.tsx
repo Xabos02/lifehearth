@@ -36,7 +36,7 @@ import {
   normalizeEditor,
   setCaretAtOffset,
 } from './editorDom';
-import { isRefused, shouldCapitalize, type CapitalizeMemo } from './autocapitalize';
+import { isRefused, shouldCapitalize, type CapitalizeMemo } from '../../lib/autocapitalize';
 import { closestChecklistItem, hitCheckbox, toggleChecklist, toggleItem } from './checklist';
 import { sanitizeNoteHtml } from './sanitize';
 import { NoteAttachments } from './NoteAttachments';
