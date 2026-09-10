@@ -13,6 +13,7 @@ const TABLES = [
   'noteFolders',
   'learningItems',
   'learningLogs',
+  'learningParts',
   'expenseItems',
   'savingsGoals',
   'savingsDeposits',

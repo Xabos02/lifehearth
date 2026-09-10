@@ -216,18 +216,45 @@ export interface LearningItem extends BaseEntity {
   kind: LearningKind;
   status: LearningStatus;
   goalId: string | null;
-  progressUnit: 'percent' | 'pages' | 'lessons';
-  progressTarget: number; // 100 | всего страниц | всего уроков
+  progressUnit: 'percent' | 'pages' | 'lessons' | 'hours';
+  progressTarget: number; // 100 | всего страниц | уроков | часов
   progressCurrent: number;
   notes: string;
   startedAt: string | null;
   finishedAt: string | null;
+  /** Срок: до какого дня материал нужно закрыть, 'YYYY-MM-DD'.
+   *  Без него материал живёт как раньше — прогресс есть, графика нет. */
+  dueDate?: string | null;
 }
 
 export interface LearningLog extends BaseEntity {
   itemId: string;
   date: string; // 'YYYY-MM-DD'
   value: number; // абсолютное значение прогресса на эту дату
+  /** Сколько минут человек занимался в этот день.
+   *  Отдельно от value: над материалом можно сидеть, не двигая прогресс, и
+   *  расхождение этих двух чисел — само по себе полезный сигнал. */
+  minutes?: number;
+  /** Над чем работал в этот день. Необязательно. */
+  note?: string;
+}
+
+/** Часть плана материала: дисциплина курса, глава книги, урок.
+ *
+ *  Своей таблицей, а не массивом внутри материала. Причина в разрешении
+ *  конфликтов: синхронизация сравнивает `updatedAt` целой строки и заменяет её
+ *  целиком, поэтому массив из шестидесяти частей терял бы отметки соседних
+ *  устройств пачкой, тогда как отдельные строки расходятся по одной. */
+export interface LearningPart extends BaseEntity {
+  itemId: string;
+  title: string;
+  /** Раздел плана: «Модуль 1», «Часть вторая». Пустая строка — без группировки. */
+  section: string;
+  /** Оценка трудоёмкости в тех же единицах, что и прогресс материала. */
+  estimate: number;
+  /** День, когда часть отметили сделанной. null — ещё не закрыта. */
+  doneAt: string | null;
+  sortOrder: number;
 }
 
 // === Финансы (#4) — ежемесячные траты и доходы ===

@@ -12,6 +12,20 @@ import type { LearningItem, LearningKind } from '../../db/types';
 type EditableStatus = 'planned' | 'inProgress' | 'done';
 type ProgressUnit = LearningItem['progressUnit'];
 
+/** Подписи поля «сколько всего» под выбранную единицу. Проценты сюда не
+ *  попадают: у них цель всегда сто, и поле не показывается. */
+const TARGET_LABEL: Record<Exclude<ProgressUnit, 'percent'>, string> = {
+  pages: 'Всего страниц',
+  lessons: 'Всего уроков',
+  hours: 'Всего часов',
+};
+
+const TARGET_HINT: Record<Exclude<ProgressUnit, 'percent'>, string> = {
+  pages: 'Например, 340',
+  lessons: 'Например, 20',
+  hours: 'Например, 40',
+};
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -39,6 +53,7 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
   const [targetStr, setTargetStr] = useState(
     item && item.progressUnit !== 'percent' ? String(item.progressTarget) : '',
   );
+  const [due, setDue] = useState(item?.dueDate ?? '');
   const [goalId, setGoalId] = useState(item?.goalId ?? '');
   const [notes, setNotes] = useState(item?.notes ?? '');
 
@@ -71,6 +86,7 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
         progressUnit: unit,
         progressTarget,
         notes: notes.trim(),
+        dueDate: due || null,
       };
       if (item) {
         const changes: Partial<Omit<LearningItem, 'id' | 'createdAt'>> = {
@@ -157,23 +173,36 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
               { value: 'percent', label: t('%') },
               { value: 'pages', label: t('Страницы') },
               { value: 'lessons', label: t('Уроки') },
+              { value: 'hours', label: t('Часы') },
             ]}
             value={unit}
             onChange={setUnit}
           />
         </Field>
         {unit !== 'percent' && (
-          <Field label={unit === 'pages' ? t('Всего страниц') : t('Всего уроков')}>
+          <Field label={t(TARGET_LABEL[unit])}>
             <Input
               type="number"
               inputMode="numeric"
               min={1}
               value={targetStr}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setTargetStr(e.target.value)}
-              placeholder={unit === 'pages' ? t('Например, 340') : t('Например, 20')}
+              placeholder={t(TARGET_HINT[unit])}
             />
           </Field>
         )}
+        <Field label={t('Успеть до')}>
+          <Input
+            type="date"
+            value={due}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setDue(e.target.value)}
+          />
+          <p className="mt-1.5 px-1 text-xs text-muted">
+            {t(
+              'Со сроком приложение считает, сколько нужно в неделю, и предупреждает, когда начинаешь отставать.',
+            )}
+          </p>
+        </Field>
         <Field label={t('Цель')}>
           <Select
             value={goalId}

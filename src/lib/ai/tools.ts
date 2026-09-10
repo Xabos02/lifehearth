@@ -15,7 +15,7 @@
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { monthlyAmount } from '../finance';
-import type { Habit, Task } from '../../db/types';
+import type { Habit, LearningItem, Task } from '../../db/types';
 
 /** След вызова для интерфейса: что читали и сколько нашли.
  *  Храним машинно (имя + число), подпись рендерится на языке зрителя. */
@@ -372,6 +372,15 @@ async function runListGoals(): Promise<ToolResult> {
   return { text: JSON.stringify({ goals: rows }), count: rows.length };
 }
 
+/** Единицы прогресса словами: ассистент пересказывает это человеку, и
+ *  «5/10 lessons» посреди русского ответа выглядит machine-generated. */
+const LEARNING_UNITS: Record<LearningItem['progressUnit'], string> = {
+  percent: '%',
+  pages: 'стр.',
+  lessons: 'уроков',
+  hours: 'ч',
+};
+
 async function runListLearning(): Promise<ToolResult> {
   const items = alive(await db.learningItems.toArray());
   const rows = items.map((i) => ({
@@ -379,7 +388,8 @@ async function runListLearning(): Promise<ToolResult> {
     author: i.author || undefined,
     kind: i.kind,
     status: i.status,
-    progress: `${i.progressCurrent}/${i.progressTarget} ${i.progressUnit}`,
+    progress: `${i.progressCurrent}/${i.progressTarget} ${LEARNING_UNITS[i.progressUnit]}`,
+    dueDate: i.dueDate || undefined,
   }));
   return { text: JSON.stringify({ items: rows }), count: rows.length };
 }

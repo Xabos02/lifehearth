@@ -63,6 +63,7 @@ const SYNCED_TABLES = [
   'noteFolders',
   'learningItems',
   'learningLogs',
+  'learningParts',
   'expenseItems',
   'savingsGoals',
   'savingsDeposits',

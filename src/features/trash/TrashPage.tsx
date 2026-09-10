@@ -96,9 +96,11 @@ export function TrashPage() {
     if (!window.confirm(t('Удалить навсегда?'))) return;
     busyRef.current = true;
     try {
-      // Каскадно убираем дочерние логи, иначе они остаются мусором в БД и бэкапе.
+      // Каскадно убираем дочерние логи и части плана, иначе они остаются
+      // мусором в БД и бэкапе.
       if (entry.tableName === 'learningItems') {
         await db.learningLogs.where('itemId').equals(entry.id).delete();
+        await db.learningParts.where('itemId').equals(entry.id).delete();
       }
       // Чанки файлов-вложений заметки: пока заметка лежала в корзине, они
       // оставались живыми (иначе восстановление вернуло бы её без файлов).

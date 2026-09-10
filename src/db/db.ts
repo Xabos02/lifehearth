@@ -11,6 +11,7 @@ import type {
   NoteFolder,
   LearningItem,
   LearningLog,
+  LearningPart,
   ExpenseItem,
   SavingsGoal,
   SavingsDeposit,
@@ -40,7 +41,7 @@ import type {
   SymptomDef,
 } from './cycleTypes';
 
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
 export class LifeHearthDB extends Dexie {
   projects!: Table<Project, string>;
@@ -53,6 +54,7 @@ export class LifeHearthDB extends Dexie {
   noteFolders!: Table<NoteFolder, string>;
   learningItems!: Table<LearningItem, string>;
   learningLogs!: Table<LearningLog, string>;
+  learningParts!: Table<LearningPart, string>;
   expenseItems!: Table<ExpenseItem, string>;
   savingsGoals!: Table<SavingsGoal, string>;
   savingsDeposits!: Table<SavingsDeposit, string>;
@@ -371,6 +373,20 @@ export class LifeHearthDB extends Dexie {
     // свежие записи (без него push падает с ошибкой схемы).
     this.version(20).stores({
       taskPhotos: 'id, taskId, photoId, updatedAt',
+    });
+
+    // v21 — у материала обучения появляется план: список частей своей таблицей.
+    //
+    // Не массивом внутри материала, хотя так было бы на четыре строки короче.
+    // Синхронизация разрешает конфликты по `updatedAt` ЦЕЛОЙ строки и кладёт
+    // её через put целиком: план из шестидесяти частей уезжал бы к тому
+    // устройству, что сохранило последним, вместе со всеми чужими галочками.
+    // Отдельные строки расходятся по одной — теряется отметка, а не план.
+    //
+    // Индексы: itemId — собрать план одного материала; updatedAt — обязателен,
+    // по нему push ищет свежие записи (без него падает весь обмен).
+    this.version(21).stores({
+      learningParts: 'id, itemId, updatedAt',
     });
   }
 }

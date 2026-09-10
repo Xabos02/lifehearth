@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body{margin:0;background:oklch(0.168 0.013 283);font-family:Inter,-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif}
+    a{color:oklch(0.72 0.18 264)}a:hover{color:oklch(0.78 0.18 264)}
+    .screen{width:375px;height:812px;background:oklch(0.168 0.013 283);color:oklch(0.965 0.006 286);
+      display:flex;flex-direction:column;overflow:hidden;position:relative;font-size:17px;line-height:1.45}
+    .head{position:relative;padding:14px 16px 12px;display:flex;align-items:center;gap:10px;
+      border-bottom:1px solid oklch(1 0 0 / 0.06);background:oklch(0.168 0.013 283)}
+    .h1{font-size:20px;line-height:1.25;font-weight:600;letter-spacing:-0.01em;margin:0;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sub{font-size:13px;color:oklch(0.675 0.022 282);margin:1px 0 0}
+    .feed{position:relative;flex:1;padding:12px 16px 16px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+    .card{background:oklch(0.214 0.016 284);border:1px solid oklch(1 0 0 / 0.06);border-radius:16px}
+    .sec{display:flex;align-items:baseline;gap:8px;padding:0 2px 8px}
+    .sec h2{font-size:15px;font-weight:600;margin:0}
+    .sec span{font-size:12px;color:oklch(0.675 0.022 282);margin-left:auto;font-variant-numeric:tabular-nums}
+    .mod{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid oklch(1 0 0 / 0.06)}
+    .mod:last-child{border-bottom:0}
+    .mname{font-size:15px;font-weight:600;margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .mmeta{font-size:12px;color:oklch(0.675 0.022 282);font-variant-numeric:tabular-nums;flex:none}
+    .mbar{width:52px;height:5px;border-radius:999px;background:oklch(0.32 0.018 284);overflow:hidden;flex:none}
+    .mbar i{display:block;height:100%;background:oklch(0.80 0.16 158);border-radius:999px}
+    .items{padding:0 0 6px}
+    .row{display:flex;align-items:center;gap:12px;padding:11px 14px 11px 40px}
+    .box{width:22px;height:22px;border-radius:7px;border:2px solid oklch(0.675 0.022 282);flex:none;
+      display:flex;align-items:center;justify-content:center}
+    .box.on{background:oklch(0.80 0.16 158);border-color:oklch(0.80 0.16 158)}
+    .rt{font-size:15px;margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .rt.done{color:oklch(0.675 0.022 282);text-decoration:line-through}
+    .est{font-size:12px;color:oklch(0.675 0.022 282);font-variant-numeric:tabular-nums;flex:none}
+    .lrow{display:flex;align-items:baseline;gap:12px;padding:10px 14px;border-bottom:1px solid oklch(1 0 0 / 0.06)}
+    .lrow:last-child{border-bottom:0}
+    .ld{font-size:13px;color:oklch(0.675 0.022 282);font-variant-numeric:tabular-nums;width:56px;flex:none}
+    .lh{font-size:15px;font-weight:600;color:oklch(0.72 0.18 264);font-variant-numeric:tabular-nums;width:44px;flex:none}
+    .ln{font-size:14px;color:oklch(0.675 0.022 282);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .week{display:flex;gap:5px;padding:12px 14px 14px;align-items:flex-end}
+    .day{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+    .col{width:100%;border-radius:5px;background:oklch(0.32 0.018 284)}
+    .day span{font-size:11px;color:oklch(0.675 0.022 282)}
+  </style>
+</helmet>
+
+<div class="screen">
+  <div class="head">
+    <span style="color:oklch(0.675 0.022 282)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></span>
+    <div style="min-width:0;flex:1">
+      <h1 class="h1">МВА GLOBAL</h1>
+      <p class="sub">Курс · до 5 марта 2027</p>
+    </div>
+    <span style="color:oklch(0.675 0.022 282)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4Z"/></svg></span>
+  </div>
+
+  <div class="feed">
+    <div>
+      <div class="sec"><h2>План курса</h2><span>4 из 66 · 307 ч</span></div>
+      <div class="card">
+        <div class="mod">
+          <span style="color:oklch(0.675 0.022 282);flex:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+          <p class="mname">Операционная эффективность</p>
+          <span class="mmeta">5,4 / 19,7 ч</span>
+          <span class="mbar"><i style="width:27%"></i></span>
+        </div>
+        <div class="items">
+          <div class="row">
+            <span class="box on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(0.168 0.013 283)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L19 7"/></svg></span>
+            <p class="rt done">Операционный менеджмент</p>
+            <span class="est">5,4 ч</span>
+          </div>
+          <div class="row">
+            <span class="box"></span>
+            <p class="rt">Управление проектами</p>
+            <span class="est">7,1 ч</span>
+          </div>
+          <div class="row">
+            <span class="box"></span>
+            <p class="rt">Современные инструменты</p>
+            <span class="est">4,2 ч</span>
+          </div>
+          <div class="row">
+            <span class="box"></span>
+            <p class="rt">Практический кейс</p>
+            <span class="est">3 ч</span>
+          </div>
+        </div>
+        <div class="mod">
+          <span style="color:oklch(0.675 0.022 282);flex:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+          <p class="mname">Предпринимательство</p>
+          <span class="mmeta">0 / 16,1 ч</span>
+          <span class="mbar"><i style="width:0%"></i></span>
+        </div>
+        <div class="mod">
+          <span style="color:oklch(0.675 0.022 282);flex:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+          <p class="mname">Человеческие ресурсы</p>
+          <span class="mmeta">0 / 15,1 ч</span>
+          <span class="mbar"><i style="width:0%"></i></span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec"><h2>Занятия</h2><span>5,5 ч на этой неделе</span></div>
+      <div class="card">
+        <div class="week">
+          <div class="day"><span class="col" style="height:34px;background:oklch(0.562 0.18 264)"></span><span>пн</span></div>
+          <div class="day"><span class="col" style="height:4px"></span><span>вт</span></div>
+          <div class="day"><span class="col" style="height:68px;background:oklch(0.562 0.18 264)"></span><span>ср</span></div>
+          <div class="day"><span class="col" style="height:23px;background:oklch(0.562 0.18 264)"></span><span>чт</span></div>
+          <div class="day"><span class="col" style="height:4px"></span><span>пт</span></div>
+          <div class="day"><span class="col" style="height:4px"></span><span>сб</span></div>
+          <div class="day"><span class="col" style="height:4px"></span><span>вс</span></div>
+        </div>
+        <div class="lrow">
+          <span class="ld">сегодня</span>
+          <span class="lh">1 ч</span>
+          <span class="ln">Тема 6, методологии</span>
+        </div>
+        <div class="lrow">
+          <span class="ld">вчера</span>
+          <span class="lh">3 ч</span>
+          <span class="ln">Лекции 6.1 и 6.2</span>
+        </div>
+        <div class="lrow">
+          <span class="ld">07.09</span>
+          <span class="lh">1,5 ч</span>
+          <span class="ln">Лекции 5.1 и 5.2</span>
+        </div>
+        <div class="lrow">
+          <span class="ld">05.09</span>
+          <span class="lh">2 ч</span>
+          <span class="ln">Проектная документация</span>
+        </div>
+        <div class="lrow">
+          <span class="ld">02.09</span>
+          <span class="lh">1 ч</span>
+          <span class="ln">Без заметки</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

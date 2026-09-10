@@ -15,3 +15,4 @@ pw.chrome.config.ts
 # пересобирается helper'ом скилла /design из design/*.dc.html и canvas.json.
 # В истории держим только исходники артбордов.
 design/lifehearth-interface.html
+design/learning/obuchenie-pod-srok.html

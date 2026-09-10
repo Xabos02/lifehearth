@@ -26,6 +26,7 @@ import { ProfilePage } from './features/home/ProfilePage';
 import { NotesPage } from './features/notes/NotesPage';
 import { NoteEditorPage } from './features/notes/NoteEditorPage';
 import { LearningPage } from './features/learning/LearningPage';
+import { LearningItemPage } from './features/learning/LearningItemPage';
 import { FinancePage } from './features/finance/FinancePage';
 import { EnergyPage } from './features/energy/EnergyPage';
 import { HabitsPage } from './features/habits/HabitsPage';
@@ -210,6 +211,7 @@ export default function App() {
                 <Route path="/more/ai" element={<AiPage />} />
                 <Route path="/more/focus" element={<FocusPage />} />
                 <Route path="/more/learning" element={<LearningPage />} />
+                <Route path="/more/learning/:id" element={<LearningItemPage />} />
                 <Route path="/more/finance" element={<FinancePage />} />
                 <Route path="/more/energy" element={<EnergyPage />} />
                 <Route path="/more/habits" element={<HabitsPage />} />

@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body{margin:0;background:oklch(0.168 0.013 283);font-family:Inter,-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif}
+    a{color:oklch(0.72 0.18 264)}a:hover{color:oklch(0.78 0.18 264)}
+    .screen{width:375px;height:812px;background:oklch(0.168 0.013 283);color:oklch(0.965 0.006 286);
+      display:flex;flex-direction:column;overflow:hidden;position:relative;font-size:17px;line-height:1.45}
+    .aurora{position:absolute;inset:0;pointer-events:none;
+      background-image:radial-gradient(78% 48% at 12% -6%, oklch(0.62 0.12 268 / 0.12), transparent 58%),
+        radial-gradient(72% 46% at 96% -2%, oklch(0.62 0.11 282 / 0.08), transparent 56%),
+        radial-gradient(130% 75% at 50% -12%, oklch(0.26 0.03 286 / 0.45), transparent 72%)}
+    .head{position:relative;padding:14px 16px 12px;display:flex;align-items:center;gap:10px;
+      border-bottom:1px solid oklch(1 0 0 / 0.06)}
+    .h1{font-size:26px;line-height:1.15;font-weight:700;letter-spacing:-0.015em;margin:0;flex:1}
+    .feed{position:relative;flex:1;padding:12px 16px 0;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+    .seg{display:flex;gap:2px;padding:3px;background:oklch(0.258 0.018 284);border-radius:12px}
+    .seg span{flex:1;text-align:center;font-size:14px;font-weight:500;padding:7px 0;border-radius:9px;color:oklch(0.675 0.022 282)}
+    .seg span.on{background:oklch(0.214 0.016 284);color:oklch(0.965 0.006 286);font-weight:600}
+    .card{background:oklch(0.214 0.016 284);border:1px solid oklch(1 0 0 / 0.06);border-radius:16px;padding:14px}
+    .top{display:flex;align-items:flex-start;gap:12px}
+    .tile{width:40px;height:40px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;
+      background-image:linear-gradient(150deg, color-mix(in oklab, oklch(0.72 0.18 264) 20%, oklch(0.214 0.016 284)), color-mix(in oklab, oklch(0.72 0.18 264) 8%, oklch(0.214 0.016 284)));border:1px solid color-mix(in oklab, oklch(0.72 0.18 264) 24%, transparent);color:oklch(0.72 0.18 264)}
+    .title{font-size:17px;font-weight:600;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .author{font-size:13px;color:oklch(0.675 0.022 282);margin:1px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .due{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;flex:none;padding-top:2px}
+    .bar{height:6px;width:100%;background:oklch(0.32 0.018 284);border-radius:999px;position:relative;margin-top:12px}
+    .bar i{display:block;height:100%;border-radius:999px}
+    .bar{isolation:isolate}
+    .bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:oklch(0.965 0.006 286);opacity:0.55}
+    .under{display:flex;align-items:center;gap:8px;margin-top:7px}
+    .pace{font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px}
+    .amount{font-size:12px;color:oklch(0.675 0.022 282);margin-left:auto;font-variant-numeric:tabular-nums}
+    .step{display:flex;align-items:center;gap:8px;margin-top:12px}
+    .sbtn{width:44px;height:44px;border-radius:12px;background:oklch(0.258 0.018 284);display:flex;align-items:center;justify-content:center;color:oklch(0.965 0.006 286)}
+    .sval{min-width:64px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;font-size:17px}
+    .slog{margin-left:auto;height:44px;padding:0 14px;border-radius:12px;background:oklch(0.258 0.018 284);
+      display:flex;align-items:center;gap:7px;font-size:14px;font-weight:600}
+    .tabbar{position:relative;display:flex;border-top:1px solid oklch(1 0 0 / 0.06);background:oklch(0.236 0.018 284);padding:8px 0 10px}
+    .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:oklch(0.675 0.022 282);font-weight:500}
+    .tab.on{color:oklch(0.72 0.18 264);font-weight:600}
+    .strip{position:relative;height:68px;flex:none}
+    .fab{position:absolute;right:20px;bottom:16px;width:56px;height:56px;border-radius:999px;background:oklch(0.562 0.18 264);
+      display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);color:#fff}
+  </style>
+</helmet>
+
+<div class="screen">
+  <div class="aurora"></div>
+
+  <div class="head">
+    <span class="muted" style="color:oklch(0.675 0.022 282)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></span>
+    <h1 class="h1">Обучение</h1>
+  </div>
+
+  <div class="feed">
+    <div class="seg">
+      <span class="on">В процессе</span>
+      <span>В планах</span>
+      <span>Завершено</span>
+    </div>
+
+    <div class="card">
+      <div class="top">
+        <span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 8 9-4 9 4-9 4-9-4Z"/><path d="M7 10v5c0 1.1 2.2 2 5 2s5-.9 5-2v-5"/></svg></span>
+        <div style="min-width:0;flex:1">
+          <p class="title">МВА GLOBAL</p>
+          <p class="author">Moscow Business Academy</p>
+        </div>
+        <span class="due" style="color:oklch(0.83 0.135 80)">176 дн.</span>
+      </div>
+      <div class="bar">
+        <i style="width:12%;background:oklch(0.80 0.16 158)"></i>
+        <u style="left:15%"></u>
+      </div>
+      <div class="under">
+        <span class="pace" style="color:oklch(0.83 0.135 80)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5"/><path d="M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg>
+          Отстаёшь на 10 ч
+        </span>
+        <span class="amount">12,2 ч в неделю</span>
+      </div>
+      <div class="step">
+        <span class="sbtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 12h14"/></svg></span>
+        <span class="sval">4 <small style="font-size:13px;font-weight:500;color:oklch(0.675 0.022 282)">ч</small></span>
+        <span class="sbtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+        <span class="slog">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          2 ч
+        </span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="top">
+        <span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5V5.5Z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H19v3H6.5A2.5 2.5 0 0 1 4 20.5Z"/></svg></span>
+        <div style="min-width:0;flex:1">
+          <p class="title">Психология влияния</p>
+          <p class="author">Роберт Чалдини</p>
+        </div>
+        <span class="due" style="color:oklch(0.675 0.022 282)">12 дн.</span>
+      </div>
+      <div class="bar">
+        <i style="width:64%;background:oklch(0.80 0.16 158)"></i>
+        <u style="left:58%"></u>
+      </div>
+      <div class="under">
+        <span class="pace" style="color:oklch(0.80 0.16 158)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L19 7"/></svg>
+          Идёшь по графику
+        </span>
+        <span class="amount">стр. 224 из 350</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="top">
+        <span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M9 4v2M6 14c3.5-1 5.5-4 6-8"/><path d="M6 8c1.5 3.5 4 5.5 8 6"/><path d="m13 20 4-9 4 9M14.5 17h5"/></svg></span>
+        <div style="min-width:0;flex:1">
+          <p class="title">Английский</p>
+          <p class="author">Уровень B2</p>
+        </div>
+      </div>
+      <div class="bar"><i style="width:35%;background:oklch(0.562 0.18 264)"></i></div>
+      <div class="under">
+        <span class="pace" style="color:oklch(0.675 0.022 282)">Без срока</span>
+        <span class="amount">35%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="strip"><div class="fab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div></div>
+
+  <div class="tabbar">
+    <div class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-7 9 7v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>Главная</div>
+    <div class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Задачи</div>
+    <div class="tab on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 8 9-4 9 4-9 4-9-4Z"/><path d="M7 10v5c0 1.1 2.2 2 5 2s5-.9 5-2v-5"/></svg>Обучение</div>
+    <div class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 9v6"/></svg>Ещё</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

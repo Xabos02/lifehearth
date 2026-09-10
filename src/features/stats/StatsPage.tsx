@@ -19,6 +19,7 @@ import { useToast } from '../../components/ui/toastContext';
 import { IconButton } from '../../components/ui/IconButton';
 import { StatCard } from '../../components/ui/StatCard';
 import { EnergyStatsCard } from '../energy/EnergyStatsCard';
+import { compactDuration, formatDuration } from '../../lib/duration';
 import { t } from '../../lib/i18n';
 import {
   GStats as ChartColumnBig,
@@ -110,22 +111,6 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
     completionRate: closed === 0 ? 0 : Math.round((completed / closed) * 100),
     avgChecklist: checkTotal === 0 ? 0 : Math.round((checkDone / checkTotal) * 100),
   };
-}
-
-/** Человекочитаемая длительность: «45м», «1ч», «1ч 30м». */
-function formatDuration(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  if (h === 0) return t('{m}\u00A0мин', { m });
-  return m === 0 ? t('{h}\u00A0ч', { h }) : t('{h}\u00A0ч {m}\u00A0мин', { h, m });
-}
-
-/** Компактная подпись столбца графика: «45м», «2ч», «1.5ч». */
-function compactDuration(min: number): string {
-  if (min === 0) return '';
-  if (min < 60) return t('{m}\u00A0мин', { m: min });
-  const h = min / 60;
-  return t('{h}ч', { h: Number.isInteger(h) ? h : h.toFixed(1) });
 }
 
 interface TaskTimeStats {
