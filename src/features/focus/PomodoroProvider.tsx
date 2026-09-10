@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { todayKey } from '../../lib/dates';
 import { schedulePush, cancelPush } from '../../lib/push';
-import { Ctx, type Phase, type PomodoroCtx, type SoundType } from './pomodoro';
+import { TimeCtx, Ctx, type Phase, type PomodoroCtx, type SoundType } from './pomodoro';
 import { t } from '../../lib/i18n';
 
 // Помодоро-таймер на основе timestamp (endsAt) — корректно показывает остаток
@@ -413,35 +413,70 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
 
   const active = s.running || s.remainingMs < total || s.phase !== 'work';
 
+  // Действия и редкие поля — отдельным значением, в useMemo.
+  //
+  // Тик таймера идёт дважды в секунду. Пока значение было одно и собиралось
+  // заново на каждый рендер, вместе с ним перерисовывался каждый подписчик:
+  // форма задачи, кнопка «+», всё поддерево. Владелец видел это как «дёргается
+  // экран во время письма продолжительного» — он печатал, а под пальцами
+  // дважды в секунду пересобиралась форма.
+  //
+  // Теперь тикающее время уехало в свой провайдер (ниже), а здесь остаётся то,
+  // что меняется по делу: фаза, флаги, настройки, действия.
+  const actions = useMemo(
+    () => ({
+      phase: s.phase,
+      running: s.running,
+      totalMs: total,
+      taskId: s.taskId,
+      taskTitle: s.taskTitle,
+      completedToday: s.completedToday,
+      focusMinToday: s.focusMinToday,
+      workMin: s.workMin,
+      breakMin: s.breakMin,
+      longMin: s.longMin,
+      sound: s.sound,
+      active,
+      start,
+      toggle,
+      reset,
+      skip,
+      setDurations,
+      setWorkMin,
+      setBreakMin,
+      setLongMin,
+      setTask,
+      setSound,
+    }),
+    [
+      s.phase,
+      s.running,
+      total,
+      s.taskId,
+      s.taskTitle,
+      s.completedToday,
+      s.focusMinToday,
+      s.workMin,
+      s.breakMin,
+      s.longMin,
+      s.sound,
+      active,
+      start,
+      toggle,
+      reset,
+      skip,
+      setDurations,
+      setWorkMin,
+      setBreakMin,
+      setLongMin,
+      setTask,
+      setSound,
+    ],
+  );
+
   return (
-    <Ctx.Provider
-      value={{
-        phase: s.phase,
-        running: s.running,
-        remainingMs,
-        totalMs: total,
-        taskId: s.taskId,
-        taskTitle: s.taskTitle,
-        completedToday: s.completedToday,
-        focusMinToday: s.focusMinToday,
-        workMin: s.workMin,
-        breakMin: s.breakMin,
-        longMin: s.longMin,
-        sound: s.sound,
-        active,
-        start,
-        toggle,
-        reset,
-        skip,
-        setDurations,
-        setWorkMin,
-        setBreakMin,
-        setLongMin,
-        setTask,
-        setSound,
-      }}
-    >
-      {children}
+    <Ctx.Provider value={actions}>
+      <TimeCtx.Provider value={remainingMs}>{children}</TimeCtx.Provider>
     </Ctx.Provider>
   );
 }

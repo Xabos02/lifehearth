@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
 import {
   GPlus as Plus,
 } from '../../components/ui/glyphs';
-import { usePomodoro } from '../../features/focus/pomodoro';
+import { usePomodoroActions } from '../../features/focus/pomodoro';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { t } from '../../lib/i18n';
 import { ICON, STROKE_HEAVY } from '../ui/icons';
@@ -61,7 +61,8 @@ let mounted = 0;
  *  (возвращаясь при движении вверх, кнопка вставала на то же место) и ценой
  *  того, что кнопка пропадала без причины. */
 export function Fab({ onClick, label }: Props) {
-  const { active } = usePomodoro();
+  // Без тикающего времени: кнопке нужен только флаг «идёт сеанс».
+  const { active } = usePomodoroActions();
   const settings = useSettings();
   const saved = settings.fabPosition ?? null;
 

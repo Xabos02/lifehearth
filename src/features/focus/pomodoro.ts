@@ -34,11 +34,39 @@ export interface PomodoroCtx {
   setSound: (sound: SoundType) => void;
 }
 
-export const Ctx = createContext<PomodoroCtx | null>(null);
+// Два контекста, а не один, — из-за цены тика.
+//
+// Пока таймер идёт, оставшееся время меняется дважды в секунду. Значение
+// контекста при этом пересобиралось целиком, и вместе с ним перерисовывался
+// КАЖДЫЙ, кто подписан, — включая форму задачи и кнопку «+», которым от
+// таймера нужны только действия. Владелец это заметил как «дёргается экран
+// приложения во время письма продолжительного»: он печатал длинный текст, а
+// шёл сеанс фокуса, и форма под его пальцами пересобиралась каждые полсекунды.
+//
+// Поэтому тикающее живёт отдельно: подписался на время — перерисовываешься по
+// тику (это честно, ты его показываешь); подписался на действия — не
+// перерисовываешься вовсе.
+export type PomodoroActions = Omit<PomodoroCtx, 'remainingMs'>;
 
+export const Ctx = createContext<PomodoroActions | null>(null);
+/** Только оставшееся время. Меняется дважды в секунду. */
+export const TimeCtx = createContext<number>(0);
+
+/** Всё вместе — для тех, кто ПОКАЗЫВАЕТ время (таймер, экран «Фокус»). */
 export function usePomodoro(): PomodoroCtx {
   const c = useContext(Ctx);
+  const remainingMs = useContext(TimeCtx);
   if (!c) throw new Error('usePomodoro must be used within PomodoroProvider');
+  return { ...c, remainingMs };
+}
+
+/** Действия и редкие поля, без тикающего времени.
+ *
+ *  Для тех, кому таймер нужен как кнопка, а не как часы: форма задачи, «+».
+ *  Подписка отсюда не даёт ни одной лишней перерисовки за сеанс. */
+export function usePomodoroActions(): PomodoroActions {
+  const c = useContext(Ctx);
+  if (!c) throw new Error('usePomodoroActions must be used within PomodoroProvider');
   return c;
 }
 

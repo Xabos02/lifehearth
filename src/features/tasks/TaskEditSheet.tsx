@@ -31,7 +31,7 @@ import { compressImage } from '../../lib/image';
 import { syncTaskPhotos } from '../../lib/taskPhotos';
 import { t } from '../../lib/i18n';
 import { useAutoCapitalizeTextarea } from '../../lib/useAutoCapitalizeTextarea';
-import { usePomodoro } from '../focus/pomodoro';
+import { usePomodoroActions } from '../focus/pomodoro';
 import { ICON } from '../../components/ui/icons';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -135,7 +135,9 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
   const toast = useToast();
   const navigate = useNavigate();
-  const pomodoro = usePomodoro();
+  // Без тикающего времени: форме нужен только запуск фокуса по задаче, а подписка на
+  // время перерисовывала бы форму дважды в секунду весь сеанс.
+  const pomodoro = usePomodoroActions();
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
   // Заглавная в начале строки и после «2. » — как в заметках. Клавиатура iOS
