@@ -12,7 +12,7 @@ import { test, expect, openApp } from './fixtures';
 // Тест стоит именно поэтому: без него следующий разбор снова предложит
 // «выпрямить», и правку примут как исправление вёрстки.
 
-test('полоса подпроекта в цвет проекта, концы загнуты — так выбрал владелец', async ({ page }) => {
+test('полоса загнута слева, справа углы прямые — так выбрал владелец', async ({ page }) => {
   await openApp(page, '/tasks');
   await page.evaluate(async () => {
     const { db } = await import('/src/db/db.ts');
@@ -33,13 +33,19 @@ test('полоса подпроекта в цвет проекта, концы �
       leftColor: s.borderLeftColor,
       topLeft: s.borderTopLeftRadius,
       bottomLeft: s.borderBottomLeftRadius,
+      topRight: s.borderTopRightRadius,
+      bottomRight: s.borderBottomRightRadius,
     };
   });
 
   // Полоса на месте и покрашена цветом проекта.
   expect(rail.leftWidth).toBe('2px');
   expect(rail.leftColor).toBe('rgb(239, 68, 68)');
-  // И концы у неё загнуты — 16px, вариант «А» из показанных трёх.
+  // Концы полосы загнуты — 16px, вариант «А» из трёх показанных владельцу.
   expect(rail.topLeft).toBe('16px');
   expect(rail.bottomLeft).toBe('16px');
+  // А справа скруглений нет: там ничего не нарисовано, но углы всё равно
+  // проступали еле заметными дугами на экране владельца.
+  expect(rail.topRight).toBe('0px');
+  expect(rail.bottomRight).toBe('0px');
 });
