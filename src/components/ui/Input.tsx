@@ -56,20 +56,38 @@ export function Input({
   ref?: Ref<HTMLInputElement>;
 }) {
   const showClear = Boolean(onClear) && typeof props.value === 'string' && props.value.length > 0;
+  // Пустое поле даты обязано ВЫГЛЯДЕТЬ пустым.
+  //
+  // WebKit рисует в незаполненном поле даты сегодняшнее число — бледно, но
+  // цифрами, — и поле читается как заполненное. Владелец так и решил, что у
+  // новой задачи уже стоит срок, жал «Убрать» и не понимал, почему дата не
+  // уходит: убирать было нечего, поле и так пустое. Chromium в том же месте
+  // показывает «дд.мм.гггг» — понятнее, но всё равно не «пусто».
+  //
+  // Поэтому: нативный текст в пустом поле прячем, а на его место кладём своё
+  // слово. При фокусе прячем уже своё — иначе оно легло бы поверх сегментов,
+  // которые человек в этот момент набирает (пока дата неполная, value пуст,
+  // и класс сам не снимется).
+  const isEmptyDate = props.type === 'date' && !props.value;
   const input = (
     <input
-      className={`${base} ${className}`}
+      className={`${base} ${isEmptyDate ? 'date-empty ' : ''}${className}`}
       // Инлайн-отступ (а не класс pl-10): гарантированно перебивает любые
       // px-* из className независимо от порядка утилит в собранном CSS.
       style={showClear ? { ...style, paddingLeft: '2.5rem' } : style}
       {...props}
     />
   );
-  if (!onClear) return input;
+  if (!onClear && !isEmptyDate) return input;
   return (
-    <div className="relative min-w-0 w-full">
-      {showClear && (
+    <div className="group relative min-w-0 w-full">
+      {showClear && onClear && (
         <ClearFieldButton onClick={onClear} className="top-1/2 -translate-y-1/2" />
+      )}
+      {isEmptyDate && (
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted group-focus-within:hidden">
+          {props.placeholder || t('Не задан')}
+        </span>
       )}
       {input}
     </div>

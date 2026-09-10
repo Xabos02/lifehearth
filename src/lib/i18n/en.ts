@@ -1274,6 +1274,7 @@ export const EN: Record<string, string> = {
   'Папка «{name}» — выберите, куда её вложить.': 'Choose where to put the “{name}” folder.',
   'Все заметки': 'All notes',
   'Новая вложенная папка': 'New subfolder',
+  'Не задан': 'Not set',
   'Новая папка': 'New folder',
   'Ничего не найдено': 'Nothing found',
   'Попробуйте другой запрос': 'Try a different search',
