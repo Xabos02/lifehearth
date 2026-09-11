@@ -1410,6 +1410,8 @@ export const EN: Record<string, string> = {
   'Временная': 'One-off',
   'Соберётся отдельной группой внизу проекта': 'Grouped separately at the bottom of the project',
   'Временные задачи отдельно': 'Group one-off tasks',
+  'Глубже трёх уровней не поместится': 'Deeper than three levels will not fit',
+  'Нельзя вложить проект в его же подпроект': 'A project cannot go inside its own subproject',
   'Внутри уже есть подпроекты — вложить нельзя': 'It already has subprojects — cannot nest',
   'Внутрь «{name}», в конец': 'Into “{name}”, at the end',
   'Перечитать всё заново': 'Re-sync everything',
@@ -1539,6 +1541,8 @@ export const EN: Record<string, string> = {
   'Например, «Ремонт»': 'e.g. "Renovation"',
   'Эмодзи': 'Emoji',
   'Внутри проекта': 'Inside project',
+  'Внутри уже три уровня подпроектов — глубже не поместится. Можно оставить наверху.':
+    'It already has three levels of subprojects — deeper will not fit. It can stay at the top.',
   'У этого проекта есть подпроекты — его нельзя вложить в другой.':
     "This project has subprojects, so it can't be nested inside another one.",
   'Верхний уровень': 'Top level',

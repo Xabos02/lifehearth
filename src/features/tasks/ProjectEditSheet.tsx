@@ -12,6 +12,7 @@ import { AutoGrowTextarea, Field, Input, Select } from '../../components/ui/Inpu
 import { PRESET_COLORS } from '../../lib/colors';
 import { ICON, STROKE } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
+import { depthOf, parentCandidates } from './projectTree';
 
 /** Шит создания/редактирования проекта. project=null → создание.
  *  defaults.parentId — предзаполненный родитель («+ Подпроект» из секции). */
@@ -54,11 +55,15 @@ function ProjectEditForm({
     project ? (project.parentId ?? null) : (defaults?.parentId ?? null),
   );
 
-  // У этого проекта уже есть подпроекты? Тогда его нельзя вложить в другой —
-  // глубина ограничена двумя уровнями (проект → подпроекты).
-  const hasChildren = Boolean(project) && allProjects.some((p) => p.parentId === project?.id);
-  // Кандидаты в родители: только проекты верхнего уровня, кроме самого себя.
-  const parentOptions = allProjects.filter((p) => !p.parentId && p.id !== project?.id);
+  // Кандидаты в родители — по правилам дерева (projectTree.ts): не сам, не
+  // собственный потомок (иначе кольцо), и чтобы поддерево влезло в три
+  // уровня. До 11.09.2026 здесь стоял запрет «есть подпроекты — вложить
+  // нельзя»; владелец попросил переносить проект вместе с ними.
+  const parentOptions = parentCandidates(allProjects, project?.id ?? null);
+  // Проект, которому некуда переехать: слишком высокое поддерево. Честно
+  // говорим почему, вместо пустого списка.
+  const tooTall =
+    Boolean(project) && parentOptions.length === 0 && allProjects.some((p) => p.id !== project?.id);
 
   const savingRef = useRef(false);
   const handleSave = async () => {
@@ -69,7 +74,7 @@ function ProjectEditForm({
         name: name.trim(),
         emoji: emoji.trim() || '📁',
         color,
-        parentId: hasChildren ? null : parentId,
+        parentId,
       };
       if (project) {
         await update(db.projects, project.id, data);
@@ -117,15 +122,17 @@ function ProjectEditForm({
 
         <div>
           <span className="mb-1.5 block text-sm font-medium text-muted">{t('Внутри проекта')}</span>
-          {hasChildren ? (
+          {tooTall ? (
             <p className="rounded-xl bg-surface-2 px-3.5 py-3 text-sm text-muted">
-              {t('У этого проекта есть подпроекты — его нельзя вложить в другой.')}
+              {t('Внутри уже три уровня подпроектов — глубже не поместится. Можно оставить наверху.')}
             </p>
           ) : (
             <Select value={parentId ?? ''} onChange={(e) => setParentId(e.target.value || null)}>
               <option value="">{t('Верхний уровень')}</option>
               {parentOptions.map((p) => (
                 <option key={p.id} value={p.id}>
+                  {/* Отступ по глубине, чтобы в списке было видно, кто в ком. */}
+                  {'\u00A0\u00A0'.repeat(depthOf(allProjects, p.id) - 1)}
                   {p.emoji} {p.name}
                 </option>
               ))}

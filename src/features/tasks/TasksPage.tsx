@@ -55,8 +55,10 @@ import {
   placeGhost,
   getScrollParent,
   pruneDetachedSections,
+  MAX_DEPTH,
 } from './dragTuning';
 import { useHoldToReorder } from './useHoldToReorder';
+import { nestRefusal } from './projectTree';
 import {
   AddTaskRow,
   CompletedSubsection,
@@ -353,6 +355,10 @@ export function TasksPage() {
   // уровень по вертикали было бы гаданием: между «после проекта Бизнес» и
   // «первым подпроектом внутри Бизнеса» одна и та же точка на экране.
   const [dropParent, setDropParent] = useState<string | null>(null);
+  // Над кем стоит палец при сдвиге вправо, когда вложить туда нельзя, —
+  // чтобы подпись на плашке назвала причину, а не молчала «Поменяет порядок».
+  const [hoveredForRefusal, setHoveredForRefusal] = useState<string | null>(null);
+  const refusedRef = useRef<string | null>(null);
   const dropParentRef = useRef<string | null>(null);
   const projInsertRef = useRef<number | null>(null);
   // Зазор среди СВОИХ соседей — когда подпроект остаётся внутри родителя.
@@ -651,10 +657,14 @@ export function TasksPage() {
     const anySection = sectionNodes.current.values().next().value ?? null;
     const scroller = getScrollParent(anySection);
 
-    // У проекта, внутри которого уже лежат подпроекты, вкладывать некуда:
-    // уровней ровно два, и третий превратил бы список в дерево, по которому на
-    // телефоне не попасть пальцем.
-    const canNest = (childrenRef.current.get(dp.id) ?? []).length === 0;
+    // Можно ли вложить в конкретную цель — решают правила дерева
+    // (projectTree.ts): не в себя, не в потомка, и чтобы поддерево влезло в
+    // три уровня. До 11.09.2026 проект с подпроектами не вкладывался никуда;
+    // владелец попросил переносить его вместе с ними. Жестом цель — по-прежнему
+    // проект верхнего уровня (hovered ищется среди них), третий уровень
+    // достижим через форму проекта.
+    const allProjects = [...projectsRef.current, ...[...childrenRef.current.values()].flat()];
+    const canNestInto = (targetId: string) => nestRefusal(allProjects, dp.id, targetId) === null;
 
     const refreshDrop = (x: number, y: number) => {
       // Зазор вставки = сколько проектов верхнего уровня своей серединой выше
@@ -683,7 +693,7 @@ export function TasksPage() {
       // прежним: человек просто двигает по вертикали.
       const dx = x - startXRef.current;
       const parent =
-        dx > NEST_DX && canNest && hovered
+        dx > NEST_DX && hovered && canNestInto(hovered)
           ? hovered
           : dx < -NEST_DX
             ? null
@@ -709,6 +719,11 @@ export function TasksPage() {
       if (idx !== projInsertRef.current) {
         projInsertRef.current = idx;
         setProjInsertIndex(idx);
+      }
+      const refused = dx > NEST_DX && hovered && !canNestInto(hovered) ? hovered : null;
+      if (refused !== refusedRef.current) {
+        refusedRef.current = refused;
+        setHoveredForRefusal(refused);
       }
       if (parent !== dropParentRef.current) {
         dropParentRef.current = parent;
@@ -757,6 +772,8 @@ export function TasksPage() {
       setProjInsertIndex(null);
       setSubInsertIndex(null);
       setDropParent(null);
+      refusedRef.current = null;
+      setHoveredForRefusal(null);
     };
     const finish = (e: PointerEvent) => {
       if (e.pointerId !== activePointerRef.current) return; // чужой палец
@@ -941,9 +958,13 @@ export function TasksPage() {
     // от «так нельзя» было нечем, и обе жалобы владельца — «тяжело
     // прикрепить» и «нельзя подпроект в подпроект» — приходят из этого
     // одного места.
-    const hasKids = projects.some((x) => x.parentId === draggingProject.id && !x.archivedAt);
-    if (hasKids && dropParent === was) {
-      return t('Внутри уже есть подпроекты — вложить нельзя');
+    // Отказ вложить — с причиной. hoveredRef хранит, над кем стоит палец при
+    // сдвиге вправо; если туда нельзя, dropParent остался прежним, и надо
+    // объяснить почему, а не молчать «Поменяет порядок».
+    if (dropParent === was && hoveredForRefusal) {
+      const why = nestRefusal(projects, draggingProject.id, hoveredForRefusal);
+      if (why === 'depth') return t('Глубже трёх уровней не поместится');
+      if (why === 'cycle') return t('Нельзя вложить проект в его же подпроект');
     }
     // «Останется здесь» было честно, пока подпроект внутри родителя нельзя
     // было переставить вовсе. Теперь можно — и подпись обязана говорить то же,
@@ -956,7 +977,7 @@ export function TasksPage() {
     // родителя, позиция пальца при смене уровня не учитывается вовсе. Обещать
     // место рядом значило бы дать второе невыполнимое обещание.
     return t('Внутрь «{name}», в конец', { name });
-  }, [draggingProject, dropParent, projects]);
+  }, [draggingProject, dropParent, projects, hoveredForRefusal]);
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string, Project[]>();
@@ -1076,6 +1097,72 @@ export function TasksPage() {
 
   const empty = loaded && allTasks.length === 0 && projects.length === 0;
 
+
+  /** Подпроекты родителя, рекурсивно до MAX_DEPTH.
+   *
+   *  До 11.09.2026 разметка знала ровно два уровня: topProjects.map, а в
+   *  нём subs.map — третьего физически не существовало. Владелец попросил
+   *  прикреплять проект вместе с его подпроектами к другому проекту; после
+   *  такого переноса появляется третий уровень, и без рекурсии он просто
+   *  не отрисовывался бы. Глубина ограничена MAX_DEPTH: глубже телефон не
+   *  вмещает. */
+  const renderSubtree = (parent: Project, depth: number): ReactNode => {
+    if (depth >= MAX_DEPTH + 1) return null;
+    const subs = childrenByParent.get(parent.id) ?? [];
+    return (
+      <>
+        {subs.map((sub, si) => {
+          const subList = activeByProject.get(sub.id) ?? [];
+          const subDone = completedByProject.get(sub.id) ?? [];
+          return (
+            <Fragment key={sub.id}>
+              {reorderingSubs && dropParent === parent.id && subInsertIndex === si && <DropLine />}
+              <SubSection
+                project={sub}
+                count={subList.length}
+                collapsed={collapsed.has(sub.id)}
+                onToggle={() => toggle(sub.id)}
+                onEdit={() => openProject(sub)}
+                onAdd={() => openTask(null, sub.id)}
+                dropRef={registerSection}
+                highlight={Boolean(draggingTask) && dropKey === sub.id}
+                onReorderStart={(at) => onProjectReorderStart(sub, at)}
+                isReorderSource={draggingProject?.id === sub.id}
+              >
+                {subList.length > 0 && (
+                  <TaskCard
+                    tasks={subList}
+                    projectById={projectById}
+                    onEdit={(task) => openTask(task, task.projectId)}
+                    onDragStart={onDragStart}
+                    draggingId={draggingTask?.id ?? null}
+                    dropIndex={draggingTask && dropKey === sub.id ? taskDropIndex : null}
+                    dividerAt={dividerOf(subList)}
+                  />
+                )}
+                {subDone.length > 0 && (
+                  <CompletedSubsection
+                    tasks={subDone}
+                    projectById={projectById}
+                    onEdit={(task) => openTask(task, task.projectId)}
+                    expanded={expandedCompleted.has(sub.id)}
+                    onToggle={() => toggleCompleted(sub.id)}
+                  />
+                )}
+                <AddTaskRow
+                  onClick={() => openTask(null, sub.id)}
+                  onAddSubproject={depth < MAX_DEPTH - 1 ? () => openProject(null, sub.id) : undefined}
+                />
+                {renderSubtree(sub, depth + 1)}
+              </SubSection>
+            </Fragment>
+          );
+        })}
+        {reorderingSubs && dropParent === parent.id && subInsertIndex === subs.length && <DropLine />}
+      </>
+    );
+  };
+
   return (
     <Screen
       title={t('Задачи')}
@@ -1150,7 +1237,6 @@ export function TasksPage() {
           {topProjects.map((p, i) => {
             const list = activeByProject.get(p.id) ?? [];
             const doneList = completedByProject.get(p.id) ?? [];
-            const subs = childrenByParent.get(p.id) ?? [];
             return (
               <Fragment key={p.id}>
                 {/* Линия вставки — только когда порядок и правда меняется.
@@ -1208,56 +1294,7 @@ export function TasksPage() {
                     onClick={() => openTask(null, p.id)}
                     onAddSubproject={() => openProject(null, p.id)}
                   />
-                  {subs.map((sub, si) => {
-                    const subList = activeByProject.get(sub.id) ?? [];
-                    const subDone = completedByProject.get(sub.id) ?? [];
-                    return (
-                      <Fragment key={sub.id}>
-                      {reorderingSubs && dropParent === p.id && subInsertIndex === si && (
-                        <DropLine />
-                      )}
-                      <SubSection
-                        project={sub}
-                        count={subList.length}
-                        collapsed={collapsed.has(sub.id)}
-                        onToggle={() => toggle(sub.id)}
-                        onEdit={() => openProject(sub)}
-                        onAdd={() => openTask(null, sub.id)}
-                        dropRef={registerSection}
-                        highlight={Boolean(draggingTask) && dropKey === sub.id}
-                        onReorderStart={(at) => onProjectReorderStart(sub, at)}
-                        isReorderSource={draggingProject?.id === sub.id}
-                      >
-                        {subList.length > 0 && (
-                          <TaskCard
-                            tasks={subList}
-                            projectById={projectById}
-                            onEdit={(task) => openTask(task, task.projectId)}
-                            onDragStart={onDragStart}
-                            draggingId={draggingTask?.id ?? null}
-                            dropIndex={
-                              draggingTask && dropKey === sub.id ? taskDropIndex : null
-                            }
-                            dividerAt={dividerOf(subList)}
-                          />
-                        )}
-                        {subDone.length > 0 && (
-                          <CompletedSubsection
-                            tasks={subDone}
-                            projectById={projectById}
-                            onEdit={(task) => openTask(task, task.projectId)}
-                            expanded={expandedCompleted.has(sub.id)}
-                            onToggle={() => toggleCompleted(sub.id)}
-                          />
-                        )}
-                        <AddTaskRow onClick={() => openTask(null, sub.id)} />
-                      </SubSection>
-                      </Fragment>
-                    );
-                  })}
-                  {reorderingSubs && dropParent === p.id && subInsertIndex === subs.length && (
-                    <DropLine />
-                  )}
+                  {renderSubtree(p, 1)}
                 </Section>
               </Fragment>
             );

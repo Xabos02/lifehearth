@@ -92,16 +92,54 @@ test('цель не теряется в зазоре между папками',
   await page.mouse.up();
 });
 
-test('отказ вложить объяснён словами, а не молчанием', async ({ page }) => {
+test('проект с подпроектом вкладывается в другой — вместе с ним', async ({ page }) => {
   await openApp(page, '/tasks');
   await seed(page);
 
-  // «Бизнес» уже содержит «Поставщиков» — вкладывать его никуда нельзя.
+  // «Бизнес» содержит «Поставщиков». До 11.09.2026 его нельзя было вложить
+  // никуда; владелец попросил переносить проект вместе с подпроектами.
+  // «Бизнес» (высота 2) внутрь «Здоровья» (глубина 1) — итог три уровня,
+  // это предел, и он проходит.
   const from = await grab(page, 'Бизнес', 4);
   const health = (await page.getByText('Здоровье', { exact: true }).first().boundingBox())!;
   await page.mouse.move(from.x + 60, health.y + health.height / 2, { steps: 10 });
 
-  await expect(page.locator(GHOST)).toContainText('вложить нельзя');
+  await expect(page.locator(GHOST)).toContainText('Внутрь «Здоровье»');
+  await page.mouse.up();
+
+  const after = await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const p1 = await db.projects.get('p1');
+    const p3 = await db.projects.get('p3');
+    return { business: p1?.parentId ?? null, suppliers: p3?.parentId ?? null };
+  });
+  // «Бизнес» уехал внутрь, «Поставщики» остались его подпроектом — уехали следом.
+  expect(after).toEqual({ business: 'p2', suppliers: 'p1' });
+  // И третий уровень виден на экране.
+  await expect(page.getByText('Поставщики')).toBeVisible();
+});
+
+test('отказ вложить объяснён словами: глубже трёх уровней не поместится', async ({ page }) => {
+  await openApp(page, '/tasks');
+  await seed(page);
+  // Дорастим «Бизнес» до трёх уровней: Поставщики → Китай. Тогда его высота 3,
+  // и внутрь кого бы то ни было он уже не влезает.
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    await db.projects.put({
+      id: 'p4', name: 'Китай', color: '#ef4444', emoji: '🇨🇳', sortOrder: 1000, archivedAt: null,
+      parentId: 'p3', createdAt: now, updatedAt: now, deletedAt: null,
+    } as never);
+  });
+  await page.goto('/tasks');
+  await expect(page.getByText('Китай')).toBeVisible();
+
+  const from = await grab(page, 'Бизнес', 4);
+  const health = (await page.getByText('Здоровье', { exact: true }).first().boundingBox())!;
+  await page.mouse.move(from.x + 60, health.y + health.height / 2, { steps: 10 });
+
+  await expect(page.locator(GHOST)).toContainText('Глубже трёх уровней');
   await page.mouse.up();
 
   // И ничего не произошло — отказ честный.
