@@ -134,8 +134,13 @@ test('отказ вложить объяснён словами: глубже т
   });
   await page.goto('/tasks');
   await expect(page.getByText('Китай')).toBeVisible();
+  // Экран стал длиннее на два уровня — цель должна быть в кадре до жеста,
+  // иначе её координаты уедут за низ и палец окажется не над ней.
+  await page.getByText('Здоровье', { exact: true }).first().scrollIntoViewIfNeeded();
 
   const from = await grab(page, 'Бизнес', 4);
+  // Координаты цели — ПОСЛЕ старта жеста: плашка и приглушение источника
+  // уже отрисованы, раскладка окончательная.
   const health = (await page.getByText('Здоровье', { exact: true }).first().boundingBox())!;
   await page.mouse.move(from.x + 60, health.y + health.height / 2, { steps: 10 });
 
