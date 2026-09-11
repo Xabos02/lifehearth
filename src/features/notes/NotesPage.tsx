@@ -2,7 +2,9 @@ import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
 import {
+  FolderInput,
   Pin,
+  Trash2,
 } from 'lucide-react';
 import {
   GSearch as Search,
@@ -20,12 +22,13 @@ import { db } from '../../db/db';
 import { alive, remove, update } from '../../db/repo';
 import type { Note, NoteFolder } from '../../db/types';
 import { formatRu, toKey } from '../../lib/dates';
-import { t } from '../../lib/i18n';
+import { t, tPlur } from '../../lib/i18n';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { FolderSheet } from './FolderSheet';
 import { checklistProgress } from './checklist';
 import { countNotesDeep, flattenTree, folderMoveTargets } from './folderTree';
-import { ICON } from '../../components/ui/icons';
+import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { useToast } from '../../components/ui/toastContext';
 
 /** HTML заметки → плоский текст для превью/поиска (с переносами на блоках).
  *
@@ -50,11 +53,16 @@ function htmlToText(html: string | null | undefined): string {
 }
 
 /** Строка заметки со свайпом влево для удаления (pointer events — тач и мышь). */
+const EMPTY_SET: ReadonlySet<string> = new Set();
+
 function NoteRow({
   note,
   onOpen,
   onDelete,
   onMoveToFolder,
+  selecting = false,
+  selected = false,
+  onToggle,
 }: {
   note: Note;
   onOpen: () => void;
@@ -63,6 +71,11 @@ function NoteRow({
    *  перетаскивать строку пальцем через весь список к нужной папке на телефоне
    *  мучительно. */
   onMoveToFolder: () => void;
+  /** Режим выбора нескольких: тап — отметка вместо открытия, свайп и
+   *  удержание выключены, слева кружок. Как в Apple Notes после «Выбрать». */
+  selecting?: boolean;
+  selected?: boolean;
+  onToggle?: () => void;
 }) {
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -87,6 +100,7 @@ function NoteRow({
   };
 
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (selecting) return; // в режиме выбора строка — просто кнопка-отметка
     drag.current = { x: e.clientX, dx, moved: false };
     setDragging(true);
     heldRef.current = false;
@@ -101,7 +115,7 @@ function NoteRow({
     }, 500);
   };
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.buttons === 0) return;
+    if (selecting || e.buttons === 0) return;
     const d = e.clientX - drag.current.x;
     if (Math.abs(d) > 6) {
       drag.current.moved = true;
@@ -115,6 +129,10 @@ function NoteRow({
     setDx((cur) => (cur < -44 ? -88 : 0));
   };
   const onClick = () => {
+    if (selecting) {
+      onToggle?.();
+      return;
+    }
     if (drag.current.moved || heldRef.current) return; // свайп или удержание, не тап
     if (dx !== 0) {
       setDx(0); // открыт — закрываем
@@ -145,7 +163,11 @@ function NoteRow({
         // меню «Скопировать / Найти». Два действия на один жест, и оба видны
         // одновременно. [-webkit-touch-callout:none] убирает системное меню,
         // select-none — саму подсветку.
-        className="card relative flex touch-pan-y items-start gap-2 p-4 select-none [-webkit-touch-callout:none] [-webkit-user-select:none]"
+        role={selecting ? 'checkbox' : undefined}
+        aria-checked={selecting ? selected : undefined}
+        className={`card relative flex touch-pan-y items-start gap-2 p-4 select-none [-webkit-touch-callout:none] [-webkit-user-select:none] ${
+          selecting && selected ? 'ring-1 ring-accent/45' : ''
+        }`}
         style={{
           // transform только во время свайпа: translateX(0px) в покое сам по
           // себе ломал обрезку по скруглению на WebKit.
@@ -158,6 +180,16 @@ function NoteRow({
         onPointerCancel={onUp}
         onClick={onClick}
       >
+        {selecting && (
+          <span
+            aria-hidden
+            className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${
+              selected ? 'bg-accent-fill text-white' : 'border-2 border-muted/70'
+            }`}
+          >
+            {selected && <Check size={ICON.inline} strokeWidth={STROKE_STRONG} />}
+          </span>
+        )}
         {note.pinned && <Pin size={ICON.inline} className="mt-1 shrink-0 text-accent" fill="currentColor" />}
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 break-words font-semibold">{title}</p>
@@ -189,6 +221,7 @@ let lastOpenFolder: string | null = null;
 
 export function NotesPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [query, setQuery] = useState('');
   // Открытая папка. null — корень, «Все заметки».
   const [openFolder, setOpenFolderState] = useState<string | null>(lastOpenFolder);
@@ -201,8 +234,29 @@ export function NotesPage() {
   // Один экран на обоих — «Куда перенести?» не должен выглядеть по-разному
   // в зависимости от того, что именно несут.
   const [moving, setMoving] = useState<
-    { kind: 'note'; note: Note } | { kind: 'folder'; folder: NoteFolder } | null
+    | { kind: 'note'; note: Note }
+    | { kind: 'notes'; ids: string[] }
+    | { kind: 'folder'; folder: NoteFolder }
+    | null
   >(null);
+  // Режим выбора нескольких (11.09.2026, по просьбе владельца). Вход —
+  // кнопкой «Выбрать» в шапке, как в Apple Notes («More → Select Notes»):
+  // удержание в этом списке уже занято переносом одной заметки, и жест
+  // менять нельзя. Выход — «Готово», а также сам собой при смене уровня
+  // или вводе в поиск: иначе «Выбрать все» стало бы неоднозначным.
+  //
+  // Выбор привязан к уровню и строке поиска, на которых его включили: сменился
+  // уровень или начали искать — он перестаёт быть актуальным сам, без
+  // эффекта и без сброса. Набор «все» на новом экране уже другой, и держать
+  // старые отметки значило бы врать.
+  const selectKey = `${openFolder ?? ''}|${query}`;
+  const [sel, setSel] = useState<{ key: string; ids: Set<string> } | null>(null);
+  const selecting = sel !== null && sel.key === selectKey;
+  const selected = selecting ? sel.ids : EMPTY_SET;
+  const setSelecting = (on: boolean) => setSel(on ? { key: selectKey, ids: new Set() } : null);
+  const setSelected = (upd: (prev: Set<string>) => Set<string>) =>
+    setSel((prev) => (prev && prev.key === selectKey ? { key: prev.key, ids: upd(prev.ids) } : prev));
+  const exitSelect = () => setSel(null);
 
   const rows = useLiveQuery(() => db.notes.toArray(), []);
   const folderRows = useLiveQuery(() => db.noteFolders.toArray(), []);
@@ -276,6 +330,16 @@ export function NotesPage() {
           onOpen={() => navigate(`/notes/${n.id}`)}
           onDelete={() => del(n)}
           onMoveToFolder={() => setMoving({ kind: 'note', note: n })}
+          selecting={selecting}
+          selected={selected.has(n.id)}
+          onToggle={() =>
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (next.has(n.id)) next.delete(n.id);
+              else next.add(n.id);
+              return next;
+            })
+          }
         />
       ))}
     </div>
@@ -314,18 +378,43 @@ export function NotesPage() {
   async function moveTo(folderId: string | null) {
     if (!moving) return;
     if (moving.kind === 'note') await update(db.notes, moving.note.id, { folderId });
-    else await update(db.noteFolders, moving.folder.id, { parentId: folderId });
+    else if (moving.kind === 'notes') {
+      // Циклом update(), а не bulkUpdate мимо repo: repo — единственная точка
+      // записи, она ставит updatedAt и будит синк; синк дебаунсится и уедет
+      // одним кругом.
+      for (const id of moving.ids) await update(db.notes, id, { folderId });
+      toast(t('Перенесено: {n}', { n: moving.ids.length }));
+      exitSelect();
+    } else await update(db.noteFolders, moving.folder.id, { parentId: folderId });
     setMoving(null);
+  }
+
+  /** Удалить выбранные — мягко, в Корзину, одним подтверждением на всех. */
+  async function deleteSelected() {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    if (!window.confirm(t('Удалить {n}? Вернуть можно из Корзины.', { n: tPlur(ids.length, ['заметку', 'заметки', 'заметок']) }))) return;
+    for (const id of ids) await remove(db.notes, id);
+    toast(t('Удалено: {n}. Вернуть можно из Корзины', { n: ids.length }));
+    exitSelect();
   }
 
   if (moving) {
     // Куда сейчас положено то, что несут, — у этой цели рисуем галочку.
     const movingParent =
-      moving.kind === 'note' ? moving.note.folderId : (moving.folder.parentId ?? null);
+      moving.kind === 'note'
+        ? moving.note.folderId
+        : moving.kind === 'notes'
+          ? // Галочка у общей папки — только если все выбранные лежат в одной.
+            (() => {
+              const set = new Set(moving.ids.map((id) => allNotes.find((n) => n.id === id)?.folderId ?? null));
+              return set.size === 1 ? [...set][0] : undefined;
+            })()
+          : (moving.folder.parentId ?? null);
     // Папку нельзя положить в себя или своего потомка — таких целей в списке
     // просто нет; для заметки годится любая папка.
     const targets =
-      moving.kind === 'note' ? flattenTree(folders) : folderMoveTargets(folders, moving.folder.id);
+      moving.kind === 'folder' ? folderMoveTargets(folders, moving.folder.id) : flattenTree(folders);
     return (
       <Screen title={t('Куда перенести?')} onBack={() => setMoving(null)}>
         <p className="mb-3 px-1 text-sm leading-snug text-muted">
@@ -333,7 +422,9 @@ export function NotesPage() {
             ? t('Заметка «{title}» — выберите папку.', {
                 title: moving.note.title || t('Без названия'),
               })
-            : t('Папка «{name}» — выберите, куда её вложить.', { name: moving.folder.name })}
+            : moving.kind === 'notes'
+              ? t('{n} — выберите папку.', { n: tPlur(moving.ids.length, ['заметка', 'заметки', 'заметок']) })
+              : t('Папка «{name}» — выберите, куда её вложить.', { name: moving.folder.name })}
         </p>
         <div className="card divide-y divide-hairline">
           <button
@@ -379,27 +470,64 @@ export function NotesPage() {
 
   return (
     <Screen
-      title={current ? `${current.emoji} ${current.name}` : t('Заметки')}
+      title={
+        selecting
+          ? t('Выбрано: {n}', { n: selected.size })
+          : current
+            ? `${current.emoji} ${current.name}`
+            : t('Заметки')
+      }
       right={
-        <div className="flex items-center gap-1">
-          {/* Новая папка создаётся на ТЕКУЩЕМ уровне: в корне — корневая,
-              внутри папки — вложенная, как в Apple Notes. */}
-          <button
-            onClick={() => setFolderSheet('new')}
-            aria-label={current ? t('Новая вложенная папка') : t('Новая папка')}
-            className={`p-1 text-accent active:opacity-60 ${HIT_SLOP_44}`}
-          >
-            <FolderPlus size={ICON.header} />
-          </button>
-          {current && (
+        selecting ? (
+          <div className="flex items-center gap-3">
+            {/* «Выбрать все» берёт заметки ТЕКУЩЕГО уровня (закреплённые и
+                остальные), а не все заметки приложения: человек стоит в папке
+                и ждёт, что «все» — это то, что перед ним. */}
             <button
-              onClick={() => setFolderSheet(current)}
-              className="pl-1 text-sm font-medium text-accent active:opacity-60"
+              onClick={() =>
+                setSelected(() =>
+                  selected.size === filtered.length ? new Set() : new Set(filtered.map((n) => n.id)),
+                )
+              }
+              className="text-sm font-medium text-accent active:opacity-60"
             >
-              {t('Изменить')}
+              {selected.size === filtered.length && filtered.length > 0 ? t('Снять выбор') : t('Выбрать все')}
             </button>
-          )}
-        </div>
+            <button onClick={exitSelect} className="text-sm font-semibold text-accent active:opacity-60">
+              {t('Готово')}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            {/* «Выбрать» — вход в режим нескольких, как в Apple Notes. Есть
+                только когда есть что выбирать и поле поиска пустое. */}
+            {filtered.length > 0 && !q && (
+              <button
+                onClick={() => setSelecting(true)}
+                className="pr-1 text-sm font-medium text-accent active:opacity-60"
+              >
+                {t('Выбрать')}
+              </button>
+            )}
+            {/* Новая папка создаётся на ТЕКУЩЕМ уровне: в корне — корневая,
+                внутри папки — вложенная, как в Apple Notes. */}
+            <button
+              onClick={() => setFolderSheet('new')}
+              aria-label={current ? t('Новая вложенная папка') : t('Новая папка')}
+              className={`p-1 text-accent active:opacity-60 ${HIT_SLOP_44}`}
+            >
+              <FolderPlus size={ICON.header} />
+            </button>
+            {current && (
+              <button
+                onClick={() => setFolderSheet(current)}
+                className="pl-1 text-sm font-medium text-accent active:opacity-60"
+              >
+                {t('Изменить')}
+              </button>
+            )}
+          </div>
+        )
       }
     >
       {current && (
@@ -471,7 +599,40 @@ export function NotesPage() {
         renderFound()
       )}
 
-      <Fab onClick={() => navigate(current ? `/notes/new?folder=${current.id}` : '/notes/new')} />
+      {/* Панель действий фиксирована и накрыла бы последнюю карточку —
+          распорка отдаёт ей место в конце ленты, как «+» через --fab-strip. */}
+      {selecting && <div aria-hidden style={{ height: 76 }} />}
+      {selecting ? (
+        // Панель действий над выбранными — на месте кнопки «+»: Fab при
+        // размонтировании сам отдаёт ленте полосу обратно. Неактивные при
+        // пустом выборе, а не спрятанные: человек видит, что делать дальше.
+        <div
+          data-testid="notes-select-bar"
+          // Ровно над таб-баром: у кнопки «+» клиренс 80px от низа (таб-бар и
+          // 4px воздуха), панель встаёт на те же 76 без воздуха — вплотную.
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 76px)' }}
+          className="fixed inset-x-0 z-30 mx-auto flex max-w-lg gap-2.5 border-t border-hairline bg-elevated px-4 py-3"
+        >
+          <button
+            disabled={selected.size === 0}
+            onClick={() => setMoving({ kind: 'notes', ids: [...selected] })}
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-surface-2 py-3 text-base font-semibold disabled:opacity-40 active:opacity-80"
+          >
+            <FolderInput size={ICON.base} />
+            {t('Переместить ({n})', { n: selected.size })}
+          </button>
+          <button
+            disabled={selected.size === 0}
+            onClick={() => void deleteSelected()}
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-surface-2 py-3 text-base font-semibold text-danger disabled:opacity-40 active:opacity-80"
+          >
+            <Trash2 size={ICON.base} />
+            {t('Удалить ({n})', { n: selected.size })}
+          </button>
+        </div>
+      ) : (
+        <Fab onClick={() => navigate(current ? `/notes/new?folder=${current.id}` : '/notes/new')} />
+      )}
       <FolderSheet
         key={folderSheet === 'new' ? 'new' : (folderSheet?.id ?? 'closed')}
         open={folderSheet !== null}

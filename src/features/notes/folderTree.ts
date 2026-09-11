@@ -84,3 +84,34 @@ export function folderMoveTargets(
   const banned = withDescendants(folders, folderId);
   return flattenTree(folders).filter(({ folder }) => !banned.has(folder.id));
 }
+
+/** Переставить папку внутри её уровня: fromId встаёт на место toIndex среди
+ *  соседей (индекс — как в списке ДО перестановки, как у линии вставки при
+ *  переносе). Возвращает только те пары id → sortOrder, которые изменились,
+ *  по схеме (i + 1) * 1000 — так же, как у проектов в «Задачах».
+ *
+ *  Почему не «поменять два числа местами»: у всех существующих папок
+ *  sortOrder = момент создания в миллисекундах, соседние значения отличаются
+ *  на единицы, и вставить между ними нечего. Пересчёт всего уровня даёт
+ *  честные промежутки для следующих перестановок. */
+export function reorderWithin(
+  siblings: Array<Pick<NoteFolder, 'id' | 'sortOrder'>>,
+  fromId: string,
+  toIndex: number,
+): Array<{ id: string; sortOrder: number }> {
+  const ids = [...siblings].sort((a, b) => a.sortOrder - b.sortOrder).map((f) => f.id);
+  const from = ids.indexOf(fromId);
+  if (from === -1) return [];
+  const next = ids.filter((id) => id !== fromId);
+  const clamped = Math.max(0, Math.min(toIndex, ids.length));
+  const insertAt = clamped > from ? clamped - 1 : clamped;
+  next.splice(insertAt, 0, fromId);
+  if (!next.some((id, i) => ids[i] !== id)) return [];
+  const byId = new Map(siblings.map((f) => [f.id, f.sortOrder]));
+  const out: Array<{ id: string; sortOrder: number }> = [];
+  next.forEach((id, i) => {
+    const order = (i + 1) * 1000;
+    if (byId.get(id) !== order) out.push({ id, sortOrder: order });
+  });
+  return out;
+}

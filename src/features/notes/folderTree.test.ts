@@ -6,6 +6,7 @@ import {
   flattenTree,
   folderMoveTargets,
   withDescendants,
+  reorderWithin,
 } from './folderTree';
 
 const F = (id: string, parentId: string | null, sortOrder = 0): NoteFolder => ({
@@ -86,5 +87,44 @@ describe('дерево папок', () => {
       'proj',
       'home',
     ]);
+  });
+});
+
+
+// Папки, созданные подряд: sortOrder = момент создания, разница в миллисекунды.
+const sib = [
+  { id: 'a', sortOrder: 1757500000001 },
+  { id: 'b', sortOrder: 1757500000002 },
+  { id: 'c', sortOrder: 1757500000003 },
+];
+const order = (list: typeof sib, changes: Array<{ id: string; sortOrder: number }>) =>
+  list
+    .map((f) => ({ ...f, sortOrder: changes.find((c) => c.id === f.id)?.sortOrder ?? f.sortOrder }))
+    .sort((x, y) => x.sortOrder - y.sortOrder)
+    .map((f) => f.id);
+
+describe('перестановка папок внутри уровня', () => {
+  it('в начало', () => {
+    expect(order(sib, reorderWithin(sib, 'c', 0))).toEqual(['c', 'a', 'b']);
+  });
+  it('в конец', () => {
+    expect(order(sib, reorderWithin(sib, 'a', 3))).toEqual(['b', 'c', 'a']);
+  });
+  it('между двумя значениями, отличающимися на миллисекунды', () => {
+    expect(order(sib, reorderWithin(sib, 'c', 1))).toEqual(['a', 'c', 'b']);
+  });
+  it('на то же место — ничего не пишем', () => {
+    expect(reorderWithin(sib, 'b', 1)).toEqual([]);
+    expect(reorderWithin(sib, 'b', 2)).toEqual([]); // линия сразу под собой
+  });
+  it('чужой id — ничего', () => {
+    expect(reorderWithin(sib, 'zzz', 0)).toEqual([]);
+  });
+  it('пересчитывает весь уровень ровными шагами', () => {
+    const ch = reorderWithin(sib, 'c', 0);
+    expect(ch.map((x) => x.sortOrder)).toEqual([1000, 2000, 3000]);
+  });
+  it('индекс за пределами списка прижимается к концу', () => {
+    expect(order(sib, reorderWithin(sib, 'a', 99))).toEqual(['b', 'c', 'a']);
   });
 });
