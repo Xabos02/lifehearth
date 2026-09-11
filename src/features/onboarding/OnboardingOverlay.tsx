@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
@@ -8,6 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
+  GChevronLeft as ChevronLeft,
   GChevronRight as ChevronRight,
   GTasks as ListTodo,
   GNotes as NotebookText,
@@ -73,6 +74,7 @@ const SLIDES: { icon: LucideIcon; title: string; text: string }[] = [
 export function OnboardingOverlay() {
   const settings = useLiveQuery(() => db.settings.get('app'), []);
   const [step, setStep] = useState(0);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const navigate = useNavigate();
   // Пока настройки не загрузились — не мигаем туром; пройден — не показываем.
   if (!settings || settings.onboardingDone) return null;
@@ -101,9 +103,28 @@ export function OnboardingOverlay() {
   return (
     <div className="fixed inset-0 z-[80] flex flex-col bg-bg">
       <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
-      {/* key={step} перезапускает fade-in при смене слайда */}
+      {/* key={step} перезапускает fade-in при смене слайда.
+
+          Свайп влево/вправо листает слайды — на телефоне это первый жест,
+          который пробуют, и до 11.09.2026 он не делал ничего. touch-action
+          pan-y оставляет вертикальную прокрутку браузеру, а горизонталь
+          забираем себе. Порог 48px отличает свайп от дрожи пальца. */}
       <div
         key={step}
+        onPointerDown={(e) => {
+          swipeStart.current = { x: e.clientX, y: e.clientY };
+        }}
+        onPointerUp={(e) => {
+          const from = swipeStart.current;
+          swipeStart.current = null;
+          if (!from) return;
+          const dx = e.clientX - from.x;
+          const dy = e.clientY - from.y;
+          if (Math.abs(dx) < 48 || Math.abs(dy) > Math.abs(dx)) return;
+          if (dx < 0 && !last) setStep((s) => s + 1);
+          if (dx > 0 && step > 0) setStep((s) => s - 1);
+        }}
+        style={{ touchAction: 'pan-y' }}
         className="relative flex min-h-0 flex-1 animate-fade-in flex-col items-center justify-center gap-5 px-8 text-center"
       >
         <div className="flex size-20 items-center justify-center rounded-3xl tile-accent text-accent shadow-[var(--shadow-accent)]">
@@ -128,13 +149,29 @@ export function OnboardingOverlay() {
       </div>
 
       <div className="relative flex items-center gap-3 px-6 pb-[calc(env(safe-area-inset-bottom)+20px)]">
-        <button
-          type="button"
-          onClick={finish}
-          className="px-3 py-3 text-sm font-medium text-muted active:opacity-60"
-        >
-          {t('Пропустить')}
-        </button>
+        {/* На первом шаге слева «Пропустить», дальше — «Назад»: вернуться к
+            предыдущему слайду было нельзя вовсе, только точками внизу, а их
+            как кнопки никто не читает. «Пропустить» на остальных шагах не
+            теряется: тот, кто хочет выйти, жмёт «Далее» до «Начать». */}
+        {step === 0 ? (
+          <button
+            type="button"
+            onClick={finish}
+            className="px-3 py-3 text-sm font-medium text-muted active:opacity-60"
+          >
+            {t('Пропустить')}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setStep((s) => s - 1)}
+            aria-label={t('Назад')}
+            className="flex items-center gap-1 px-3 py-3 text-sm font-medium text-muted active:opacity-60"
+          >
+            <ChevronLeft size={ICON.base} />
+            {t('Назад')}
+          </button>
+        )}
         <button
           type="button"
           onClick={last ? finish : () => setStep((s) => s + 1)}
@@ -145,13 +182,19 @@ export function OnboardingOverlay() {
         </button>
       </div>
 
-      {/* Развилка для того, кто переезжает, а не начинает: показываем на
-          последнем шаге, чтобы не сбивать первое знакомство. */}
+      {/* Развилка для того, кто переезжает, а не начинает.
+
+          На ПЕРВОМ шаге и на последнем. Владелец просил вход до обучения:
+          человек с новым телефоном не хочет смотреть семь слайдов, ему надо
+          вернуть свои записи. Но для новичка вход первым экраном — стена до
+          того, как он понял, зачем приложение. Поэтому развилка, а не
+          порядок: на первом экране оба пути видны, на средних слайдах строка
+          прячется, чтобы не сбивать знакомство, на последнем возвращается. */}
       <button
         type="button"
         onClick={restore}
         className={`relative px-6 pb-[calc(env(safe-area-inset-bottom)+16px)] text-sm font-medium text-accent active:opacity-60 ${
-          last ? '' : 'invisible'
+          step === 0 || last ? '' : 'invisible'
         }`}
       >
         {t('У меня уже были данные — восстановить')}
