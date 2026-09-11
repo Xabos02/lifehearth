@@ -1337,6 +1337,7 @@ export const EN: Record<string, string> = {
   'заметку': 'note',
   'заметки': 'notes',
   'заметок': 'notes',
+  'Порядок папок обновлён': 'Folder order updated',
   'Куда перенести?': 'Move to…',
   'Заметка «{title}» — выберите папку.': 'Choose a folder for “{title}”.',
   'Папка «{name}» — выберите, куда её вложить.': 'Choose where to put the “{name}” folder.',

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent } from 'react';
+import { Fragment, useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
 import {
@@ -26,7 +26,8 @@ import { t, tPlur } from '../../lib/i18n';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { FolderSheet } from './FolderSheet';
 import { checklistProgress } from './checklist';
-import { countNotesDeep, flattenTree, folderMoveTargets } from './folderTree';
+import { countNotesDeep, flattenTree, folderMoveTargets, reorderWithin } from './folderTree';
+import { useHoldToReorder } from '../tasks/useHoldToReorder';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { useToast } from '../../components/ui/toastContext';
 
@@ -54,6 +55,54 @@ function htmlToText(html: string | null | undefined): string {
 
 /** Строка заметки со свайпом влево для удаления (pointer events — тач и мышь). */
 const EMPTY_SET: ReadonlySet<string> = new Set();
+
+/** Строка папки: тап открывает, удержание — берёт для перестановки.
+ *
+ *  Та же машина удержания, что у проектов в «Задачах» (400 мс без движения,
+ *  сжатие как отклик). Перестановка — только внутри уровня, как в Apple
+ *  Notes; «бросить папку на папку = вложить» не делаем: на тачскрине в вебе
+ *  «между» и «на» ловятся плохо, а вложение уже есть через «Переместить
+ *  папку» в шите. Удержание без движения ничего не меняет. */
+function FolderRow({
+  folder,
+  count,
+  onOpen,
+  onReorderStart,
+  dimmed,
+}: {
+  folder: NoteFolder;
+  count: number;
+  onOpen: () => void;
+  onReorderStart: (at: { x: number; y: number; pointerId: number }) => void;
+  dimmed: boolean;
+}) {
+  const { headerProps } = useHoldToReorder(onReorderStart, onOpen);
+  return (
+    <button
+      {...headerProps}
+      // Узел строки для замера при переносе ищется по этому атрибуту:
+      // второй ref на кнопку не повесить — ref уже принадлежит хуку.
+      data-folder-id={folder.id}
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left select-none active:opacity-80 [-webkit-touch-callout:none] [-webkit-user-select:none] ${
+        dimmed ? 'opacity-40' : ''
+      }`}
+    >
+      <span
+        className="flex size-9 shrink-0 items-center justify-center rounded-xl text-lg"
+        style={{ background: `${folder.color}26` }}
+      >
+        {folder.emoji}
+      </span>
+      <span className="min-w-0 flex-1 truncate font-medium">{folder.name}</span>
+      <span className="shrink-0 text-xs tabular-nums text-muted">{count}</span>
+    </button>
+  );
+}
+
+/** Линия «встанет сюда» между строками папок. */
+function FolderDropLine() {
+  return <div className="mx-4 my-0.5 h-0.5 rounded-full bg-accent" aria-hidden />;
+}
 
 function NoteRow({
   note,
@@ -258,6 +307,11 @@ export function NotesPage() {
     setSel((prev) => (prev && prev.key === selectKey ? { key: prev.key, ids: upd(prev.ids) } : prev));
   const exitSelect = () => setSel(null);
 
+  // Перестановка папок удержанием — внутри текущего уровня.
+  const [reorderFolder, setReorderFolder] = useState<NoteFolder | null>(null);
+  const [folderInsertIndex, setFolderInsertIndex] = useState<number | null>(null);
+  const insertRef = useRef<number | null>(null);
+
   const rows = useLiveQuery(() => db.notes.toArray(), []);
   const folderRows = useLiveQuery(() => db.noteFolders.toArray(), []);
   const loaded = useLoaded(rows, folderRows);
@@ -316,6 +370,50 @@ export function NotesPage() {
 
   const pinned = filtered.filter((n) => n.pinned);
   const rest = filtered.filter((n) => !n.pinned);
+
+  const onFolderReorderStart = (f: NoteFolder, at: { pointerId: number }) => {
+    setReorderFolder(f);
+    const level = levelFolders;
+    const indexAt = (y: number) => {
+      let idx = 0;
+      for (const sib of level) {
+        const el = document.querySelector<HTMLElement>(`[data-folder-id="${sib.id}"]`);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (y > r.top + r.height / 2) idx++;
+      }
+      return idx;
+    };
+    const move = (e: globalThis.PointerEvent) => {
+      if (e.pointerId !== at.pointerId) return; // чужой палец не ведёт чужой жест
+      e.preventDefault();
+      const idx = indexAt(e.clientY);
+      if (idx !== insertRef.current) {
+        insertRef.current = idx;
+        setFolderInsertIndex(idx);
+      }
+    };
+    const finish = (e: globalThis.PointerEvent) => {
+      if (e.pointerId !== at.pointerId) return;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+      const idx = insertRef.current;
+      insertRef.current = null;
+      setReorderFolder(null);
+      setFolderInsertIndex(null);
+      if (idx == null) return; // удержание без движения — ничего
+      const changes = reorderWithin(level, f.id, idx);
+      if (changes.length === 0) return;
+      void (async () => {
+        for (const c of changes) await update(db.noteFolders, c.id, { sortOrder: c.sortOrder });
+        toast(t('Порядок папок обновлён'));
+      })();
+    };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
+  };
 
   function del(note: Note) {
     if (window.confirm(t('Удалить заметку?'))) void remove(db.notes, note.id);
@@ -547,22 +645,19 @@ export function NotesPage() {
           результат по всем заметкам, а не разбивка по хранилищам. */}
       {!q && levelFolders.length > 0 && (
         <div className="card mb-4 divide-y divide-hairline">
-          {levelFolders.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setOpenFolder(f.id)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
-            >
-              <span
-                className="flex size-9 shrink-0 items-center justify-center rounded-xl text-lg"
-                style={{ background: `${f.color}26` }}
-              >
-                {f.emoji}
-              </span>
-              <span className="min-w-0 flex-1 truncate font-medium">{f.name}</span>
-              <span className="shrink-0 text-xs tabular-nums text-muted">{countIn(f.id)}</span>
-            </button>
+          {levelFolders.map((f, i) => (
+            <Fragment key={f.id}>
+              {reorderFolder && folderInsertIndex === i && <FolderDropLine />}
+              <FolderRow
+                folder={f}
+                count={countIn(f.id)}
+                onOpen={() => setOpenFolder(f.id)}
+                onReorderStart={(at) => onFolderReorderStart(f, at)}
+                dimmed={reorderFolder?.id === f.id}
+              />
+            </Fragment>
           ))}
+          {reorderFolder && folderInsertIndex === levelFolders.length && <FolderDropLine />}
         </div>
       )}
 
