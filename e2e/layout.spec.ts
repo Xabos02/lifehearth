@@ -75,14 +75,24 @@ async function seedLongList(page: Page) {
 }
 
 // Кнопка «+» — единственный элемент, который живёт ПОВЕРХ ленты, поэтому она
-// одна и способна перекрыть содержимое. Раньше так и было: на «Сегодня» под
-// ней при прокрутке оказывались «отправить» и микрофон строки быстрого ввода
-// (100% и 22% площади), крестик подсказки (100%), кружок оценки энергии (54%)
-// — тап по ним открывал «Новая задача». Прежняя версия этого теста смотрела
-// один экран, одну (нулевую) позицию прокрутки и только точку под центром
-// кнопки, поэтому ничего из перечисленного не видела.
+// одна и способна перекрыть содержимое.
+//
+// История этого теста в двух шагах. В августе кнопка воровала нажатия у того,
+// что под неё попадало на «Сегодня»: «отправить» и микрофон строки быстрого
+// ввода, крестик подсказки, кружок оценки энергии. Лечили укорачиванием ленты
+// на 68px — и тест закреплял «ничего под кнопкой ни на одной позиции
+// прокрутки». В сентябре владелец увидел цену: восьмая часть экрана телефона
+// стала тёмной пустотой, а строки списка обрезались её краем на полуслове.
+//
+// Теперь лента идёт до таб-бара, а полоса под кнопку — внутренний отступ.
+// Значит проверяем то, что важно человеку: (1) полосы-пустоты нет — низ ленты
+// касается таб-бара; (2) в КОНЦЕ прокрутки под кнопкой нет управления —
+// последняя строка списка достижима, ради этого отступ и держится; (3) на
+// нулевой прокрутке ничего не обрезано краем ленты. Промежуточные перекрытия
+// — обычное поведение плавающей кнопки: чтобы нажать то, что под ней, человек
+// прокручивает; за это тест больше не краснеет.
 for (const route of ['./', './tasks', './notes', './more/finance']) {
-  test(`кнопка «+» не перекрывает ленту: ${route}`, async ({ page }) => {
+  test(`кнопка «+»: полосы-пустоты нет, конец ленты достижим: ${route}`, async ({ page }) => {
     await openApp(page, route);
     await seedLongList(page);
     await page.goto(route);
@@ -90,48 +100,57 @@ for (const route of ['./', './tasks', './notes', './more/finance']) {
 
     const res = await page.evaluate(async () => {
       const sc = document.getElementById('app-scroll');
+      const nav = document.querySelector('nav');
       const fab = [...document.querySelectorAll('button')].find((b) => {
         const st = getComputedStyle(b);
         const r = b.getBoundingClientRect();
         return st.position === 'fixed' && r.width >= 44 && r.width === r.height && r.top > innerHeight / 2;
       });
-      if (!sc || !fab) return { fabFound: false, gap: 0, hits: [] as string[] };
+      if (!sc || !fab || !nav) return { fabFound: false, gapToNav: 0, hitsAtEnd: [] as string[], clippedAtTop: [] as string[] };
       const F = fab.getBoundingClientRect();
       const S = sc.getBoundingClientRect();
+      const N = nav.getBoundingClientRect();
       const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-      const hits: string[] = [];
-      const max = sc.scrollHeight - sc.clientHeight;
-      // Шаг мельче высоты кнопки: иначе элемент может проскочить её зону между
-      // двумя замерами и тест промолчит.
-      for (let y = 0; y <= max; y += 48) {
-        sc.scrollTop = y;
-        await sleep(40);
-        for (const el of document.querySelectorAll('button, a, input, select, [role="button"], [role="tab"]')) {
-          if (el.closest('nav') || el === fab) continue;
-          const b = el.getBoundingClientRect();
-          if (!b.width || !b.height) continue;
-          // Видимая часть элемента: лента обрезает всё, что ниже её края, и
-          // без этого срезанные строки давали бы ложные срабатывания.
-          const vTop = Math.max(b.top, S.top);
-          const vBottom = Math.min(b.bottom, S.bottom);
-          if (vBottom - vTop <= 0) continue;
-          const ox = Math.min(b.right, F.right) - Math.max(b.left, F.left);
-          const oy = Math.min(vBottom, F.bottom) - Math.max(vTop, F.top);
-          if (ox > 0 && oy > 0) {
-            const name = (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30);
-            const line = `${name || '(без текста)'} на прокрутке ${y}`;
-            if (!hits.includes(line)) hits.push(line);
-          }
+      const controls = () =>
+        [...document.querySelectorAll('button, a, input, select, [role="button"], [role="tab"]')].filter(
+          (el) => !el.closest('nav') && el !== fab,
+        );
+
+      // (3) нулевая прокрутка: ни один элемент не обрезан нижним краем ленты
+      sc.scrollTop = 0;
+      await sleep(40);
+      const clippedAtTop: string[] = [];
+      for (const el of controls()) {
+        const b = el.getBoundingClientRect();
+        if (!b.width || !b.height) continue;
+        // элемент начинается внутри ленты, а кончается ниже её края — обрезан
+        if (b.top < S.bottom - 1 && b.bottom > S.bottom + 1 && b.top > S.top) {
+          clippedAtTop.push((el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30));
         }
       }
+
+      // (2) конец прокрутки: под кнопкой нет управления
+      sc.scrollTop = sc.scrollHeight;
+      await sleep(80);
+      const hitsAtEnd: string[] = [];
+      for (const el of controls()) {
+        const b = el.getBoundingClientRect();
+        if (!b.width || !b.height) continue;
+        const ox = Math.min(b.right, F.right) - Math.max(b.left, F.left);
+        const oy = Math.min(b.bottom, F.bottom) - Math.max(b.top, F.top);
+        if (ox > 0 && oy > 0) hitsAtEnd.push((el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30));
+      }
       sc.scrollTop = 0;
-      return { fabFound: true, gap: Math.round(F.top - S.bottom), hits };
+      return { fabFound: true, gapToNav: Math.round(N.top - S.bottom), hitsAtEnd, clippedAtTop };
     });
 
     expect(res.fabFound, `на ${route} не нашлась кнопка «+»`).toBe(true);
-    // Полоса под кнопку: лента обязана кончаться выше её верхнего края.
-    expect(res.gap, `лента заходит под кнопку на ${route}`).toBeGreaterThanOrEqual(0);
-    expect(res.hits, `кнопка «+» накрыла управление на ${route}`).toEqual([]);
+    // (1) полосы-пустоты нет: лента касается таб-бара.
+    expect(res.gapToNav, `между лентой и таб-баром пустота на ${route}`).toBeLessThanOrEqual(1);
+    // (3) ничего не обрезано краем ленты на старте.
+    expect(res.clippedAtTop, `край ленты режет управление на ${route}`).toEqual([]);
+    // (2) последняя строка достижима: в конце прокрутки под кнопкой пусто.
+    expect(res.hitsAtEnd, `в конце прокрутки кнопка «+» накрыла управление на ${route}`).toEqual([]);
   });
 }
 
