@@ -1438,6 +1438,8 @@ export const EN: Record<string, string> = {
 
   // === Задачи ===
   'Редактировать подпроект': 'Edit subproject',
+  'Добавить задачу в проект': 'Add task to project',
+  'Добавить задачу в подпроект': 'Add task to subproject',
   'Редактировать проект': 'Edit project',
   'Выполненные': 'Completed',
   'Заморожено': 'Frozen',

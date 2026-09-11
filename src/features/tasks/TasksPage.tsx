@@ -20,6 +20,7 @@ import {
   GChevronDown as ChevronDown,
   GPencil as Pencil,
   GFolderPlus as FolderPlus,
+  GPlus as Plus,
   GSnowflake as Snowflake,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
@@ -70,6 +71,7 @@ function SubSection({
   collapsed,
   onToggle,
   onEdit,
+  onAdd,
   dropRef,
   highlight = false,
   onReorderStart,
@@ -81,6 +83,8 @@ function SubSection({
   collapsed: boolean;
   onToggle: () => void;
   onEdit: () => void;
+  /** «+» у заголовка — добавить задачу в подпроект. */
+  onAdd?: () => void;
   dropRef: (el: HTMLElement | null) => void;
   highlight?: boolean;
   /** Удержание заголовка — перенести подпроект. */
@@ -143,13 +147,24 @@ function SubSection({
           </h3>
           <span className="text-xs text-muted/70">{count}</span>
         </button>
-        <button
-          onClick={onEdit}
-          aria-label={t('Редактировать подпроект')}
-          className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
-        >
-          <Pencil size={ICON.inline} />
-        </button>
+        <div className="flex items-center gap-5">
+          {onAdd && (
+            <button
+              onClick={onAdd}
+              aria-label={t('Добавить задачу в подпроект')}
+              className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+            >
+              <Plus size={ICON.inline} />
+            </button>
+          )}
+          <button
+            onClick={onEdit}
+            aria-label={t('Редактировать подпроект')}
+            className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+          >
+            <Pencil size={ICON.inline} />
+          </button>
+        </div>
       </div>
       {!collapsed && children}
     </div>
@@ -171,6 +186,7 @@ function Section({
   collapsed,
   onToggle,
   onEdit,
+  onAdd,
   dropRef,
   dropKey,
   highlight = false,
@@ -185,6 +201,8 @@ function Section({
   collapsed: boolean;
   onToggle: () => void;
   onEdit?: () => void;
+  /** «+» у заголовка — добавить задачу в этот проект, не листая до низа. */
+  onAdd?: () => void;
   dropRef?: (el: HTMLElement | null) => void;
   dropKey?: string;
   highlight?: boolean;
@@ -224,18 +242,39 @@ function Section({
           <h2 className="text-lg font-bold tracking-tight">{title}</h2>
           <span className="text-sm text-muted">{count}</span>
         </button>
-        {onEdit && (
-          <button
-            onClick={onEdit}
-            aria-label={t('Редактировать проект')}
-            // Карандаш в шапке секции — 26.75px: растить его нельзя, шапка
-            // потеряет плотность. Добираем до минимума 44x44 невидимой зоной —
-            // у section нет overflow:hidden, а до правого края колонки 21px,
-            // так что зона не срезается ни рамкой, ни overflow-x у #app-scroll.
-            className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
-          >
-            <Pencil size={ICON.inline} />
-          </button>
+        {/* «+» у заголовка. Владелец: «когда много задач, мне приходится
+            листать в самый низ, чтобы добавить задачу в этот проект». Стоит
+            ПЕРЕД карандашом, чтобы карандаш остался у края, где к нему
+            привыкли. Зазор gap-5 (20px): у обеих кнопок невидимая зона 44px
+            вылезает за видимый край, и тест зон касания (e2e/touch.spec.ts)
+            поймал перекрытие в 2px даже при gap-4 — палец по «+» открывал бы
+            правку проекта. Двадцать дают честный запас. Нижняя «+ Задача»
+            остаётся: она удобна, когда список дочитан до конца. */}
+        {(onAdd || onEdit) && (
+          <div className="flex items-center gap-5">
+            {onAdd && (
+              <button
+                onClick={onAdd}
+                aria-label={t('Добавить задачу в проект')}
+                className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+              >
+                <Plus size={ICON.inline} />
+              </button>
+            )}
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                aria-label={t('Редактировать проект')}
+                // Карандаш в шапке секции — 26.75px: растить его нельзя, шапка
+                // потеряет плотность. Добираем до минимума 44x44 невидимой зоной —
+                // у section нет overflow:hidden, а до правого края колонки 21px,
+                // так что зона не срезается ни рамкой, ни overflow-x у #app-scroll.
+                className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+              >
+                <Pencil size={ICON.inline} />
+              </button>
+            )}
+          </div>
         )}
       </div>
       {!collapsed && children}
@@ -1114,6 +1153,7 @@ export function TasksPage() {
                   collapsed={collapsed.has(p.id)}
                   onToggle={() => toggle(p.id)}
                   onEdit={() => openProject(p)}
+                  onAdd={() => openTask(null, p.id)}
                   dropRef={registerSection}
                   dropKey={p.id}
                   highlight={
@@ -1167,6 +1207,7 @@ export function TasksPage() {
                         collapsed={collapsed.has(sub.id)}
                         onToggle={() => toggle(sub.id)}
                         onEdit={() => openProject(sub)}
+                        onAdd={() => openTask(null, sub.id)}
                         dropRef={registerSection}
                         highlight={Boolean(draggingTask) && dropKey === sub.id}
                         onReorderStart={(at) => onProjectReorderStart(sub, at)}
