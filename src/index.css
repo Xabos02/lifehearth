@@ -794,3 +794,18 @@ textarea:focus-visible {
 input[type='date'].date-empty:not(:focus) {
   color: transparent;
 }
+
+/* Счётчик задач у заголовка проекта — в цвет проекта. Решение владельца
+   от 11.09.2026, выбрано на канве из трёх вариантов.
+
+   Только в тёмной теме. В светлой голая цветная цифра проваливает AA для
+   всех 27 цветов палитры (лучший результат 4,45 при норме 4,5, худший 1,08
+   у белого) — это замер, и тест контраста e2e/contrast.spec.ts его держит.
+   Поэтому :root.light возвращает прежний серый. Цвет приходит переменной
+   --project-color из разметки; без неё остаётся серый. */
+.project-count {
+  color: var(--project-color, var(--color-muted));
+}
+:root.light .project-count {
+  color: var(--color-muted);
+}

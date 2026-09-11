@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -145,7 +146,12 @@ function SubSection({
           <h3 className="truncate text-sm font-semibold tracking-wide text-muted uppercase">
             {project.name}
           </h3>
-          <span className="text-xs text-muted/70">{count}</span>
+          <span
+            className="project-count text-xs opacity-70"
+            style={{ '--project-color': project.color } as CSSProperties}
+          >
+            {count}
+          </span>
         </button>
         <div className="flex items-center gap-5">
           {onAdd && (
@@ -187,6 +193,7 @@ function Section({
   onToggle,
   onEdit,
   onAdd,
+  color,
   dropRef,
   dropKey,
   highlight = false,
@@ -203,6 +210,8 @@ function Section({
   onEdit?: () => void;
   /** «+» у заголовка — добавить задачу в этот проект, не листая до низа. */
   onAdd?: () => void;
+  /** Цвет проекта — для счётчика (в светлой теме не применяется, см. index.css). */
+  color?: string;
   dropRef?: (el: HTMLElement | null) => void;
   dropKey?: string;
   highlight?: boolean;
@@ -240,7 +249,12 @@ function Section({
           />
           {icon && <span className="flex shrink-0 items-center">{icon}</span>}
           <h2 className="text-lg font-bold tracking-tight">{title}</h2>
-          <span className="text-sm text-muted">{count}</span>
+          <span
+            className="project-count text-sm"
+            style={color ? ({ '--project-color': color } as CSSProperties) : undefined}
+          >
+            {count}
+          </span>
         </button>
         {/* «+» у заголовка. Владелец: «когда много задач, мне приходится
             листать в самый низ, чтобы добавить задачу в этот проект». Стоит
@@ -1154,6 +1168,7 @@ export function TasksPage() {
                   onToggle={() => toggle(p.id)}
                   onEdit={() => openProject(p)}
                   onAdd={() => openTask(null, p.id)}
+                  color={p.color}
                   dropRef={registerSection}
                   dropKey={p.id}
                   highlight={
