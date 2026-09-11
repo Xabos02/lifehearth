@@ -175,6 +175,27 @@ export interface TaskPhoto extends BaseEntity {
   data: string;
 }
 
+/** Файл-вложение задачи — любого формата, чанками, как NoteFile.
+ *
+ *  Появился 11.09.2026: владелец попросил прикреплять к задаче «не только
+ *  картинки, но и файлы любых форматов и по максимуму объём». Снимки
+ *  остаются в taskPhotos (у них своя механика сжатия и просмотр), а всё
+ *  остальное — здесь. Почему чанками, а не одной записью — см. NoteFile:
+ *  запись тяжелее ~1,6 МБ не уезжает на сервер никогда. */
+export interface TaskFile extends BaseEntity {
+  taskId: string;
+  /** Общий id файла у всех его чанков (uuid). */
+  fileId: string;
+  idx: number;
+  total: number;
+  name: string;
+  mime: string;
+  /** Размер исходного файла в байтах (не чанка). */
+  size: number;
+  /** Кусок dataURL. */
+  data: string;
+}
+
 export interface NoteFile extends BaseEntity {
   noteId: string;
   /** Общий id файла у всех его чанков (uuid). */

@@ -8,6 +8,7 @@ import type {
   Note,
   NoteFile,
   TaskPhoto,
+  TaskFile,
   NoteFolder,
   LearningItem,
   LearningLog,
@@ -61,6 +62,7 @@ export class LifeHearthDB extends Dexie {
   energyItems!: Table<EnergyItem, string>;
   energyLogs!: Table<EnergyLog, string>;
   taskPhotos!: Table<TaskPhoto, string>;
+  taskFiles!: Table<TaskFile, string>;
   placeItems!: Table<PlaceItem, string>;
   metrics!: Table<Metric, string>;
   metricLogs!: Table<MetricLog, string>;
@@ -387,6 +389,13 @@ export class LifeHearthDB extends Dexie {
     // по нему push ищет свежие записи (без него падает весь обмен).
     this.version(21).stores({
       learningParts: 'id, itemId, updatedAt',
+    });
+
+    // v22 — файлы любого формата у задач, чанками (см. TaskFile в types.ts).
+    // Индексы: taskId — собрать вложения одной задачи; fileId — все куски
+    // одного файла; updatedAt — по нему push ищет свежие записи.
+    this.version(22).stores({
+      taskFiles: 'id, taskId, fileId, updatedAt',
     });
   }
 }

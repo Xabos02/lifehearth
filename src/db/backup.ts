@@ -52,6 +52,7 @@ const TABLES = [
   // синхронизации живут в отдельной таблице sync, её в копии нет.
   'settings',
   'taskPhotos',
+  'taskFiles',
 ] as const;
 
 type TableName = (typeof TABLES)[number];

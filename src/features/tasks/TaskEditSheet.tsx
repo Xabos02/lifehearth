@@ -29,6 +29,10 @@ import { PRESET_COLORS } from '../../lib/colors';
 import { ALLDAY_REMIND_TIME, cancelReminder, scheduleReminder } from '../../lib/push';
 import { compressImage } from '../../lib/image';
 import { syncTaskPhotos } from '../../lib/taskPhotos';
+import { MAX_FILE_BYTES, formatFileSize, groupTaskAttachments, planTaskFileChunks } from '../../lib/taskFiles';
+import { NoteAttachments } from '../notes/NoteAttachments';
+import { GAttach as Paperclip } from '../../components/ui/glyphs';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { formatDuration } from '../../lib/duration';
 import { t } from '../../lib/i18n';
 import { useAutoCapitalizeTextarea } from '../../lib/useAutoCapitalizeTextarea';
@@ -181,6 +185,17 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
   // Просмотр фото на весь экран (null — закрыт).
   const [viewPhoto, setViewPhoto] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Файлы любого формата — чанками в taskFiles (lib/taskFiles). Прикреплённые
+  // в этой форме копятся здесь и записываются при сохранении, вместе с
+  // фотографиями; уже записанные читаются живым запросом ниже.
+  const [pendingFiles, setPendingFiles] = useState<
+    { name: string; mime: string; size: number; dataUrl: string }[]
+  >([]);
+  const savedFiles = useLiveQuery(
+    async () => (task ? groupTaskAttachments(await db.taskFiles.where('taskId').equals(task.id).toArray()) : []),
+    [task?.id],
+  ) ?? [];
 
   // Проекты в порядке иерархии: верхний уровень, за ним его подпроекты с отступом.
   const orderedProjects = useMemo(() => {
@@ -285,6 +300,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
       // версии, поле photos убирать нельзя: применяя такую задачу, оно затёрло
       // бы ею свои фотографии. Строку эта запись не трогает.
       void syncTaskPhotos(savedId, photos);
+      for (const f of pendingFiles) {
+        const chunks = planTaskFileChunks(savedId, uid(), { name: f.name, mime: f.mime, size: f.size }, f.dataUrl);
+        for (const chunk of chunks) await create(db.taskFiles, chunk);
+      }
       // Поставить/обновить пуш-напоминание (внутри само снимет, если срок/время убраны).
       void scheduleReminder({
         id: savedId,
@@ -333,6 +352,35 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
   // Добавление фото: сжимаем в JPEG dataURL (как в «Местах»/чате), чтобы не
   // раздувать IndexedDB и полезную нагрузку синка.
+  /** Файл — вложение задачи. Предел тот же, что у заметок и чата: 8 МиБ. */
+  const addFiles = async (files: FileList | null) => {
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      if (file.size > MAX_FILE_BYTES) {
+        toast(t('Файл больше {size} — выберите поменьше', { size: formatFileSize(MAX_FILE_BYTES) }));
+        continue;
+      }
+      const dataUrl = await new Promise<string>((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result));
+        fr.onerror = () => rej(new Error('read'));
+        fr.readAsDataURL(file);
+      }).catch(() => null);
+      if (dataUrl === null) {
+        toast(t('Не удалось прочитать файл. Попробуйте другой'));
+        continue;
+      }
+      setPendingFiles((prev) => [...prev, { name: file.name || t('файл'), mime: file.type, size: file.size, dataUrl }]);
+    }
+  };
+
+  /** Удалить записанное вложение: мягко, каждый чанк — синк разнесёт. */
+  const deleteSavedFile = async (fileId: string) => {
+    if (!window.confirm(t('Удалить файл из задачи?'))) return;
+    const rows = await db.taskFiles.where('fileId').equals(fileId).toArray();
+    for (const r of rows) await remove(db.taskFiles, r.id);
+  };
+
   const addPhotos = async (files: FileList | null) => {
     if (!files?.length) return;
     const added: string[] = [];
@@ -531,6 +579,55 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
             onChange={(e) => {
               void addPhotos(e.target.files);
               e.target.value = ''; // позволяет выбрать те же файлы повторно
+            }}
+          />
+        </div>
+
+        <div>
+          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Файлы')}</span>
+          {/* Записанные — общей карточкой с заметками: тап скачивает, крестик
+              удаляет. Только что прикреплённые — отдельным списком, они ещё не
+              в базе и уйдут туда при сохранении. */}
+          <NoteAttachments files={savedFiles} onDelete={(id) => void deleteSavedFile(id)} />
+          {pendingFiles.length > 0 && (
+            <div className="mt-2 space-y-2" data-testid="task-pending-files">
+              {pendingFiles.map((f, i) => (
+                <div key={i} className="card flex items-center gap-3 p-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+                    <Paperclip size={ICON.header} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-base font-medium">{f.name}</span>
+                    <span className="block text-xs text-muted">{formatFileSize(f.size)} · {t('добавится при сохранении')}</span>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={t('Убрать файл')}
+                    onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                    className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+                  >
+                    <X size={ICON.inline} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-sm font-medium text-muted active:opacity-60"
+          >
+            <Paperclip size={ICON.action} />
+            {t('Прикрепить файл')}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              void addFiles(e.target.files);
+              e.target.value = '';
             }}
           />
         </div>
