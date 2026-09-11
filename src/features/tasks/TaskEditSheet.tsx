@@ -764,12 +764,21 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 }
               >
                 <option value="">{t('Выкл')}</option>
-                <option value="0">{dueTime ? t('Вовремя') : t('В день задачи')}</option>
-                {(dueTime ? REMIND_PRESETS : REMIND_PRESETS_ALLDAY).map((m) => (
+                {/* Порядок — по ходу времени: от самого дальнего «за неделю» к
+                    самому близкому «за 5 минут», и в конце — момент задачи.
+                    Так человек и думает о напоминании: издалека к сроку.
+                    Раньше список шёл наоборот, и чтобы поставить «за неделю»,
+                    надо было пролистать его до дна. Массивы не перевёрнуты
+                    намеренно — их порядок читают и другие места; меняется
+                    только вывод. «Выкл» остаётся первым: это не точка на шкале,
+                    а «напоминания нет», и место ему как у значения по
+                    умолчанию. */}
+                {[...(dueTime ? REMIND_PRESETS : REMIND_PRESETS_ALLDAY)].reverse().map((m) => (
                   <option key={m} value={m}>
                     {t('за {d}', { d: formatRemind(m) })}
                   </option>
                 ))}
+                <option value="0">{dueTime ? t('Вовремя') : t('В день задачи')}</option>
               </Select>
               {!dueTime && remindBefore != null && (
                 <p className="mt-1.5 text-xs leading-snug text-muted">
