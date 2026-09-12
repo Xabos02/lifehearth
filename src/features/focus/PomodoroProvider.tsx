@@ -41,7 +41,33 @@ function phaseMs(phase: Phase, workMin: number, breakMin: number, longMin: numbe
 }
 
 // ── Уведомления о конце круга ─────────────────────────────────────────────────
-const POMO_PUSH_ID = 'pomodoro-end';
+//
+// Ключ напоминания — свой на каждом устройстве, а не общий 'pomodoro-end'.
+//
+// На сервере это первичный ключ таблицы напоминаний, запись идёт через
+// INSERT OR REPLACE. С общим ключом семья делила одно напоминание на всех:
+// Влад запустил фокус, через минуту жена на своём телефоне — её строка
+// заменила его, и «Фокус завершён» пришёл только ей. Пауза или сброс у
+// любого слали /cancel с тем же ключом и снимали напоминание у обоих.
+// У задач такого нет — там ключ это id задачи. Найдено разбором 11.09.2026,
+// по коду; живым прогоном не воспроизводилось, но механизм однозначный.
+const POMO_PUSH_ID = `pomodoro-end:${deviceTag()}`;
+
+/** Метка устройства для ключей, которые должны быть свои на каждом.
+ *  Один раз генерируется и живёт в localStorage; в синк и бэкап не уезжает —
+ *  в этом весь смысл. */
+function deviceTag(): string {
+  const KEY = 'life-hub-device';
+  try {
+    const have = localStorage.getItem(KEY);
+    if (have) return have;
+    const fresh = crypto.randomUUID();
+    localStorage.setItem(KEY, fresh);
+    return fresh;
+  } catch {
+    return 'local';
+  }
+}
 
 /** Текст уведомления по фазе, которая заканчивается. */
 function phaseEndText(phase: Phase): { title: string; body: string } {
