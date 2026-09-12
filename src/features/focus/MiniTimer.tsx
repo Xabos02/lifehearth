@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
-  GClose as X,
   GPause as Pause,
   GPlay as Play,
   GRepeat as RotateCcw,
@@ -16,18 +14,11 @@ export function MiniTimer() {
   const nav = useNavigate();
   const { pathname } = useLocation();
 
-  // «Убрать с раздела» — локально прячем плашку. Новый круг (смена фазы) или
-  // (де)активация таймера возвращают её. Сбрасываем во время рендера (паттерн
-  // React «скорректировать состояние при изменении входа»), не в эффекте.
-  const [dismissed, setDismissed] = useState(false);
-  const [marker, setMarker] = useState({ phase: p.phase, active: p.active });
-  if (marker.phase !== p.phase || marker.active !== p.active) {
-    setMarker({ phase: p.phase, active: p.active });
-    setDismissed(false);
-  }
-
+  // Крестика «Убрать таймер» здесь больше нет. Он прятал плашку только
+  // локально, а плавающая «+» держит зазор по p.active — и после «Убрать»
+  // кнопка до конца фазы висела на 48px над пустотой. Плашка 53px не мешает,
+  // а вернуть её после крестика было нельзя иначе как через «Ещё → Фокус».
   if (!p.active) return null;
-  if (dismissed) return null;
   if (pathname === '/more/focus') return null; // на самой странице не дублируем
   if (/^\/notes\/.+/.test(pathname)) return null; // там таб-бара нет
 
@@ -56,7 +47,7 @@ export function MiniTimer() {
         {formatClock(p.remainingMs)}
       </span>
       <span className="min-w-0 flex-1 truncate text-sm text-muted">
-        {p.phase === 'work' ? p.taskTitle || t('Фокус') : t('Перерыв')}
+        {p.phase === 'work' ? p.taskTitle || t('Фокус') : p.phase === 'long' ? t('Длинный перерыв') : t('Перерыв')}
       </span>
       <button
         type="button"
@@ -79,17 +70,6 @@ export function MiniTimer() {
         className={iconBtn}
       >
         <RotateCcw size={ICON.base} />
-      </button>
-      <button
-        type="button"
-        aria-label={t('Убрать таймер')}
-        onClick={(e) => {
-          e.stopPropagation();
-          setDismissed(true);
-        }}
-        className={iconBtn}
-      >
-        <X size={ICON.base} />
       </button>
     </div>
   );

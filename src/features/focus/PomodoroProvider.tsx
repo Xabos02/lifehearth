@@ -3,6 +3,8 @@ import { todayKey } from '../../lib/dates';
 import { schedulePush, cancelPush } from '../../lib/push';
 import { TimeCtx, Ctx, type Phase, type PomodoroCtx, type SoundType } from './pomodoro';
 import { t } from '../../lib/i18n';
+import { ensureAudio, playAlarm, setAudioSession, type AlarmType } from './alarms';
+import { STALE_MS, cycleDots, nextAfterWork, phaseMs as phaseMsOf, settle, type PomodoroState } from './pomodoroSettle';
 
 // Помодоро-таймер на основе timestamp (endsAt) — корректно показывает остаток
 // после сворачивания приложения и навигации. Состояние глобальное (контекст),
@@ -11,33 +13,21 @@ import { t } from '../../lib/i18n';
 
 export type { Phase, SoundType } from './pomodoro';
 
-const LONG_AFTER = 4; // длинный перерыв после стольких рабочих сессий
+const LONG_AFTER = 4; // длинный перерыв после стольких рабочих кругов — по умолчанию
 const LONG_MIN = 15;
 
-interface Persisted {
-  phase: Phase;
-  running: boolean;
-  endsAt: number | null; // когда running
-  remainingMs: number; // когда на паузе
+interface Persisted extends PomodoroState {
   taskId: string | null;
   taskTitle: string | null;
-  workCount: number;
-  completedToday: number;
-  focusMinToday: number; // суммарно минут фокуса за сегодня
-  date: string;
-  workMin: number;
-  breakMin: number;
-  longMin: number;
   sound: SoundType;
+  alarm: AlarmType;
 }
 
 
 const STORE_KEY = 'life-hub-pomodoro';
 
 function phaseMs(phase: Phase, workMin: number, breakMin: number, longMin: number): number {
-  if (phase === 'work') return workMin * 60_000;
-  if (phase === 'long') return longMin * 60_000;
-  return breakMin * 60_000;
+  return phaseMsOf(phase, { workMin, breakMin, longMin });
 }
 
 // ── Уведомления о конце круга ─────────────────────────────────────────────────
@@ -133,15 +123,25 @@ function load(): Persisted {
     workMin: 25,
     breakMin: 5,
     longMin: LONG_MIN,
+    longAfter: LONG_AFTER,
     sound: 'none',
+    alarm: 'soft',
   };
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return base;
-    const p = { ...base, ...(JSON.parse(raw) as Persisted) };
+    const stored = { ...base, ...(JSON.parse(raw) as Persisted) };
+    // Фазы, кончившиеся пока приложение было закрыто, докручиваются молча —
+    // иначе первый же тик после открытия сыграл бы «Фокус завершён» за вчера.
+    const p = settle(stored, Date.now(), todayKey());
+    if (p !== stored) {
+      localStorage.setItem(STORE_KEY, JSON.stringify(p));
+      syncPhasePush(p);
+    }
     if (p.date !== todayKey()) {
       p.completedToday = 0; // счётчики — за сегодня
       p.focusMinToday = 0;
+      p.workCount = 0; // и цикл кругов: вчерашние три не должны вести в длинный перерыв после одного сегодняшнего
     }
     return p;
   } catch {
@@ -150,38 +150,6 @@ function load(): Persisted {
 }
 
 // ── Аудио ───────────────────────────────────────────────────────────────────
-let audioCtx: AudioContext | null = null;
-function ensureAudio(): AudioContext | null {
-  try {
-    const AC =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!audioCtx) audioCtx = new AC();
-    void audioCtx.resume();
-    return audioCtx;
-  } catch {
-    return null;
-  }
-}
-
-function beep() {
-  const ac = ensureAudio();
-  if (ac) {
-    const o = ac.createOscillator();
-    const g = ac.createGain();
-    o.connect(g);
-    g.connect(ac.destination);
-    o.type = 'sine';
-    o.frequency.value = 880;
-    const t = ac.currentTime;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
-    o.start(t);
-    o.stop(t + 0.6);
-  }
-  navigator.vibrate?.(200);
-}
 
 function makeNoiseBuffer(ac: AudioContext, kind: SoundType): AudioBuffer {
   const len = ac.sampleRate * 2;
@@ -223,6 +191,7 @@ function stopNoise() {
 function startNoise(kind: SoundType) {
   stopNoise();
   if (kind === 'none') return;
+  setAudioSession('playback');
   const ac = ensureAudio();
   if (!ac) return;
   const src = ac.createBufferSource();
@@ -274,8 +243,13 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     const id = setInterval(() => {
       const cur = sRef.current;
       if (!cur.running || cur.endsAt == null) return;
-      if (cur.endsAt - Date.now() <= 0) advancePhase();
-      else force((n) => n + 1);
+      const now = Date.now();
+      if (cur.endsAt <= now) {
+        // Тот же порог, что у возврата из фона: вкладка на компьютере может
+        // проспать час с замороженным таймером, не сменив видимость.
+        if (now - cur.endsAt < STALE_MS) advancePhase();
+        else persist(settle(cur, now, todayKey()));
+      } else force((n) => n + 1);
     }, 500);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -284,19 +258,40 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onVis = () => {
       const cur = sRef.current;
-      if (cur.running && cur.endsAt != null && cur.endsAt - Date.now() <= 0) advancePhase();
-      else force((n) => n + 1);
+      const now = Date.now();
+      if (cur.running && cur.endsAt != null && cur.endsAt <= now) {
+        // Дошло только что — обычный переход со звуком. Давно — докрутка
+        // молча: пуш об этом уже приходил, сигнал сейчас был бы «за вчера».
+        if (now - cur.endsAt < STALE_MS) advancePhase();
+        else persist(settle(cur, now, todayKey()));
+      } else force((n) => n + 1);
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Фоновый шум — только во время работающей рабочей фазы.
+  // Фоновый шум — только во время работающей рабочей фазы. Выбранный в простое
+  // шум звучит пару секунд на пробу: иначе тап по чипу давал тишину, и выбор
+  // выглядел сломанным. Пробу запускает только выбор рукой (previewRef), не
+  // загрузка сохранённого — иначе приложение шумело бы при каждом открытии.
+  const previewRef = useRef<SoundType | null>(null);
   useEffect(() => {
-    if (s.running && s.phase === 'work' && s.sound !== 'none') startNoise(s.sound);
-    else stopNoise();
-    return () => stopNoise();
+    if (s.running && s.phase === 'work' && s.sound !== 'none') {
+      startNoise(s.sound);
+      return () => stopNoise();
+    }
+    if (previewRef.current === s.sound && s.sound !== 'none') {
+      previewRef.current = null;
+      startNoise(s.sound);
+      const id = setTimeout(stopNoise, 2500);
+      return () => {
+        clearTimeout(id);
+        stopNoise();
+      };
+    }
+    stopNoise();
+    return undefined;
   }, [s.running, s.phase, s.sound]);
 
   /** Перейти к следующей фазе.
@@ -309,22 +304,24 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
    *  раздела 11.09.2026. */
   function advancePhase(skipped = false) {
     const cur = sRef.current;
-    beep();
+    playAlarm(cur.alarm);
     notifyPhaseEnd(cur.phase);
     if (cur.phase === 'work') {
       const workCount = cur.workCount + 1;
-      const nextPhase: Phase = workCount % LONG_AFTER === 0 ? 'long' : 'break';
+      const nextPhase = nextAfterWork(workCount, cur.longAfter);
       const elapsedMs =
         cur.running && cur.endsAt != null
           ? Math.max(0, cur.workMin * 60_000 - (cur.endsAt - Date.now()))
           : cur.workMin * 60_000 - cur.remainingMs;
       const earnedMin = skipped ? Math.floor(elapsedMs / 60_000) : cur.workMin;
+      // Круг дошёл до конца уже в новый день — счётчики дня с нуля, как в load().
+      const sameDay = cur.date === todayKey();
       persist({
         ...cur,
         phase: nextPhase,
         workCount,
-        completedToday: cur.completedToday + (skipped ? 0 : 1),
-        focusMinToday: cur.focusMinToday + earnedMin,
+        completedToday: (sameDay ? cur.completedToday : 0) + (skipped ? 0 : 1),
+        focusMinToday: (sameDay ? cur.focusMinToday : 0) + earnedMin,
         date: todayKey(),
         running: true,
         endsAt: Date.now() + phaseMs(nextPhase, cur.workMin, cur.breakMin, cur.longMin),
@@ -393,7 +390,12 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     });
   }, [persist]);
 
+  // В простое пропускать нечего: раньше кнопка из ничего запускала перерыв и
+  // сдвигала счёт кругов — тот, кто тыкал «а что это», получал идущий перерыв.
   const skip = useCallback(() => {
+    const cur = sRef.current;
+    const idle = !cur.running && cur.phase === 'work' && cur.remainingMs >= cur.workMin * 60_000;
+    if (idle) return;
     advancePhase(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -444,8 +446,25 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
 
   const setSound = useCallback(
     (sound: SoundType) => {
+      previewRef.current = sound;
       persist({ ...sRef.current, sound });
       ensureAudio();
+    },
+    [persist],
+  );
+
+  const setLongAfter = useCallback(
+    (longAfter: number) => {
+      persist({ ...sRef.current, longAfter: Math.max(1, Math.round(longAfter)) });
+    },
+    [persist],
+  );
+
+  // Выбор сигнала сразу его проигрывает: слушать — единственный способ выбрать.
+  const setAlarm = useCallback(
+    (alarm: AlarmType) => {
+      persist({ ...sRef.current, alarm });
+      playAlarm(alarm);
     },
     [persist],
   );
@@ -474,7 +493,10 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       workMin: s.workMin,
       breakMin: s.breakMin,
       longMin: s.longMin,
+      longAfter: s.longAfter,
+      cycle: cycleDots(s.phase, s.workCount, s.longAfter),
       sound: s.sound,
+      alarm: s.alarm,
       active,
       start,
       toggle,
@@ -486,6 +508,8 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       setLongMin,
       setTask,
       setSound,
+      setLongAfter,
+      setAlarm,
     }),
     [
       s.phase,
@@ -498,7 +522,10 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       s.workMin,
       s.breakMin,
       s.longMin,
+      s.longAfter,
+      s.workCount,
       s.sound,
+      s.alarm,
       active,
       start,
       toggle,
@@ -510,6 +537,8 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       setLongMin,
       setTask,
       setSound,
+      setLongAfter,
+      setAlarm,
     ],
   );
 

@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import { t } from '../../lib/i18n';
+import type { AlarmType } from './alarms';
 
 // Контекст, хук и форматтеры помодоро вынесены из PomodoroProvider.tsx:
 // файл с компонентом должен экспортировать только компоненты,
@@ -20,7 +21,10 @@ export interface PomodoroCtx {
   workMin: number;
   breakMin: number;
   longMin: number;
+  longAfter: number; // кругов до длинного перерыва
+  cycle: { done: number; total: number }; // точки под таймером: сделано / всего в цикле
   sound: SoundType;
+  alarm: AlarmType; // сигнал конца круга
   active: boolean; // идёт сессия (не дефолтное простаивание)
   start: (taskId?: string | null, taskTitle?: string | null) => void;
   toggle: () => void;
@@ -32,6 +36,8 @@ export interface PomodoroCtx {
   setLongMin: (longMin: number) => void;
   setTask: (taskId: string | null, taskTitle: string | null) => void;
   setSound: (sound: SoundType) => void;
+  setLongAfter: (n: number) => void;
+  setAlarm: (alarm: AlarmType) => void;
 }
 
 // Два контекста, а не один, — из-за цены тика.

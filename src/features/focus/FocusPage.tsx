@@ -1,6 +1,7 @@
 import { useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
+  BellOff,
   ListChecks,
   SkipForward,
 } from 'lucide-react';
@@ -15,7 +16,7 @@ import {
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
-import { t } from '../../lib/i18n';
+import { getLang, t } from '../../lib/i18n';
 import { Screen } from '../../components/layout/Screen';
 import { Sheet } from '../../components/ui/Sheet';
 import { Chip, ChipRow } from '../../components/ui/Chip';
@@ -29,6 +30,9 @@ import {
 } from './pomodoro';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { ALARM_OPTIONS } from './alarms';
+import { enablePush, isStandalone, pushEnabled, pushSupported } from '../../lib/push';
+import { useToast } from '../../components/ui/toastContext';
 
 const PHASE_LABEL: Record<Phase, string> = {
   work: 'Фокус',
@@ -72,6 +76,8 @@ function savePresets(list: Preset[]): void {
   }
 }
 
+// Фоновый шум на время работы. Не путать с сигналом конца круга (ALARM_OPTIONS):
+// раньше ряд назывался «Звук фокуса», и владелец искал в нём выбор сигнала.
 const SOUNDS: { value: SoundType; label: string }[] = [
   { value: 'none', label: 'Тишина' },
   { value: 'white', label: 'Белый' },
@@ -107,15 +113,21 @@ const FOCUS_VARS = {
 // Ниже 400px строим степперы столбиком: каждому достаётся вся ширина.
 const STEPPER_PAIR = 'flex flex-col gap-3 min-[400px]:flex-row';
 
-/** Поле длительности (мин): шаг ±1 кнопками и ввод любого значения, без верхнего предела. */
+/** Поле числа: шаг ±1 кнопками и ввод любого значения. Длительности — без
+ *  верхнего предела; у кругов до длинного перерыва предел есть (max). */
 function DurationStepper({
   label,
   value,
   onChange,
+  unit = 'минут',
+  max = Infinity,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
+  /** Подпись единицы для читалки: «Фокус, минут» / «Кругов до него, штук». */
+  unit?: string;
+  max?: number;
 }) {
   // Локальный текст: позволяет полностью стереть поле во время ввода (value=число
   // нельзя сделать пустым). Живое обновление — только при валидном числе ≥ 1;
@@ -148,13 +160,13 @@ function DurationStepper({
           type="text"
           inputMode="numeric"
           pattern="[0-9]*"
-          aria-label={t('{label}, минут', { label })}
+          aria-label={unit === 'минут' ? t('{label}, минут', { label }) : t('{label}, штук', { label })}
           value={text}
           onChange={(e) => {
             const raw = e.target.value.replace(/\D/g, '');
             setText(raw);
             const n = parseInt(raw, 10);
-            if (raw !== '' && n >= 1) onChange(n);
+            if (raw !== '' && n >= 1) onChange(Math.min(max, n));
           }}
           onBlur={() => {
             const n = parseInt(text, 10);
@@ -165,8 +177,9 @@ function DurationStepper({
         <button
           type="button"
           aria-label={t('{label}: больше', { label })}
-          onClick={() => onChange(value + 1)}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90"
+          onClick={() => onChange(Math.min(max, value + 1))}
+          disabled={value >= max}
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90 disabled:opacity-40"
         >
           +
         </button>
@@ -233,8 +246,57 @@ function PresetForm({
   );
 }
 
+/** Точки цикла под меткой фазы: закрашено — круг сделан, контур — идёт сейчас.
+ *  Читаются с расстояния вытянутой руки, в отличие от строки «круг 2 из 4». */
+function CycleDots({ done, total, color }: { done: number; total: number; color: string }) {
+  const current = Math.min(done, total - 1);
+  return (
+    <div
+      role="img"
+      aria-label={t('Круг {n} из {total}', { n: String(Math.min(done + 1, total)), total: String(total) })}
+      data-testid="cycle-dots"
+      data-done={done}
+      className="mb-4 flex items-center gap-2"
+    >
+      {Array.from({ length: total }, (_, i) => (
+        <span
+          key={i}
+          className="size-2.5 rounded-full"
+          style={
+            i < done
+              ? { background: color }
+              : i === current && done < total
+                ? { boxShadow: `inset 0 0 0 2px ${color}` }
+                : { background: 'var(--app-hairline)' }
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
 export function FocusPage() {
   const p = usePomodoro();
+  const toast = useToast();
+  // pushEnabled() синхронный; включение из баннера ниже обновляет состояние само.
+  const [pushOn, setPushOn] = useState(() => pushEnabled());
+
+  async function enableFocusPush() {
+    if (!pushSupported()) {
+      toast(t('Уведомления не поддерживаются этим браузером.'));
+      return;
+    }
+    if (!isStandalone()) {
+      toast(t('Уведомления работают только в установленном приложении. Добавьте LifeHearth на экран «Домой» и откройте оттуда.'));
+      return;
+    }
+    const res = await enablePush();
+    if (!res.ok) {
+      toast(res.reason === 'denied' ? t('Разрешение не выдано. Включите в настройках устройства.') : t('Не удалось включить уведомления. Проверьте разрешения в настройках устройства'));
+      return;
+    }
+    setPushOn(true);
+  }
   const [pickerOpen, setPickerOpen] = useState(false);
   const [presets, setPresets] = useState<Preset[]>(loadPresets);
   const [managing, setManaging] = useState(false);
@@ -276,10 +338,13 @@ export function FocusPage() {
   // по дереву); сама дуга в фокусе — красно-оранжевый градиент Focus To-Do.
   const accentColor = isWork ? 'var(--app-accent)' : 'var(--app-success)';
   const ringStroke = isWork ? 'url(#focusGrad)' : 'var(--app-success)';
-  // Когда таймер не идёт и фаза «работа» — кольцо это слайдер длительности
+  // Когда сессии нет и фаза «работа» — кольцо это слайдер длительности
   // (заполнение = workMin/ringMax); тянешь по кругу → меняешь время. Иначе — отсчёт.
   // ringMax растёт под значения больше 90 (длительность задаётся без верхнего предела).
-  const idleWork = !p.running && isWork;
+  // Именно «сессии нет», а не «таймер стоит»: на паузе кольцо раньше тоже
+  // становилось слайдером, дуга прыгала на workMin/90, а касание сбрасывало
+  // остаток на полную длительность — прогресс круга терялся без предупреждения.
+  const idleWork = !p.active && isWork;
   const ringMax = Math.max(MAX_MIN, p.workMin);
   const ringFrac = idleWork
     ? Math.min(1, p.workMin / ringMax)
@@ -292,6 +357,17 @@ export function FocusPage() {
 
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
+
+  /** Расстояние касания от центра в единицах viewBox (300×300). */
+  function distFromCenter(clientX: number, clientY: number): number {
+    const svg = svgRef.current;
+    if (!svg) return 0;
+    const rect = svg.getBoundingClientRect();
+    const k = 300 / rect.width;
+    const dx = (clientX - rect.left) * k - 150;
+    const dy = (clientY - rect.top) * k - 150;
+    return Math.hypot(dx, dy);
+  }
 
   function setFromPointer(clientX: number, clientY: number) {
     const svg = svgRef.current;
@@ -309,6 +385,11 @@ export function FocusPage() {
 
   const onRingDown = (e: PointerEvent<SVGSVGElement>) => {
     if (!idleWork) return;
+    // Жест принимается только на дорожке кольца (с запасом в ширину штриха
+    // с каждой стороны). Раньше угол считался от любого касания, и тап по
+    // цифрам в центре — самое естественное место «а что тут» — переставлял
+    // длительность: 25 → 55 минут одним пальцем.
+    if (Math.abs(distFromCenter(e.clientX, e.clientY) - R) > STROKE * 2) return;
     dragging.current = true;
     try {
       svgRef.current?.setPointerCapture(e.pointerId);
@@ -328,9 +409,10 @@ export function FocusPage() {
   return (
     <Screen title={t('Фокус')} backTo="/home">
       <div className="flex flex-col items-center" style={FOCUS_VARS}>
-        <p className="mb-4 text-sm font-semibold" style={{ color: accentColor }}>
+        <p className="mb-2 text-sm font-semibold" style={{ color: accentColor }}>
           {t(PHASE_LABEL[p.phase])}
         </p>
+        <CycleDots done={p.cycle.done} total={p.cycle.total} color={accentColor} />
 
         <div className="relative">
           <svg
@@ -407,8 +489,9 @@ export function FocusPage() {
           </button>
           <button
             onClick={p.skip}
-            aria-label={t('Пропустить фазу')}
-            className="flex size-12 items-center justify-center rounded-full border border-border text-muted active:scale-90"
+            disabled={!p.active}
+            aria-label={isWork ? t('Завершить круг') : t('Пропустить перерыв')}
+            className="flex size-12 items-center justify-center rounded-full border border-border text-muted active:scale-90 disabled:opacity-40"
           >
             <SkipForward size={ICON.header} />
           </button>
@@ -427,7 +510,23 @@ export function FocusPage() {
         </button>
 
         <div className="mt-6 w-full">
-          <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Звук фокуса')}</p>
+          <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Сигнал в конце круга')}</p>
+          <ChipRow>
+            {ALARM_OPTIONS.map((a) => (
+              <Chip key={a.value} active={p.alarm === a.value} onClick={() => p.setAlarm(a.value)}>
+                {t(a.label)}
+              </Chip>
+            ))}
+          </ChipRow>
+          {/* Честно про границу: в свёрнутом PWA на iPhone своего звука нет —
+              конец круга приходит фоновым пушем со стандартным звуком системы. */}
+          <p className="mt-1.5 px-1 text-xs leading-snug text-muted">
+            {t('Нажатие на вариант — проиграть. В свёрнутом приложении звучит стандартный сигнал уведомления.')}
+          </p>
+        </div>
+
+        <div className="mt-6 w-full">
+          <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Фоновый шум')}</p>
           <ChipRow>
             {SOUNDS.map((sd) => (
               <Chip key={sd.value} active={p.sound === sd.value} onClick={() => p.setSound(sd.value)}>
@@ -445,10 +544,9 @@ export function FocusPage() {
           </div>
           <div className={`mt-3 ${STEPPER_PAIR}`}>
             <DurationStepper label={t('Длинный перерыв')} value={p.longMin} onChange={p.setLongMin} />
-            {/* self-center — только рядом со степпером; в колонке подпись идёт слева. */}
-            <p className="min-w-0 px-1 text-xs leading-snug text-muted min-[400px]:flex-1 min-[400px]:self-center">
-              {t('Длинный перерыв включается после каждых 4 фокусов.')}
-            </p>
+            {/* Было застывшей фразой «после каждых 4 фокусов» — число кругов
+                до длинного перерыва теперь своё, как и длительности. */}
+            <DurationStepper label={t('Кругов до него')} value={p.longAfter} onChange={p.setLongAfter} unit="штук" max={8} />
           </div>
           <div className="mb-2 mt-5 flex items-center justify-between px-1">
             <p className="text-sm font-medium text-muted">{t('Шаблоны')}</p>
@@ -486,13 +584,32 @@ export function FocusPage() {
         <div className="mt-8 flex w-full gap-3">
           <div className="flex-1 rounded-2xl bg-surface-2 p-3 text-center">
             <p className="text-2xl font-bold">{p.completedToday}</p>
-            <p className="text-xs text-muted">{t('помодоро сегодня')}</p>
+            <p className="text-xs text-muted">{t('кругов сегодня')}</p>
           </div>
           <div className="flex-1 rounded-2xl bg-surface-2 p-3 text-center">
             <p className="text-2xl font-bold">{formatFocusTime(p.focusMinToday)}</p>
             <p className="text-xs text-muted">{t('фокуса сегодня')}</p>
           </div>
         </div>
+
+        {/* Без уведомлений конец круга в свёрнутом приложении проходит молча —
+            таймер это переживёт, человек нет. Тот же баннер, что в семейном чате. */}
+        {!pushOn && (
+          <div className="mt-3 flex w-full items-start gap-2 rounded-xl border border-hairline bg-bg px-3 py-2.5 text-sm leading-snug">
+            <BellOff size={ICON.base} className="mt-0.5 shrink-0 text-warning" />
+            <span className="min-w-0 flex-1 text-muted">
+              {t('Уведомления выключены — о конце круга в свёрнутом приложении не узнать.')}{' '}
+              <button
+                onClick={() => void enableFocusPush()}
+                className={`font-semibold text-accent active:opacity-60 ${HIT_SLOP_44}`}
+              >
+                {/* «Включить» в словаре занято звуком чата ('Unmute') — тот же
+                    обход, что в семейном чате. */}
+                {getLang() === 'en' ? 'Turn on' : 'Включить'}
+              </button>
+            </span>
+          </div>
+        )}
       </div>
 
       <Sheet open={pickerOpen} onClose={() => setPickerOpen(false)} title={t('Задача для фокуса')}>

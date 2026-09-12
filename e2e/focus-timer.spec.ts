@@ -54,9 +54,9 @@ test('пропущенный круг не засчитывается как с�
 
   await page.getByRole('button', { name: 'Старт' }).click();
   await page.waitForTimeout(800);
-  // Через секунду «Пропустить фазу»: раньше это давало +1 помодоро и полные
+  // Через секунду «Завершить круг»: раньше это давало +1 помодоро и полные
   // минуты, как честный круг.
-  await page.getByRole('button', { name: 'Пропустить фазу' }).click();
+  await page.getByRole('button', { name: 'Завершить круг' }).click();
 
   await expect(done).toHaveText('0');
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('life-hub-pomodoro') ?? '{}'));
