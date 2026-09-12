@@ -602,7 +602,7 @@ export function NotesPage() {
             {filtered.length > 0 && !q && (
               <button
                 onClick={() => setSelecting(true)}
-                className="pr-1 text-sm font-medium text-accent active:opacity-60"
+                className={`pr-1 text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
                 {t('Выбрать')}
               </button>

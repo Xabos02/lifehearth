@@ -24,7 +24,7 @@ test('первый запуск закрыт выбором пола, выбор
 
   // Гейт ушёл и больше не возвращается; дальше — обычный первый запуск (тур).
   await expect(page.getByRole('heading', { name: 'Ваш пол' })).toHaveCount(0);
-  await expect(page.getByText('Добро пожаловать в LifeHearth')).toBeVisible();
+  await expect(page.getByText('Всё в одном месте')).toBeVisible();
 });
 
 test('мужской профиль: раздела нет в настройке разделов и по прямому адресу', async ({ page }) => {
