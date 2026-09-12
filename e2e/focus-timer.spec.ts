@@ -46,3 +46,22 @@ test('при работающем таймере в задаче можно сп
   // И таймер при этом продолжает идти.
   await expect(page.getByRole('button', { name: 'Открыть Фокус' })).toBeVisible();
 });
+
+test('пропущенный круг не засчитывается как сделанный', async ({ page }) => {
+  await openApp(page, '/more/focus');
+  const done = page.locator('p.text-2xl.font-bold').first();
+  await expect(done).toHaveText('0');
+
+  await page.getByRole('button', { name: 'Старт' }).click();
+  await page.waitForTimeout(800);
+  // Через секунду «Пропустить фазу»: раньше это давало +1 помодоро и полные
+  // минуты, как честный круг.
+  await page.getByRole('button', { name: 'Пропустить фазу' }).click();
+
+  await expect(done).toHaveText('0');
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('life-hub-pomodoro') ?? '{}'));
+  expect(stored.completedToday ?? 0).toBe(0);
+  expect(stored.focusMinToday ?? 0).toBe(0);
+  // Фаза при этом сменилась — пропуск сработал.
+  expect(stored.phase).not.toBe('work');
+});

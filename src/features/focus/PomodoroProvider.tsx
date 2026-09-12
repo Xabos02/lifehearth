@@ -299,19 +299,32 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     return () => stopNoise();
   }, [s.running, s.phase, s.sound]);
 
-  function advancePhase() {
+  /** Перейти к следующей фазе.
+   *
+   *  skipped — фазу пропустили рукой, а не досидели. Для рабочей фазы это
+   *  меняет учёт: раньше «Старт» и через десять секунд «Пропустить» давали
+   *  в статистике +1 помодоро и +25 минут — столько же, сколько честный
+   *  круг. Теперь пропущенный круг не засчитывается, а минуты берутся
+   *  фактические, сколько реально прошло, с округлением вниз. Разбор
+   *  раздела 11.09.2026. */
+  function advancePhase(skipped = false) {
     const cur = sRef.current;
     beep();
     notifyPhaseEnd(cur.phase);
     if (cur.phase === 'work') {
       const workCount = cur.workCount + 1;
       const nextPhase: Phase = workCount % LONG_AFTER === 0 ? 'long' : 'break';
+      const elapsedMs =
+        cur.running && cur.endsAt != null
+          ? Math.max(0, cur.workMin * 60_000 - (cur.endsAt - Date.now()))
+          : cur.workMin * 60_000 - cur.remainingMs;
+      const earnedMin = skipped ? Math.floor(elapsedMs / 60_000) : cur.workMin;
       persist({
         ...cur,
         phase: nextPhase,
         workCount,
-        completedToday: cur.completedToday + 1,
-        focusMinToday: cur.focusMinToday + cur.workMin,
+        completedToday: cur.completedToday + (skipped ? 0 : 1),
+        focusMinToday: cur.focusMinToday + earnedMin,
         date: todayKey(),
         running: true,
         endsAt: Date.now() + phaseMs(nextPhase, cur.workMin, cur.breakMin, cur.longMin),
@@ -381,7 +394,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   }, [persist]);
 
   const skip = useCallback(() => {
-    advancePhase();
+    advancePhase(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
