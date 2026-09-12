@@ -372,6 +372,27 @@ body {
     var(--shadow-card),
     inset 0 1px 0 oklch(1 0 0 / 0.05);
 }
+/* Обучение: иллюстрации слайдов (features/onboarding/illustrations.tsx).
+   Штрих — currentColor, в светлой теме темнее; угли одни на обе темы. */
+.onb-illo {
+  width: 200px;
+  height: 200px;
+  color: oklch(0.9 0.01 286);
+  --ember: oklch(0.72 0.17 50);
+  --ember-2: oklch(0.83 0.14 70);
+}
+:root.light .onb-illo {
+  color: oklch(0.35 0.02 285);
+}
+.onb-app-icon {
+  width: 160px;
+  height: 160px;
+  border-radius: 36px;
+  box-shadow:
+    0 24px 48px -16px oklch(0 0 0 / 0.7),
+    0 0 80px -10px oklch(0.72 0.17 50 / 0.35);
+}
+
 :root.light .card {
   box-shadow: var(--shadow-card);
 }

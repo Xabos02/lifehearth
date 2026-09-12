@@ -65,3 +65,23 @@ test('«восстановить» видно на первом экране —
   await page.getByRole('button', { name: 'Далее' }).click();
   await expect(restore).not.toBeVisible();
 });
+
+test('на первом слайде иконка приложения крупно, дальше — своя картинка на каждом', async ({ page }) => {
+  await openFresh(page);
+  // Иконка — та, что человек только что поставил на «Домой», и не плитка 80px.
+  const icon = overlay(page).locator('img.onb-app-icon');
+  await expect(icon).toBeVisible();
+  const box = (await icon.boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(150);
+  await expect(icon).toHaveJSProperty('naturalWidth', 192);
+
+  // Каждый следующий слайд — свой рисунок, а не одна плитка на всех.
+  const seen = new Set<string>();
+  for (let i = 0; i < 7; i++) {
+    await page.getByRole('button', { name: 'Далее' }).click();
+    const illo = overlay(page).locator('svg.onb-illo');
+    await expect(illo).toBeVisible();
+    seen.add(await illo.innerHTML());
+  }
+  expect(seen.size).toBe(7);
+});

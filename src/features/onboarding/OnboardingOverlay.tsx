@@ -1,27 +1,26 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  Lightbulb,
-  ShieldCheck,
-  type LucideIcon,
-} from 'lucide-react';
+import type { ComponentType } from 'react';
 import {
   GChevronLeft as ChevronLeft,
-  GFamily as Family,
   GChevronRight as ChevronRight,
-  GTasks as ListTodo,
-  GNotes as NotebookText,
-  GSparkle as Sparkles,
-  GSun as Sun,
-  GTarget as Target,
 } from '../../components/ui/glyphs';
+import {
+  DataIllo,
+  FamilyIllo,
+  GoalsIllo,
+  NotesIllo,
+  SimpleIllo,
+  TasksIllo,
+  TodayIllo,
+} from './illustrations';
 import { db } from '../../db/db';
 import { now } from '../../db/repo';
 import { updateSettings } from '../../hooks/useSettings';
 import { REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
 import { t } from '../../lib/i18n';
-import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
 
 // Тексты слайдов — 11-16 слов каждый, одна мысль на слайд.
 //
@@ -31,44 +30,48 @@ import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 // человека, который видит приложение впервые, это стена. Теперь заголовок
 // говорит, ЧТО это, текст — что с этим делать; у семьи свой слайд, как
 // просил владелец.
-const SLIDES: { icon: LucideIcon; title: string; text: string }[] = [
+// Картинки — задача 13 (пункты 2, 5, 6): на первом слайде иконка приложения
+// крупно, дальше рисованные иллюстрации в одном стиле (illustrations.tsx).
+// Плитка с иконкой раздела, которая стояла тут раньше, была служебной, а не
+// картинкой: 80px на весь экран, и одна и та же на всех восьми слайдах.
+const SLIDES: { art: ComponentType | 'app-icon'; title: string; text: string }[] = [
   {
-    icon: Sparkles,
+    art: 'app-icon',
     title: 'Всё в одном месте',
     text: 'Задачи, заметки, цели, деньги и семья. Работает без интернета, всё хранится у вас на телефоне.',
   },
   {
-    icon: Sun,
+    art: TodayIllo,
     title: 'Сегодня',
     text: 'Один экран на день: что сделать, что запланировано, как вы себя чувствуете. Ничего лишнего.',
   },
   {
-    icon: ListTodo,
+    art: TasksIllo,
     title: 'Задачи',
     text: 'Запишите и отпустите. Приложение напомнит вовремя — заранее или утром в день задачи.',
   },
   {
-    icon: NotebookText,
+    art: NotesIllo,
     title: 'Заметки',
     text: 'Начните писать — первая строка станет названием. Фото и файлы прикрепляются прямо в заметку.',
   },
   {
-    icon: Target,
+    art: GoalsIllo,
     title: 'Цели',
     text: 'Поставьте цель и отмечайте шаги. Прогресс виден сразу — и по деньгам, и по делам.',
   },
   {
-    icon: Family,
+    art: FamilyIllo,
     title: 'Семья',
     text: 'Общий чат, звонки и задачи на всех. Переписка зашифрована — её видят только участники.',
   },
   {
-    icon: ShieldCheck,
+    art: DataIllo,
     title: 'Ваши данные',
     text: 'Всё хранится на телефоне. Включите синхронизацию — записи появятся на всех устройствах и переживут потерю телефона.',
   },
   {
-    icon: Lightbulb,
+    art: SimpleIllo,
     title: 'Дальше — просто',
     text: 'Подсказки появятся сами, когда пригодятся. Ненужные разделы можно спрятать в настройках.',
   },
@@ -105,7 +108,7 @@ export function OnboardingOverlay() {
   };
 
   const slide = SLIDES[step];
-  const Icon = slide.icon;
+  const Art = slide.art;
   const last = step === SLIDES.length - 1;
 
   return (
@@ -135,9 +138,19 @@ export function OnboardingOverlay() {
         style={{ touchAction: 'pan-y' }}
         className="relative flex min-h-0 flex-1 animate-fade-in flex-col items-center justify-center gap-5 px-8 text-center"
       >
-        <div className="flex size-20 items-center justify-center rounded-3xl tile-accent text-accent shadow-[var(--shadow-accent)]">
-          <Icon size={ICON.hero} strokeWidth={STROKE_STRONG} />
-        </div>
+        {Art === 'app-icon' ? (
+          // Своя иконка, а не плитка: то, что человек только что поставил на
+          // «Домой». Тень тёплая — от углей на самой иконке.
+          <img
+            src={`${import.meta.env.BASE_URL}icons/icon-192.png`}
+            alt=""
+            width={160}
+            height={160}
+            className="onb-app-icon"
+          />
+        ) : (
+          <Art />
+        )}
         <h2 className="text-2xl font-bold tracking-tight">{t(slide.title)}</h2>
         <p className="max-w-sm text-sm leading-relaxed text-muted">{t(slide.text)}</p>
       </div>
