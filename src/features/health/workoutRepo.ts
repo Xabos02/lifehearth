@@ -17,18 +17,22 @@ export async function removeWorkout(id: string): Promise<void> {
   await remove(db.workouts, id);
 }
 
-/** Импорт разобранных строк — одной транзакцией, все с пометкой source=import. */
+/** Импорт разобранных строк — одной транзакцией: выгрузка за год это сотни
+ *  строк, и по одной они бы дёргали liveQuery экрана на каждую, а обрыв на
+ *  середине оставлял бы половину. Все с пометкой source=import. */
 export async function importParsed(rows: ParsedWorkout[]): Promise<number> {
-  for (const r of rows) {
-    await create(db.workouts, {
-      date: r.date,
-      type: r.type,
-      minutes: r.minutes,
-      distanceKm: r.distanceKm,
-      effort: null,
-      note: r.note,
-      source: 'import',
-    });
-  }
+  await db.transaction('rw', db.workouts, async () => {
+    for (const r of rows) {
+      await create(db.workouts, {
+        date: r.date,
+        type: r.type,
+        minutes: r.minutes,
+        distanceKm: r.distanceKm,
+        effort: null,
+        note: r.note,
+        source: 'import',
+      });
+    }
+  });
   return rows.length;
 }

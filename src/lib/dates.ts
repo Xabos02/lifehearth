@@ -1,4 +1,4 @@
-import { addDays, format, getISODay, parse, startOfDay, startOfWeek } from 'date-fns';
+import { addDays, endOfMonth, endOfWeek, format, getISODay, isSameMonth, parse, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
 import { enUS, ru } from 'date-fns/locale';
 import { getLang, t } from './i18n';
 
@@ -30,6 +30,20 @@ export function addDaysKey(key: string, days: number): string {
 /** Понедельник недели, в которую входит дата. */
 export function weekStartKey(key: string): string {
   return toKey(startOfWeek(fromKey(key), { weekStartsOn: 1 }));
+}
+
+/** Сетка месяца для календарей: полные недели с понедельника, ключ дня и
+ *  «свой ли месяц». Шаг — addDays, а не +86 400 000 мс: в сутки перевода
+ *  часов назад полночь + 24 ч — это 23:00 того же дня, и день попадал в сетку
+ *  дважды, сдвигая весь хвост месяца на столбец (Берлин, октябрь). В Москве
+ *  перевода нет, поэтому у владельца не воспроизводилось. */
+export function monthGridKeys(anchor: string): { key: string; inMonth: boolean }[] {
+  const first = startOfMonth(fromKey(anchor));
+  const from = startOfWeek(first, { weekStartsOn: 1 });
+  const to = endOfWeek(endOfMonth(first), { weekStartsOn: 1 });
+  const days: { key: string; inMonth: boolean }[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) days.push({ key: toKey(d), inMonth: isSameMonth(d, first) });
+  return days;
 }
 
 /** День недели по ISO: 1=Пн … 7=Вс (совпадает с индексом WEEKDAY_LABELS + 1). */

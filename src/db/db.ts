@@ -43,7 +43,11 @@ import type {
   SymptomDef,
 } from './cycleTypes';
 
-export const SCHEMA_VERSION = 21;
+// Равна старшей this.version(N) ниже; поднимать в том же коммите, что и
+// новую версию схемы. Отстав на две версии (11–12.09), константа пропускала
+// копию с тренировками в сборку, которая о них не знает. Сторож —
+// src/db/schemaVersion.test.ts.
+export const SCHEMA_VERSION = 23;
 
 export class LifeHearthDB extends Dexie {
   projects!: Table<Project, string>;

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { addMonths, endOfMonth, endOfWeek, format, isSameMonth, startOfMonth, startOfWeek } from 'date-fns';
+import { addMonths, format, isSameMonth, startOfMonth } from 'date-fns';
 import { GChevronLeft as ChevronLeft, GChevronRight as ChevronRight } from '../../components/ui/glyphs';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
-import { WEEKDAY_LABELS, addDaysKey, dateLocale, fromKey, todayKey, toKey, weekStartKey } from '../../lib/dates';
+import { WEEKDAY_LABELS, addDaysKey, dateLocale, fromKey, monthGridKeys, todayKey, toKey, weekStartKey } from '../../lib/dates';
 import type { Workout } from '../../db/types';
 import { workoutKind } from './workouts';
 
@@ -24,8 +24,10 @@ interface Props {
 export function WorkoutCalendar({ workouts, selected, onSelect }: Props) {
   const today = todayKey();
   const [scale, setScale] = useState<Scale>('week');
-  // Опорный день: в неделе — понедельник показанной недели, в месяце — первое число.
-  const [anchor, setAnchor] = useState(today);
+  // Опорный день: в неделе — понедельник показанной недели, в месяце — первое
+  // число. Стартует с выбранного, а не с сегодня: после «Спорт → Замеры →
+  // Спорт» календарь перемонтируется и должен показать неделю выбранного дня.
+  const [anchor, setAnchor] = useState(selected);
 
   const byDay = useMemo(() => {
     const m = new Map<string, Workout[]>();
@@ -36,16 +38,13 @@ export function WorkoutCalendar({ workouts, selected, onSelect }: Props) {
   const weekStart = weekStartKey(anchor);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i));
 
-  const month = useMemo(() => {
-    const first = startOfMonth(fromKey(anchor));
-    const from = startOfWeek(first, { weekStartsOn: 1 });
-    const to = endOfWeek(endOfMonth(first), { weekStartsOn: 1 });
-    const days: { key: string; inMonth: boolean }[] = [];
-    for (let d = from; d <= to; d = new Date(d.getTime() + 86_400_000)) {
-      days.push({ key: toKey(d), inMonth: isSameMonth(d, first) });
-    }
-    return { label: format(first, 'LLLL yyyy', { locale: dateLocale() }), days };
-  }, [anchor]);
+  const month = useMemo(
+    () => ({
+      label: format(startOfMonth(fromKey(anchor)), 'LLLL yyyy', { locale: dateLocale() }),
+      days: monthGridKeys(anchor),
+    }),
+    [anchor],
+  );
 
   const shift = (dir: -1 | 1) => {
     if (scale === 'week') setAnchor(addDaysKey(weekStart, dir * 7));
@@ -104,6 +103,7 @@ export function WorkoutCalendar({ workouts, selected, onSelect }: Props) {
               isToday={key === today}
               isSelected={key === selected}
               muted={false}
+              future={key > today}
               count={(byDay.get(key) ?? []).length}
               onSelect={onSelect}
             />
@@ -125,6 +125,7 @@ export function WorkoutCalendar({ workouts, selected, onSelect }: Props) {
               isToday={d.key === today}
               isSelected={d.key === selected}
               muted={!d.inMonth}
+              future={d.key > today}
               count={(byDay.get(d.key) ?? []).length}
               onSelect={onSelect}
               square
@@ -133,18 +134,22 @@ export function WorkoutCalendar({ workouts, selected, onSelect }: Props) {
         </div>
       )}
 
-      <div className="mt-3">
-        <SegmentedControl<Scale>
-          options={[
-            { value: 'week', label: t('Неделя') },
-            { value: 'month', label: t('Месяц') },
-          ]}
-          value={scale}
-          onChange={(v) => {
-            setScale(v);
-            setAnchor(selected);
-          }}
-        />
+      {/* Узкий, справа: во всю ширину он читался как вторые вкладки экрана
+          под «Спорт | Замеры» и как переключатель того, что ниже него. */}
+      <div className="mt-3 flex justify-end">
+        <div className="w-40">
+          <SegmentedControl<Scale>
+            options={[
+              { value: 'week', label: t('Неделя') },
+              { value: 'month', label: t('Месяц') },
+            ]}
+            value={scale}
+            onChange={(v) => {
+              setScale(v);
+              setAnchor(selected);
+            }}
+          />
+        </div>
       </div>
     </div>
   );
@@ -158,6 +163,7 @@ function DayCell({
   isToday,
   isSelected,
   muted,
+  future,
   count,
   onSelect,
   square = false,
@@ -169,30 +175,34 @@ function DayCell({
   isToday: boolean;
   isSelected: boolean;
   muted: boolean;
+  /** День ещё не наступил: выбрать нельзя — тренировку туда не записать. */
+  future: boolean;
   count: number;
   onSelect: (key: string) => void;
   square?: boolean;
 }) {
   const label = `${format(fromKey(dateKey), 'd MMMM yyyy', { locale: dateLocale() })}${
     count ? t(', тренировок: {n}', { n: count }) : ''
-  }${isSelected ? t(', выбрано') : ''}`;
+  }${isSelected ? t(', выбрано') : ''}${future ? t(', ещё не наступил') : ''}`;
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={isSelected}
+      disabled={future}
       onClick={() => onSelect(dateKey)}
-      className={`relative flex flex-col items-center justify-center gap-0.5 rounded-xl text-sm transition-colors ${
+      className={`relative flex flex-col items-center justify-center gap-0.5 rounded-xl text-sm transition-colors ${HIT_SLOP_44} ${
         square ? 'aspect-square' : 'py-2'
       } ${
         isSelected
           ? 'bg-accent-fill font-semibold text-white'
-          : muted
+          : muted || future
             ? 'text-muted'
             : 'text-text active:bg-surface-2'
       } ${isToday && !isSelected ? 'ring-1 ring-accent' : ''}`}
     >
-      {weekday && <span className={`text-[11px] font-medium ${isSelected ? 'text-white/80' : 'text-muted'}`}>{weekday}</span>}
+      {/* Подпись дня — сплошным белым: white/80 на заливке давала 3,65:1. */}
+      {weekday && <span className={`text-[11px] font-medium ${isSelected ? 'text-white' : 'text-muted'}`}>{weekday}</span>}
       <span>{day}</span>
       <span className="flex h-1.5 items-center gap-0.5" aria-hidden>
         {dots.map((c, i) => (

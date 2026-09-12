@@ -4,11 +4,14 @@ import {
   avgIntervalDays,
   byType,
   daysSinceLast,
+  formatHours,
   lastWorkout,
+  paceMinPerKm,
   todayAdvice,
   totals,
   weekProgress,
   weekStreak,
+  weekWorkouts,
 } from './workoutStats';
 
 let n = 0;
@@ -60,7 +63,26 @@ describe('цель недели — по дням, не по записям', ()
 
   it('неделя — с понедельника по воскресенье, соседние не попадают', () => {
     const list = [w('2026-09-06'), w('2026-09-07'), w('2026-09-13'), w('2026-09-14')];
-    expect(weekProgress(list, TODAY, 3).done).toBe(2);
+    // Состав, а не число: окно «от сегодня» тоже дало бы два, но других дня.
+    expect(weekWorkouts(list, TODAY).map((x) => x.date)).toEqual(['2026-09-07', '2026-09-13']);
+    expect(weekWorkouts(list, '2026-09-07').map((x) => x.date)).toEqual(['2026-09-07', '2026-09-13']);
+    expect(weekWorkouts(list, '2026-09-13').map((x) => x.date)).toEqual(['2026-09-07', '2026-09-13']);
+  });
+
+  it('при цели 5–7 «отдых» после вчерашней не предлагается', () => {
+    expect(todayAdvice([w('2026-09-11')], TODAY, 4)).toBe('rest');
+    expect(todayAdvice([w('2026-09-11')], TODAY, 5)).toBe('train');
+    expect(todayAdvice([w('2026-09-12')], TODAY, 7)).toBe('done');
+  });
+
+  it('часы и темп для плиток и строк', () => {
+    const tt = (s: string) => s;
+    expect(formatHours(0, tt)).toBe('0 ч');
+    expect(formatHours(200, tt)).toBe('3,3 ч');
+    expect(formatHours(630, tt)).toBe('10,5 ч');
+    expect(paceMinPerKm(30, 5.2)).toBe('5:46');
+    expect(paceMinPerKm(25, 5)).toBe('5:00');
+    expect(paceMinPerKm(30, null)).toBeNull();
   });
 });
 

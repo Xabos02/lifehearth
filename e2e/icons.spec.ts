@@ -14,7 +14,7 @@ import { openApp, test } from './fixtures';
  *  openRoute ниже требует заголовок экрана. */
 const ROUTES = [
   '/', '/tasks', '/home', '/notes', '/goals', '/stats', '/calendar', '/search',
-  '/more/finance', '/more/habits', '/more/learning', '/more/energy', '/more/places',
+  '/more/finance', '/more/habits', '/more/learning', '/more/energy', '/more/health', '/more/places',
   '/more/focus', '/more/family', '/more/cycle', '/more/trash',
   // Настроек тут сначала не было — и мимо замера прошла иконка, сжатая флексом
   // с 18 до 15px: реальный штрих 1.27px вместо 1.5. Ровно та ошибка, ради

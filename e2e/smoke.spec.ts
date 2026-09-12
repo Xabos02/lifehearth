@@ -21,6 +21,7 @@ const ROUTES = [
   ['/more/habits', 'Привычки'],
   ['/more/learning', 'Обучение'],
   ['/more/energy', 'Энергия'],
+  ['/more/health', 'Здоровье'],
   ['/more/places', 'Места'],
   ['/more/family', 'Семья'],
   ['/more/cycle', 'Женские дни'],

@@ -22,6 +22,8 @@ const EMPTY_TEXTS = [
   'Пока нет привычек',
   'Пока ничего нет',
   'Пока нет способов',
+  'Пока пусто',
+  'Первая тренировка',
 ];
 
 const SCREENS = [
@@ -33,6 +35,7 @@ const SCREENS = [
   ['/more/habits', 'Привычки'],
   ['/more/energy', 'Энергия'],
   ['/more/learning', 'Обучение'],
+  ['/more/health', 'Здоровье'],
 ] as const;
 
 for (const [path, title] of SCREENS) {
@@ -67,6 +70,9 @@ for (const [path, title] of SCREENS) {
         ...base('l-load'), title: 'Книга', author: '', kind: 'book', status: 'inProgress',
         goalId: null, progressUnit: 'percent', progressTarget: 100, progressCurrent: 10,
         notes: '', startedAt: null, finishedAt: null,
+      });
+      await db.workouts.put({
+        ...base('w-load'), date: today, type: 'run', minutes: 30, distanceKm: 5, effort: null, note: '', source: 'manual',
       });
     });
 

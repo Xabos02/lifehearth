@@ -190,13 +190,20 @@ export function parseWorkoutsCsv(text: string): ParseResult {
   return { rows, skipped };
 }
 
-/** Убрать из разобранного то, что уже есть: та же дата, вид и минуты. Файл
- *  выгрузки обычно содержит всё с начала времён, а импортируют его не раз. */
-export function withoutDuplicates(rows: ParsedWorkout[], existing: Pick<Workout, 'date' | 'type' | 'minutes'>[]): ParsedWorkout[] {
-  const seen = new Set(existing.map((w) => `${w.date}|${w.type}|${w.minutes}`));
+type DupKey = Pick<Workout, 'date' | 'type' | 'minutes' | 'distanceKm'>;
+const dupKey = (w: DupKey) =>
+  `${w.date}|${w.type}|${w.minutes}|${w.distanceKm == null ? '' : Math.round(w.distanceKm)}`;
+
+/** Убрать из разобранного то, что уже есть: та же дата, вид, минуты и
+ *  дистанция до целого км (две пробежки одного дня по 30 минут — утро 5 км и
+ *  вечер 7 км — разные записи). Файл выгрузки обычно содержит всё с начала
+ *  времён, а импортируют его не раз. В existing передавать ВСЮ таблицу, с
+ *  удалёнными: иначе удалённая рукой запись воскресает при следующем импорте. */
+export function withoutDuplicates(rows: ParsedWorkout[], existing: DupKey[]): ParsedWorkout[] {
+  const seen = new Set(existing.map(dupKey));
   const out: ParsedWorkout[] = [];
   for (const r of rows) {
-    const key = `${r.date}|${r.type}|${r.minutes}`;
+    const key = dupKey(r);
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(r);

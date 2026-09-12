@@ -73,13 +73,14 @@ describe('CSV целиком', () => {
     expect(parseWorkoutsCsv('Foo,Bar\n1,2')).toEqual({ rows: [], skipped: 1 });
   });
 
-  it('повторный импорт не плодит копии', () => {
+  it('повторный импорт не плодит копии, но две пробежки одного дня разной длины — обе', () => {
     const rows = [
       { date: '2026-09-08', type: 'run' as const, minutes: 32, distanceKm: 5.2, note: '' },
       { date: '2026-09-08', type: 'run' as const, minutes: 32, distanceKm: 5.2, note: 'дубль в файле' },
+      { date: '2026-09-08', type: 'run' as const, minutes: 32, distanceKm: 7.1, note: 'вечерняя' },
       { date: '2026-09-10', type: 'strength' as const, minutes: 55, distanceKm: null, note: '' },
     ];
-    const existing = [{ date: '2026-09-10', type: 'strength' as const, minutes: 55 }];
-    expect(withoutDuplicates(rows, existing)).toHaveLength(1);
+    const existing = [{ date: '2026-09-10', type: 'strength' as const, minutes: 55, distanceKm: null }];
+    expect(withoutDuplicates(rows, existing).map((r) => r.note)).toEqual(['', 'вечерняя']);
   });
 });

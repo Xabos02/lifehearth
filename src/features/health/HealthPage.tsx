@@ -7,6 +7,7 @@ import { Fab } from '../../components/layout/Fab';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { t } from '../../lib/i18n';
 import { todayKey } from '../../lib/dates';
+import { useLoaded } from '../../hooks/useLoaded';
 import type { Workout } from '../../db/types';
 import { SportTab } from './SportTab';
 import { MeasuresTab } from './MeasuresTab';
@@ -24,7 +25,11 @@ export function HealthPage() {
     workout: null,
     date: todayKey(),
   });
-  const workouts = alive(useLiveQuery(() => db.workouts.toArray(), []) ?? []);
+  // Сырое значение и «загружено ли» — раздельно: иначе на первом кадре у
+  // человека с сотней тренировок мелькало «Первая тренировка сегодня?».
+  const rows = useLiveQuery(() => db.workouts.toArray(), []);
+  const loaded = useLoaded(rows);
+  const workouts = alive(rows ?? []);
 
   const openNew = (date: string) => setSheet({ open: true, workout: null, date });
   const openEdit = (w: Workout) => setSheet({ open: true, workout: w, date: w.date });
@@ -43,11 +48,13 @@ export function HealthPage() {
         />
       </div>
       {tab === 'sport' ? (
-        <SportTab workouts={workouts} selected={selected} onSelect={setSelected} onEdit={openEdit} onAddFor={openNew} />
+        loaded && (
+          <SportTab workouts={workouts} selected={selected} onSelect={setSelected} onEdit={openEdit} onAddFor={openNew} />
+        )
       ) : (
         <MeasuresTab />
       )}
-      {tab === 'sport' && <Fab onClick={() => openNew(selected <= todayKey() ? selected : todayKey())} label={t('Отметить тренировку')} />}
+      {tab === 'sport' && loaded && <Fab onClick={() => openNew(selected)} label={t('Отметить тренировку')} />}
       <WorkoutSheet open={sheet.open} onClose={close} workout={sheet.workout} date={sheet.date} />
     </Screen>
   );

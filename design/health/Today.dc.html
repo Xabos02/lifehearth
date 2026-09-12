@@ -1,0 +1,90 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><script src="./support.js"></script></head><body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;font-size:17px;-webkit-font-smoothing:antialiased}
+.screen{width:375px;min-height:812px;background:oklch(0.168 0.013 283);color:oklch(0.965 0.006 286);box-sizing:border-box;display:flex;flex-direction:column}
+.hdr{display:flex;align-items:center;gap:8.5px;padding:12px 17px 12.75px;border-bottom:1px solid oklch(1 0 0 / 0.09)}
+.hdr h1{margin:0;font-size:27px;font-weight:700;letter-spacing:-0.015em;line-height:1.15;flex:1}
+.body{padding:17px 17px 100px;display:flex;flex-direction:column;gap:17px}
+.muted{color:oklch(0.675 0.022 282)}
+.seg{display:flex;border-radius:12px;background:oklch(0.258 0.018 284);padding:4.25px}
+.seg span{flex:1;text-align:center;border-radius:8px;padding:10.6px 4px;font-size:14.875px;font-weight:500;color:oklch(0.675 0.022 282)}
+.seg span.on{background:oklch(0.562 0.18 264);color:#fff;box-shadow:0 2px 10px -3px oklch(0.562 0.18 264)}
+.card{background:oklch(0.232 0.016 284);border:1px solid oklch(1 0 0 / 0.09);border-radius:16px;padding:17px}
+.card h2{margin:0 0 8.5px;padding:0 4px;font-size:14.875px;font-weight:600;color:oklch(0.675 0.022 282)}
+.big{font-size:25.5px;font-weight:700;letter-spacing:-0.02em;line-height:1.15}
+.row{display:flex;align-items:center;gap:12.75px}
+.ring{width:64px;height:64px;flex-shrink:0}
+.strip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.day{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0 6px;border-radius:12px;font-size:14.875px}
+.day small{font-size:11.5px;font-weight:500;color:oklch(0.675 0.022 282)}
+.day b{font-weight:600}
+.day .dots{display:flex;gap:3px;height:6px}
+.day .dots i{display:block;width:6px;height:6px;border-radius:999px}
+.day.today{box-shadow:inset 0 0 0 1px oklch(0.72 0.18 264)}
+.day.sel{background:oklch(0.562 0.18 264);color:#fff}
+.day.sel small{color:#fff}
+.month{display:grid;grid-template-columns:repeat(7,1fr)}
+.month .d{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;font-size:14.875px;position:relative}
+.month .d i{position:absolute;bottom:6px;width:6px;height:6px;border-radius:999px}
+.month .wd{padding-bottom:4px;text-align:center;font-size:12.75px;font-weight:500;color:oklch(0.675 0.022 282)}
+.stat{flex:1;border-radius:16px;background:oklch(0.258 0.018 284);padding:12.75px;text-align:center}
+.stat b{display:block;font-size:25.5px;font-weight:700;line-height:1.2}
+.stat span{font-size:12.75px;color:oklch(0.675 0.022 282)}
+.item{display:flex;align-items:center;gap:12.75px;padding:10.6px 0;border-bottom:1px solid oklch(1 0 0 / 0.09)}
+.item:last-child{border-bottom:0}
+.item .ico{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.item .t{flex:1;min-width:0}
+.item .t b{display:block;font-weight:600;font-size:15.3px}
+.item .t span{font-size:12.75px;color:oklch(0.675 0.022 282)}
+.item .v{font-weight:600;font-variant-numeric:tabular-nums;font-size:15.3px;text-align:right}
+.item .v span{display:block;font-size:11.9px;font-weight:500}
+.chips{display:flex;gap:8.5px;flex-wrap:wrap}
+.chip{border-radius:999px;border:1px solid oklch(0.32 0.018 284);background:oklch(0.232 0.016 284);color:oklch(0.675 0.022 282);padding:6.375px 14.875px;font-size:14.875px;font-weight:500}
+.chip.on{border-color:oklch(0.562 0.18 264);background:oklch(0.562 0.18 264);color:#fff}
+.fab{position:absolute;right:17px;bottom:96px;width:56px;height:56px;border-radius:999px;background:oklch(0.562 0.18 264);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);font-size:30px}
+.tab{position:absolute;left:0;right:0;bottom:0;height:78px;border-top:1px solid oklch(1 0 0 / 0.09);background:oklch(0.168 0.013 283);display:flex;justify-content:space-around;align-items:center;font-size:11px;color:oklch(0.675 0.022 282)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:oklch(0.236 0.018 284);border-radius:24px 24px 0 0;padding:12px 17px 34px;box-shadow:0 -8px 30px -8px oklch(0 0 0 / 0.6)}
+.sheet .grab{width:36px;height:5px;border-radius:999px;background:oklch(1 0 0 / 0.2);margin:0 auto 12px}
+.sheet h3{margin:0 0 12px;font-size:19px;font-weight:700}
+.lbl{margin:12px 0 6px;padding:0 4px;font-size:14.875px;font-weight:500;color:oklch(0.675 0.022 282)}
+.field{border-radius:16px;background:oklch(0.258 0.018 284);padding:12px 17px;font-size:17px;display:flex;justify-content:space-between;align-items:center}
+.btn{margin-top:17px;border-radius:16px;background:oklch(0.562 0.18 264);color:#fff;text-align:center;padding:12.75px;font-weight:600}
+.spark{width:100%;height:36px}
+.hint{font-size:12.75px;line-height:1.4;color:oklch(0.675 0.022 282);padding:0 4px}
+.dim{position:absolute;inset:0;background:oklch(0 0 0 / 0.45)}
+</style>
+</helmet>
+<div class="screen" style="position:relative">
+  <div class="hdr"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="oklch(0.72 0.18 264)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg><h1>Сегодня</h1></div>
+  <div class="body" style="gap:14px">
+  <div class="card" style="padding:12px 17px"><h2 style="margin:0 0 6px">Задачи на сегодня</h2><div class="item" style="padding:8px 0"><div class="t"><b>Позвонить поставщику</b></div></div><div class="item" style="padding:8px 0"><div class="t"><b>Собрать КП для ЧОО</b></div></div></div>
+  <div class="field muted" style="border-radius:16px">+ Быстрая задача…</div>
+  <div>
+    <div class="row" style="justify-content:space-between;padding:0 4px 8px"><h2 style="margin:0">Спорт</h2><span class="muted" style="font-size:12.75px">2 из 3 на неделе</span></div>
+    <div class="card" style="padding:12px 17px;display:flex;align-items:center;gap:12px">
+  <span style="width:10px;height:10px;border-radius:999px;background:oklch(0.80 0.16 158);flex-shrink:0"></span>
+  <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:15.3px">Сегодня — тренировка</div><div class="muted" style="font-size:12.75px">Последняя — позавчера, бег 5,2 км</div></div>
+  <span class="chip on" style="padding:6px 12px">Отметить</span>
+</div>
+  </div>
+  <div>
+    <div class="row" style="justify-content:space-between;padding:0 4px 8px"><h2 style="margin:0">Спорт — после отметки</h2><span class="muted" style="font-size:12.75px">3 из 3 на неделе</span></div>
+    <div class="card" style="padding:12px 17px;display:flex;align-items:center;gap:12px">
+  <span style="width:10px;height:10px;border-radius:999px;background:oklch(0.80 0.16 158);flex-shrink:0"></span>
+  <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:15.3px">Сегодня уже была</div><div class="muted" style="font-size:12.75px">гири · 30 мин</div></div>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="oklch(0.675 0.022 282)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+</div>
+  </div>
+  <div>
+    <div class="row" style="justify-content:space-between;padding:0 4px 8px"><h2 style="margin:0">Энергия</h2><span class="muted" style="font-size:12.75px">не отмечено</span></div>
+    <div class="card" style="padding:8px;display:flex;gap:4px"><span style="flex:1;display:flex;justify-content:center"><span style="width:36px;height:36px;border-radius:999px;background:oklch(0.258 0.018 284);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:oklch(0.675 0.022 282)">1</span></span><span style="flex:1;display:flex;justify-content:center"><span style="width:36px;height:36px;border-radius:999px;background:oklch(0.258 0.018 284);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:oklch(0.675 0.022 282)">2</span></span><span style="flex:1;display:flex;justify-content:center"><span style="width:36px;height:36px;border-radius:999px;background:oklch(0.258 0.018 284);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:oklch(0.675 0.022 282)">3</span></span><span style="flex:1;display:flex;justify-content:center"><span style="width:36px;height:36px;border-radius:999px;background:oklch(0.258 0.018 284);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:oklch(0.675 0.022 282)">4</span></span><span style="flex:1;display:flex;justify-content:center"><span style="width:36px;height:36px;border-radius:999px;background:oklch(0.258 0.018 284);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:oklch(0.675 0.022 282)">5</span></span></div>
+  </div>
+</div>
+  <div class="tab"><span>Главная</span><span>Сегодня</span><span>Задачи</span><span>Заметки</span><span>Календарь</span></div>
+</div>
+</x-dc>
+</body></html>

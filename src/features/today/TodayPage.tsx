@@ -22,6 +22,7 @@ import { useDayOpenSnapshot } from './useDayOpenSnapshot';
 import { RemindersBlock } from './RemindersBlock';
 import { HabitsToday } from '../habits/HabitsToday';
 import { EnergyTodayLine } from '../energy/EnergyTodayLine';
+import { SportTodayLine } from '../health/SportTodayLine';
 import { ProtectDataCard } from './ProtectDataCard';
 import { IconButton } from '../../components/ui/IconButton';
 import { t } from '../../lib/i18n';
@@ -166,6 +167,11 @@ export function TodayPage() {
       {/* Выше привычек намеренно: отметка энергии — одна строка и один тап,
           а список привычек бывает длинным и утаскивает её под сгиб. */}
       <EnergyTodayLine collapsed={energyCollapsed} />
+
+      {/* Строка спорта: что сегодня по ритму и отметка одним жестом. Сама
+          решает, показываться ли: до первой тренировки и при скрытом
+          разделе — ничего. */}
+      <SportTodayLine />
 
       <HabitsToday collapsed={habitsCollapsed} />
 

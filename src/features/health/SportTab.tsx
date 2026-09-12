@@ -1,5 +1,6 @@
 import { useMemo, useRef, type ChangeEvent } from 'react';
 import { format } from 'date-fns';
+import { db } from '../../db/db';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { GChevronRight as ChevronRight, GEnergy as Activity } from '../../components/ui/glyphs';
@@ -7,20 +8,23 @@ import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { useToast } from '../../components/ui/toastContext';
 import { t, tPlural } from '../../lib/i18n';
-import { addDaysKey, dateLocale, fromKey, todayKey, weekStartKey } from '../../lib/dates';
+import { addDaysKey, dateLocale, fromKey, todayKey } from '../../lib/dates';
 import { updateSettings, useSettings } from '../../hooks/useSettings';
 import type { Workout } from '../../db/types';
-import { DEFAULT_WEEKLY_GOAL, EFFORT_LABELS, workoutKind } from './workouts';
+import { DEFAULT_WEEKLY_GOAL, EFFORT_LABELS, PACE_TYPES, workoutKind } from './workouts';
 import {
   avgIntervalDays,
   byType,
+  formatHours,
   formatMinutes,
   lastWorkout,
+  paceMinPerKm,
   todayAdvice,
   totals,
   weekProgress,
   weekStreak,
 } from './workoutStats';
+import { adviceTitle, formatKm, lastLine } from './workoutText';
 import { WorkoutCalendar } from './WorkoutCalendar';
 import { parseWorkoutsCsv, withoutDuplicates } from './importWorkouts';
 import { importParsed } from './workoutRepo';
@@ -41,7 +45,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor }: Pro
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const advice = todayAdvice(workouts, today);
+  const advice = todayAdvice(workouts, today, goal);
   const last = lastWorkout(workouts, today);
   const week = weekProgress(workouts, today, goal);
   const monthFrom = today.slice(0, 8) + '01';
@@ -61,23 +65,15 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor }: Pro
     [workouts],
   );
 
-  const adviceTitle = {
-    start: t('Первая тренировка — сегодня?'),
-    done: t('Сегодня уже была'),
-    rest: t('Сегодня — отдых'),
-    train: t('Сегодня — тренировка'),
-  }[advice];
-  const lastLine = last
-    ? t('Последняя — {when}, {what}', { when: relativeDay(last.date, today), what: describe(last) })
-    : t('Отметьте первую — и календарь начнёт считать ритм.');
-
   const importCsv = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
     const text = await file.text();
     const parsed = parseWorkoutsCsv(text);
-    const fresh = withoutDuplicates(parsed.rows, workouts);
+    // Сверка со ВСЕЙ таблицей, включая удалённые: иначе удалённая рукой
+    // запись воскресала при следующем импорте той же выгрузки.
+    const fresh = withoutDuplicates(parsed.rows, await db.workouts.toArray());
     if (parsed.rows.length === 0) {
       toast(t('В файле не нашлось тренировок: нужны колонки с датой и длительностью.'));
       return;
@@ -102,8 +98,8 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor }: Pro
         <div className="flex items-center gap-4">
           <ProgressRing value={(week.done / week.goal) * 100} size={64} strokeWidth={6} label={`${week.done}/${week.goal}`} />
           <div className="min-w-0 flex-1">
-            <p className="text-xl font-bold leading-tight tracking-tight">{adviceTitle}</p>
-            <p className="mt-1 text-sm leading-snug text-muted">{lastLine}</p>
+            <p className="text-lg font-bold leading-tight tracking-tight">{adviceTitle(advice)}</p>
+            <p className="mt-1 text-sm leading-snug text-muted">{lastLine(last, today)}</p>
           </div>
         </div>
         <div className="mt-3 flex items-center justify-between border-t border-hairline pt-3">
@@ -113,7 +109,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor }: Pro
               type="button"
               aria-label={t('Цель: меньше')}
               onClick={() => void updateSettings({ workoutWeeklyGoal: Math.max(1, goal - 1) })}
-              className="flex size-9 items-center justify-center rounded-full border border-border text-muted active:scale-90"
+              className={`flex size-9 items-center justify-center rounded-full border border-border text-muted active:scale-90 ${HIT_SLOP_44}`}
             >
               −
             </button>
@@ -124,7 +120,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor }: Pro
               type="button"
               aria-label={t('Цель: больше')}
               onClick={() => void updateSettings({ workoutWeeklyGoal: Math.min(7, goal + 1) })}
-              className="flex size-9 items-center justify-center rounded-full border border-border text-muted active:scale-90"
+              className={`flex size-9 items-center justify-center rounded-full border border-border text-muted active:scale-90 ${HIT_SLOP_44}`}
             >
               +
             </button>
@@ -156,12 +152,12 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor }: Pro
 
       <div className="flex gap-3">
         <Stat value={String(week.done)} label={t('дней на неделе')} />
-        <Stat value={String(month.count)} label={t('за месяц')} />
-        <Stat value={formatMinutes(month.minutes, t)} label={t('за месяц')} />
+        <Stat value={String(month.count)} label={t('тренировок за месяц')} />
+        <Stat value={formatHours(month.minutes, t)} label={t('часов за месяц')} />
       </div>
       <div className="flex gap-3">
-        <Stat value={interval === null ? '—' : interval.toFixed(1).replace('.', ',')} label={t('дней между')} />
-        <Stat value={String(streak)} label={t('недель по цели')} />
+        <Stat value={interval === null ? '—' : interval.toFixed(1).replace('.', ',')} label={t('дней между тренировками')} />
+        <Stat value={String(streak)} label={t('недель подряд с целью')} />
       </div>
 
       {kinds.length > 0 && (
@@ -178,9 +174,9 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor }: Pro
                     style={{ width: `${Math.max(4, (k.minutes / maxKindMinutes) * 100)}%`, background: kind.color }}
                   />
                 </span>
-                <span className="w-16 shrink-0 text-right text-xs tabular-nums text-muted">
+                <span className="w-20 shrink-0 text-right text-xs tabular-nums text-muted">
                   {formatMinutes(k.minutes, t)}
-                  {kind.hasDistance && k.distanceKm > 0 ? ` · ${k.distanceKm.toFixed(1).replace('.', ',')} ${t('км')}` : ''}
+                  {kind.hasDistance && k.distanceKm > 0 ? ` · ${formatKm(k.distanceKm)}` : ''}
                 </span>
               </div>
             );
@@ -218,8 +214,8 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor }: Pro
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex-1 rounded-2xl bg-surface-2 p-3 text-center">
-      <p className="text-xl font-bold leading-tight tabular-nums">{value}</p>
-      <p className="mt-0.5 text-xs text-muted">{label}</p>
+      <p className="text-lg font-bold leading-tight tabular-nums">{value}</p>
+      <p className="mt-0.5 text-xs leading-snug text-muted">{label}</p>
     </div>
   );
 }
@@ -227,8 +223,11 @@ function Stat({ value, label }: { value: string; label: string }) {
 function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () => void; withDate?: boolean }) {
   const kind = workoutKind(w.type);
   const effort = EFFORT_LABELS.find((e) => e.value === w.effort)?.label;
+  // Темп для бега и ходьбы: прогресс на 3–5 км — это темп, а не минуты.
+  const pace = PACE_TYPES.has(w.type) ? paceMinPerKm(w.minutes, w.distanceKm) : null;
   const sub = [
     withDate ? format(fromKey(w.date), 'EEE, d MMMM', { locale: dateLocale() }) : null,
+    pace ? `${pace} /${t('км')}` : null,
     effort ? t(effort).toLowerCase() : null,
     w.note || null,
   ]
@@ -247,25 +246,10 @@ function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () 
       </span>
       <span className="shrink-0 text-right text-sm tabular-nums">
         {formatMinutes(w.minutes, t)}
-        {w.distanceKm != null && (
-          <span className="block text-xs text-muted">{`${w.distanceKm.toFixed(1).replace('.', ',')} ${t('км')}`}</span>
-        )}
+        {w.distanceKm != null && <span className="block text-xs text-muted">{formatKm(w.distanceKm)}</span>}
       </span>
       <ChevronRight size={ICON.base} className="shrink-0 text-muted" />
     </button>
   );
 }
 
-function relativeDay(date: string, today: string): string {
-  if (date === today) return t('сегодня');
-  if (date === addDaysKey(today, -1)) return t('вчера');
-  if (date === addDaysKey(today, -2)) return t('позавчера');
-  if (date >= weekStartKey(today)) return format(fromKey(date), 'EEEE', { locale: dateLocale() });
-  return format(fromKey(date), 'd MMMM', { locale: dateLocale() });
-}
-
-function describe(w: Workout): string {
-  const kind = workoutKind(w.type);
-  const dist = w.distanceKm != null ? ` ${w.distanceKm.toFixed(1).replace('.', ',')} ${t('км')}` : '';
-  return `${t(kind.label).toLowerCase()}${dist}`;
-}

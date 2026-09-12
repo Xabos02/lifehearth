@@ -9,7 +9,8 @@ import { test, expect, openApp } from './fixtures';
 
 const SCREENS = ['/', '/tasks', '/notes', '/calendar', '/goals', '/stats', '/home',
   '/more/finance', '/more/focus', '/more/habits', '/more/learning', '/more/energy',
-  '/more/places', '/more/family', '/more/cycle', '/more/settings'];
+  '/more/places', '/more/family', '/more/cycle', '/more/settings',
+  '/more/health'];
 
 // Значения при базовых 17px. Заголовок экрана — clamp, поэтому попадает в
 // диапазон 23–27 и перечислен отдельно.

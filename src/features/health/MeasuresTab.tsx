@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import { db } from '../../db/db';
@@ -9,7 +9,18 @@ import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
 import { dateLocale, fromKey, todayKey } from '../../lib/dates';
 import type { MetricLog } from '../../db/types';
-import { MEASURES, formatMeasure, logMeasure, measureDef, measureTrend, type MeasureKey, type MeasureDef } from './measures';
+import { useLoaded } from '../../hooks/useLoaded';
+import {
+  MEASURES,
+  formatMeasure,
+  logMeasure,
+  measureDef,
+  measureLogId,
+  measureTrend,
+  removeMeasureLog,
+  type MeasureKey,
+  type MeasureDef,
+} from './measures';
 
 /** Вкладка «Здоровье»: четыре замера с трендом за 30 дней. Дневник, не
  *  диагностика: числа и линия, без выводов. Давление — две метрики в одной
@@ -17,6 +28,7 @@ import { MEASURES, formatMeasure, logMeasure, measureDef, measureTrend, type Mea
 export function MeasuresTab() {
   const today = todayKey();
   const logs = useLiveQuery(() => db.metricLogs.toArray(), []);
+  const loaded = useLoaded(logs);
   const [editing, setEditing] = useState<MeasureKey | null>(null);
 
   const byMetric = useMemo(() => {
@@ -31,6 +43,11 @@ export function MeasuresTab() {
   const pulse = trend('pulse');
   const sys = trend('bpSys');
   const dia = trend('bpDia');
+  const hb = trend('hemoglobin');
+  const fer = trend('ferritin');
+
+  // До ответа базы — ничего: иначе на первом кадре мелькает «Замеров пока нет».
+  if (!loaded) return null;
 
   return (
     <div className="space-y-4">
@@ -85,8 +102,31 @@ export function MeasuresTab() {
         series={sys.series.map((p) => p.value)}
         onAdd={() => setEditing('bpSys')}
       />
+      <h2 className="px-1 pt-2 text-sm font-semibold text-muted">{t('Из анализов')}</h2>
+      {([hb, fer] as const).map((tr, i) => {
+        const def = measureDef(i === 0 ? 'hemoglobin' : 'ferritin');
+        return (
+          <MeasureCard
+            key={def.key}
+            def={def}
+            value={tr.last ? formatMeasure(tr.last.value, def) : null}
+            sub={
+              tr.last
+                ? tr.deltaPrev !== null
+                  ? t('{d} к прошлому · {when}', {
+                      d: signed(tr.deltaPrev, 0),
+                      when: format(fromKey(tr.last.date), 'd MMM yyyy', { locale: dateLocale() }),
+                    })
+                  : format(fromKey(tr.last.date), 'd MMMM yyyy', { locale: dateLocale() })
+                : t('Замеров пока нет')
+            }
+            series={[]}
+            onAdd={() => setEditing(def.key)}
+          />
+        );
+      })}
       <p className="px-1 text-xs leading-snug text-muted">
-        {t('Замеры вводятся руками: Apple Health веб-приложению закрыт. Второй замер за день заменяет первый.')}
+        {t('Замеры вводятся руками: Apple Health веб-приложению закрыт. Второй замер за день заменяет первый. Норм приложение не знает — их сверяйте с бланком лаборатории.')}
       </p>
 
       <Sheet open={editing !== null} onClose={() => setEditing(null)} title={editing ? t(editing === 'bpSys' ? 'Давление' : measureDef(editing).title) : ''}>
@@ -163,10 +203,28 @@ function MeasureForm({ measure, onClose }: { measure: MeasureKey; onClose: () =>
   const okRange = (v: number, d: MeasureDef) => Number.isFinite(v) && v >= d.min && v <= d.max;
   const canSave =
     raw !== '' && okRange(v1, def) && (!isBp || (raw2 !== '' && okRange(v2, measureDef('bpDia')))) && day <= todayKey();
+  // Замер за выбранный день уже есть — его можно удалить (ошибочный «784»).
+  const existing = useLiveQuery(() => db.metricLogs.get(measureLogId(def.id, day)), [def.id, day]);
+  const hasExisting = Boolean(existing && !existing.deletedAt);
+  // Защита от дабл-тапа: второй тап по «Сохранить» до записи создавал второй лог.
+  const savingRef = useRef(false);
 
   const save = async () => {
-    await logMeasure(measure, day, Math.round(v1 / def.step) * def.step);
-    if (isBp) await logMeasure('bpDia', day, Math.round(v2));
+    if (savingRef.current) return;
+    savingRef.current = true;
+    try {
+      await logMeasure(measure, day, v1);
+      if (isBp) await logMeasure('bpDia', day, v2);
+      onClose();
+    } finally {
+      savingRef.current = false;
+    }
+  };
+
+  const del = async () => {
+    if (!window.confirm(t('Удалить замер за этот день?'))) return;
+    await removeMeasureLog(measureLogId(def.id, day));
+    if (isBp) await removeMeasureLog(measureLogId(measureDef('bpDia').id, day));
     onClose();
   };
 
@@ -201,6 +259,15 @@ function MeasureForm({ measure, onClose }: { measure: MeasureKey; onClose: () =>
       <Button className="w-full" disabled={!canSave} onClick={() => void save()}>
         {t('Сохранить')}
       </Button>
+      {hasExisting && (
+        <button
+          type="button"
+          onClick={() => void del()}
+          className="flex w-full items-center justify-center rounded-2xl border border-border py-3 text-center font-medium text-danger active:opacity-70"
+        >
+          {t('Удалить замер за этот день')}
+        </button>
+      )}
     </div>
   );
 }

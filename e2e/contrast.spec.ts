@@ -18,7 +18,8 @@ import type { Page } from '@playwright/test';
 
 const SCREENS = ['/', '/tasks', '/notes', '/calendar', '/goals', '/stats', '/home',
   '/more/finance', '/more/focus', '/more/habits', '/more/learning', '/more/energy',
-  '/more/places', '/more/family', '/more/cycle', '/more/settings'];
+  '/more/places', '/more/family', '/more/cycle', '/more/settings',
+  '/more/health'];
 
 interface Finding { что: string; класс: string; контраст: number; нужно: number }
 

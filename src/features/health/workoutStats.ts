@@ -43,13 +43,14 @@ export type TodayAdvice = 'done' | 'rest' | 'train' | 'start';
  *
  *  Владелец: «стараюсь тренироваться через день, три раза в неделю». Значит:
  *  сегодня уже была — done; вчера была — rest; два дня и больше — train.
- *  Ни одной записи — start. Цель недели здесь не участвует: она про счёт,
- *  а ритм — про то, отдохнули ли мышцы. */
-export function todayAdvice(workouts: Workout[], today: string): TodayAdvice {
+ *  Ни одной записи — start. Отдых после вчерашней предлагается только при
+ *  цели до четырёх дней: «через день» физически даёт максимум четыре, и при
+ *  цели 5–7 совет «отдыхайте» уводил бы от собственной цели. */
+export function todayAdvice(workouts: Workout[], today: string, goal = 3): TodayAdvice {
   const since = daysSinceLast(workouts, today);
   if (since === null) return 'start';
   if (since === 0) return 'done';
-  if (since === 1) return 'rest';
+  if (since === 1 && goal <= 4) return 'rest';
   return 'train';
 }
 
@@ -116,6 +117,21 @@ export function formatMinutes(min: number, t: (s: string) => string): string {
   const m = Math.round(min % 60);
   if (h === 0) return `${m} ${t('мин')}`;
   return m === 0 ? `${h} ${t('ч')}` : `${h} ${t('ч')} ${m} ${t('м')}`;
+}
+
+/** «3,3 ч» / «0 ч» — часы одним числом для плиток, где «3 ч 20 м» не влезает. */
+export function formatHours(min: number, t: (s: string) => string): string {
+  return `${(min / 60).toFixed(1).replace('.', ',').replace(/,0$/, '')} ${t('ч')}`;
+}
+
+/** Темп «5:45» (мин/км) для бега и ходьбы; null — нет дистанции. Прогресс в
+ *  беге на 3–5 км — это темп на той же дистанции, а не минуты. */
+export function paceMinPerKm(minutes: number, distanceKm: number | null): string | null {
+  if (!distanceKm || distanceKm <= 0 || minutes <= 0) return null;
+  const pace = minutes / distanceKm;
+  const m = Math.floor(pace);
+  const sec = Math.round((pace - m) * 60);
+  return sec === 60 ? `${m + 1}:00` : `${m}:${String(sec).padStart(2, '0')}`;
 }
 
 function diffDays(from: string, to: string): number {

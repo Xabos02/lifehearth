@@ -9,9 +9,10 @@ import { Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
+import { logMeasure } from '../health/measures';
 import { updateSettings } from '../../hooks/useSettings';
 import { getLang, t } from '../../lib/i18n';
-import { formatRu } from '../../lib/dates';
+import { formatRu, todayKey } from '../../lib/dates';
 import {
   compressImage,
   ImageDecodeError,
@@ -94,15 +95,19 @@ export function ProfilePage() {
 
   async function commit(f: typeof form) {
     saveTimer.current = undefined;
+    const weightKg = parseNumber(f.weightKg);
     await updateSettings({
       profile: {
         ...p,
         name: f.name.trim() || undefined,
         birthDate: f.birthDate || null,
         heightCm: parseNumber(f.heightCm),
-        weightKg: parseNumber(f.weightKg),
+        weightKg,
       },
     });
+    // Вес из профиля — в дневник замеров («Здоровье»), чтобы источник был
+    // один: раньше «Главная» показывала профильное число, а раздел — своё.
+    if (weightKg != null && weightKg !== p?.weightKg) await logMeasure('weight', todayKey(), weightKg);
     setDraft(null);
     setSaved(true);
     clearTimeout(markTimer.current);
