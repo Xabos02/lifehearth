@@ -21,6 +21,7 @@ import type {
   PlaceItem,
   Metric,
   MetricLog,
+  Workout,
   Settings,
   SyncConfig,
   FamilyConfig,
@@ -66,6 +67,7 @@ export class LifeHearthDB extends Dexie {
   placeItems!: Table<PlaceItem, string>;
   metrics!: Table<Metric, string>;
   metricLogs!: Table<MetricLog, string>;
+  workouts!: Table<Workout, string>;
   settings!: Table<Settings, string>;
   sync!: Table<SyncConfig, string>;
   family!: Table<FamilyConfig, string>;
@@ -396,6 +398,12 @@ export class LifeHearthDB extends Dexie {
     // одного файла; updatedAt — по нему push ищет свежие записи.
     this.version(22).stores({
       taskFiles: 'id, taskId, fileId, updatedAt',
+    });
+
+    // v23 — тренировки (раздел «Здоровье»). date — календарь и сводки по
+    // периодам; updatedAt — для push синхронизации.
+    this.version(23).stores({
+      workouts: 'id, date, updatedAt',
     });
   }
 }

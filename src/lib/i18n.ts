@@ -56,6 +56,7 @@ export function t(key: string, vars?: Record<string, string | number>): string {
  *  «много» (третьей): она в наборе самая узнаваемая («дней», «задач»). */
 const EN_PLURALS: Record<string, [string, string]> = {
   дней: ['day', 'days'],
+  тренировок: ['workout', 'workouts'],
   задач: ['task', 'tasks'],
   заметок: ['note', 'notes'],
   привычек: ['habit', 'habits'],

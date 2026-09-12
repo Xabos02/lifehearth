@@ -19,6 +19,7 @@ import {
   GPlaces as MapPin,
   GStats as ChartColumnBig,
   GDrop as Droplet,
+  GHeart as Heart,
   GBot as Bot,
   GSettings as SettingsIcon,
 } from '../components/ui/glyphs';
@@ -41,6 +42,7 @@ export type SectionId =
   | 'learning'
   | 'finance'
   | 'energy'
+  | 'health'
   | 'places'
   | 'stats'
   | 'calendar'
@@ -107,6 +109,13 @@ export const SECTIONS: Section[] = [
     to: '/more/energy',
     icon: BatteryCharging,
     subtitle: 'Уровень сил и что восстанавливает',
+  },
+  {
+    id: 'health',
+    label: 'Здоровье',
+    to: '/more/health',
+    icon: Heart,
+    subtitle: 'Тренировки и замеры',
   },
   {
     id: 'places',

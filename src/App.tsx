@@ -29,6 +29,7 @@ import { LearningPage } from './features/learning/LearningPage';
 import { LearningItemPage } from './features/learning/LearningItemPage';
 import { FinancePage } from './features/finance/FinancePage';
 import { EnergyPage } from './features/energy/EnergyPage';
+import { HealthPage } from './features/health/HealthPage';
 import { HabitsPage } from './features/habits/HabitsPage';
 import { PlacesPage } from './features/places/PlacesPage';
 import { SearchPage } from './features/search/SearchPage';
@@ -227,6 +228,7 @@ export default function App() {
                 <Route path="/more/learning/:id" element={<LearningItemPage />} />
                 <Route path="/more/finance" element={<FinancePage />} />
                 <Route path="/more/energy" element={<EnergyPage />} />
+                <Route path="/more/health" element={<HealthPage />} />
                 <Route path="/more/habits" element={<HabitsPage />} />
                 <Route path="/more/cycle" element={<RequireFemale><CyclePage /></RequireFemale>} />
                 <Route path="/more/cycle/settings" element={<RequireFemale><CycleSettingsPage /></RequireFemale>} />

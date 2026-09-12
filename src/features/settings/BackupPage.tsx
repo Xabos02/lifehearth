@@ -140,7 +140,7 @@ export function BackupPage() {
   async function confirmAndImport(backup: BackupFile): Promise<void> {
     const p = previewBackup(backup);
     const msg = t(
-      'Импорт заменит ВСЕ текущие данные.\n\nВ резервной копии:\n• проектов: {projects}\n• задач: {tasks}\n• целей: {goals}\n• привычек: {habits}\n• отметок привычек: {habitLogs}\n• заметок: {notes}\n• материалов обучения: {learningItems}\n• записей прогресса: {learningLogs}\n• расходов: {expenseItems}\n• способов восстановления: {energyItems}\n• отметок энергии: {energyLogs}\n• мест: {placeItems}\n• метрик: {metrics}\n• замеров метрик: {metricLogs}\n• семейных сообщений: {familyMessages}\n• семейных задач: {familyTasks}\n\nПродолжить?',
+      'Импорт заменит ВСЕ текущие данные.\n\nВ резервной копии:\n• проектов: {projects}\n• задач: {tasks}\n• целей: {goals}\n• привычек: {habits}\n• отметок привычек: {habitLogs}\n• заметок: {notes}\n• материалов обучения: {learningItems}\n• записей прогресса: {learningLogs}\n• расходов: {expenseItems}\n• способов восстановления: {energyItems}\n• отметок энергии: {energyLogs}\n• мест: {placeItems}\n• метрик: {metrics}\n• замеров метрик: {metricLogs}\n• семейных сообщений: {familyMessages}\n• семейных задач: {familyTasks}\n• тренировок: {workouts}\n\nПродолжить?',
       {
         projects: p.counts.projects,
         tasks: p.counts.tasks,
@@ -158,6 +158,7 @@ export function BackupPage() {
         metricLogs: p.counts.metricLogs,
         familyMessages: p.counts.familyMessages ?? 0,
         familyTasks: p.counts.familyTasks ?? 0,
+        workouts: p.counts.workouts ?? 0,
       },
     );
     if (!window.confirm(msg)) return;
