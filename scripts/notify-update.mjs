@@ -80,7 +80,10 @@ if (!token) {
 const res = await fetch(`${WORKER_URL}/notify-update`, {
   method: 'POST',
   headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ body }),
+  // Версия уходит вместе с текстом: воркер помнит, о какой уже рассылал, и
+  // на повторный вызов с той же версией отвечает skipped — поэтому CI может
+  // звать скрипт после каждого удачного деплоя, не решая сам, менялась ли она.
+  body: JSON.stringify({ body, version: release.version }),
 });
 
 if (!res.ok) {
@@ -88,4 +91,8 @@ if (!res.ok) {
   process.exit(1);
 }
 const data = await res.json();
-console.log(`Отправлено устройствам: ${data.sent}`);
+if (data.skipped === 'same-version') {
+  console.log(`Об этой версии уже рассылали — пропуск.`);
+} else {
+  console.log(`Отправлено устройствам: ${data.sent}`);
+}

@@ -159,7 +159,19 @@ export default {
           custom && typeof custom.body === 'string' && custom.body.trim()
             ? custom.body.trim().slice(0, 140)
             : DEFAULT_UPDATE_TEXT;
+        // Одна версия — одна рассылка, что бы ни делал CI. Раньше CI решал сам,
+        // сравнивая версию с предыдущим коммитом, и стоило деплою с новой
+        // версией упасть на тестах, как следующий, уже зелёный, видел «версия
+        // не менялась» — и 1.20–1.22 уехали на прод без единого уведомления.
+        // Теперь CI зовёт рассылку после каждого удачного деплоя, а помнит
+        // отправленное сервер: KV переживает и перезапуски, и красные прогоны.
+        const version = custom && typeof custom.version === 'string' ? custom.version.trim() : '';
+        if (version) {
+          const last = await env.REMINDERS.get(LAST_NOTIFIED_KEY);
+          if (last === version) return json({ ok: true, sent: 0, skipped: 'same-version' }, 200, origin);
+        }
         const sent = await broadcastUpdate(env, notifyBody);
+        if (version) await env.REMINDERS.put(LAST_NOTIFIED_KEY, version);
         return json({ ok: true, sent }, 200, origin);
       }
 
@@ -616,6 +628,8 @@ function echoReply(messages, systemPrompt) {
 // чего не существует, — а прилетает он автоматически, кроном раз в минуту,
 // как только меняется хэш бандла на GitHub Pages.
 const DEFAULT_UPDATE_TEXT = 'Приложение обновилось — откройте, чтобы посмотреть, что нового';
+/** Версия, о которой уже разослано «вышло обновление» (KV). */
+const LAST_NOTIFIED_KEY = 'update:last-notified-version';
 const APP_INDEX_URL = 'https://xabos02.github.io/life-hub/index.html';
 
 /** Разослать пуш «вышло обновление» всем подписчикам. Возвращает число доставок. */

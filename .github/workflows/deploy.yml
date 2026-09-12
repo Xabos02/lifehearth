@@ -53,8 +53,8 @@ jobs:
   # Владельцу нужно узнавать о доехавшем релизе от приложения, а не ждать
   # словами от меня. Но выкаток за день бывает несколько, а версия меняется
   # только когда в changelog появилась новая запись — то есть когда человеку
-  # реально есть что показать. Отсюда условие: шлём, если первая версия в
-  # src/lib/changelog.ts отличается от версии в предыдущем коммите.
+  # реально есть что показать. Кто помнит, о какой версии уже рассылали, —
+  # воркер (KV): скрипт шлёт версию вместе с текстом, повтор получает «пропуск».
   #
   # Текст берётся из того же changelog, что и окно «Что нового» внутри
   # приложения, — расходиться им негде.
@@ -63,27 +63,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Нужен предыдущий коммит: сравниваем версию с ним.
-          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - id: version
-        name: Поднялась ли версия
-        run: |
-          ver() { grep -m1 "version: '" "$1" | sed "s/.*'\(.*\)'.*/\1/"; }
-          cur=$(ver src/lib/changelog.ts)
-          git show HEAD~1:src/lib/changelog.ts > /tmp/prev.ts 2>/dev/null || : > /tmp/prev.ts
-          prev=$(ver /tmp/prev.ts || echo "")
-          echo "было $prev, стало $cur"
-          if [ "$cur" != "$prev" ] && [ -n "$cur" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Разослать уведомление
-        if: steps.version.outputs.changed == 'true'
+      # После каждого удачного деплоя, без сравнения с предыдущим коммитом:
+      # помнит отправленную версию воркер, и на ту же версию отвечает
+      # «пропуск». Сравнение HEAD~1 здесь ломалось, стоило деплою с новой
+      # версией упасть на тестах: следующий, зелёный, видел «не менялась».
+      - name: Разослать уведомление, если версия новая
         env:
           UPDATE_TOKEN: ${{ secrets.UPDATE_TOKEN }}
         run: node scripts/notify-update.mjs
