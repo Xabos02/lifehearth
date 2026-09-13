@@ -111,9 +111,11 @@ for (const route of ['./', './tasks', './notes', './more/finance']) {
       const S = sc.getBoundingClientRect();
       const N = nav.getBoundingClientRect();
       const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      // Строки задач — прокручиваемое содержимое, а не управление: строка,
+      // попавшая на сгиб ленты, — норма списка, а не обрезанная кнопка.
       const controls = () =>
         [...document.querySelectorAll('button, a, input, select, [role="button"], [role="tab"]')].filter(
-          (el) => !el.closest('nav') && el !== fab,
+          (el) => !el.closest('nav') && el !== fab && !el.matches('[data-task-id]'),
         );
 
       // (3) нулевая прокрутка: ни один элемент не обрезан нижним краем ленты

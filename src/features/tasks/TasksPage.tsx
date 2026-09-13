@@ -1372,12 +1372,7 @@ export function TasksPage() {
           })}
           {reorderingTop && projInsertIndex === topProjects.length && <DropLine />}
 
-          {/* Пустая «Без проекта» появляется на время переноса задачи из
-              папки: иначе вынести задачу из проекта было некуда — цель
-              исчезала вместе с последней задачей. */}
-          {(noProjectTasks.length > 0 ||
-            noProjectCompleted.length > 0 ||
-            (draggingTask !== null && draggingTask.projectId !== null)) && (
+          {(noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
             <Section
               title={t('Без проекта')}
               count={noProjectTasks.length}

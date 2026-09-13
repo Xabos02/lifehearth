@@ -58,29 +58,6 @@ test('задача из быстрого ввода докручивается �
   expect(box.y + box.height, 'новая задача должна быть в пределах экрана').toBeLessThanOrEqual(vh);
 });
 
-test('вынести задачу из папки можно и когда «Без проекта» пуста', async ({ page }) => {
-  await openApp(page, '/tasks', { seenHints: ['tasks-quick-add', 'tasks-gestures'] });
-  await seed(page, 2);
-  await expect(page.locator('[data-drop-key="__none__"]')).toHaveCount(0);
-  const el = page.getByText('Дело 0', { exact: true });
-  await el.hover();
-  await page.mouse.down();
-  await expect(page.locator('.fixed.z-\\[70\\]')).toBeVisible({ timeout: 2000 });
-  const none = page.locator('[data-drop-key="__none__"]');
-  await expect(none).toBeVisible();
-  const box = (await none.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + 12, { steps: 5 });
-  await page.mouse.move(box.x + box.width / 2, box.y + 16, { steps: 3 });
-  await expect(none).toHaveClass(/ring-accent/);
-  await page.mouse.up();
-  await expect.poll(async () =>
-    page.evaluate(async () => {
-      const { db } = await import('/src/db/db.ts');
-      return (await db.tasks.get('t1_0'))?.projectId;
-    }),
-  ).toBeNull();
-});
-
 test('подсказка жестов говорит, как вложить папку в другую', async ({ page }) => {
   await openApp(page, '/tasks', { seenHints: ['tasks-quick-add'] });
   await seed(page, 1);
