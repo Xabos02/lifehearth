@@ -1,8 +1,9 @@
-import { useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { useRef, useState, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   BellOff,
   ListChecks,
+  Maximize2,
   SkipForward,
 } from 'lucide-react';
 import {
@@ -26,11 +27,15 @@ import {
   formatFocusTime,
   usePomodoro,
   type Phase,
-  type SoundType,
 } from './pomodoro';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
-import { ALARM_OPTIONS } from './alarms';
+import { ALARM_OPTIONS, alarmOption, type AlarmType } from './alarms';
+import { NOISE_OPTIONS, noiseLabel } from './noise';
+import { SoundPickerSheet } from './SoundPickerSheet';
+import { FocusFullscreen } from './FocusFullscreen';
+import { FOCUS_VARS } from './focusVars';
+import { Switch } from '../../components/ui/Switch';
 import { enablePush, isStandalone, pushEnabled, pushSupported } from '../../lib/push';
 import { useToast } from '../../components/ui/toastContext';
 
@@ -76,34 +81,12 @@ function savePresets(list: Preset[]): void {
   }
 }
 
-// Фоновый шум на время работы. Не путать с сигналом конца круга (ALARM_OPTIONS):
-// раньше ряд назывался «Звук фокуса», и владелец искал в нём выбор сигнала.
-const SOUNDS: { value: SoundType; label: string }[] = [
-  { value: 'none', label: 'Тишина' },
-  { value: 'white', label: 'Белый' },
-  { value: 'pink', label: 'Розовый' },
-  { value: 'brown', label: 'Коричневый' },
-  { value: 'rain', label: 'Дождь' },
-];
-
 const R = 130;
 const STROKE = 12;
 const CIRC = 2 * Math.PI * R;
 const MAX_MIN = 90; // базовый максимум круга (растёт под бо́льшие значения)
 const STEP_MIN = 5; // шаг при перетаскивании кольца
 
-// Перекрытие акцента приложения тёплой гаммой Focus To-Do — только в пределах
-// экрана «Фокус»: кнопка, чипы, иконки и метка фазы наследуют его автоматически.
-const FOCUS_VARS = {
-  '--app-accent': 'var(--focus-accent)',
-  '--app-accent-2': 'var(--focus-accent-2)',
-  // Заливки перекрываем отдельно: они живут в своих токенах, и без этой пары
-  // кнопка «Фокуса» брала бы общий синий вместо тёплого — весь смысл
-  // перекрытия пропадает.
-  '--app-accent-fill': 'var(--focus-accent-fill)',
-  '--app-accent-2-fill': 'var(--focus-accent-2-fill)',
-  '--shadow-accent': 'var(--shadow-focus)',
-} as unknown as CSSProperties;
 
 // Пара степперов в ряд физически не влезает на узкий телефон: min-content одного
 // степпера ≈ 178px (p-3 + две кнопки 44px + поле + gap), пары с gap-3 — ≈ 370px,
@@ -246,6 +229,23 @@ function PresetForm({
   );
 }
 
+/** Строка карточки «Звуки»: подпись, текущее значение, шеврон. */
+function SoundRow({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-11 w-full items-center justify-between gap-3 border-b border-hairline py-2.5 text-left active:opacity-70"
+    >
+      <span>{label}</span>
+      <span className="flex items-center gap-1 text-muted">
+        {value}
+        <ChevronRight size={ICON.base} />
+      </span>
+    </button>
+  );
+}
+
 /** Точки цикла под меткой фазы: закрашено — круг сделан, контур — идёт сейчас.
  *  Читаются с расстояния вытянутой руки, в отличие от строки «круг 2 из 4». */
 function CycleDots({ done, total, color }: { done: number; total: number; color: string }) {
@@ -298,6 +298,8 @@ export function FocusPage() {
     setPushOn(true);
   }
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [soundSheet, setSoundSheet] = useState<'work' | 'break' | 'noise' | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const [presets, setPresets] = useState<Preset[]>(loadPresets);
   const [managing, setManaging] = useState(false);
   const [presetSheetOpen, setPresetSheetOpen] = useState(false);
@@ -468,6 +470,15 @@ export function FocusPage() {
           </div>
         </div>
 
+        {/* На весь экран — как в Focus To-Do: только круг и время, экран не гаснет. */}
+        <button
+          type="button"
+          onClick={() => setFullscreen(true)}
+          className={`mt-3 flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70 ${HIT_SLOP_44}`}
+        >
+          <Maximize2 size={ICON.inline} /> {t('На весь экран')}
+        </button>
+
         <div className="mt-8 flex items-center gap-4">
           <button
             onClick={p.reset}
@@ -509,31 +520,26 @@ export function FocusPage() {
           <ChevronRight size={ICON.base} className="shrink-0 text-muted" />
         </button>
 
+        {/* Звуки одной карточкой — по скринам Focus To-Do: мелодии конца
+            фокуса и конца перерыва разные, у каждой громкость, шум отдельно.
+            Списки открываются шитом: пятнадцать мелодий чипами не влезают. */}
         <div className="mt-6 w-full">
-          <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Сигнал в конце круга')}</p>
-          <ChipRow>
-            {ALARM_OPTIONS.map((a) => (
-              <Chip key={a.value} active={p.alarm === a.value} onClick={() => p.setAlarm(a.value)}>
-                {t(a.label)}
-              </Chip>
-            ))}
-          </ChipRow>
-          {/* Честно про границу: в свёрнутом PWA на iPhone своего звука нет —
-              конец круга приходит фоновым пушем со стандартным звуком системы. */}
+          <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Звуки')}</p>
+          <div className="card px-4">
+            <SoundRow label={t('Конец фокуса')} value={t(alarmOption(p.alarmWork).label)} onClick={() => setSoundSheet('work')} />
+            <SoundRow label={t('Конец перерыва')} value={t(alarmOption(p.alarmBreak).label)} onClick={() => setSoundSheet('break')} />
+            <SoundRow label={t('Фоновый шум')} value={t(noiseLabel(p.sound))} onClick={() => setSoundSheet('noise')} />
+            <div className="flex items-center justify-between gap-3 py-1.5">
+              <span className="min-w-0">
+                <span className="block">{t('Предупредить за 5 минут')}</span>
+                <span className="block text-xs text-muted">{t('Уведомление до конца фокуса')}</span>
+              </span>
+              <Switch checked={p.preNotify} onChange={p.setPreNotify} label={t('Предупредить за 5 минут')} />
+            </div>
+          </div>
           <p className="mt-1.5 px-1 text-xs leading-snug text-muted">
-            {t('Нажатие на вариант — проиграть. В свёрнутом приложении звучит стандартный сигнал уведомления.')}
+            {t('Мелодии звучат, пока приложение открыто. В свёрнутом — стандартный сигнал уведомления.')}
           </p>
-        </div>
-
-        <div className="mt-6 w-full">
-          <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Фоновый шум')}</p>
-          <ChipRow>
-            {SOUNDS.map((sd) => (
-              <Chip key={sd.value} active={p.sound === sd.value} onClick={() => p.setSound(sd.value)}>
-                {t(sd.label)}
-              </Chip>
-            ))}
-          </ChipRow>
         </div>
 
         <div className="mt-6 w-full">
@@ -641,6 +647,32 @@ export function FocusPage() {
           )}
         </div>
       </Sheet>
+
+      <SoundPickerSheet<AlarmType>
+        open={soundSheet === 'work' || soundSheet === 'break'}
+        onClose={() => setSoundSheet(null)}
+        title={soundSheet === 'break' ? t('Конец перерыва') : t('Конец фокуса')}
+        items={ALARM_OPTIONS.map((a) => ({ value: a.value, label: a.label, hint: a.seconds ? `0:${String(a.seconds).padStart(2, '0')}` : '—' }))}
+        value={soundSheet === 'break' ? p.alarmBreak : p.alarmWork}
+        onPick={soundSheet === 'break' ? p.setAlarmBreak : p.setAlarmWork}
+        volume={p.alarmVolume}
+        onVolume={p.setAlarmVolume}
+        volumeLabel={t('Громкость сигнала')}
+        note={t('Нажатие — послушать. В свёрнутом приложении на iPhone звучит стандартный сигнал уведомления.')}
+      />
+      <SoundPickerSheet
+        open={soundSheet === 'noise'}
+        onClose={() => setSoundSheet(null)}
+        title={t('Фоновый шум')}
+        items={NOISE_OPTIONS.map((n) => ({ value: n.value, label: n.label }))}
+        value={p.sound}
+        onPick={p.setSound}
+        volume={p.noiseVolume}
+        onVolume={p.setNoiseVolume}
+        volumeLabel={t('Громкость шума')}
+        note={t('Шум идёт во время фокуса. Нажатие — послушать несколько секунд.')}
+      />
+      {fullscreen && <FocusFullscreen onClose={() => setFullscreen(false)} />}
 
       <Sheet
         open={presetSheetOpen}

@@ -1,13 +1,13 @@
 import { createContext, useContext } from 'react';
 import { t } from '../../lib/i18n';
 import type { AlarmType } from './alarms';
+import type { NoiseType } from './noise';
 
 // Контекст, хук и форматтеры помодоро вынесены из PomodoroProvider.tsx:
 // файл с компонентом должен экспортировать только компоненты,
 // иначе ломается Fast Refresh (react-refresh/only-export-components).
 
 export type Phase = 'work' | 'break' | 'long';
-export type SoundType = 'none' | 'white' | 'pink' | 'brown' | 'rain';
 
 export interface PomodoroCtx {
   phase: Phase;
@@ -23,8 +23,12 @@ export interface PomodoroCtx {
   longMin: number;
   longAfter: number; // кругов до длинного перерыва
   cycle: { done: number; total: number }; // точки под таймером: сделано / всего в цикле
-  sound: SoundType;
-  alarm: AlarmType; // сигнал конца круга
+  sound: NoiseType; // фоновый шум во время работы
+  alarmWork: AlarmType; // мелодия конца фокуса
+  alarmBreak: AlarmType; // мелодия конца перерыва
+  alarmVolume: number;
+  noiseVolume: number;
+  preNotify: boolean; // предупредить за 5 минут до конца фокуса
   active: boolean; // идёт сессия (не дефолтное простаивание)
   start: (taskId?: string | null, taskTitle?: string | null) => void;
   toggle: () => void;
@@ -35,9 +39,14 @@ export interface PomodoroCtx {
   setBreakMin: (breakMin: number) => void;
   setLongMin: (longMin: number) => void;
   setTask: (taskId: string | null, taskTitle: string | null) => void;
-  setSound: (sound: SoundType) => void;
+  setSound: (sound: NoiseType) => void;
   setLongAfter: (n: number) => void;
-  setAlarm: (alarm: AlarmType) => void;
+  setAlarmWork: (alarm: AlarmType) => void;
+  setAlarmBreak: (alarm: AlarmType) => void;
+  setAlarmVolume: (v: number) => void;
+  setNoiseVolume: (v: number) => void;
+  setPreNotify: (on: boolean) => void;
+  previewAlarm: (alarm: AlarmType) => void;
 }
 
 // Два контекста, а не один, — из-за цены тика.

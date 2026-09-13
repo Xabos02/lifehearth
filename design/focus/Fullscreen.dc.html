@@ -1,0 +1,63 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><script src="./support.js"></script></head><body>
+<x-dc>
+<helmet><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"><style>body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif; font-size: 17px; -webkit-font-smoothing: antialiased; }
+.screen { width: 375px; background: oklch(0.168 0.013 283); color: oklch(0.965 0.006 286); box-sizing: border-box; display: flex; flex-direction: column; }
+.hdr { display: flex; align-items: center; gap: 8.5px; padding: 12px 17px 12.75px; border-bottom: 1px solid oklch(1 0 0 / 0.09); }
+.hdr h1 { margin: 0; font-size: 27px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.15; }
+.body { display: flex; flex-direction: column; align-items: center; padding: 17px 17px 32px; --acc: oklch(0.645 0.215 27); --acc2: oklch(0.755 0.165 55); --accf: oklch(0.583 0.215 27); --acc2f: oklch(0.60 0.165 55); }
+.muted { color: oklch(0.675 0.022 282); }
+.phase { margin: 0 0 17px; font-size: 14.875px; font-weight: 600; color: var(--acc); }
+.ring { position: relative; width: 272px; height: 272px; }
+.ring svg { width: 272px; height: 272px; display: block; }
+.clock { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.clock b { font-size: 51px; font-weight: 700; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; line-height: 1; }
+.clock small { margin-top: 4.25px; font-size: 12.75px; color: oklch(0.675 0.022 282); }
+.ctrl { margin-top: 34px; display: flex; align-items: center; gap: 17px; }
+.rb { width: 51px; height: 51px; border-radius: 999px; border: 1px solid oklch(0.32 0.018 284); display: flex; align-items: center; justify-content: center; color: oklch(0.675 0.022 282); box-sizing: border-box; }
+.play { width: 85px; height: 85px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: #fff; background-image: linear-gradient(150deg, var(--accf), var(--acc2f)); box-shadow: 0 10px 30px -8px oklch(0.66 0.205 38 / 0.5); }
+.card { margin-top: 34px; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 12.75px; padding: 12.75px 17px; border-radius: 16px; background: oklch(0.232 0.016 284); border: 1px solid oklch(1 0 0 / 0.09); }
+.sec { margin-top: 25.5px; width: 100%; }
+.lbl { margin: 0 0 8.5px; padding: 0 4.25px; font-size: 14.875px; font-weight: 500; color: oklch(0.675 0.022 282); display: flex; justify-content: space-between; align-items: center; }
+.chips { display: flex; gap: 8.5px; overflow: hidden; padding-bottom: 4.25px; margin: 0 -17px; padding-left: 17px; }
+.chip { flex-shrink: 0; white-space: nowrap; border-radius: 999px; border: 1px solid oklch(0.32 0.018 284); background: oklch(0.232 0.016 284); color: oklch(0.675 0.022 282); padding: 6.375px 14.875px; font-size: 14.875px; font-weight: 500; line-height: 1.43; }
+.chip.on { border-color: oklch(0.583 0.215 27); background: oklch(0.583 0.215 27); color: #fff; }
+.chip.dash { border-style: dashed; display: flex; align-items: center; gap: 4.25px; }
+.pair { display: flex; gap: 12.75px; }
+.stp { flex: 1; min-width: 0; border-radius: 16px; background: oklch(0.258 0.018 284); padding: 12.75px; box-sizing: border-box; }
+.stp p { margin: 0 0 8.5px; text-align: center; font-size: 12.75px; color: oklch(0.675 0.022 282); }
+.stp .row { display: flex; align-items: center; justify-content: space-between; gap: 4.25px; }
+.stp .pm { width: 46.75px; height: 46.75px; flex-shrink: 0; border-radius: 999px; border: 1px solid oklch(0.32 0.018 284); display: flex; align-items: center; justify-content: center; font-size: 19.125px; color: oklch(0.675 0.022 282); box-sizing: border-box; }
+.stp .val { flex: 1; text-align: center; font-size: 25.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.hint { margin: 0; padding: 0 4.25px; font-size: 12.75px; line-height: 1.375; color: oklch(0.675 0.022 282); flex: 1; align-self: center; min-width: 0; }
+.stats { margin-top: 34px; width: 100%; display: flex; gap: 12.75px; }
+.stat { flex: 1; border-radius: 16px; background: oklch(0.258 0.018 284); padding: 12.75px; text-align: center; }
+.stat b { display: block; font-size: 25.5px; font-weight: 700; line-height: 1.2; }
+.stat span { font-size: 12.75px; color: oklch(0.675 0.022 282); }
+.dots { display: flex; align-items: center; gap: 8.5px; }
+.dot { width: 10px; height: 10px; border-radius: 999px; background: oklch(1 0 0 / 0.14); box-sizing: border-box; }
+.dot.done { background: var(--acc); }
+.dot.cur { border: 2px solid var(--acc); background: transparent; }
+.note { margin-top: 12.75px; width: 100%; box-sizing: border-box; display: flex; gap: 10px; align-items: flex-start; padding: 10.625px 12.75px; border-radius: 12px; background: oklch(0.258 0.018 284); font-size: 13.6px; line-height: 1.4; color: oklch(0.675 0.022 282); }
+.note a { color: oklch(0.72 0.18 264); font-weight: 500; }
+.tag { position: absolute; right: -4px; top: -8px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: oklch(0.80 0.16 158); background: oklch(0.80 0.16 158 / 0.14); padding: 3px 7px; border-radius: 999px; }
+.rel { position: relative; }
+
+.fs{width:375px;height:812px;box-sizing:border-box;background:radial-gradient(80% 50% at 50% 0%, oklch(0.26 0.06 290), oklch(0.12 0.01 283) 70%);color:oklch(0.965 0.006 286);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:60px 24px 48px;position:relative}
+.fs .close{position:absolute;top:56px;left:20px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:oklch(0.675 0.022 282)}
+.fs .time{font-size:88px;font-weight:200;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;line-height:1}
+.fs .ring{width:300px;height:300px}.fs .ring svg{width:300px;height:300px}
+</style></helmet>
+<div class="fs">
+  <span class="close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+  <div style="text-align:center;margin-top:24px"><div class="muted" style="font-size:14.875px;font-weight:600;color:oklch(0.645 0.215 27)">Фокус · круг 2 из 4</div><div style="font-size:17px;margin-top:6px">Разобрать почту</div></div>
+  <div class="ring" style="position:relative"><svg viewBox="0 0 300 300">
+  <defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="150" y1="20" x2="150" y2="280"><stop offset="0%" stop-color="oklch(0.645 0.215 27)"/><stop offset="100%" stop-color="oklch(0.755 0.165 55)"/></linearGradient></defs>
+  <circle cx="150" cy="150" r="130" fill="none" stroke="oklch(1 0 0 / 0.09)" stroke-width="12"/>
+  <circle cx="150" cy="150" r="130" fill="none" stroke="url(#g)" stroke-width="12" stroke-linecap="round" stroke-dasharray="816.8140899333462" stroke-dashoffset="601.1751701909428" transform="rotate(-90 150 150)"/>
+  
+</svg><div class="clock"><b class="time" style="font-size:72px;font-weight:300">18:24</b></div></div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:14px"><div class="ctrl" style="margin-top:0"><span class="rb"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></span><span class="play"><svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></span><span class="rb"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m5 4 10 8-10 8z"/><path d="M19 5v14"/></svg></span></div><span class="muted" style="font-size:12.75px">Экран не гаснет, пока идёт круг</span></div>
+</div>
+</x-dc>
+</body></html>

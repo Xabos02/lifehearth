@@ -1,9 +1,10 @@
 import { useMemo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { todayKey } from '../../lib/dates';
 import { schedulePush, cancelPush } from '../../lib/push';
-import { TimeCtx, Ctx, type Phase, type PomodoroCtx, type SoundType } from './pomodoro';
+import { TimeCtx, Ctx, type Phase, type PomodoroCtx } from './pomodoro';
 import { t } from '../../lib/i18n';
-import { ensureAudio, playAlarm, setAudioSession, type AlarmType } from './alarms';
+import { ensureAudio, playAlarm, type AlarmType } from './alarms';
+import { setNoiseVolume, startNoise, stopNoise, type NoiseType } from './noise';
 import { STALE_MS, cycleDots, nextAfterWork, phaseMs as phaseMsOf, settle, type PomodoroState } from './pomodoroSettle';
 
 // Помодоро-таймер на основе timestamp (endsAt) — корректно показывает остаток
@@ -11,7 +12,7 @@ import { STALE_MS, cycleDots, nextAfterWork, phaseMs as phaseMsOf, settle, type 
 // чтобы мини-таймер был виден из любого раздела. Звук — Web Audio (без файлов):
 // сигнал смены фазы + фоновый шум (белый/розовый/коричневый/«дождь») во время работы.
 
-export type { Phase, SoundType } from './pomodoro';
+export type { Phase } from './pomodoro';
 
 const LONG_AFTER = 4; // длинный перерыв после стольких рабочих кругов — по умолчанию
 const LONG_MIN = 15;
@@ -19,12 +20,26 @@ const LONG_MIN = 15;
 interface Persisted extends PomodoroState {
   taskId: string | null;
   taskTitle: string | null;
-  sound: SoundType;
-  alarm: AlarmType;
+  sound: NoiseType;
+  /** Мелодии конца фокуса и конца перерыва — разные, как в Focus To-Do:
+   *  «работа кончилась» и «отдых кончился» — разные события. */
+  alarmWork: AlarmType;
+  alarmBreak: AlarmType;
+  alarmVolume: number; // 0..1
+  noiseVolume: number; // 0..1
+  /** Предупредить за пять минут до конца фокуса — уведомлением. */
+  preNotify: boolean;
 }
+
+/** За сколько до конца круга предупреждать. */
+export const PRE_NOTIFY_MS = 5 * 60_000;
 
 
 const STORE_KEY = 'life-hub-pomodoro';
+
+function clamp01(n: number): number {
+  return Math.max(0, Math.min(1, Number.isFinite(n) ? n : 0));
+}
 
 function phaseMs(phase: Phase, workMin: number, breakMin: number, longMin: number): number {
   return phaseMsOf(phase, { workMin, breakMin, longMin });
@@ -87,13 +102,36 @@ function notifyPhaseEnd(endedPhase: Phase): void {
   }
 }
 
-/** Фоновый пуш на конец текущей фазы через Worker (на случай свёрнутого PWA). */
+const PRE_PUSH_ID = `${POMO_PUSH_ID}:pre`;
+
+/** Фоновый пуш на конец текущей фазы через Worker (на случай свёрнутого PWA)
+ *  и, если включено, предупреждение за пять минут до конца фокуса. */
 function syncPhasePush(s: Persisted): void {
   if (s.running && s.endsAt) {
     const { title, body } = phaseEndText(s.phase);
     void schedulePush(POMO_PUSH_ID, s.endsAt, title, body);
+    if (s.preNotify && s.phase === 'work' && s.endsAt - Date.now() > PRE_NOTIFY_MS) {
+      void schedulePush(PRE_PUSH_ID, s.endsAt - PRE_NOTIFY_MS, t('Ещё 5 минут'), t('Круг скоро закончится'));
+    } else {
+      void cancelPush(PRE_PUSH_ID);
+    }
   } else {
     void cancelPush(POMO_PUSH_ID);
+    void cancelPush(PRE_PUSH_ID);
+  }
+}
+
+/** Локальное уведомление «ещё 5 минут» — когда приложение открыто, а
+ *  человек смотрит в другой раздел. Тот же tag, что у пуша: не задваивается. */
+function notifyPreEnd(): void {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const opts: NotificationOptions = { body: t('Круг скоро закончится'), tag: PRE_PUSH_ID, icon: '/life-hub/icons/icon-192.png' };
+    if ('serviceWorker' in navigator) {
+      void navigator.serviceWorker.ready.then((reg) => reg.showNotification(t('Ещё 5 минут'), opts)).catch(() => {});
+    } else new Notification(t('Ещё 5 минут'), opts);
+  } catch {
+    /* нет уведомлений */
   }
 }
 
@@ -125,12 +163,18 @@ function load(): Persisted {
     longMin: LONG_MIN,
     longAfter: LONG_AFTER,
     sound: 'none',
-    alarm: 'soft',
+    alarmWork: 'soft',
+    alarmBreak: 'soft',
+    alarmVolume: 0.8,
+    noiseVolume: 0.6,
+    preNotify: false,
   };
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return base;
-    const stored = { ...base, ...(JSON.parse(raw) as Persisted) };
+    const parsed = JSON.parse(raw) as Persisted & { alarm?: AlarmType };
+    // До 1.25 сигнал был один (alarm) — он становится сигналом конца фокуса.
+    const stored = { ...base, ...parsed, alarmWork: parsed.alarmWork ?? parsed.alarm ?? base.alarmWork };
     // Фазы, кончившиеся пока приложение было закрыто, докручиваются молча —
     // иначе первый же тик после открытия сыграл бы «Фокус завершён» за вчера.
     const p = settle(stored, Date.now(), todayKey());
@@ -149,69 +193,7 @@ function load(): Persisted {
   }
 }
 
-// ── Аудио ───────────────────────────────────────────────────────────────────
-
-function makeNoiseBuffer(ac: AudioContext, kind: SoundType): AudioBuffer {
-  const len = ac.sampleRate * 2;
-  const buf = ac.createBuffer(1, len, ac.sampleRate);
-  const d = buf.getChannelData(0);
-  if (kind === 'brown') {
-    let last = 0;
-    for (let i = 0; i < len; i++) {
-      const w = Math.random() * 2 - 1;
-      last = (last + 0.02 * w) / 1.02;
-      d[i] = last * 3.5;
-    }
-  } else if (kind === 'pink') {
-    let b0 = 0,
-      b1 = 0,
-      b2 = 0;
-    for (let i = 0; i < len; i++) {
-      const w = Math.random() * 2 - 1;
-      b0 = 0.99765 * b0 + w * 0.099046;
-      b1 = 0.963 * b1 + w * 0.2965164;
-      b2 = 0.57 * b2 + w * 1.0526913;
-      d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.25;
-    }
-  } else {
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; // white / база для rain
-  }
-  return buf;
-}
-
-let noiseSrc: AudioBufferSourceNode | null = null;
-function stopNoise() {
-  try {
-    noiseSrc?.stop();
-  } catch {
-    /* уже остановлен */
-  }
-  noiseSrc = null;
-}
-function startNoise(kind: SoundType) {
-  stopNoise();
-  if (kind === 'none') return;
-  setAudioSession('playback');
-  const ac = ensureAudio();
-  if (!ac) return;
-  const src = ac.createBufferSource();
-  src.buffer = makeNoiseBuffer(ac, kind === 'rain' ? 'white' : kind);
-  src.loop = true;
-  const gain = ac.createGain();
-  gain.gain.value = kind === 'brown' ? 0.16 : 0.1;
-  if (kind === 'rain' || kind === 'pink' || kind === 'brown') {
-    const lp = ac.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = kind === 'rain' ? 3200 : kind === 'brown' ? 500 : 1400;
-    src.connect(lp);
-    lp.connect(gain);
-  } else {
-    src.connect(gain);
-  }
-  gain.connect(ac.destination);
-  src.start();
-  noiseSrc = src;
-}
+// ── Аудио: сигналы в alarms.ts, шум в noise.ts ──────────────────────────────
 
 export function PomodoroProvider({ children }: { children: ReactNode }) {
   const [s, setS] = useState<Persisted>(load);
@@ -238,6 +220,8 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     s.running && s.endsAt != null ? Math.max(0, s.endsAt - Date.now()) : s.remainingMs;
 
   const [, force] = useState(0);
+  // Для какого endsAt предупреждение «ещё 5 минут» уже показано.
+  const preFiredFor = useRef<number | null>(null);
   useEffect(() => {
     if (!s.running) return;
     const id = setInterval(() => {
@@ -249,7 +233,15 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         // проспать час с замороженным таймером, не сменив видимость.
         if (now - cur.endsAt < STALE_MS) advancePhase();
         else persist(settle(cur, now, todayKey()));
-      } else force((n) => n + 1);
+      } else {
+        // «Ещё 5 минут» — один раз на круг, в момент пересечения порога.
+        const left = cur.endsAt - now;
+        if (cur.preNotify && cur.phase === 'work' && left <= PRE_NOTIFY_MS && preFiredFor.current !== cur.endsAt) {
+          preFiredFor.current = cur.endsAt;
+          notifyPreEnd();
+        }
+        force((n) => n + 1);
+      }
     }, 500);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -275,16 +267,18 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   // шум звучит пару секунд на пробу: иначе тап по чипу давал тишину, и выбор
   // выглядел сломанным. Пробу запускает только выбор рукой (previewRef), не
   // загрузка сохранённого — иначе приложение шумело бы при каждом открытии.
-  const previewRef = useRef<SoundType | null>(null);
+  const previewRef = useRef<NoiseType | null>(null);
+  const noiseVolumeRef = useRef(s.noiseVolume);
+  noiseVolumeRef.current = s.noiseVolume;
   useEffect(() => {
     if (s.running && s.phase === 'work' && s.sound !== 'none') {
-      startNoise(s.sound);
+      startNoise(s.sound, noiseVolumeRef.current);
       return () => stopNoise();
     }
     if (previewRef.current === s.sound && s.sound !== 'none') {
       previewRef.current = null;
-      startNoise(s.sound);
-      const id = setTimeout(stopNoise, 2500);
+      startNoise(s.sound, noiseVolumeRef.current);
+      const id = setTimeout(stopNoise, 4000);
       return () => {
         clearTimeout(id);
         stopNoise();
@@ -293,6 +287,10 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     stopNoise();
     return undefined;
   }, [s.running, s.phase, s.sound]);
+  // Громкость шума — на ходу, без перезапуска источника.
+  useEffect(() => {
+    setNoiseVolume(s.noiseVolume);
+  }, [s.noiseVolume]);
 
   /** Перейти к следующей фазе.
    *
@@ -304,7 +302,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
    *  раздела 11.09.2026. */
   function advancePhase(skipped = false) {
     const cur = sRef.current;
-    playAlarm(cur.alarm);
+    playAlarm(cur.phase === 'work' ? cur.alarmWork : cur.alarmBreak, cur.alarmVolume);
     notifyPhaseEnd(cur.phase);
     if (cur.phase === 'work') {
       const workCount = cur.workCount + 1;
@@ -445,13 +443,43 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   );
 
   const setSound = useCallback(
-    (sound: SoundType) => {
+    (sound: NoiseType) => {
       previewRef.current = sound;
       persist({ ...sRef.current, sound });
       ensureAudio();
     },
     [persist],
   );
+
+  const setNoiseVolumeCb = useCallback(
+    (noiseVolume: number) => {
+      persist({ ...sRef.current, noiseVolume: clamp01(noiseVolume) });
+    },
+    [persist],
+  );
+
+  const setAlarmVolume = useCallback(
+    (alarmVolume: number) => {
+      persist({ ...sRef.current, alarmVolume: clamp01(alarmVolume) });
+    },
+    [persist],
+  );
+
+  const setPreNotify = useCallback(
+    (preNotify: boolean) => {
+      persist({ ...sRef.current, preNotify });
+      // persist ставит пуши только при смене фазы/времени — здесь меняется
+      // само правило, пересобрать надо явно.
+      syncPhasePush({ ...sRef.current, preNotify });
+      if (preNotify) ensureNotifyPermission();
+    },
+    [persist],
+  );
+
+  /** Послушать мелодию, не выбирая её. */
+  const previewAlarm = useCallback((kind: AlarmType) => {
+    playAlarm(kind, sRef.current.alarmVolume);
+  }, []);
 
   const setLongAfter = useCallback(
     (longAfter: number) => {
@@ -461,10 +489,17 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   );
 
   // Выбор сигнала сразу его проигрывает: слушать — единственный способ выбрать.
-  const setAlarm = useCallback(
-    (alarm: AlarmType) => {
-      persist({ ...sRef.current, alarm });
-      playAlarm(alarm);
+  const setAlarmWork = useCallback(
+    (alarmWork: AlarmType) => {
+      persist({ ...sRef.current, alarmWork });
+      playAlarm(alarmWork, sRef.current.alarmVolume);
+    },
+    [persist],
+  );
+  const setAlarmBreak = useCallback(
+    (alarmBreak: AlarmType) => {
+      persist({ ...sRef.current, alarmBreak });
+      playAlarm(alarmBreak, sRef.current.alarmVolume);
     },
     [persist],
   );
@@ -496,7 +531,11 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       longAfter: s.longAfter,
       cycle: cycleDots(s.phase, s.workCount, s.longAfter),
       sound: s.sound,
-      alarm: s.alarm,
+      alarmWork: s.alarmWork,
+      alarmBreak: s.alarmBreak,
+      alarmVolume: s.alarmVolume,
+      noiseVolume: s.noiseVolume,
+      preNotify: s.preNotify,
       active,
       start,
       toggle,
@@ -509,7 +548,12 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       setTask,
       setSound,
       setLongAfter,
-      setAlarm,
+      setAlarmWork,
+      setAlarmBreak,
+      setAlarmVolume,
+      setNoiseVolume: setNoiseVolumeCb,
+      setPreNotify,
+      previewAlarm,
     }),
     [
       s.phase,
@@ -525,7 +569,11 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       s.longAfter,
       s.workCount,
       s.sound,
-      s.alarm,
+      s.alarmWork,
+      s.alarmBreak,
+      s.alarmVolume,
+      s.noiseVolume,
+      s.preNotify,
       active,
       start,
       toggle,
@@ -538,7 +586,12 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       setTask,
       setSound,
       setLongAfter,
-      setAlarm,
+      setAlarmWork,
+      setAlarmBreak,
+      setAlarmVolume,
+      setNoiseVolumeCb,
+      setPreNotify,
+      previewAlarm,
     ],
   );
 
