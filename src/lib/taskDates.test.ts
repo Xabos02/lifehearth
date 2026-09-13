@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { formatDueRange, nextWindowStart, taskOnDay } from './taskDates';
+import { setLang } from './i18n';
 import { addDaysKey, todayKey } from './dates';
 
 describe('срок-период задачи', () => {
@@ -36,6 +37,16 @@ describe('срок-период задачи', () => {
 
   it('диапазон в одном месяце сжимается: «10–25 августа»', () => {
     expect(formatDueRange('2026-08-10', '2026-08-25')).toBe('10–25 августа');
+  });
+
+  it('в английском порядок «месяц день»: August 10–25, August 28 — September 3', () => {
+    setLang('en');
+    try {
+      expect(formatDueRange('2026-08-10', '2026-08-25')).toBe('August 10–25');
+      expect(formatDueRange('2026-08-28', '2026-09-03')).toBe('August 28 — September 3');
+    } finally {
+      setLang('ru');
+    }
   });
 
   it('диапазон через месяц — оба конца целиком', () => {

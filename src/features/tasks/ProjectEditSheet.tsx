@@ -166,8 +166,12 @@ function ProjectEditForm({
             <span className="min-w-0 truncate text-sm font-bold tracking-tight">
               {name.trim() || t('Проект')}
             </span>
-            <span className="ml-auto text-xs text-muted">{t('так будет в списке')}</span>
           </div>
+          {/* Подпись под строкой, а не в ней: в ряду она отбирала у названия
+              ширину, и в английском («this is how it'll look in the list»)
+              название резалось многоточием — предпросмотр «как в списке»
+              показывал не то, что список. */}
+          <p className="mt-1.5 px-1 text-xs text-muted">{t('так будет в списке')}</p>
         </div>
 
         <div className="mt-1 flex gap-2">

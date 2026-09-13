@@ -51,14 +51,30 @@ export function isoWeekday(key: string): number {
   return getISODay(fromKey(key));
 }
 
-/** «11 июня», «11 июня 2027» и т.п. */
-export function formatRu(key: string, fmt = 'd MMMM'): string {
-  return format(fromKey(key), fmt, { locale: dateLocale() });
+/** Порядок «день месяц» зависит от языка: по-русски «18 июня», по-английски
+ *  «June 18». Локаль date-fns знает порядок только для своих шаблонов (PPP),
+ *  а фиксированный 'd MMMM' её обходил — английский интерфейс показывал
+ *  «18 June», при том что ввод («June 15» в быстром добавлении) читал
+ *  наоборот. */
+export function dayMonthFormat(): string {
+  return getLang() === 'ru' ? 'd MMMM' : 'MMMM d';
 }
 
-/** Заголовок «Сегодня»: «Четверг, 12 июня». */
+/** Диапазон в одном месяце: «10–25 августа» / «August 10–25». */
+export function formatDayRange(fromKeyStr: string, toKeyStr: string): string {
+  return getLang() === 'ru'
+    ? `${formatRu(fromKeyStr, 'd')}–${formatRu(toKeyStr)}`
+    : `${formatRu(fromKeyStr, 'MMMM d')}–${formatRu(toKeyStr, 'd')}`;
+}
+
+/** «11 июня» / «June 11»; с явным fmt — как задано. */
+export function formatRu(key: string, fmt?: string): string {
+  return format(fromKey(key), fmt ?? dayMonthFormat(), { locale: dateLocale() });
+}
+
+/** Заголовок «Сегодня»: «Четверг, 12 июня» / «Thursday, June 12». */
 export function formatHeaderDate(d: Date = new Date()): string {
-  const s = format(d, 'EEEE, d MMMM', { locale: dateLocale() });
+  const s = format(d, getLang() === 'ru' ? 'EEEE, d MMMM' : 'EEEE, MMMM d', { locale: dateLocale() });
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 

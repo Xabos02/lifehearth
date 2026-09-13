@@ -4,8 +4,7 @@ import {
   GChevronRight as ChevronRight,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
-import { todayKey } from '../../lib/dates';
-import { formatRu } from '../../lib/dates';
+import { todayKey, formatDayRange } from '../../lib/dates';
 import { cycleDayFor } from '../../lib/cycle/derive';
 import { predictNextPeriod } from '../../lib/cycle/predict';
 import { cycleAllowed } from '../../lib/sections';
@@ -51,7 +50,7 @@ export function CycleTodayLine() {
     : null;
   const range =
     prediction?.lo80 !== undefined && prediction.hi80 !== undefined
-      ? `${formatRu(prediction.lo80, 'd')}–${formatRu(prediction.hi80)}`
+      ? formatDayRange(prediction.lo80, prediction.hi80)
       : null;
 
   return (

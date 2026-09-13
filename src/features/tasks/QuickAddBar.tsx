@@ -31,9 +31,13 @@ const QUICK_ADD_HINT = 'tasks-quick-add';
 export function QuickAddBar({
   defaultDueDate,
   defaultProjectId,
+  onCreated,
 }: {
   defaultDueDate?: string | null;
   defaultProjectId?: string | null;
+  /** Задача создана — родитель может прокрутить к ней: новая ложится в
+   *  конец «Без проекта», ниже всех папок, и без прокрутки её не видно. */
+  onCreated?: (id: string) => void;
 }) {
   const [text, setText] = useState('');
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -45,7 +49,7 @@ export function QuickAddBar({
     const raw = text.trim();
     if (!raw) return;
     const p = parseQuickTask(raw);
-    await create(db.tasks, {
+    const created = await create(db.tasks, {
       title: p.title,
       notes: '',
       projectId: defaultProjectId ?? null,
@@ -67,6 +71,7 @@ export function QuickAddBar({
     // сделала и больше не занимает 165px над списком.
     void dismissHintOnUse(QUICK_ADD_HINT);
     wrapRef.current?.querySelector('input')?.focus();
+    onCreated?.(created.id);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {

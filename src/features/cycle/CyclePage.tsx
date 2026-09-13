@@ -12,7 +12,7 @@ import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Button } from '../../components/ui/Button';
 import { ensureCycleSetup } from '../../lib/cycle/cycleRepo';
-import { formatRu, todayKey } from '../../lib/dates';
+import { formatRu, todayKey, formatDayRange } from '../../lib/dates';
 import { getLang, t, tPlur, tPlural } from '../../lib/i18n';
 import { CycleCalendar } from './CycleCalendar';
 import { CycleHabitsCard } from './CycleHabitsCard';
@@ -40,7 +40,7 @@ function predictionText(p: CyclePredictionResult): { title: string; note?: strin
   // обязан прозвучать («26 августа – 7 сентября»).
   const range = (from: string, to: string) => {
     if (from === to) return formatRu(from);
-    if (from.slice(0, 7) === to.slice(0, 7)) return `${formatRu(from, 'd')}–${formatRu(to)}`;
+    if (from.slice(0, 7) === to.slice(0, 7)) return formatDayRange(from, to);
     return `${formatRu(from)} – ${formatRu(to)}`;
   };
 

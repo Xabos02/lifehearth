@@ -3,7 +3,7 @@
 
 import { differenceInCalendarDays } from 'date-fns';
 import type { Task } from '../db/types';
-import { addDaysKey, formatDueDate, formatRu, fromKey } from './dates';
+import { addDaysKey, formatDayRange, formatDueDate, formatRu, fromKey } from './dates';
 
 /** Актуальна ли задача в этот день: точечный срок — ровно в свой день,
  *  период — каждый день окна включительно. Этим предикатом живут «Сегодня»
@@ -24,9 +24,12 @@ export function taskOnDay(
 export function formatDueRange(startKey: string, dueKey: string): string {
   if (startKey === dueKey) return formatDueDate(dueKey);
   const due = formatDueDate(dueKey);
-  const wordDue = /^\p{L}/u.test(due); // «Сегодня», «Today» — любой алфавит
+  // Дедлайн словом («Сегодня», «Tomorrow»), а не датой: сравниваем с тем,
+  // что дала бы просто дата. Проверка «начинается с буквы» тут не годится —
+  // по-английски и дата начинается с буквы («August 25»).
+  const wordDue = due !== formatRu(dueKey);
   const sameMonth = startKey.slice(0, 7) === dueKey.slice(0, 7);
-  if (!wordDue && sameMonth) return `${formatRu(startKey, 'd')}–${due}`;
+  if (!wordDue && sameMonth) return formatDayRange(startKey, dueKey);
   return `${formatRu(startKey)} — ${due}`;
 }
 

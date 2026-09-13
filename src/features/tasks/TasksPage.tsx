@@ -26,7 +26,7 @@ import {
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { isTouch } from '../../lib/platform';
-import { alive, update } from '../../db/repo';
+import { alive, update, updateMany } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { Fab } from '../../components/layout/Fab';
@@ -127,6 +127,7 @@ function SubSection({
       <div className="mb-1.5 flex items-center gap-3 pr-1">
         <button
           {...headerProps}
+          aria-expanded={!collapsed}
           // py-3, а не py-2.5: заголовок стал мельче кеглем, и высота зоны
           // касания просела с 44 до 42. Отступ добирает норму обратно.
           className={`flex min-w-0 flex-1 items-center gap-1.5 py-3 text-left ${
@@ -241,6 +242,7 @@ function Section({
       <div className="mb-2 flex items-center gap-3 px-1">
         <button
           {...headerProps}
+          aria-expanded={!collapsed}
           className={`flex flex-1 items-center gap-1.5 py-2.5 text-left ${
             reorderable ? 'select-none [-webkit-touch-callout:none] [-webkit-user-select:none]' : ''
           }`}
@@ -409,6 +411,9 @@ export function TasksPage() {
   const hitTest = useCallback((y: number): string | null => {
     let best: string | null = null;
     let bestH = Infinity;
+    // Ближайшие секции сверху и снизу — на случай, если палец в зазоре.
+    let above: { key: string; edge: number } | null = null;
+    let below: { key: string; edge: number } | null = null;
     for (const [key, el] of sectionNodes.current) {
       if (!el.isConnected) continue;
       const r = el.getBoundingClientRect();
@@ -416,8 +421,18 @@ export function TasksPage() {
         best = key;
         bestH = r.height;
       }
+      if (r.bottom < y && (!above || r.bottom > above.edge)) above = { key, edge: r.bottom };
+      if (r.top > y && (!below || r.top < below.edge)) below = { key, edge: r.top };
     }
-    return best;
+    if (best) return best;
+    // Промах в зазор между папками (SECTION_GAP) — цель та, чей край ближе.
+    // Свёрнутая папка — это 45px заголовка, а полосы над и под ней уходили
+    // соседям: «нужно прям точку искать». Пустота над первой секцией и под
+    // последней остаётся промахом — там зазора между двумя папками нет.
+    if (above && below && below.edge - above.edge <= SECTION_GAP) {
+      return y - above.edge <= below.edge - y ? above.key : below.key;
+    }
+    return null;
   }, []);
 
   const onDragStart = useCallback((task: Task, at: { x: number; y: number; pointerId: number }) => {
@@ -501,7 +516,9 @@ export function TasksPage() {
       if (!moved && Math.hypot(e.clientX - startPoint.x, e.clientY - startPoint.y) > DRAG_START_THRESHOLD) {
         moved = true;
       }
-      refreshDrop(e.clientY);
+      // Пересчёт зоны — раз в кадр в tick по pointerRef: pointermove в
+      // Chrome/Safari и так выровнен по кадру, а второй проход по геометрии
+      // всего списка здесь удваивал цену каждого кадра переноса.
     };
 
     // Авто-скролл, пока палец у края: крутим контейнер и переоцениваем drop-зону
@@ -554,6 +571,10 @@ export function TasksPage() {
 
     const finish = (e: PointerEvent) => {
       if (e.pointerId !== activePointerRef.current) return; // чужой палец
+      // Последний pointermove мог прийти в том же кадре, что и pointerup, до
+      // следующего tick — иначе «швырок с отпусканием» садился бы на позицию
+      // предыдущего кадра.
+      if (moved) refreshDrop(e.clientY);
       const target = dropKeyRef.current;
       const idx = taskDropIndexRef.current;
       // Позиция ни разу не вычислялась — значит, палец так и не сдвинулся
@@ -591,16 +612,18 @@ export function TasksPage() {
         // устройства и выглядит как перестановка, которой не было.
         if (orderChanged) {
           const prevSortOrder = new Map(targetTasks.map((task) => [task.id, task.sortOrder]));
+          const writes: { id: string; changes: Partial<Task> }[] = [];
           order.forEach((id, i) => {
             const sortOrder = (i + 1) * 1000;
             if (id === task.id) {
               if (changedProject || prevSortOrder.get(id) !== sortOrder) {
-                void update(db.tasks, id, { projectId: nextProjectId, sortOrder });
+                writes.push({ id, changes: { projectId: nextProjectId, sortOrder } });
               }
             } else if (prevSortOrder.get(id) !== sortOrder) {
-              void update(db.tasks, id, { sortOrder });
+              writes.push({ id, changes: { sortOrder } });
             }
           });
+          void updateMany(db.tasks, writes);
           if (changedProject) {
             const name =
               nextProjectId === null ? t('Без проекта') : (projectNamesRef.current.get(target) ?? t('проект'));
@@ -737,7 +760,7 @@ export function TasksPage() {
       if (!moved && Math.hypot(e.clientX - startPoint.x, e.clientY - startPoint.y) > DRAG_START_THRESHOLD) {
         moved = true;
       }
-      refreshDrop(e.clientX, e.clientY);
+      // Раз в кадр в tick — см. перенос задач выше.
     };
     let raf = 0;
     let last = 0;
@@ -777,6 +800,7 @@ export function TasksPage() {
     };
     const finish = (e: PointerEvent) => {
       if (e.pointerId !== activePointerRef.current) return; // чужой палец
+      if (moved) refreshDrop(e.clientX, e.clientY);
       const insertIndex = projInsertRef.current;
       const parent = dropParentRef.current;
       const was = dp.parentId ?? null;
@@ -808,11 +832,13 @@ export function TasksPage() {
           const insertAt = insertIndex > from ? insertIndex - 1 : insertIndex;
           next.splice(insertAt, 0, dp.id);
           if (next.some((id, i) => ids[i] !== id)) {
+            const writes: { id: string; changes: Partial<Project> }[] = [];
             next.forEach((id, i) => {
               const cur = projectsRef.current.find((p) => p.id === id);
               const order = (i + 1) * 1000;
-              if (cur && cur.sortOrder !== order) void update(db.projects, id, { sortOrder: order });
+              if (cur && cur.sortOrder !== order) writes.push({ id, changes: { sortOrder: order } });
             });
+            void updateMany(db.projects, writes);
             toast(t('Порядок проектов обновлён'));
           }
         }
@@ -830,11 +856,13 @@ export function TasksPage() {
           const next = ids.filter((id) => id !== dp.id);
           next.splice(at > from ? at - 1 : at, 0, dp.id);
           if (next.some((id, i) => ids[i] !== id)) {
+            const writes: { id: string; changes: Partial<Project> }[] = [];
             next.forEach((id, i) => {
               const cur = sibs.find((x) => x.id === id);
               const order = (i + 1) * 1000;
-              if (cur && cur.sortOrder !== order) void update(db.projects, id, { sortOrder: order });
+              if (cur && cur.sortOrder !== order) writes.push({ id, changes: { sortOrder: order } });
             });
+            void updateMany(db.projects, writes);
             toast(t('Порядок подпроектов обновлён'));
           }
         }
@@ -912,17 +940,53 @@ export function TasksPage() {
   const tasksRaw = useLiveQuery(() => db.tasks.toArray(), []);
   const projectsRaw = useLiveQuery(() => db.projects.toArray(), []);
 
-  const allTasks = alive(tasksRaw ?? []);
+  // Задача из строки быстрого ввода ложится в конец «Без проекта» — ниже
+  // всех папок. Человек жал Enter, поле очищалось, а задачи на экране не было.
+  // Строка появляется в DOM следующим рендером после ответа liveQuery — ждём
+  // её по кадрам и докручиваем ленту. Не scrollIntoView: он крутит всех
+  // предков и на iOS устраивал «войну скроллов» (см. ChatTab).
+  const revealTask = useCallback((id: string) => {
+    let tries = 0;
+    const attempt = () => {
+      const el = document.querySelector<HTMLElement>(`[data-task-id="${id}"]`);
+      if (!el) {
+        if (tries++ < 60) requestAnimationFrame(attempt);
+        return;
+      }
+      const sc = document.getElementById('app-scroll');
+      if (!sc) return;
+      const r = el.getBoundingClientRect();
+      const cr = sc.getBoundingClientRect();
+      if (r.bottom > cr.bottom) sc.scrollTop += r.bottom - cr.bottom + 16;
+      else if (r.top < cr.top) sc.scrollTop -= cr.top - r.top + 16;
+    };
+    requestAnimationFrame(attempt);
+  }, []);
+
+  // Живые списки — в useMemo по СЫРОМУ ответу базы. useLiveQuery отдаёт одну и
+  // ту же ссылку, пока запрос не эмитит заново; alive() же строил новый
+  // массив на каждый рендер, и вся цепочка useMemo ниже (группировка по
+  // проектам, дети, выполненные, заморозка) пересчитывалась при каждом
+  // движении линии вставки, сворачивании папки, открытии шторки — при том,
+  // что данные не менялись. Разбор 08.09, подтверждён 12.09.
+  const allTasks = useMemo(() => alive(tasksRaw ?? []), [tasksRaw]);
   // Уникальные теги из живых задач для фильтра.
   const tagOptions = useMemo(
     () => [...new Set(allTasks.flatMap((task) => task.tags))].sort((a, b) => a.localeCompare(b)),
     [allTasks],
   );
-  const tasks = activeTag ? allTasks.filter((task) => task.tags.includes(activeTag)) : allTasks;
+  const tasks = useMemo(
+    () => (activeTag ? allTasks.filter((task) => task.tags.includes(activeTag)) : allTasks),
+    [allTasks, activeTag],
+  );
   // Проекты сверху вниз в порядке создания (sortOrder растёт → новые ниже).
-  const projects = alive(projectsRaw ?? [])
-    .filter((p) => !p.archivedAt)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const projects = useMemo(
+    () =>
+      alive(projectsRaw ?? [])
+        .filter((p) => !p.archivedAt)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [projectsRaw],
+  );
 
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
 
@@ -1088,6 +1152,13 @@ export function TasksPage() {
     setTaskDefaultProject(projectId);
     setTaskSheetOpen(true);
   }
+  // Один стабильный обработчик на все строки: с инлайн-стрелкой memo у
+  // TaskItem не работал бы — новая функция каждый рендер.
+  const editTask = useCallback((task: Task) => {
+    setEditingTask(task);
+    setTaskDefaultProject(task.projectId);
+    setTaskSheetOpen(true);
+  }, []);
 
   function openProject(project: Project | null, defaultParentId: string | null = null) {
     setEditingProject(project);
@@ -1133,7 +1204,7 @@ export function TasksPage() {
                   <TaskCard
                     tasks={subList}
                     projectById={projectById}
-                    onEdit={(task) => openTask(task, task.projectId)}
+                    onEdit={editTask}
                     onDragStart={onDragStart}
                     draggingId={draggingTask?.id ?? null}
                     dropIndex={draggingTask && dropKey === sub.id ? taskDropIndex : null}
@@ -1144,7 +1215,7 @@ export function TasksPage() {
                   <CompletedSubsection
                     tasks={subDone}
                     projectById={projectById}
-                    onEdit={(task) => openTask(task, task.projectId)}
+                    onEdit={editTask}
                     expanded={expandedCompleted.has(sub.id)}
                     onToggle={() => toggleCompleted(sub.id)}
                   />
@@ -1179,7 +1250,7 @@ export function TasksPage() {
         />
       }
     >
-      <QuickAddBar />
+      <QuickAddBar onCreated={revealTask} />
 
       {/* Приближение к целям — сразу под строкой добавления. Выше неё нельзя:
           первое, зачем открывают экран задач, — записать задачу. */}
@@ -1223,13 +1294,13 @@ export function TasksPage() {
                       { icon: ArrowRight, text: <>{t('Свайп по задаче вправо — выполнить')}</> },
                       { icon: ArrowLeft, text: <>{t('Свайп влево — «Завтра» или «Удалить»')}</> },
                       { icon: Hand, text: <>{t('Удержание задачи — перенести в другую папку')}</> },
-                      { icon: GripVertical, text: <>{t('Удержание заголовка папки — перенести её; влево — вынести наружу')}</> },
+                      { icon: GripVertical, text: <>{t('Удержание заголовка папки — перенести её; вправо — вложить в другую, влево — вынести наружу')}</> },
                     ]
                   : [
                       { icon: ArrowRight, text: <>{t('Потяните задачу мышью вправо — выполнить')}</> },
                       { icon: ArrowLeft, text: <>{t('Влево — «Завтра» или «Удалить»')}</> },
                       { icon: Hand, text: <>{t('Зажмите задачу — перенести в другую папку')}</> },
-                      { icon: GripVertical, text: <>{t('Зажмите заголовок папки — перенести; влево — вынести наружу')}</> },
+                      { icon: GripVertical, text: <>{t('Зажмите заголовок папки — перенести; вправо — вложить в другую, влево — вынести наружу')}</> },
                     ]
               }
             />
@@ -1274,7 +1345,7 @@ export function TasksPage() {
                     <TaskCard
                       tasks={list}
                       projectById={projectById}
-                      onEdit={(task) => openTask(task, task.projectId)}
+                      onEdit={editTask}
                       onDragStart={onDragStart}
                       draggingId={draggingTask?.id ?? null}
                       dropIndex={draggingTask && dropKey === p.id ? taskDropIndex : null}
@@ -1285,7 +1356,7 @@ export function TasksPage() {
                     <CompletedSubsection
                       tasks={doneList}
                       projectById={projectById}
-                      onEdit={(task) => openTask(task, task.projectId)}
+                      onEdit={editTask}
                       expanded={expandedCompleted.has(p.id)}
                       onToggle={() => toggleCompleted(p.id)}
                     />
@@ -1301,7 +1372,12 @@ export function TasksPage() {
           })}
           {reorderingTop && projInsertIndex === topProjects.length && <DropLine />}
 
-          {(noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
+          {/* Пустая «Без проекта» появляется на время переноса задачи из
+              папки: иначе вынести задачу из проекта было некуда — цель
+              исчезала вместе с последней задачей. */}
+          {(noProjectTasks.length > 0 ||
+            noProjectCompleted.length > 0 ||
+            (draggingTask !== null && draggingTask.projectId !== null)) && (
             <Section
               title={t('Без проекта')}
               count={noProjectTasks.length}
@@ -1315,7 +1391,7 @@ export function TasksPage() {
                 <TaskCard
                   tasks={noProjectTasks}
                   projectById={projectById}
-                  onEdit={(task) => openTask(task, null)}
+                  onEdit={editTask}
                   onDragStart={onDragStart}
                   draggingId={draggingTask?.id ?? null}
                   dropIndex={draggingTask && dropKey === NONE ? taskDropIndex : null}
@@ -1326,7 +1402,7 @@ export function TasksPage() {
                 <CompletedSubsection
                   tasks={noProjectCompleted}
                   projectById={projectById}
-                  onEdit={(task) => openTask(task, null)}
+                  onEdit={editTask}
                   expanded={expandedCompleted.has(NONE)}
                   onToggle={() => toggleCompleted(NONE)}
                 />
@@ -1349,7 +1425,7 @@ export function TasksPage() {
                 projectById={projectById}
                 collapsed={collapsed.has(FROZEN)}
                 onToggle={() => toggle(FROZEN)}
-                onEdit={(task) => openTask(task, task.projectId)}
+                onEdit={editTask}
               />
             </div>
           )}

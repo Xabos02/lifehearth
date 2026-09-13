@@ -380,7 +380,7 @@ export const EN: Record<string, string> = {
   'Напоминания': 'Reminders',
   'раздел': 'section',
   'Например, «Работа» или «Дом» — важное всегда под рукой.':
-    'Say "Work" or "Home" — what matters, always at hand.',
+    'Say “Work” or “Home” — what matters, always at hand.',
   'Изменить раздел': 'Edit section',
   'Добавить напоминание': 'Add reminder',
   'Удалить раздел вместе с его напоминаниями?': 'Delete this section along with its reminders?',
@@ -592,8 +592,8 @@ export const EN: Record<string, string> = {
     "Couldn't find a date column. Check that the export was saved as CSV.",
   'Распознано дней:': 'Recognized days:',
   'с {from} по {to}': 'from {from} to {to}',
-  'Колонка с датой: «{col}»': 'Date column: "{col}"',
-  ', выделения: «{col}»': ', flow: "{col}"',
+  'Колонка с датой: «{col}»': 'Date column: “{col}”',
+  ', выделения: «{col}»': ', flow: “{col}”',
   ', выделения — по содержимому строк': ', flow — from row content',
   'Пропущено строк: {n}': 'Skipped rows: {n}',
   ' (без даты: {n})': ' (no date: {n})',
@@ -612,8 +612,8 @@ export const EN: Record<string, string> = {
   'Связь с приложением': 'App integration',
   'Задачи по циклу': 'Cycle tasks',
   'Приложение само поставит «{title}» перед ожидаемой менструацией и напомнит о плановом визите к врачу. Не больше {n} задач одновременно.':
-    'The app will schedule "{title}" before your expected period and remind you about your annual checkup. No more than {n} tasks at a time.',
-  'Строка на экране «Сегодня»': 'Row on the "Today" screen',
+    'The app will schedule “{title}” before your expected period and remind you about your annual checkup. No more than {n} tasks at a time.',
+  'Строка на экране «Сегодня»': 'Row on the “Today” screen',
   'День цикла и, если включён прогноз, ожидаемые даты.':
     'Cycle day and, if the forecast is on, the expected dates.',
   'Отметки в календаре': 'Calendar marks',
@@ -623,11 +623,11 @@ export const EN: Record<string, string> = {
   'Доля выполненных привычек в дни менструации, перед ней и в остальные дни. Только ваши числа, без выводов и советов.':
     'Share of habits completed on period days, just before them, and on other days. Just your numbers, no conclusions or advice.',
   'Приложение не будет подстраивать за вас план дня, тренировки или задачи под фазу цикла. Влияние фазы на работоспособность в исследованиях оказалось незначительным, а советы вроде «сегодня не берись за сложное» вредят больше, чем помогают.':
-    "The app won't adjust your day plan, workouts, or tasks for your cycle phase. Studies found the phase's effect on performance to be negligible, and advice like \"skip anything hard today\" does more harm than good.",
+    "The app won't adjust your day plan, workouts, or tasks for your cycle phase. Studies found the phase's effect on performance to be negligible, and advice like “skip anything hard today” does more harm than good.",
   'Формулировки': 'Wording',
   'Нейтральные названия': 'Neutral names',
   'Задачи и уведомления называются обтекаемо: «{title}» вместо «{direct}». Список задач видно с чужого плеча чаще, чем сам раздел.':
-    'Tasks and notifications use a neutral name: "{title}" instead of "{direct}". The task list gets seen over your shoulder more often than the section itself.',
+    'Tasks and notifications use a neutral name: “{title}” instead of “{direct}”. The task list gets seen over your shoulder more often than the section itself.',
   'Врач': 'Doctor',
   'Сводка по циклам за период — для показа или печати на приёме.':
     'A summary of your cycles for a period — to show or print at an appointment.',
@@ -982,14 +982,14 @@ export const EN: Record<string, string> = {
   'напоминания о задачах придут даже при закрытом приложении':
     'reminders arrive even when the app is closed',
   'Нужны для напоминаний о задачах («напомнить за 15 минут»). На iPhone работают только в установленном приложении.':
-    'Needed for task reminders ("remind me 15 minutes before"). On iPhone they only work in the installed app.',
+    'Needed for task reminders (“remind me 15 minutes before”). On iPhone they only work in the installed app.',
   'Доступна при включённой синхронизации: зашифрованная копия всех данных хранится в облаке под вашим ключом и переживает потерю или замену телефона.':
     'Available once sync is on: an encrypted backup of all your data is stored in the cloud under your key and survives losing or replacing your phone.',
   'Копия в облаке:': 'Cloud backup:',
   'проверяем…': 'checking…',
   'ещё не создана': 'not created yet',
   'Автокопия приостановлена: в облаке лежит копия полнее, чем данные на этом устройстве. Нажмите «Сохранить сейчас», чтобы решить, что с этим делать.':
-    'Auto backup is paused: the cloud copy has more data than this device. Tap "Back up now" to decide what to do.',
+    'Auto backup is paused: the cloud copy has more data than this device. Tap “Back up now” to decide what to do.',
   'Зашифрованная копия всех данных будет сама сохраняться в облако.':
     'An encrypted backup of all your data will be saved to the cloud automatically.',
   'В копию входит всё: задачи, заметки, финансы, семейный чат, а также раздел «Женские дни», если вы им пользуетесь. Файл не зашифрован — храните его там, куда нет доступа у посторонних. Копия в облако, в отличие от файла, шифруется на устройстве.':
@@ -1224,7 +1224,7 @@ export const EN: Record<string, string> = {
     'A clear head makes for a better day. Today gently shows only what matters right now — no pressure from long lists. One glance, and you know where to go.',
   'Задачи без давления': 'Tasks without pressure',
   'Задачи — не про «надо», а про свободу не держать всё в голове. Записали и отпустили: приложение напомнит вовремя, и можно жить, а не сверяться со списком.':
-    "Tasks aren't about \"should\" — they're about the freedom to stop holding it all in your head. Write it down and let go: the app will remind you in time, so you can live instead of checking a list.",
+    "Tasks aren't about “should” — they're about the freedom to stop holding it all in your head. Write it down and let go: the app will remind you in time, so you can live instead of checking a list.",
   'Место для мыслей и идей, которые жалко потерять. Просто начните писать — первая строка станет заголовком. Второй мозг, всегда под рукой.':
     "A place for thoughts and ideas you don't want to lose. Just start writing — the first line becomes the title. A second brain, always at hand.",
   'Мечты становятся ближе, когда виден прогресс. Накопить, пробежать, выучить — поставьте цель и смотрите, как она приближается шаг за шагом.':
@@ -1237,7 +1237,7 @@ export const EN: Record<string, string> = {
     "Your data stays on your device. Turn on sync and it's on all your devices under your own key, with an encrypted backup that survives even losing your phone. And reminders arrive even when the app is closed.",
   'Рядом, когда нужно': 'Here when you need it',
   'Ничего не нужно заучивать. LifeHearth подскажет удобные мелочи тогда, когда пригодятся: жесты, быстрый ввод, даже то, что кнопку «+» можно перетащить куда удобно. А дальше — просто жить, остальное рядом.':
-    "Nothing to memorize. LifeHearth points out handy little things exactly when they're useful: gestures, quick input, even that the \"+\" button can be dragged wherever's convenient. After that, just live — the rest is close by.",
+    "Nothing to memorize. LifeHearth points out handy little things exactly when they're useful: gestures, quick input, even that the “+” button can be dragged wherever's convenient. After that, just live — the rest is close by.",
   'Шаг {n}': 'Step {n}',
   'Пропустить': 'Skip',
   'Начать': 'Get started',
@@ -1495,28 +1495,28 @@ export const EN: Record<string, string> = {
   'Без проекта': 'No project',
   'проект': 'project',
   'Перенесено в {name}': 'Moved to {name}',
-  '«{project}» теперь внутри «{parent}»': '"{project}" is now inside "{parent}"',
-  '«{project}» стал отдельным проектом': '"{project}" became a separate project',
+  '«{project}» теперь внутри «{parent}»': '“{project}” is now inside “{parent}”',
+  '«{project}» стал отдельным проектом': '“{project}” became a separate project',
   'Порядок проектов обновлён': 'Project order updated',
   'Останется здесь': 'Stays here',
   'Поменяет порядок': 'Reorders',
   'Станет отдельным проектом': 'Becomes a separate project',
-  'Внутрь «{name}»': 'Into "{name}"',
+  'Внутрь «{name}»': 'Into “{name}”',
   'Заморозить задачи': 'Freeze tasks',
   'Все теги': 'All tags',
   'Пока нет задач': 'No tasks yet',
-  'Нажмите «+», чтобы добавить первую задачу': 'Tap "+" to add your first task',
+  'Нажмите «+», чтобы добавить первую задачу': 'Tap “+” to add your first task',
   'Жесты списка': 'List gestures',
   'Свайп по задаче вправо — выполнить': 'Swipe a task right to complete it',
-  'Свайп влево — «Завтра» или «Удалить»': 'Swipe left for "Tomorrow" or "Delete"',
+  'Свайп влево — «Завтра» или «Удалить»': 'Swipe left for “Tomorrow” or “Delete”',
   'Удержание задачи — перенести в другую папку': 'Hold a task to move it to another folder',
-  'Удержание заголовка папки — перенести её; влево — вынести наружу':
-    'Hold a folder header to move it; drag left to move it out',
+  'Удержание заголовка папки — перенести её; вправо — вложить в другую, влево — вынести наружу':
+    'Hold a folder header to move it; drag right to nest it in another, left to move it out',
   'Потяните задачу мышью вправо — выполнить': 'Drag a task right to complete it',
-  'Влево — «Завтра» или «Удалить»': 'Left for "Tomorrow" or "Delete"',
+  'Влево — «Завтра» или «Удалить»': 'Left for “Tomorrow” or “Delete”',
   'Зажмите задачу — перенести в другую папку': 'Hold a task to move it to another folder',
-  'Зажмите заголовок папки — перенести; влево — вынести наружу':
-    'Hold a folder header to move it; left moves it out',
+  'Зажмите заголовок папки — перенести; вправо — вложить в другую, влево — вынести наружу':
+    'Hold a folder header to move it; right nests it in another, left moves it out',
   'Новый проект': 'New project',
   'Новая задача': 'New task',
   'Скопировать название': 'Copy title',
@@ -1577,7 +1577,7 @@ export const EN: Record<string, string> = {
   'пропущено': 'skipped',
   'Напоминание включено': 'Reminder on',
   'Скопировать задачу': 'Copy task',
-  'Например, «Ремонт»': 'e.g. "Renovation"',
+  'Например, «Ремонт»': 'e.g. “Renovation”',
   'Эмодзи': 'Emoji',
   'Внутри проекта': 'Inside project',
   'Внутри уже три уровня подпроектов — глубже не поместится. Можно оставить наверху.':
@@ -1759,7 +1759,7 @@ export const EN: Record<string, string> = {
   // === Раздел ИИ ===
   'ИИ': 'AI',
   'Чат с языковой моделью': 'Chat with a language model',
-  'Раздел «ИИ»': '"AI" section',
+  'Раздел «ИИ»': '“AI” section',
   'Чат с языковой моделью. Нужна включённая синхронизация — ею идёт авторизация.':
     'Chat with a language model. Requires sync to be on — it handles authorization.',
   'Скрыт': 'Hidden',
@@ -1767,7 +1767,7 @@ export const EN: Record<string, string> = {
   'Новый чат': 'New chat',
   'Чаты': 'Chats',
   'Удалить чат': 'Delete chat',
-  'Удалить чат «{title}» со всей перепиской?': 'Delete chat "{title}" with all its messages?',
+  'Удалить чат «{title}» со всей перепиской?': 'Delete chat “{title}” with all its messages?',
   'Спросите что угодно': 'Ask anything',
   'Пока отвечает заглушка — провайдер подключается на следующем шаге.':
     'A stub is answering for now — the provider is wired up in the next step.',

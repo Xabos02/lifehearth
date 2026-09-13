@@ -364,6 +364,24 @@ test('свёрнутая секция-цель принимает задачу �
   expect(p2[p2.length - 1].id, 'задача должна встать последней').toBe('t1_0');
 });
 
+test('отпустить задачу чуть выше свёрнутой папки — попадёт в неё, а не в соседа', async ({ page }) => {
+  // Между папками 48px зазора, свёрнутая папка — 45px заголовка. Раньше
+  // промах в зазор оставлял прежнюю цель: «нужно прям точку искать».
+  await openApp(page, '/tasks');
+  await seed(page, ['Новая задача'], ['Раз', 'Два', 'Три']);
+  await page.getByText('Здоровье', { exact: true }).first().click();
+  await expect(page.getByText('Раз', { exact: true })).toHaveCount(0);
+
+  await hold(page, 'Новая задача');
+  const p2 = (await page.locator('[data-drop-key="p2"]').boundingBox())!;
+  const x = p2.x + p2.width / 2;
+  await page.mouse.move(x, p2.y - 5);
+  await page.mouse.move(x, p2.y - 10);
+  await expect(page.locator('[data-drop-key="p2"]')).toHaveClass(/ring-accent/);
+  await page.mouse.up();
+  await expect.poll(() => projectOf(page, 't1_0')).toBe('p2');
+});
+
 test('проект-цель удалили во время жеста — задача остаётся на месте', async ({ page }) => {
   // Синк пишет в Dexie напрямую и может удалить проект посреди переноса.
   // Раньше отпускание отдавало задаче мёртвый projectId — и она пропадала со

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { memo, useEffect, useRef, useState, type PointerEvent } from 'react';
 import {
   Bell,
   Repeat,
@@ -46,7 +46,11 @@ const DRAG_CANCEL_MOVE = 8; // горизонт/вертикаль сдвиг, �
  *  свайп влево — действия (Завтра/Удалить), свайп вправо — выполнить.
  *  Удержание ~400мс без движения (когда передан onDragStart) — старт
  *  drag-режима переноса между проектами (логику переноса ведёт TasksPage). */
-export function TaskItem({
+/** Строка задачи. memo: при переносе перерисовывается вся страница на каждое
+ *  смещение линии вставки, а строкам, чьи задача и проект не менялись,
+ *  перерисовываться незачем. Пропсы стабильны: task/project — те же объекты
+ *  из ответа базы, обработчики — useCallback у родителя. */
+export const TaskItem = memo(function TaskItem({
   task,
   project,
   onEdit,
@@ -289,9 +293,23 @@ export function TaskItem({
           </button>
         </div>
       )}
+      {/* role/tabIndex/onKeyDown: строка открывается и с клавиатуры, и
+          скринридером — раньше тап был единственным путём. Именно role, а не
+          <button>: внутри уже лежат кнопки (чекбокс, фото, «пропустить»),
+          вложенные button невалидны. Клавиша зовёт onEdit напрямую, минуя
+          флаги свайпа в onClick. */}
       <div
         ref={rowRef}
         data-task-id={task.id}
+        role="button"
+        tabIndex={0}
+        aria-label={task.title}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onEdit?.(task);
+          }
+        }}
         className={`relative flex touch-pan-y items-start gap-2.5 bg-surface px-4 py-2.5 ${
           draggable ? 'select-none [-webkit-user-select:none] [-webkit-touch-callout:none]' : ''
         } ${isDragSource ? 'scale-[0.97] opacity-40' : ''}`}
@@ -461,4 +479,4 @@ export function TaskItem({
       )}
     </div>
   );
-}
+});

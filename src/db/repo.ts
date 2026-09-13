@@ -64,6 +64,22 @@ export async function update<T extends BaseEntity>(
   scheduleSyncSoon();
 }
 
+/** Несколько правок одной транзакцией — для перестановок, где меняется
+ *  sortOrder у половины списка. По одной их писать нельзя: убитая между
+ *  записями вкладка (iOS сворачивает приложение сразу после жеста) оставляла
+ *  половину задач с новым порядком, половину со старым, и список после синка
+ *  собирался не так, как человек его видел. Один updatedAt на всех и один
+ *  вызов синка. */
+export async function updateMany<T extends BaseEntity>(
+  table: Table<T, string>,
+  items: ReadonlyArray<{ id: string; changes: Partial<Omit<T, 'id' | 'createdAt'>> }>,
+): Promise<void> {
+  if (items.length === 0) return;
+  const ts = now();
+  await table.bulkUpdate(items.map(({ id, changes }) => ({ key: id, changes: { ...changes, updatedAt: ts } as UpdateSpec<T> })));
+  scheduleSyncSoon();
+}
+
 /** Мягкое удаление: запись скрывается из UI, но остаётся для будущего синка. */
 export async function remove<T extends BaseEntity>(
   table: Table<T, string>,

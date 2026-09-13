@@ -124,6 +124,7 @@ export function CompletedSubsection({
     <div className="mt-2">
       <button
         onClick={onToggle}
+        aria-expanded={expanded}
         className="flex w-full items-center gap-1.5 px-1 py-2.5 text-left text-sm text-muted active:opacity-60"
       >
         <ChevronRight
@@ -167,7 +168,7 @@ export function FrozenSection({
   return (
     <section className="mb-12">
       <div className="mb-2 flex items-center gap-1 px-1">
-        <button onClick={onToggle} className="flex flex-1 items-center gap-1.5 py-2.5 text-left">
+        <button onClick={onToggle} aria-expanded={!collapsed} className="flex flex-1 items-center gap-1.5 py-2.5 text-left">
           <ChevronDown
             size={ICON.base}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
