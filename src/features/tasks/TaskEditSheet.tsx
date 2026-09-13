@@ -14,6 +14,7 @@ import {
 import { db } from '../../db/db';
 import { alive, create, remove, uid, update } from '../../db/repo';
 import type { ChecklistItem, Priority, Project, Recurrence, Task } from '../../db/types';
+import { MAX_DEPTH } from './dragTuning';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { ClearFieldButton, Field, Input, Select } from '../../components/ui/Input';
@@ -197,15 +198,26 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
     [task?.id],
   ) ?? [];
 
-  // Проекты в порядке иерархии: верхний уровень, за ним его подпроекты с отступом.
+  // Проекты в порядке иерархии: верхний уровень, под ним дети с отступом, под
+  // ними внуки. Обход рекурсивный: когда папки стали трёхуровневыми, форма
+  // задачи осталась двухуровневой — задача из папки третьего уровня
+  // показывала «Без проекта», и перенести в такую папку через форму было
+  // нельзя.
   const orderedProjects = useMemo(() => {
     const ids = new Set(projects.map((p) => p.id));
-    const tops = projects.filter((p) => !p.parentId || !ids.has(p.parentId));
-    const out: { p: Project; depth: number }[] = [];
-    for (const top of tops) {
-      out.push({ p: top, depth: 0 });
-      for (const c of projects.filter((x) => x.parentId === top.id)) out.push({ p: c, depth: 1 });
+    const byParent = new Map<string | null, Project[]>();
+    for (const p of projects) {
+      const key = p.parentId && ids.has(p.parentId) ? p.parentId : null;
+      byParent.set(key, [...(byParent.get(key) ?? []), p]);
     }
+    const out: { p: Project; depth: number }[] = [];
+    const walk = (parent: string | null, depth: number) => {
+      for (const p of byParent.get(parent) ?? []) {
+        out.push({ p, depth });
+        if (depth < MAX_DEPTH - 1) walk(p.id, depth + 1);
+      }
+    };
+    walk(null, 0);
     return out;
   }, [projects]);
 
@@ -459,8 +471,23 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
   const tomorrow = addDaysKey(todayKey(), 1);
 
+  // Закрыть свайпом или тапом мимо можно было молча — набранное название,
+  // заметки и вложения пропадали. Теперь, если в форме есть несохранённое,
+  // закрытие спрашивает. Считаем только то, что человек набирал руками:
+  // название, заметки, чеклист, новые фото и файлы.
+  const dirty =
+    title.trim() !== (task?.title ?? '').trim() ||
+    notes.trim() !== (task?.notes ?? '').trim() ||
+    checklist.length !== (task?.checklist.length ?? 0) ||
+    photos.length !== (task?.photos?.length ?? 0) ||
+    pendingFiles.length > 0;
+  const requestClose = () => {
+    if (dirty && !window.confirm(t('Закрыть без сохранения?'))) return;
+    onClose();
+  };
+
   return (
-    <Sheet open onClose={onClose} title={task ? t('Задача') : t('Новая задача')}>
+    <Sheet open onClose={requestClose} title={task ? t('Задача') : t('Новая задача')}>
       <div className="flex flex-col gap-4 pb-2">
         <div>
           <div className="mb-1.5 flex items-center justify-between">

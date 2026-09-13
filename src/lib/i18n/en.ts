@@ -2011,4 +2011,6 @@ export const EN: Record<string, string> = {
   'Шум идёт во время фокуса. Нажатие — послушать несколько секунд.': 'Noise plays during focus. Tap to hear a few seconds.',
   'Экран не гаснет, пока идёт круг': 'The screen stays on while the round runs',
   'Громкость': 'Volume',
+  'Закрыть без сохранения?': 'Close without saving?',
+  'Напишите задачу в строке выше или нажмите «+». Проекты — папки для задач.': 'Type a task in the line above or tap “+”. Projects are folders for tasks.',
 };

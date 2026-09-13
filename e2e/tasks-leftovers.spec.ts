@@ -64,3 +64,65 @@ test('подсказка жестов говорит, как вложить па
   await expect(page.getByText('Жесты списка')).toBeVisible();
   await expect(page.getByText(/вправо — вложить/)).toBeVisible();
 });
+
+test('на чистом приложении есть «Новый проект», а форма задачи видит папки третьего уровня', async ({ page }) => {
+  await openApp(page, '/tasks', { seenHints: ['tasks-quick-add', 'tasks-gestures'] });
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    await db.projects.clear();
+    await db.tasks.clear();
+  });
+  await page.reload();
+  await expect(page.getByText('Пока нет задач')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Новый проект' })).toBeVisible();
+
+  // Три уровня: Бизнес → Поставщики → Китай; задача в «Китае».
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    await db.projects.bulkPut([
+      { ...base('a'), name: 'Бизнес', color: '#5b7cfa', emoji: '💼', sortOrder: 1000, archivedAt: null, parentId: null },
+      { ...base('b'), name: 'Поставщики', color: '#5b7cfa', emoji: '📦', sortOrder: 1000, archivedAt: null, parentId: 'a' },
+      { ...base('c'), name: 'Китай', color: '#5b7cfa', emoji: '🇨🇳', sortOrder: 1000, archivedAt: null, parentId: 'b' },
+    ]);
+    await db.tasks.put({
+      ...base('t'), title: 'Запросить КП', notes: '', projectId: 'c', goalId: null, priority: 0,
+      dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: null,
+      checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+    });
+  });
+  await page.reload();
+  await page.getByText('Запросить КП', { exact: true }).click();
+  const select = page.locator('select').filter({ has: page.locator('option', { hasText: 'Китай' }) });
+  await expect(select).toHaveValue('c');
+});
+
+test('у задачи без времени с напоминанием — колокольчик в строке', async ({ page }) => {
+  await openApp(page, '/tasks', { seenHints: ['tasks-quick-add', 'tasks-gestures'] });
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    await db.tasks.put({
+      id: 'r', createdAt: now, updatedAt: now, deletedAt: null, title: 'Сдать отчёт', notes: '', projectId: null,
+      goalId: null, priority: 0, dueDate: '2030-01-10', dueTime: null, duration: null, remindBefore: 1440,
+      completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+    });
+  });
+  await page.reload();
+  await expect(page.locator('[data-task-id="r"]').getByLabel('Напоминание включено')).toBeVisible();
+});
+
+test('заполненная форма задачи не закрывается свайпом молча', async ({ page }) => {
+  await openApp(page, '/tasks', { seenHints: ['tasks-quick-add', 'tasks-gestures'] });
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.locator('textarea').first().fill('Важное дело');
+  let asked = false;
+  page.once('dialog', (d) => {
+    asked = true;
+    void d.dismiss();
+  });
+  await page.getByRole('button', { name: 'Закрыть' }).click();
+  expect(asked).toBe(true);
+  await expect(page.getByRole('heading', { name: 'Новая задача' })).toBeVisible();
+});

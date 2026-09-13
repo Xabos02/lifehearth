@@ -405,7 +405,9 @@ export const TaskItem = memo(function TaskItem({
                   {task.skippedCount > 1 ? ` ×${task.skippedCount}` : ''}
                 </span>
               ) : null}
-              {task.remindBefore != null && task.dueTime && (
+              {/* Без условия на dueTime: напоминание у задачи без времени
+                  приходит утром, и колокольчик обязан это показывать. */}
+              {task.remindBefore != null && task.dueDate && (
                 <span className="flex items-center" aria-label={t('Напоминание включено')}>
                   <Bell size={ICON.inline} />
                 </span>

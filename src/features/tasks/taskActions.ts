@@ -1,6 +1,6 @@
 import type { Task } from '../../db/types';
 import { db } from '../../db/db';
-import { create, now, uid, update } from '../../db/repo';
+import { create, now, remove, uid, update } from '../../db/repo';
 import { nextOccurrence } from '../../lib/recurrence';
 import { nextWindowStart } from '../../lib/taskDates';
 import { todayKey } from '../../lib/dates';
@@ -13,8 +13,19 @@ import { cancelReminder, scheduleReminder } from '../../lib/push';
  */
 export async function toggleTask(task: Task): Promise<string | null> {
   if (task.completedAt) {
-    await update(db.tasks, task.id, { completedAt: null });
+    await update(db.tasks, task.id, { completedAt: null, spawnedId: null });
     void scheduleReminder(task); // снова активна — вернуть напоминание
+    // Снятая отметка с повторяющейся задачи убирает и созданный при
+    // выполнении следующий повтор — пока он живой, не выполнен и не тронут
+    // (тот же срок, что мы ему дали). Иначе после промаха по чекбоксу
+    // оставались две задачи: исходная и «следующая» через неделю.
+    if (task.spawnedId) {
+      const spawned = await db.tasks.get(task.spawnedId);
+      if (spawned && !spawned.deletedAt && !spawned.completedAt && spawned.recurrence) {
+        void cancelReminder(spawned.id);
+        await remove(db.tasks, spawned.id);
+      }
+    }
     return null;
   }
 
@@ -46,6 +57,7 @@ export async function toggleTask(task: Task): Promise<string | null> {
       sortOrder: task.sortOrder,
     });
     void scheduleReminder(next); // напоминание для следующего повторения
+    await update(db.tasks, task.id, { spawnedId: next.id });
     return nextDue;
   }
 

@@ -1276,11 +1276,22 @@ export function TasksPage() {
       )}
 
       {empty ? (
-        <EmptyState
-          icon={ListChecks}
-          title={t('Пока нет задач')}
-          hint={t('Нажмите «+», чтобы добавить первую задачу')}
-        />
+        <>
+          <EmptyState
+            icon={ListChecks}
+            title={t('Пока нет задач')}
+            hint={t('Напишите задачу в строке выше или нажмите «+». Проекты — папки для задач.')}
+          />
+          {/* На чистом приложении кнопка «Новый проект» жила только в ветке
+              списка — тот, кто хотел сначала завести папки, находил путь лишь
+              через форму задачи. Владелец спрашивал про это отдельно. */}
+          <button
+            onClick={() => openProject(null)}
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-muted active:opacity-70"
+          >
+            <FolderPlus size={ICON.action} /> {t('Новый проект')}
+          </button>
+        </>
       ) : (
         <>
           {allTasks.length > 0 && !quickAddHint.visible && (
