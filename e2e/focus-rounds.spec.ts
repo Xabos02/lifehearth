@@ -166,3 +166,47 @@ test('на паузе кольцо показывает прогресс, а н�
   await page.mouse.click(box.x + box.width / 2, box.y + (box.height * 20) / 300);
   await expect(page.locator('span.text-5xl')).toHaveText(paused);
 });
+
+test('на паузе смена длительности не обнуляет круг, а во время круга — не ломает кольцо', async ({ page }) => {
+  await openApp(page, '/more/focus');
+  await page.getByRole('button', { name: 'Старт' }).click();
+  await page.waitForTimeout(1500);
+  // Во время круга: настройка меняется на будущее, часы и кольцо — свои.
+  await page.getByRole('button', { name: 'Фокус: больше' }).click();
+  const stored1 = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? '{}'), KEY);
+  expect(stored1.workMin).toBe(26);
+  expect(stored1.phaseTotalMs).toBe(25 * 60_000);
+
+  await page.getByRole('button', { name: 'Пауза' }).click();
+  const paused = await page.locator('span.text-5xl').innerText();
+  await page.getByRole('button', { name: 'Фокус: больше' }).click();
+  await expect(page.locator('span.text-5xl')).toHaveText(paused);
+  await expect(page.getByRole('button', { name: 'Завершить круг' })).toBeEnabled();
+});
+
+test('название задачи для фокуса живое: переименовали — обновилось, удалили — снялось', async ({ page }) => {
+  await openApp(page, '/more/focus');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    await db.tasks.put({
+      id: 'ft', createdAt: now, updatedAt: now, deletedAt: null, title: 'Старое имя', notes: '', projectId: null,
+      goalId: null, priority: 0, dueDate: null, dueTime: null, duration: null, remindBefore: null,
+      completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+    });
+  });
+  await page.getByRole('button', { name: /Выбрать задачу/ }).click();
+  await page.getByRole('button', { name: 'Старое имя' }).click();
+  await expect(page.getByText('Старое имя').first()).toBeVisible();
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    await db.tasks.update('ft', { title: 'Новое имя' });
+  });
+  await expect(page.getByText('Новое имя').first()).toBeVisible();
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    await db.tasks.update('ft', { deletedAt: new Date().toISOString() });
+  });
+  await expect(page.getByText('Новое имя')).toHaveCount(0);
+  await expect(page.getByText('Выбрать задачу')).toBeVisible();
+});

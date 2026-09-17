@@ -45,8 +45,10 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
   );
   const saved = goalSaved(goal.id, deposits);
 
-  const amount = Math.max(0, parseFloat(amountStr) || 0);
-  const canSave = amount > 0;
+  const amount = Math.max(0, parseFloat(amountStr.replace(',', '.')) || 0);
+  // Снять больше накопленного нельзя: копилка уходила в минус, «осталось»
+  // становилось больше самой цели.
+  const canSave = amount > 0 && (mode === 'in' || amount <= saved);
   const savingRef = useRef(false);
 
   const handleAdd = async () => {

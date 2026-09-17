@@ -101,6 +101,9 @@ export function BackupPage() {
     if (exportingRef.current) return;
     exportingRef.current = true;
     try {
+      // Отметка о копии — до сборки файла: иначе в самом файле lastBackupAt
+      // пустой, и восстановление из свежей копии показывало «никогда».
+      await updateSettings({ lastBackupAt: now() });
       const backup = await exportBackup();
       const json = JSON.stringify(backup, null, 2);
       const file = new File([json], backupFilename(), { type: 'application/json' });
@@ -129,7 +132,6 @@ export function BackupPage() {
         URL.revokeObjectURL(url);
       }
 
-      await updateSettings({ lastBackupAt: now() });
       toast(t('Резервная копия сохранена'));
     } finally {
       exportingRef.current = false;
@@ -170,8 +172,15 @@ export function BackupPage() {
     const file = e.target.files?.[0];
     e.target.value = ''; // позволяет выбрать тот же файл повторно
     if (!file) return;
+    let parsed: unknown;
     try {
-      const parsed: unknown = JSON.parse(await file.text());
+      parsed = JSON.parse(await file.text());
+    } catch {
+      // Сырое сообщение JSON.parse человеку ни о чём — свои слова.
+      toast(t('Это не файл резервной копии LifeHearth: внутри не данные, а что-то другое.'));
+      return;
+    }
+    try {
       await confirmAndImport(validateBackup(parsed));
     } catch (err) {
       toast(err instanceof Error ? err.message : t('Не удалось прочитать файл резервной копии'));

@@ -243,7 +243,19 @@ export function Field({
   className?: string;
 }) {
   return (
-    <label className={className ? `block ${className}` : 'block'}>
+    <label
+      className={className ? `block ${className}` : 'block'}
+      // label активирует первый «labelable» элемент внутри — и когда там
+      // стоит ряд кнопок (сегменты статуса, кружки цвета), тап по подписи
+      // молча переключал значение на первый вариант. Для полей ввода
+      // поведение остаётся: тап по подписи ставит курсор в поле.
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, select, textarea')) return;
+        const first = e.currentTarget.querySelector('button, input, select, textarea');
+        if (first && first.tagName === 'BUTTON') e.preventDefault();
+      }}
+    >
       <span className="mb-1.5 block text-sm font-medium text-muted">{label}</span>
       {children}
     </label>

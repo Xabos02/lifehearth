@@ -208,7 +208,13 @@ export function SectionsSettingsPage() {
     // что отпускание пальца над целью: перенос не коммитим (как в TasksPage),
     // раздел остаётся там, где был до начала переноса.
     const cancel = () => resetDragState();
+    // touch-action на body к уже начавшемуся касанию не применяется: браузер
+    // решил «это скролл» на touchstart, и второй pointermove приходил как
+    // pointercancel — палец просто крутил список. Глушим touchmove явно,
+    // как в переносе задач (TasksPage).
+    const preventScroll = (ev: TouchEvent) => ev.preventDefault();
     window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
     window.addEventListener('pointerup', finish);
     window.addEventListener('pointercancel', cancel);
     const prevTouch = document.body.style.touchAction;
@@ -221,6 +227,7 @@ export function SectionsSettingsPage() {
     document.body.style.touchAction = 'none';
     return () => {
       window.removeEventListener('pointermove', move);
+      window.removeEventListener('touchmove', preventScroll);
       window.removeEventListener('pointerup', finish);
       window.removeEventListener('pointercancel', cancel);
       document.body.style.touchAction = prevTouch;

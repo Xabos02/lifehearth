@@ -784,8 +784,19 @@ textarea:focus-visible {
    всегда. */
 @media print {
   header,
-  nav {
+  nav,
+  .print-hide {
     display: none !important;
+  }
+  /* Каркас приложения — fixed с внутренней прокруткой; принтер видит только
+     первую страницу и обрезает отчёт. На печати каркас становится обычным
+     потоком, лента — во всю высоту. */
+  #app-frame,
+  #app-scroll {
+    position: static !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
   body,
   #root {

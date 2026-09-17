@@ -38,7 +38,7 @@ export function InstallBanner() {
       // экране приложения — самую дорогую площадь верха отдавали системной
       // просьбе, одинаковой во всех разделах. Объяснение, почему это важно,
       // никуда не делось: оно на странице, которая открывается по нажатию.
-      className="card mx-auto mt-3 flex w-[calc(100%-32px)] max-w-lg shrink-0 items-center gap-2.5 px-3 py-2"
+      className="card print-hide mx-auto mt-3 flex w-[calc(100%-32px)] max-w-lg shrink-0 items-center gap-2.5 px-3 py-2"
     >
       <span className="flex size-7 shrink-0 items-center justify-center rounded-lg tile-accent text-accent">
         <Share size={ICON.action} />

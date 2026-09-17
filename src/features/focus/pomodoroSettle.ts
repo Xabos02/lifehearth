@@ -14,6 +14,7 @@ export interface PomodoroState {
   breakMin: number;
   longMin: number;
   longAfter: number;
+  phaseTotalMs?: number;
 }
 
 export function phaseMs(phase: Phase, s: Pick<PomodoroState, 'workMin' | 'breakMin' | 'longMin'>): number {
@@ -68,13 +69,14 @@ export function settle<T extends PomodoroState>(s: T, now: number, today: string
         phase: next,
         workCount,
         completedToday: (sameDay ? cur.completedToday : 0) + 1,
-        focusMinToday: (sameDay ? cur.focusMinToday : 0) + cur.workMin,
+        focusMinToday: (sameDay ? cur.focusMinToday : 0) + Math.round((cur.phaseTotalMs ?? cur.workMin * 60_000) / 60_000),
         date: today,
         endsAt: cur.endsAt + phaseMs(next, cur),
         remainingMs: phaseMs(next, cur),
+        phaseTotalMs: phaseMs(next, cur),
       };
     } else {
-      cur = { ...cur, phase: 'work', running: false, endsAt: null, remainingMs: cur.workMin * 60_000 };
+      cur = { ...cur, phase: 'work', running: false, endsAt: null, remainingMs: cur.workMin * 60_000, phaseTotalMs: cur.workMin * 60_000 };
     }
   }
   if (cur.running && cur.endsAt != null) cur = { ...cur, remainingMs: cur.endsAt - now };

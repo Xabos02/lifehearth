@@ -279,6 +279,15 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
             ? { startDate, dueDate }
             : { startDate: dueDate, dueDate: startDate }
           : { startDate: null, dueDate };
+      // Пункт, набранный в поле чеклиста без Enter, — тоже пункт: на телефоне
+      // «Сохранить» жмут чаще, чем Return, и текст молча пропадал.
+      const pending = newItem.trim();
+      const fullChecklist = pending ? [...checklist, { id: uid(), text: pending, done: false }] : checklist;
+      // Напоминание в минутах/часах без времени задачи не имеет смысла —
+      // после «Убрать» у времени оно оставалось в базе (пуш приходил в
+      // 08:30), а форма показывала «Выкл».
+      const remind =
+        remindBefore != null && !dueTime && !REMIND_PRESETS_ALLDAY.includes(remindBefore) ? null : remindBefore;
       const data = {
         title: title.trim(),
         notes: notes.trim(),
@@ -290,8 +299,8 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         startDate: range.startDate,
         dueTime: dueDate ? dueTime : null,
         duration: dueDate ? duration : null,
-        remindBefore: dueDate ? remindBefore : null,
-        checklist,
+        remindBefore: dueDate ? remind : null,
+        checklist: fullChecklist,
         photos,
         recurrence: buildRecurrence(),
         tags: tagsText
@@ -479,8 +488,15 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
     title.trim() !== (task?.title ?? '').trim() ||
     notes.trim() !== (task?.notes ?? '').trim() ||
     checklist.length !== (task?.checklist.length ?? 0) ||
+    newItem.trim() !== '' ||
     photos.length !== (task?.photos?.length ?? 0) ||
-    pendingFiles.length > 0;
+    pendingFiles.length > 0 ||
+    (task ? dueDate !== (task.dueDate ?? null) : dueDate !== (defaults?.dueDate ?? null)) ||
+    (task ? dueTime !== (task.dueTime ?? null) : dueTime !== null) ||
+    (task ? priority !== task.priority : priority !== 0) ||
+    (task ? projectId !== (task.projectId ?? null) : projectId !== (defaults?.projectId ?? null)) ||
+    (task ? remindBefore !== (task.remindBefore ?? null) : remindBefore !== null) ||
+    tagsText.trim() !== (task?.tags ?? []).join(', ').trim();
   const requestClose = () => {
     if (dirty && !window.confirm(t('Закрыть без сохранения?'))) return;
     onClose();
@@ -740,7 +756,8 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               <option value="">{t('Без проекта')}</option>
               {orderedProjects.map(({ p, depth }) => (
                 <option key={p.id} value={p.id}>
-                  {depth > 0 ? '   ↳ ' : ''}
+                  {/* Отступ по глубине, nbsp: обычные пробелы в iOS-пикере схлопываются. */}
+                  {depth > 0 ? '\u00A0\u00A0\u00A0'.repeat(depth) + '↳ ' : ''}
                   {p.emoji} {p.name}
                 </option>
               ))}
@@ -803,8 +820,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               onChange={(e) => setDueDate(e.target.value || null)}
             />
           </Field>
+          {/* Перенос, а не прокрутка: четвёртый чип «Убрать» уезжал за правый
+              край на 393px, а полоса прокрутки скрыта — догадаться нельзя. */}
           <div className="mt-2">
-            <ChipRow>
+            <div className="flex flex-wrap gap-2">
               <Chip active={dueDate === todayKey()} onClick={() => setDueDate(todayKey())}>
                 {t('Сегодня')}
               </Chip>
@@ -835,7 +854,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               >
                 {t('Убрать')}
               </Chip>
-            </ChipRow>
+            </div>
           </div>
         </div>
 
@@ -855,6 +874,9 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                     onClick={(e) => {
                       e.preventDefault();
                       setDueTime(null);
+                      // «за 30 мин» без времени невозможно — сбрасываем, чтобы
+                      // поле не показывало «Выкл» при живом значении в state.
+                      if (remindBefore != null && !REMIND_PRESETS_ALLDAY.includes(remindBefore)) setRemindBefore(null);
                     }}
                     className="shrink-0 rounded-xl border border-border px-3.5 py-3 text-sm text-muted active:opacity-60"
                   >

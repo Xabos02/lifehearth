@@ -21,7 +21,9 @@ export async function toggleTask(task: Task): Promise<string | null> {
     // оставались две задачи: исходная и «следующая» через неделю.
     if (task.spawnedId) {
       const spawned = await db.tasks.get(task.spawnedId);
-      if (spawned && !spawned.deletedAt && !spawned.completedAt && spawned.recurrence) {
+      // Только нетронутый: правленный повтор (updatedAt ушёл от createdAt) — уже
+      // чья-то работа, её не стираем.
+      if (spawned && !spawned.deletedAt && !spawned.completedAt && spawned.recurrence && spawned.updatedAt === spawned.createdAt) {
         void cancelReminder(spawned.id);
         await remove(db.tasks, spawned.id);
       }

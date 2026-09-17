@@ -34,7 +34,6 @@ function GoalCard({
   const rem = remaining(saved, goal.targetAmount);
   const reached = isReached(saved, goal.targetAmount);
   const monthly = monthlyNeeded(rem, goal.targetDate, todayKey());
-  const accent = reached ? 'var(--app-success)' : goal.color;
 
   return (
     <div
@@ -58,9 +57,10 @@ function GoalCard({
           {goal.emoji}
         </span>
         <span className="min-w-0 flex-1 truncate font-semibold">{goal.title}</span>
-        <span className="shrink-0 font-semibold tracking-tight" style={{ color: accent }}>
-          {Math.round(pct)}%
-        </span>
+        {/* Процент — цветом текста, не цели: пастельные цвета палитры на
+            светлой карточке давали 1,5–2,8 против нормы 4,5. Цвет несёт кольцо
+            и полоса, числу он не нужен. */}
+        <span className="shrink-0 font-semibold tracking-tight">{Math.round(pct)}%</span>
       </div>
 
       <div className="h-2.5 overflow-hidden rounded-full bg-surface-2">
@@ -124,7 +124,7 @@ function GoalCard({
               e.stopPropagation();
               onClaim();
             }}
-            className="shrink-0 rounded-xl bg-surface-2 px-4 py-2 text-sm font-semibold active:opacity-70"
+            className="shrink-0 rounded-xl bg-surface-2 px-4 py-2.5 text-sm font-semibold active:opacity-70"
           >
             {t('Забрать')}
           </button>
@@ -135,8 +135,11 @@ function GoalCard({
               e.stopPropagation();
               onDeposit();
             }}
-            className="shrink-0 rounded-xl px-4 py-2 text-sm font-bold text-white active:opacity-80"
-            style={{ background: goal.color }}
+            // Тон цели подложкой, а не заливкой под белый текст: белое ни на
+            // одном из восьми цветов палитры не читалось (1,5–2,8). Высота
+            // py-2.5 — 44px касания.
+            className="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold text-text active:opacity-80"
+            style={{ background: `color-mix(in oklab, ${goal.color} 26%, transparent)` }}
           >
             {t('Пополнить')}
           </button>
@@ -173,6 +176,8 @@ export function SavingsSection() {
   // оттуда можно. Спрашивать на обратимом действии — приучать жать «Да» не
   // читая, и тогда вопрос перестаёт работать там, где он правда нужен.
   const claim = (g: SavingsGoal) => {
+    // Необратимо с экрана: архивную цель ни один экран пока не показывает.
+    if (!window.confirm(t('Забрать накопленное и убрать цель из списка? История пополнений останется в базе.'))) return;
     void update(db.savingsGoals, g.id, { archivedAt: now() });
   };
 

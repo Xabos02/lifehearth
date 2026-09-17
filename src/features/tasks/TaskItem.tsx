@@ -12,7 +12,7 @@ import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { remove, update } from '../../db/repo';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
-import { addDaysKey, formatDueDate, todayKey } from '../../lib/dates';
+import { addDaysKey, formatDueDate, formatRu, todayKey } from '../../lib/dates';
 import { formatDueRange } from '../../lib/taskDates';
 import { describeRecurrence } from '../../lib/recurrence';
 import { t } from '../../lib/i18n';
@@ -150,7 +150,11 @@ export const TaskItem = memo(function TaskItem({
   const handleToggle = async () => {
     setDx(0);
     const next = await toggleTask(task);
-    if (next) toast(t('Повторится {date}', { date: formatDueDate(next) }));
+    // «Завтра» и «Сегодня» приходят с заглавной — в середине фразы строчная.
+    if (next) {
+      const d = formatDueDate(next);
+      toast(t('Повторится {date}', { date: d === formatRu(next) ? d : d.toLowerCase() }));
+    }
   };
 
   const handleTomorrow = () => {

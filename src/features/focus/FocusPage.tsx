@@ -149,7 +149,12 @@ function DurationStepper({
             const raw = e.target.value.replace(/\D/g, '');
             setText(raw);
             const n = parseInt(raw, 10);
-            if (raw !== '' && n >= 1) onChange(Math.min(max, n));
+            if (raw !== '' && n >= 1) {
+              const clamped = Math.min(max, n);
+              onChange(clamped);
+              // Предел применён — показать его, а не набранное «12».
+              if (clamped !== n) setText(String(clamped));
+            }
           }}
           onBlur={() => {
             const n = parseInt(text, 10);
@@ -193,6 +198,7 @@ function PresetForm({
         <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Название')}</p>
         <input
           value={name}
+          maxLength={24}
           onChange={(e) => setName(e.target.value)}
           placeholder={fallbackName}
           className="w-full rounded-2xl bg-surface-2 px-4 py-3 text-base outline-none transition-[box-shadow] placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent/60"
@@ -331,9 +337,11 @@ export function FocusPage() {
     persistPresets(presets.filter((x) => x.id !== id));
     setPresetSheetOpen(false);
   };
-  const tasks = alive(useLiveQuery(() => db.tasks.toArray(), []) ?? []).filter(
-    (task) => !task.completedAt,
-  );
+  // Список задач для фокуса — как в «Задачах»: без выполненных и
+  // замороженных, по порядку sortOrder (toArray отдавал по uuid — вразнобой).
+  const tasks = alive(useLiveQuery(() => db.tasks.toArray(), []) ?? [])
+    .filter((task) => !task.completedAt && !task.frozenAt)
+    .sort((a, b) => (a.projectId ?? '').localeCompare(b.projectId ?? '') || a.sortOrder - b.sortOrder);
 
   const isWork = p.phase === 'work';
   // Метка фазы и «ручка» слайдера — сплошной цвет (акцент перекрыт тёплым ниже
@@ -359,6 +367,9 @@ export function FocusPage() {
 
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
+  // Шкала кольца фиксируется на старте жеста: max = max(90, workMin) иначе
+  // пересчитывался после первого же setWorkMin, и дуга скакала под пальцем.
+  const gestureMax = useRef(MAX_MIN);
 
   /** Расстояние касания от центра в единицах viewBox (300×300). */
   function distFromCenter(clientX: number, clientY: number): number {
@@ -379,7 +390,7 @@ export function FocusPage() {
     const cy = rect.top + rect.height / 2;
     let deg = (Math.atan2(clientX - cx, -(clientY - cy)) * 180) / Math.PI;
     if (deg < 0) deg += 360;
-    const max = Math.max(MAX_MIN, p.workMin);
+    const max = gestureMax.current;
     let minutes = Math.round(((deg / 360) * max) / STEP_MIN) * STEP_MIN;
     minutes = Math.max(STEP_MIN, Math.min(max, minutes));
     p.setWorkMin(minutes);
@@ -393,6 +404,7 @@ export function FocusPage() {
     // длительность: 25 → 55 минут одним пальцем.
     if (Math.abs(distFromCenter(e.clientX, e.clientY) - R) > STROKE * 2) return;
     dragging.current = true;
+    gestureMax.current = Math.max(MAX_MIN, p.workMin);
     try {
       svgRef.current?.setPointerCapture(e.pointerId);
     } catch {
@@ -572,9 +584,9 @@ export function FocusPage() {
                 }
                 onClick={() => (managing ? openEditPreset(pr) : applyPreset(pr))}
               >
-                <span className="flex items-center gap-1">
-                  {managing && <Pencil size={ICON.inline} />}
-                  {pr.name}
+                <span className="flex max-w-[12rem] items-center gap-1">
+                  {managing && <Pencil size={ICON.inline} className="shrink-0" />}
+                  <span className="truncate">{pr.name}</span>
                 </span>
               </Chip>
             ))}

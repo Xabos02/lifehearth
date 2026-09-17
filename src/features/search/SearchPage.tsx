@@ -68,7 +68,10 @@ function Row({ icon: Icon, hit }: { icon: LucideIcon; hit: Hit }) {
 
 export function SearchPage() {
   const [query, setQuery] = useState('');
-  const q = query.trim().toLowerCase();
+  // «ё» и «е» — одна буква, как в поиске по чату: «колеса» должно находить
+  // «колёса». Нормализуем и запрос, и текст.
+  const norm = (s: string) => s.toLowerCase().replace(/ё/g, 'е');
+  const q = norm(query.trim());
 
   // Читаем базу ТОЛЬКО когда есть что искать.
   //
@@ -114,12 +117,12 @@ export function SearchPage() {
     ): SectionResult => ({ key, label, icon, hits: all.slice(0, PER_SECTION), total: all.length });
 
     const taskHits: Hit[] = alive(tasks ?? [])
-      .filter((task) => `${task.title}\n${task.notes}`.toLowerCase().includes(q))
+      .filter((task) => norm(`${task.title}\n${task.notes}`).includes(q))
       .map((task) => ({ id: task.id, to: '/tasks', title: task.title, context: task.notes }));
 
     const noteHits: Hit[] = alive(notes ?? [])
       .map((n) => ({ note: n, text: htmlToText(n.content) }))
-      .filter(({ note, text }) => `${note.title}\n${text}`.toLowerCase().includes(q))
+      .filter(({ note, text }) => norm(`${note.title}\n${text}`).includes(q))
       .map(({ note, text }) => ({
         id: note.id,
         to: `/notes/${note.id}`,
@@ -128,23 +131,23 @@ export function SearchPage() {
       }));
 
     const goalHits: Hit[] = alive(goals ?? [])
-      .filter((g) => `${g.title}\n${g.description}`.toLowerCase().includes(q))
+      .filter((g) => norm(`${g.title}\n${g.description}`).includes(q))
       .map((g) => ({ id: g.id, to: `/goals/${g.id}`, title: g.title, context: g.description }));
 
     const placeHits: Hit[] = alive(places ?? [])
-      .filter((p) => `${p.title}\n${p.description}\n${p.source}`.toLowerCase().includes(q))
-      .map((p) => ({ id: p.id, to: '/more/places', title: p.title, context: p.description }));
+      .filter((p) => norm(`${p.title}\n${p.description}\n${p.source}`).includes(q))
+      .map((p) => ({ id: p.id, to: `/more/places#${p.id}`, title: p.title, context: p.description }));
 
     const learningHits: Hit[] = alive(learning ?? [])
-      .filter((l) => `${l.title}\n${l.author}`.toLowerCase().includes(q))
+      .filter((l) => norm(`${l.title}\n${l.author}`).includes(q))
       .map((l) => ({ id: l.id, to: '/more/learning', title: l.title, context: l.author }));
 
     const energyHits: Hit[] = alive(energy ?? [])
-      .filter((e) => `${e.title}\n${e.description}`.toLowerCase().includes(q))
+      .filter((e) => norm(`${e.title}\n${e.description}`).includes(q))
       .map((e) => ({ id: e.id, to: '/more/energy', title: e.title, context: e.description }));
 
     const expenseHits: Hit[] = alive(expenses ?? [])
-      .filter((x) => `${x.title}\n${x.category}`.toLowerCase().includes(q))
+      .filter((x) => norm(`${x.title}\n${x.category}`).includes(q))
       .map((x) => ({ id: x.id, to: '/more/finance', title: x.title, context: t(x.category) }));
 
     // Чат append-only и без другой навигации, кроме скролла, — поиск обязан
@@ -161,7 +164,7 @@ export function SearchPage() {
       }));
 
     const reminderHits: Hit[] = alive(reminders ?? [])
-      .filter((r) => r.text.toLowerCase().includes(q))
+      .filter((r) => norm(r.text).includes(q))
       .map((r) => ({ id: r.id, to: '/', title: r.text, context: '' }));
 
     return [

@@ -1,4 +1,7 @@
 import { useMemo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/db';
+import type { Task } from '../../db/types';
 import { todayKey } from '../../lib/dates';
 import { schedulePush, cancelPush } from '../../lib/push';
 import { TimeCtx, Ctx, type Phase, type PomodoroCtx } from './pomodoro';
@@ -29,6 +32,12 @@ interface Persisted extends PomodoroState {
   noiseVolume: number; // 0..1
   /** Предупредить за пять минут до конца фокуса — уведомлением. */
   preNotify: boolean;
+  /** Длительность ТЕКУЩЕЙ фазы, зафиксированная на её старте. Кольцо и
+   *  статистика считаются от неё, а не от настройки: смена «Фокус 25 → 50»
+   *  посреди круга раньше ломала дугу (половина пройдена из ничего) и
+   *  засчитывала в статистику новое число. undefined у старых записей —
+   *  берётся из настроек. */
+  phaseTotalMs?: number;
 }
 
 /** За сколько до конца круга предупреждать. */
@@ -178,6 +187,7 @@ function load(): Persisted {
     // Фазы, кончившиеся пока приложение было закрыто, докручиваются молча —
     // иначе первый же тик после открытия сыграл бы «Фокус завершён» за вчера.
     const p = settle(stored, Date.now(), todayKey());
+    if (p.phaseTotalMs == null) p.phaseTotalMs = phaseMs(p.phase, p.workMin, p.breakMin, p.longMin);
     if (p !== stored) {
       localStorage.setItem(STORE_KEY, JSON.stringify(p));
       syncPhasePush(p);
@@ -215,7 +225,21 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const total = phaseMs(s.phase, s.workMin, s.breakMin, s.longMin);
+  const total = s.phaseTotalMs ?? phaseMs(s.phase, s.workMin, s.breakMin, s.longMin);
+
+  // Название задачи — из базы, а не из снимка в localStorage: после
+  // переименования везде висело старое, после удаления — имя удалённой.
+  // Обёртка { t }, чтобы отличить «ещё не загружено» (undefined) от
+  // «задачи нет» ({ t: undefined }). Один get по id — перерисовка только при
+  // изменении этой задачи.
+  const liveTask = useLiveQuery(
+    async (): Promise<{ task: Task | undefined } | null> =>
+      s.taskId ? { task: await db.tasks.get(s.taskId) } : null,
+    [s.taskId],
+  );
+  const taskGone = liveTask != null && (!liveTask.task || liveTask.task.deletedAt != null);
+  const shownTaskId = taskGone ? null : s.taskId;
+  const shownTaskTitle = taskGone ? null : (liveTask?.task?.title ?? s.taskTitle);
   const remainingMs =
     s.running && s.endsAt != null ? Math.max(0, s.endsAt - Date.now()) : s.remainingMs;
 
@@ -307,11 +331,12 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     if (cur.phase === 'work') {
       const workCount = cur.workCount + 1;
       const nextPhase = nextAfterWork(workCount, cur.longAfter);
+      const phaseTotal = cur.phaseTotalMs ?? cur.workMin * 60_000;
       const elapsedMs =
         cur.running && cur.endsAt != null
-          ? Math.max(0, cur.workMin * 60_000 - (cur.endsAt - Date.now()))
-          : cur.workMin * 60_000 - cur.remainingMs;
-      const earnedMin = skipped ? Math.floor(elapsedMs / 60_000) : cur.workMin;
+          ? Math.max(0, phaseTotal - (cur.endsAt - Date.now()))
+          : phaseTotal - cur.remainingMs;
+      const earnedMin = skipped ? Math.floor(elapsedMs / 60_000) : Math.round(phaseTotal / 60_000);
       // Круг дошёл до конца уже в новый день — счётчики дня с нуля, как в load().
       const sameDay = cur.date === todayKey();
       persist({
@@ -324,6 +349,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         running: true,
         endsAt: Date.now() + phaseMs(nextPhase, cur.workMin, cur.breakMin, cur.longMin),
         remainingMs: phaseMs(nextPhase, cur.workMin, cur.breakMin, cur.longMin),
+        phaseTotalMs: phaseMs(nextPhase, cur.workMin, cur.breakMin, cur.longMin),
       });
     } else {
       persist({
@@ -332,6 +358,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         running: false,
         endsAt: null,
         remainingMs: cur.workMin * 60_000,
+        phaseTotalMs: cur.workMin * 60_000,
       });
     }
   }
@@ -346,6 +373,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         running: true,
         endsAt: Date.now() + ms,
         remainingMs: ms,
+        phaseTotalMs: ms,
         taskId: taskId ?? cur.taskId,
         taskTitle: taskTitle ?? cur.taskTitle,
         date: todayKey(),
@@ -382,6 +410,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       running: false,
       endsAt: null,
       remainingMs: cur.workMin * 60_000,
+      phaseTotalMs: cur.workMin * 60_000,
       taskId: null,
       taskTitle: null,
       workCount: 0,
@@ -398,14 +427,22 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Простой: круг не идёт и не на паузе — тогда смена длительности
+   *  переставляет и часы. Посреди круга (в том числе на паузе) настройка
+   *  меняется на будущее: раньше тап по «+» на паузе обнулял идущий круг. */
+  const idleWork = (cur: Persisted) =>
+    !cur.running && cur.phase === 'work' && cur.remainingMs >= (cur.phaseTotalMs ?? cur.workMin * 60_000);
+
   const setDurations = useCallback(
     (workMin: number, breakMin: number) => {
       const cur = sRef.current;
+      const idle = idleWork(cur);
       persist({
         ...cur,
         workMin,
         breakMin,
-        remainingMs: cur.running ? cur.remainingMs : workMin * 60_000,
+        remainingMs: idle ? workMin * 60_000 : cur.remainingMs,
+        phaseTotalMs: idle ? workMin * 60_000 : cur.phaseTotalMs,
       });
     },
     [persist],
@@ -416,7 +453,13 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   const setWorkMin = useCallback(
     (workMin: number) => {
       const cur = sRef.current;
-      persist({ ...cur, workMin, remainingMs: cur.running ? cur.remainingMs : workMin * 60_000 });
+      const idle = idleWork(cur);
+      persist({
+        ...cur,
+        workMin,
+        remainingMs: idle ? workMin * 60_000 : cur.remainingMs,
+        phaseTotalMs: idle ? workMin * 60_000 : cur.phaseTotalMs,
+      });
     },
     [persist],
   );
@@ -521,8 +564,8 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       phase: s.phase,
       running: s.running,
       totalMs: total,
-      taskId: s.taskId,
-      taskTitle: s.taskTitle,
+      taskId: shownTaskId,
+      taskTitle: shownTaskTitle,
       completedToday: s.completedToday,
       focusMinToday: s.focusMinToday,
       workMin: s.workMin,
@@ -559,8 +602,8 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       s.phase,
       s.running,
       total,
-      s.taskId,
-      s.taskTitle,
+      shownTaskId,
+      shownTaskTitle,
       s.completedToday,
       s.focusMinToday,
       s.workMin,

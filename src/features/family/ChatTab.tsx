@@ -520,7 +520,7 @@ function MessageRow({
             } ${highlight ? 'ring-2 ring-frost' : ''}`}
           >
             {!own && authorName && groupStart && (
-              <p className={`mb-0.5 text-xs font-semibold ${m.image ? 'px-2 pt-1' : ''}`} style={{ color: authorColor ?? undefined }}>
+              <p className={`mb-0.5 text-xs font-semibold ${m.image ? 'px-2 pt-1' : ''}`} style={{ color: authorColor ? readableName(authorColor) : undefined }}>
                 {authorName}
               </p>
             )}
@@ -1185,7 +1185,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               <span
                 className={`size-2 shrink-0 rounded-full ${onlineSet.has(others[0].id) ? 'bg-success' : 'bg-muted'}`}
               />
-              <span className="font-medium" style={{ color: others[0].color }}>
+              <span className="font-medium" style={{ color: readableName(others[0].color) }}>
                 {others[0].displayName}
               </span>
               <span className={typers.length > 0 ? 'text-accent' : 'text-muted'}>{headerStatus}</span>
@@ -1243,7 +1243,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                     className="flex w-full items-baseline gap-2 border-b border-hairline/50 px-3 py-2 text-left last:border-0 active:bg-surface-2"
                   >
                     <span className="min-w-0 flex-1 truncate text-xs">
-                      <span className="font-medium" style={{ color: memberMap[h.message.senderMemberId]?.color }}>
+                      <span className="font-medium" style={{ color: readableName(memberMap[h.message.senderMemberId]?.color) }}>
                         {memberMap[h.message.senderMemberId]?.displayName || t('Участник')}
                       </span>
                       {': '}
@@ -1681,4 +1681,11 @@ export function ChatTab({ familyId }: { familyId: string }) {
       {viewImage && <PhotoViewer photos={[viewImage]} onClose={() => setViewImage(null)} />}
     </div>
   );
+}
+
+/** Цвет участника, читаемый в обеих темах: палитра подобрана под тёмный фон,
+ *  на светлом пузыре белый и лаймовый давали 1,1–1,7. Подмешиваем цвет текста
+ *  темы — тон остаётся узнаваемым, контраст дотягивает. */
+function readableName(color: string | undefined): string | undefined {
+  return color ? `color-mix(in oklab, ${color} 55%, var(--app-text))` : undefined;
 }

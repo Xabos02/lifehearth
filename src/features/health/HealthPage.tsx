@@ -10,6 +10,7 @@ import { todayKey } from '../../lib/dates';
 import { useLoaded } from '../../hooks/useLoaded';
 import type { Workout } from '../../db/types';
 import { SportTab } from './SportTab';
+import type { Scale } from './WorkoutCalendar';
 import { MeasuresTab } from './MeasuresTab';
 import { WorkoutSheet } from './WorkoutSheet';
 
@@ -20,6 +21,7 @@ type Tab = 'sport' | 'health';
 export function HealthPage() {
   const [tab, setTab] = useState<Tab>('sport');
   const [selected, setSelected] = useState(todayKey());
+  const [scale, setScale] = useState<Scale>('week');
   const [sheet, setSheet] = useState<{ open: boolean; workout: Workout | null; date: string }>({
     open: false,
     workout: null,
@@ -49,7 +51,15 @@ export function HealthPage() {
       </div>
       {tab === 'sport' ? (
         loaded && (
-          <SportTab workouts={workouts} selected={selected} onSelect={setSelected} onEdit={openEdit} onAddFor={openNew} />
+          <SportTab
+            workouts={workouts}
+            selected={selected}
+            onSelect={setSelected}
+            onEdit={openEdit}
+            onAddFor={openNew}
+            scale={scale}
+            onScale={setScale}
+          />
         )
       ) : (
         <MeasuresTab />

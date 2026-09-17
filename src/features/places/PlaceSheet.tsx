@@ -100,7 +100,8 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
         description: description.trim(),
         source: source.trim(),
         location: location.trim(),
-        link: link.trim(),
+        // Без протокола ссылка открывалась внутри приложения как «не найдено».
+        link: normalizeLink(link),
         photo,
         tags,
         status,
@@ -238,4 +239,11 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
       </div>
     </div>
   );
+}
+
+/** «vk.com/kafe» → «https://vk.com/kafe»; пустое — пустое. */
+function normalizeLink(raw: string): string {
+  const v = raw.trim();
+  if (!v) return '';
+  return /^[a-z][a-z0-9+.-]*:/i.test(v) ? v : `https://${v}`;
 }

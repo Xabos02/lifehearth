@@ -77,6 +77,9 @@ export function measureLogId(metricId: string, date: string): string {
  *  — по точности замера (decimals), чтобы в базу не уезжал 78,30000000000001. */
 export async function logMeasure(key: MeasureKey, date: string, value: number): Promise<void> {
   const def = measureDef(key);
+  // Границы — от опечаток, не медицинские: «796» из профиля с недобранной
+  // запятой в дневник не попадает.
+  if (!Number.isFinite(value) || value < def.min || value > def.max) return;
   const metricId = await ensureMetric(def);
   const v = Number(value.toFixed(def.decimals));
   const id = measureLogId(metricId, date);
@@ -98,6 +101,13 @@ export async function logMeasure(key: MeasureKey, date: string, value: number): 
 
 export async function removeMeasureLog(id: string): Promise<void> {
   await remove(db.metricLogs, id);
+  // Удалили вес — профиль и ИМТ на «Главной» догоняют последний живой замер.
+  if (id.startsWith(`${measureDef('weight').id}:`)) {
+    const logs = (await db.metricLogs.where('metricId').equals(measureDef('weight').id).toArray()).filter((l) => !l.deletedAt);
+    const latest = logs.sort((a, b) => b.date.localeCompare(a.date))[0];
+    const s = await db.settings.get('app');
+    await updateSettings({ profile: { ...s?.profile, weightKg: latest ? latest.value : null } });
+  }
 }
 
 export interface MeasureTrend {

@@ -9,21 +9,24 @@ import { WEEKDAY_LABELS, addDaysKey, dateLocale, fromKey, monthGridKeys, todayKe
 import type { Workout } from '../../db/types';
 import { workoutKind } from './workouts';
 
-type Scale = 'week' | 'month';
+export type Scale = 'week' | 'month';
 
 interface Props {
   workouts: Workout[];
   selected: string;
   onSelect: (date: string) => void;
+  /** Масштаб живёт у страницы: календарь перемонтируется при смене вкладки,
+   *  и выбранный «Месяц» иначе сбрасывался на «Неделю». */
+  scale: Scale;
+  onScale: (scale: Scale) => void;
 }
 
 /** Спортивный календарь: неделя полосой или месяц сеткой, масштаб
  *  переключается. Точка под числом — тренировка, цвет — её вид; две точки —
  *  два занятия. Владелец: «горизонтальный мини-календарь с возможностью
  *  менять масштаб, месячный, недельный». */
-export function WorkoutCalendar({ workouts, selected, onSelect }: Props) {
+export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }: Props) {
   const today = todayKey();
-  const [scale, setScale] = useState<Scale>('week');
   // Опорный день: в неделе — понедельник показанной недели, в месяце — первое
   // число. Стартует с выбранного, а не с сегодня: после «Спорт → Замеры →
   // Спорт» календарь перемонтируется и должен показать неделю выбранного дня.
@@ -145,7 +148,7 @@ export function WorkoutCalendar({ workouts, selected, onSelect }: Props) {
             ]}
             value={scale}
             onChange={(v) => {
-              setScale(v);
+              onScale(v);
               setAnchor(selected);
             }}
           />

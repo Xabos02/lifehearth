@@ -136,8 +136,11 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
             <button
               key={date}
               type="button"
+              // Будущий день не отмечается: отметка «на 18-е» закрывала текущий
+              // цикл и заводила новый со стартом в будущем, ломая прогноз.
+              disabled={date > today}
               onClick={() => onPick(date)}
-              aria-label={label}
+              aria-label={date > today ? `${label}${t(', ещё не наступил')}` : label}
               aria-current={isToday ? 'date' : undefined}
               // Высота вместо aspect-square: в семи колонках на 320px ячейка
               // выходит 32px в ширину, и квадрат делал бы её 32px и в высоту.

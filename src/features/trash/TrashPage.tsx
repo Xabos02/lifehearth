@@ -110,6 +110,7 @@ export function TrashPage() {
       // То же для файлов задачи — иначе чанки живут в базе и бэкапе вечно.
       if (entry.tableName === 'tasks') {
         await db.taskFiles.where('taskId').equals(entry.id).delete();
+        await db.taskPhotos.where('taskId').equals(entry.id).delete();
       }
       await db.table(entry.tableName).delete(entry.id);
       toast(t('Удалено навсегда'));

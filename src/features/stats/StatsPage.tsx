@@ -379,9 +379,9 @@ export function StatsPage() {
               </div>
             </div>
 
-            <div className="flex items-end justify-between gap-2" style={{ height: 96 }}>
+            <div className="flex items-stretch justify-between gap-2" style={{ height: 96 }}>
               {taskTime.days.map((d, i) => (
-                <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+                <div key={i} className="flex h-full min-w-0 flex-1 flex-col items-center gap-1.5">
                   <span className="text-2xs font-semibold text-muted">{compactDuration(d.minutes)}</span>
                   <div className="flex w-full flex-1 items-end">
                     <div
@@ -407,9 +407,9 @@ export function StatsPage() {
 
         {/* За неделю — гистограмма выполненных задач по дням */}
         <StatCard title={t('За неделю')}>
-          <div className="flex items-end justify-between gap-2" style={{ height: 96 }}>
+          <div className="flex items-stretch justify-between gap-2" style={{ height: 96 }}>
             {taskStats.week.map((d, i) => (
-              <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+              <div key={i} className="flex h-full min-w-0 flex-1 flex-col items-center gap-1.5">
                 <span className="text-xs font-semibold text-muted">{d.count > 0 ? d.count : ''}</span>
                 <div className="flex w-full flex-1 items-end">
                   <div

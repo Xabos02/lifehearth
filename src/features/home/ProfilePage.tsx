@@ -90,6 +90,9 @@ export function ProfilePage() {
     const next = { ...form, ...patch };
     setDraft(next);
     clearTimeout(saveTimer.current);
+    // Незаконченное число («79,») не записываем: автосохранение переписывало
+    // поле в «79», следующая цифра давала «796».
+    if (/[.,]$/.test(next.weightKg) || /[.,]$/.test(next.heightCm)) return;
     saveTimer.current = setTimeout(() => void commit(next), 600);
   };
 
@@ -107,7 +110,9 @@ export function ProfilePage() {
     });
     // Вес из профиля — в дневник замеров («Здоровье»), чтобы источник был
     // один: раньше «Главная» показывала профильное число, а раздел — своё.
-    if (weightKg != null && weightKg !== p?.weightKg) await logMeasure('weight', todayKey(), weightKg);
+    if (weightKg != null && weightKg !== p?.weightKg && weightKg >= 20 && weightKg <= 300) {
+      await logMeasure('weight', todayKey(), weightKg);
+    }
     setDraft(null);
     setSaved(true);
     clearTimeout(markTimer.current);

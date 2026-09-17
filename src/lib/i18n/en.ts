@@ -2013,4 +2013,6 @@ export const EN: Record<string, string> = {
   'Громкость': 'Volume',
   'Закрыть без сохранения?': 'Close without saving?',
   'Напишите задачу в строке выше или нажмите «+». Проекты — папки для задач.': 'Type a task in the line above or tap “+”. Projects are folders for tasks.',
+  'Забрать накопленное и убрать цель из списка? История пополнений останется в базе.': 'Take the savings and remove the goal from the list? The deposit history stays in the database.',
+  'Это не файл резервной копии LifeHearth: внутри не данные, а что-то другое.': 'This is not a LifeHearth backup file: it holds something other than data.',
 };

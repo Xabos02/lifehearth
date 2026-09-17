@@ -416,7 +416,9 @@ export function NoteEditorPage() {
         sel?.addRange(range);
       }
       // execCommand, а не ручная правка DOM: вставка попадает в стек отмены.
-      document.execCommand('insertHTML', false, `<img src="${dataUrl}" alt="">`);
+      // После картинки — свой абзац: иначе текст, набранный следом, ложился
+      // «голым» узлом в корень редактора, а базовый стиль корня — заголовок.
+      document.execCommand('insertHTML', false, `<img src="${dataUrl}" alt=""><div><br></div>`);
       touch();
     },
     [toast, touch],
@@ -484,7 +486,7 @@ export function NoteEditorPage() {
       const vv = window.visualViewport;
       const vvBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
       const toolbarTop = toolbarRef.current?.getBoundingClientRect().top ?? Infinity;
-      const bottom = Math.min(vvBottom, toolbarTop) - 12;
+      const bottom = Math.min(vvBottom, toolbarTop) - 36; // 36: над панелью ещё метка «Сохранено»
       const top = (vv?.offsetTop ?? 0) + 108;
       if (rect.bottom > bottom) scroller.scrollTop += rect.bottom - bottom;
       else if (rect.top < top) scroller.scrollTop -= top - rect.top;
@@ -821,7 +823,8 @@ export function NoteEditorPage() {
           панелью, — низ заметки физически нельзя было увидеть. 76px — полоса
           (~64px с safe-area) с запасом, раскрытая панель «Aa» добавляет свои
           ~124px; клавиатурная часть — живая, от useKeyboardInset. */}
-      <div aria-hidden style={{ height: keyboardInset + 76 + (formatOpen ? 124 : 0) }} />
+      {/* +24 — под метку «Сохранено» над панелью: без запаса она ложилась на последнюю строку. */}
+      <div aria-hidden style={{ height: keyboardInset + 100 + (formatOpen ? 124 : 0) }} />
 
       {/* Панель форматирования над клавиатурой (таб-бар на этом экране скрыт).
           fixed bottom-0 на iOS клавиатура просто накрывает (fixed живёт в

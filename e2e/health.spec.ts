@@ -199,3 +199,30 @@ test('вес из профиля попадает в «Замеры», а зам
   });
   expect(profile?.weightKg).toBe(81.5);
 });
+
+test('удалённый последний замер веса снимает число и с профиля', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await page.getByRole('button', { name: 'Замеры' }).click();
+  const card = page.getByTestId('measure-weight');
+  await card.getByRole('button', { name: '+ замер' }).click();
+  await page.getByPlaceholder('75').fill('78,4');
+  await page.getByRole('button', { name: 'Сохранить' }).click();
+  await expect(card).toContainText('78,4');
+  page.on('dialog', (d) => void d.accept());
+  await card.getByRole('button', { name: '+ замер' }).click();
+  await page.getByRole('button', { name: 'Удалить замер за этот день' }).click();
+  await expect(card).toContainText('Замеров пока нет');
+  const profile = await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    return (await db.settings.get('app'))?.profile;
+  });
+  expect(profile?.weightKg ?? null).toBeNull();
+});
+
+test('масштаб «Месяц» переживает переход на «Замеры» и обратно', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await page.getByRole('button', { name: 'Месяц' }).click();
+  await page.getByRole('button', { name: 'Замеры' }).click();
+  await page.getByRole('button', { name: 'Спорт' }).click();
+  await expect(page.getByTestId('workout-month')).toBeVisible();
+});

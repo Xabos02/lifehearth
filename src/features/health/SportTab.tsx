@@ -25,7 +25,7 @@ import {
   weekStreak,
 } from './workoutStats';
 import { adviceTitle, formatKm, lastLine } from './workoutText';
-import { WorkoutCalendar } from './WorkoutCalendar';
+import { WorkoutCalendar, type Scale } from './WorkoutCalendar';
 import { parseWorkoutsCsv, withoutDuplicates } from './importWorkouts';
 import { importParsed } from './workoutRepo';
 
@@ -35,10 +35,12 @@ interface Props {
   onSelect: (date: string) => void;
   onEdit: (w: Workout) => void;
   onAddFor: (date: string) => void;
+  scale: Scale;
+  onScale: (scale: Scale) => void;
 }
 
 /** Вкладка «Спорт»: что сегодня по ритму, календарь, сводки, недавние. */
-export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor }: Props) {
+export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale, onScale }: Props) {
   const today = todayKey();
   const settings = useSettings();
   const goal = settings.workoutWeeklyGoal ?? DEFAULT_WEEKLY_GOAL;
@@ -128,7 +130,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor }: Pro
         </div>
       </section>
 
-      <WorkoutCalendar workouts={workouts} selected={selected} onSelect={onSelect} />
+      <WorkoutCalendar workouts={workouts} selected={selected} onSelect={onSelect} scale={scale} onScale={onScale} />
 
       <section className="card p-4">
         <div className="mb-2 flex items-center justify-between">
@@ -174,7 +176,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor }: Pro
                     style={{ width: `${Math.max(4, (k.minutes / maxKindMinutes) * 100)}%`, background: kind.color }}
                   />
                 </span>
-                <span className="w-20 shrink-0 text-right text-xs tabular-nums text-muted">
+                <span className="shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-muted">
                   {formatMinutes(k.minutes, t)}
                   {kind.hasDistance && k.distanceKm > 0 ? ` · ${formatKm(k.distanceKm)}` : ''}
                 </span>
@@ -226,7 +228,9 @@ function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () 
   // Темп для бега и ходьбы: прогресс на 3–5 км — это темп, а не минуты.
   const pace = PACE_TYPES.has(w.type) ? paceMinPerKm(w.minutes, w.distanceKm) : null;
   const sub = [
-    withDate ? format(fromKey(w.date), 'EEE, d MMMM', { locale: dateLocale() }) : null,
+    // EEEEEE — «вс», а не «вск»: у date-fns/ru трёхбуквенные «вск, птн, срд» —
+    // формы, которых в русской традиции нет.
+    withDate ? format(fromKey(w.date), 'EEEEEE, d MMMM', { locale: dateLocale() }) : null,
     pace ? `${pace} /${t('км')}` : null,
     effort ? t(effort).toLowerCase() : null,
     w.note || null,

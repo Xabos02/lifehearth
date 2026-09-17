@@ -147,7 +147,11 @@ export function validateBackup(parsed: unknown): BackupFile {
 
 export function previewBackup(b: BackupFile): ImportPreview {
   const counts = {} as Record<TableName, number>;
-  for (const name of TABLES) counts[name] = b.data[name]?.length ?? 0;
+  // Считаем живые: строки из корзины лежат в копии тоже, но человек сверяет
+  // числа с тем, что видит в разделах.
+  for (const name of TABLES) {
+    counts[name] = (b.data[name] ?? []).filter((r) => !(r as { deletedAt?: string | null }).deletedAt).length;
+  }
   return { counts, exportedAt: b.exportedAt };
 }
 
@@ -174,7 +178,7 @@ function normalizeRow(name: TableName, row: unknown): unknown {
 
 /** Таблицы кусков: их содержимое приезжает синком отдельно от «своих» записей,
  *  поэтому пустой список в копии значит «ещё не доехало», а не «пусто». */
-const CHUNK_TABLES = new Set(['taskPhotos', 'noteFiles']);
+const CHUNK_TABLES = new Set(['taskPhotos', 'noteFiles', 'taskFiles']);
 
 /** Замена данных содержимым бэкапа, в одной транзакции. */
 export async function importBackup(b: BackupFile): Promise<void> {

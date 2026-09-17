@@ -104,7 +104,9 @@ export function OnboardingOverlay() {
    *  в настройках, куда ещё надо догадаться зайти. */
   const restore = () => {
     finish();
-    navigate('/more/settings');
+    // Сразу на экран копий: начало «Настроек» — оформление и уведомления,
+    // про восстановление там ни слова, а нужный блок полтора экрана ниже.
+    navigate('/more/settings/backup');
   };
 
   const slide = SLIDES[step];

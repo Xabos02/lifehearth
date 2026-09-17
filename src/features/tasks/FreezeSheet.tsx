@@ -19,8 +19,8 @@ import { t } from '../../lib/i18n';
 
 // Строки списка: заголовок группы (проект/подпроект/«Без проекта») или задача.
 type Row =
-  | { type: 'header'; key: string; project: Project | null; depth: 0 | 1; count: number }
-  | { type: 'task'; task: Task; depth: 0 | 1 };
+  | { type: 'header'; key: string; project: Project | null; depth: number; count: number }
+  | { type: 'task'; task: Task; depth: number };
 
 /** Иконка папки — как в разделе задач: стандартная 📁 → папка в цвете проекта. */
 function GroupIcon({ project, size = 15 }: { project: Project | null; size?: number }) {
@@ -72,14 +72,16 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
     const childrenOf = (id: string) => projects.filter((p) => p.parentId === id);
 
     const out: Row[] = [];
-    const pushGroup = (p: Project, depth: 0 | 1) => {
+    // Рекурсия по всем уровням: обход останавливался на втором, и задачи из
+    // папок третьего уровня заморозить было нельзя вовсе.
+    const hasTasksDeep = (p: Project): boolean =>
+      (byProject.get(p.id) ?? []).length > 0 || childrenOf(p.id).some(hasTasksDeep);
+    const pushGroup = (p: Project, depth: number) => {
       const list = byProject.get(p.id) ?? [];
-      const kids = depth === 0 ? childrenOf(p.id) : [];
-      const kidsHaveTasks = kids.some((k) => (byProject.get(k.id) ?? []).length > 0);
-      if (!list.length && !kidsHaveTasks) return;
+      if (!hasTasksDeep(p)) return;
       out.push({ type: 'header', key: p.id, project: p, depth, count: list.length });
       for (const task of list) out.push({ type: 'task', task, depth });
-      for (const k of kids) pushGroup(k, 1);
+      for (const k of childrenOf(p.id)) pushGroup(k, depth + 1);
     };
     for (const p of tops) pushGroup(p, 0);
     const none = byProject.get('') ?? [];
@@ -126,7 +128,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
         <div
           key={`h-${row.key}`}
           className={`flex items-center gap-1.5 bg-surface-2/60 px-3 py-2 ${
-            row.depth ? 'pl-8' : ''
+            row.depth ? ['', 'pl-8', 'pl-14', 'pl-20'][Math.min(row.depth, 3)] : ''
           }`}
         >
           <GroupIcon project={row.project} />
@@ -144,7 +146,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
         key={task.id}
         onClick={() => toggle(task.id)}
         className={`flex w-full items-center gap-3 px-3 py-2.5 text-left active:opacity-70 ${
-          row.depth ? 'pl-8' : ''
+          row.depth ? ['', 'pl-8', 'pl-14', 'pl-20'][Math.min(row.depth, 3)] : ''
         }`}
       >
         <span

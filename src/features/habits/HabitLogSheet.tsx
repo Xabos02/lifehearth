@@ -54,12 +54,13 @@ function LogForm({
     setRaw(v);
   };
 
-  const val = Number(raw) || 0;
+  const val = Number(raw.replace(',', '.')) || 0;
   const target = habit.target ?? 0;
   const pct = target > 0 ? Math.min(100, (val / target) * 100) : 0;
 
   const save = async () => {
-    await setHabitValue(habit.id, date, Number(rawRef.current) || 0);
+    // «7,5» с русской клавиатуры: запятая — это точка, а не ноль (ноль снимал отметку дня).
+    await setHabitValue(habit.id, date, Number(rawRef.current.replace(',', '.')) || 0);
     onClose();
   };
 
@@ -94,7 +95,7 @@ function LogForm({
           <Button
             key={inc}
             variant="secondary"
-            onClick={() => set(String((Number(rawRef.current) || 0) + inc))}
+            onClick={() => set(String((Number(rawRef.current.replace(',', '.')) || 0) + inc))}
           >
             +{inc}
           </Button>

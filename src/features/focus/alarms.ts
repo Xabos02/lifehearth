@@ -143,7 +143,10 @@ function burst(ac: AudioContext, out: GainNode, dur: number, peak: number, at = 
 /** Проиграть сигнал с громкостью 0..1. Вибрация — везде, где она есть (iOS
  *  её игнорирует). */
 export function playAlarm(kind: AlarmType, volume = 0.8): void {
-  navigator.vibrate?.(200);
+  // Вибрация только после первого жеста в сессии: до него Chromium блокирует
+  // вызов и пишет ошибку в консоль (круг дошёл до конца после перезагрузки).
+  const nav = navigator as Navigator & { userActivation?: { hasBeenActive: boolean } };
+  if (nav.userActivation?.hasBeenActive) navigator.vibrate?.(200);
   if (kind === 'none' || volume <= 0) return;
   setAudioSession('transient');
   const ac = ensureAudio();

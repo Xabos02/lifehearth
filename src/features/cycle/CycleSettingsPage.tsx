@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
 import { FileText } from 'lucide-react';
@@ -10,7 +10,8 @@ import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
 import { hashPin } from '../../lib/crypto';
-import { lockCycleSection } from './lockState';
+import { isUnlocked, lockCycleSection, subscribeLock } from './lockState';
+import { CycleLock } from './CycleLock';
 import { db } from '../../db/db';
 import type { CycleSettings } from '../../db/cycleTypes';
 import { DEFAULT_CYCLE_SETTINGS, putDay, updateCycleSettings } from '../../lib/cycle/cycleRepo';
@@ -267,9 +268,21 @@ function ImportSection() {
 export function CycleSettingsPage() {
   const row = useLiveQuery(() => db.cycleSettings.get('app'), []);
   const s: CycleSettings = row ?? { ...DEFAULT_CYCLE_SETTINGS, updatedAt: '' };
+  // Тот же замок, что у остальных экранов раздела: настройки открывались по
+  // прямому адресу в обход кода, и «Убрать код» снимал замок без ввода кода.
+  const open = useSyncExternalStore(subscribeLock, isUnlocked, () => false);
+  const locked = s.lock === 'pin' && s.pin !== undefined && !open;
 
   const setIntegration = (key: keyof CycleSettings['integrations'], value: boolean) =>
     void updateCycleSettings({ integrations: { ...s.integrations, [key]: value } });
+
+  if (locked) {
+    return (
+      <Screen title={t('Настройки раздела')} backTo="/more/cycle">
+        <CycleLock settings={s} onUnlock={() => undefined} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen title={t('Настройки раздела')} backTo="/more/cycle">

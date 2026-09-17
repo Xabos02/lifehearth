@@ -1,4 +1,4 @@
-import { Component, useEffect, type ReactNode } from 'react';
+import { Component, useEffect, useRef, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { LucideProvider } from 'lucide-react';
@@ -72,7 +72,14 @@ function RequireFemale({ children }: { children: ReactNode }) {
  *  после прокрутки страница (например «Главная») показывалась не с начала. */
 function ScrollReset() {
   const { pathname } = useLocation();
+  const prev = useRef(pathname);
   useEffect(() => {
+    const was = prev.current;
+    prev.current = pathname;
+    // Первое автосохранение новой заметки подменяет адрес /notes/new на
+    // /notes/<id> — экран тот же, и сбрасывать прокрутку к началу нельзя:
+    // каретка уезжала за нижний край посреди набора.
+    if (was === '/notes/new' && /^\/notes\/[^/]+$/.test(pathname)) return;
     document.getElementById('app-scroll')?.scrollTo({ top: 0 });
   }, [pathname]);
   return null;
@@ -152,7 +159,7 @@ export default function App() {
               (h-dvh с top-0 на iPhone до низа не доставал). Скроллится только
               контент; таб-бар — обычный flex-элемент в самом низу. bg-bg
               заливает весь каркас, включая safe-area под таб-баром. */}
-          <div className="fixed inset-0 flex flex-col overflow-hidden bg-bg">
+          <div id="app-frame" className="fixed inset-0 flex flex-col overflow-hidden bg-bg">
             {/* Аврора — неподвижный слой за контентом (не fixed-attachment) */}
             <div aria-hidden className="aurora pointer-events-none absolute inset-0 -z-10" />
             {/* Полоса под плавающую кнопку — ВНУТРЕННИМ отступом ленты, а не

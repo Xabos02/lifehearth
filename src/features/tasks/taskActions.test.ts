@@ -47,6 +47,32 @@ describe('повторяющаяся задача: отметить и снят�
     expect(afterUndo[0].spawnedId).toBeNull();
   });
 
+  it('правленный повтор (название изменили) при снятии отметки остаётся', async () => {
+    const task = await create(db.tasks, {
+      title: 'Планёрка',
+      notes: '',
+      projectId: null,
+      goalId: null,
+      priority: 0,
+      dueDate: '2026-09-13',
+      dueTime: null,
+      duration: null,
+      remindBefore: null,
+      completedAt: null,
+      checklist: [],
+      recurrence: { type: 'weekly', interval: 1, weekdays: [1] },
+      tags: [],
+      sortOrder: 1000,
+    });
+    await toggleTask(task);
+    const done = (await db.tasks.get(task.id))!;
+    await db.tasks.update(done.spawnedId!, { title: 'Планёрка (правка)', updatedAt: '2026-09-14T10:00:00.000Z' });
+    await toggleTask(done);
+    const alive = (await db.tasks.toArray()).filter((t) => !t.deletedAt);
+    expect(alive).toHaveLength(2);
+    expect(alive.find((t) => t.id === done.spawnedId)?.title).toBe('Планёрка (правка)');
+  });
+
   it('повтор, который уже тронули (выполнили), при снятии отметки не трогается', async () => {
     const task = await create(db.tasks, {
       title: 'Отчёт',

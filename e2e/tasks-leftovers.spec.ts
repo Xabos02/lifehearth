@@ -126,3 +126,36 @@ test('заполненная форма задачи не закрывается
   expect(asked).toBe(true);
   await expect(page.getByRole('heading', { name: 'Новая задача' })).toBeVisible();
 });
+
+test('пункт чеклиста без Enter сохраняется, заморозка видит третий уровень', async ({ page }) => {
+  await openApp(page, '/tasks', { seenHints: ['tasks-quick-add', 'tasks-gestures'] });
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    await db.projects.bulkPut([
+      { ...base('a'), name: 'Бизнес', color: '#5b7cfa', emoji: '💼', sortOrder: 1000, archivedAt: null, parentId: null },
+      { ...base('b'), name: 'Поставщики', color: '#5b7cfa', emoji: '📦', sortOrder: 1000, archivedAt: null, parentId: 'a' },
+      { ...base('c'), name: 'Китай', color: '#5b7cfa', emoji: '🇨🇳', sortOrder: 1000, archivedAt: null, parentId: 'b' },
+    ]);
+    await db.tasks.put({
+      ...base('t'), title: 'Запросить КП', notes: '', projectId: 'c', goalId: null, priority: 0,
+      dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: null,
+      checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+    });
+  });
+  await page.reload();
+  await page.getByText('Запросить КП', { exact: true }).click();
+  await page.getByPlaceholder('Добавить пункт').fill('Позвонить Ли');
+  await page.getByRole('button', { name: 'Сохранить' }).click();
+  await expect.poll(async () =>
+    page.evaluate(async () => {
+      const { db } = await import('/src/db/db.ts');
+      return (await db.tasks.get('t'))?.checklist.map((c) => c.text);
+    }),
+  ).toEqual(['Позвонить Ли']);
+
+  await page.getByRole('button', { name: 'Заморозить задачи' }).click();
+  await expect(page.getByText('Китай', { exact: true })).toBeVisible();
+  await expect(page.getByText('Запросить КП', { exact: true }).last()).toBeVisible();
+});

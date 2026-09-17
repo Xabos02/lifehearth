@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Lightbulb,
@@ -58,6 +59,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
   const Icon = KIND_ICONS[item.kind];
   return (
     <div
+      id={`place-${item.id}`}
       onClick={onOpen}
       className="card active:opacity-90"
     >
@@ -117,7 +119,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
           )}
           {item.link && (
             <a
-              href={item.link}
+              href={/^[a-z][a-z0-9+.-]*:/i.test(item.link) ? item.link : `https://${item.link}`}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
@@ -142,6 +144,20 @@ export function PlacesPage() {
   const rows = useLiveQuery<PlaceItem[]>(() => db.placeItems.toArray(), []);
   const all = useMemo(() => alive(rows ?? []), [rows]);
 
+  // Из поиска приходим с #id: докручиваем к найденной карточке, иначе список
+  // открывался сверху и найденное место оставалось за экраном.
+  const { hash } = useLocation();
+  useEffect(() => {
+    const id = hash.slice(1);
+    if (!id || !rows) return;
+    const el = document.getElementById(`place-${id}`);
+    const sc = document.getElementById('app-scroll');
+    if (!el || !sc) return;
+    const r = el.getBoundingClientRect();
+    const cr = sc.getBoundingClientRect();
+    sc.scrollTop += r.top - cr.top - 12;
+  }, [hash, rows]);
+
   const q = query.trim().toLowerCase();
   const items = useMemo(
     () =>
@@ -150,7 +166,10 @@ export function PlacesPage() {
         .filter((i) =>
           !q
             ? true
-            : `${i.title}\n${i.description}\n${i.source}`.toLowerCase().includes(q),
+            : `${i.title}\n${i.description}\n${i.source}\n${i.location}\n${i.tags.join(' ')}`
+                .toLowerCase()
+                .replace(/ё/g, 'е')
+                .includes(q.replace(/ё/g, 'е')),
         )
         .sort((a, b) => b.sortOrder - a.sortOrder),
     [all, kindFilter, q],

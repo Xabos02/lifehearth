@@ -36,7 +36,7 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
   const [day, setDay] = useState(workout?.date ?? date);
   // Строки, а не числа: контролируемый number-инпут ломает ввод «5.» → «5».
   const [minutes, setMinutes] = useState(String(workout?.minutes ?? workoutKind(type).defaultMinutes));
-  const [distance, setDistance] = useState(workout?.distanceKm != null ? String(workout.distanceKm) : '');
+  const [distance, setDistance] = useState(workout?.distanceKm != null ? String(workout.distanceKm).replace('.', ',') : '');
   const [effort, setEffort] = useState<Workout['effort']>(workout?.effort ?? null);
   const [note, setNote] = useState(workout?.note ?? '');
   const [minutesTouched, setMinutesTouched] = useState(Boolean(workout));
