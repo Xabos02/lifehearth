@@ -156,6 +156,6 @@ test('пункт чеклиста без Enter сохраняется, замо�
   ).toEqual(['Позвонить Ли']);
 
   await page.getByRole('button', { name: 'Заморозить задачи' }).click();
-  await expect(page.getByText('Китай', { exact: true })).toBeVisible();
+  await expect(page.getByText('Китай', { exact: true }).last()).toBeVisible();
   await expect(page.getByText('Запросить КП', { exact: true }).last()).toBeVisible();
 });
