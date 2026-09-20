@@ -21,6 +21,7 @@ import { updateSettings } from '../../hooks/useSettings';
 import { REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 // Тексты слайдов — 11-16 слов каждый, одна мысль на слайд.
 //
@@ -157,14 +158,14 @@ export function OnboardingOverlay() {
         <p className="max-w-sm text-sm leading-relaxed text-muted">{t(slide.text)}</p>
       </div>
 
-      <div className="relative flex items-center justify-center gap-1.5 pb-5">
+      <div className="relative flex items-center justify-center gap-9 pb-5">
         {SLIDES.map((_, i) => (
           <button
             key={i}
             type="button"
             aria-label={t('Шаг {n}', { n: i + 1 })}
             onClick={() => setStep(i)}
-            className={`h-2 rounded-full transition-all ${
+            className={`h-2 rounded-full transition-all ${HIT_SLOP_44} ${
               i === step ? 'w-5 bg-accent' : 'w-2 bg-muted/40'
             }`}
           />

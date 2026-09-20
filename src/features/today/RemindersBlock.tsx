@@ -15,6 +15,7 @@ import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 /** Закреплённые напоминания на «Сегодня»: разделы по темам (Работа и т.п.),
  *  каждый сворачивается/разворачивается по ситуации. */
@@ -124,7 +125,7 @@ function ReminderSectionCard({
           <span className="min-w-0 flex-1 truncate font-semibold">{section.title}</span>
           <span className="shrink-0 text-xs text-muted">{items.length}</span>
         </button>
-        <button onClick={onEditSection} aria-label={t('Изменить раздел')} className="px-3.5 py-3 text-muted active:opacity-60">
+        <button onClick={onEditSection} aria-label={t('Изменить раздел')} className={`px-3.5 py-3 text-muted active:opacity-60 ${HIT_SLOP_44}`}>
           <Pencil size={ICON.inline} />
         </button>
       </div>
@@ -143,7 +144,7 @@ function ReminderSectionCard({
           <button
             onClick={onAddItem}
             aria-label={t('Добавить напоминание')}
-            className="inline-flex items-center justify-center px-1 pt-0.5 text-accent active:opacity-70"
+            className={`inline-flex items-center justify-center px-1 pt-0.5 text-accent active:opacity-70 ${HIT_SLOP_44}`}
           >
             <Plus size={ICON.base} />
           </button>

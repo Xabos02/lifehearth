@@ -210,7 +210,7 @@ function GroupSwitcher({
     }, [configs]) ?? {};
 
   return (
-    <div className="shrink-0 -mx-1 flex gap-2 overflow-x-auto px-1 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="shrink-0 -mx-1 flex gap-3 overflow-x-auto px-1 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {configs.map((c) => {
         const active = c.familyId === selected;
         const n = unread[c.familyId] ?? 0;
@@ -238,7 +238,7 @@ function GroupSwitcher({
       <button
         onClick={onAdd}
         aria-label={t('Добавить группу')}
-        className="flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-surface-2 text-muted active:opacity-80"
+        className={`flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-surface-2 text-muted active:opacity-80 ${HIT_SLOP_44}`}
       >
         <Plus size={ICON.base} />
       </button>
@@ -246,7 +246,7 @@ function GroupSwitcher({
         <button
           onClick={onManage}
           aria-label={t('Управление группами')}
-          className="flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-surface-2 text-muted active:opacity-80"
+          className={`flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-surface-2 text-muted active:opacity-80 ${HIT_SLOP_44}`}
         >
           <SlidersHorizontal size={ICON.action} />
         </button>

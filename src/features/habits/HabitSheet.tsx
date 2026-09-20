@@ -11,6 +11,7 @@ import { isFrozenNow } from '../../lib/habits';
 import { t } from '../../lib/i18n';
 import { freezeHabit, unfreezeHabit } from './habitRepo';
 import type { Habit, HabitSchedule } from '../../db/types';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 type SchedType = 'daily' | 'weekdays';
 type Mode = 'check' | 'count';
@@ -183,7 +184,7 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
                 key={d}
                 type="button"
                 onClick={() => toggleDay(d)}
-                className={`size-10 rounded-full border text-sm font-medium transition-colors ${
+                className={`size-10 rounded-full border text-sm font-medium transition-colors ${HIT_SLOP_44} ${
                   active
                     ? 'border-transparent bg-accent-fill text-white'
                     : 'border-hairline bg-surface-2 text-muted'
@@ -205,7 +206,7 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
               type="button"
               aria-label={t('Цвет {c}', { c })}
               onClick={() => setColor(c)}
-              className={`size-9 rounded-full border-2 transition-colors ${
+              className={`size-9 rounded-full border-2 transition-colors ${HIT_SLOP_44} ${
                 color === c ? 'border-text' : 'border-transparent'
               }`}
               style={{ background: c }}

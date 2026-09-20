@@ -23,6 +23,7 @@ import { isUnlocked, subscribeLock } from './lockState';
 import type { CyclePredictionResult } from '../../lib/cycle/predict';
 import { IconButton } from '../../components/ui/IconButton';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 /** Как называем прогноз словами.
  *
@@ -284,7 +285,7 @@ export function CyclePage() {
                     единого цикла показывать нечего. */}
                 <Link
                   to="/more/cycle/year"
-                  className="mt-3 inline-block px-1 text-sm font-medium text-accent"
+                  className={`mt-3 inline-block px-1 py-2 text-sm font-medium text-accent ${HIT_SLOP_44}`}
                 >
                   {t('Обзор за год →')}
                 </Link>

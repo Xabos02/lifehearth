@@ -19,6 +19,7 @@ import { useCall } from '../../lib/family/familyCall';
 import { INSTALL_URL, REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
+import { HIT_SLOP_44, HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 
 /**
  * Одноразовое окно о смене имени и значка (Life Hub → LifeHearth).
@@ -83,7 +84,7 @@ export function ReinstallNotice() {
             type="button"
             aria-label={t('Скрыть')}
             onClick={dismiss}
-            className="absolute top-3.5 right-3.5 flex size-8 items-center justify-center rounded-full text-muted active:opacity-60"
+            className={`absolute top-3.5 right-3.5 flex size-8 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
           >
             <X size={ICON.base} />
           </button>
@@ -166,7 +167,7 @@ export function ReinstallNotice() {
                 type="button"
                 onClick={copyLink}
                 aria-label={t('Скопировать ссылку')}
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-accent active:opacity-60"
+                className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
                 {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
               </button>

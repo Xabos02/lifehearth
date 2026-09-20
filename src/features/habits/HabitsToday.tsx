@@ -11,6 +11,7 @@ import { toggleHabitDone } from './habitRepo';
 import { HabitLogSheet } from './HabitLogSheet';
 import type { Habit, HabitLog } from '../../db/types';
 import { t } from '../../lib/i18n';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 /** Блок на «Сегодня»: запланированные на сегодня привычки с быстрой отметкой.
  *  Если на сегодня привычек нет — блок скрывается целиком (return null).
@@ -106,6 +107,7 @@ export function HabitsToday({ collapsed = false }: { collapsed?: boolean }) {
                     e.stopPropagation();
                     setLogHabit(h);
                   }}
+                  className={HIT_SLOP_44}
                 >
                   <ProgressRing
                     value={pct}

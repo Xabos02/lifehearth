@@ -15,6 +15,7 @@ import { goalSaved } from '../../lib/savings';
 import { formatRu, todayKey } from '../../lib/dates';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 interface Props {
   open: boolean;
@@ -142,7 +143,7 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
                     if (window.confirm('Удалить эту запись?')) void remove(db.savingsDeposits, d.id);
                   }}
                   aria-label="Удалить запись"
-                  className="p-1.5 text-muted active:text-danger"
+                  className={`p-1.5 text-muted active:text-danger ${HIT_SLOP_44}`}
                 >
                   <Trash2 size={ICON.action} />
                 </button>

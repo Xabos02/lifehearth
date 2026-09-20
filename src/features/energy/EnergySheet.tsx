@@ -8,6 +8,7 @@ import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
 import { t } from '../../lib/i18n';
 import type { EnergyEffort, EnergyItem } from '../../db/types';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 const CATEGORY_SUGGESTIONS = [
   'Тело',
@@ -44,14 +45,16 @@ function EffectivenessPicker({
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-3">
+    // gap-5: точки 24px с невидимой зоной 44 — центры должны отстоять на 44,
+    // иначе зоны соседей перекрываются и палец попадает не в ту оценку.
+    <div className="flex items-center gap-5">
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
           type="button"
           onClick={() => onChange(n)}
           aria-label={t('{n} из 5', { n })}
-          className={`size-6 rounded-full transition-colors ${
+          className={`size-6 rounded-full transition-colors ${HIT_SLOP_44} ${
             n <= value ? 'bg-accent' : 'bg-surface-2 border border-hairline'
           }`}
         />

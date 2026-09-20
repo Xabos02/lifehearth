@@ -33,6 +33,7 @@ import { ProfileNameSheet } from './ProfileNameSheet';
 import { CallDiagSheet } from './CallDiagSheet';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
   const members = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]) ?? [];
@@ -151,7 +152,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
                   <button
                     onClick={() => setRemoving(m)}
                     aria-label={t('Исключить {name}', { name: m.displayName })}
-                    className="flex size-10 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95"
+                    className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95 ${HIT_SLOP_44}`}
                   >
                     <UserMinus size={ICON.base} />
                   </button>
@@ -159,7 +160,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
                 <button
                   onClick={() => void callManager.startCall(familyId, m.id)}
                   aria-label={t('Позвонить {name}', { name: m.displayName })}
-                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success active:scale-95"
+                  className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success active:scale-95 ${HIT_SLOP_44}`}
                 >
                   <Phone size={ICON.base} />
                 </button>

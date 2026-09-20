@@ -6,6 +6,7 @@ import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
 import { t } from '../../lib/i18n';
 import type { SavingsGoal } from '../../db/types';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 const COLORS = ['#7c9cff', '#a78bfa', '#f472b6', '#fb923c', '#facc15', '#4ade80', '#22d3ee', '#f87171'];
 
@@ -106,7 +107,7 @@ function GoalForm({ goal, onClose }: { goal: SavingsGoal | null; onClose: () => 
               type="button"
               onClick={() => setColor(c)}
               aria-label={t('Цвет {c}', { c })}
-              className={`size-8 rounded-full transition-transform ${
+              className={`size-8 rounded-full transition-transform ${HIT_SLOP_44} ${
                 color === c ? 'scale-110 ring-2 ring-white/70' : ''
               }`}
               style={{ background: c }}

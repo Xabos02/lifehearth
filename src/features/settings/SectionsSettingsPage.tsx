@@ -24,6 +24,7 @@ import {
   GLock as Lock,
   GRepeat as RotateCcw,
 } from '../../components/ui/glyphs';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 const LAYOUT_OPTS = { maxBottom: MAX_BOTTOM, defaultBottom: DEFAULT_BOTTOM, anchorId: ANCHOR_ID };
 
@@ -331,7 +332,7 @@ export function SectionsSettingsPage() {
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => toggle(id)}
             aria-label={hidden ? t('Включить раздел {name}', { name: t(sec.label) }) : t('Выключить раздел {name}', { name: t(sec.label) })}
-            className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${
+            className={`h-6 w-11 shrink-0 rounded-full border transition-colors ${HIT_SLOP_44} ${
               hidden ? 'border-border bg-surface-2' : 'border-transparent bg-accent'
             }`}
           >

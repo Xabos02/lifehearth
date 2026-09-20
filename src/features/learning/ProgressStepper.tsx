@@ -10,9 +10,10 @@ import { todayKey } from '../../lib/dates';
 import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 const BTN_CLASS =
-  'flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-text active:opacity-70 disabled:opacity-40';
+  `flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-text active:opacity-70 disabled:opacity-40 ${HIT_SLOP_44}`;
 
 /** Компактный степпер прогресса: −, значение, +, для страниц ещё «+10». */
 export function ProgressStepper({ item }: { item: LearningItem }) {

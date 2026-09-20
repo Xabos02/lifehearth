@@ -13,6 +13,7 @@ import {
 } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
 import { ICON, STROKE_STRONG } from './icons';
+import { HIT_SLOP_44_POSITIONED } from './hitSlop';
 
 const base =
   'w-full rounded-xl bg-surface-2 border border-hairline px-3.5 py-3 text-text placeholder:text-muted outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent/25';
@@ -35,7 +36,7 @@ export function ClearFieldButton({
       onPointerDown={(e) => e.preventDefault()}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`absolute left-2 z-10 flex size-6 items-center justify-center rounded-full bg-muted/20 text-muted transition-transform active:scale-90 ${className}`}
+      className={`absolute left-2 z-10 flex size-6 items-center justify-center rounded-full bg-muted/20 text-muted transition-transform active:scale-90 ${HIT_SLOP_44_POSITIONED} ${className}`}
     >
       <X size={ICON.inline} strokeWidth={STROKE_STRONG} />
     </button>
@@ -223,7 +224,7 @@ export function SearchField({
           onPointerDown={(e) => e.preventDefault()}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onChange('')}
-          className="absolute top-1/2 right-2.5 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-muted/20 text-muted transition-transform active:scale-90"
+          className={`absolute top-1/2 right-2.5 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-muted/20 text-muted transition-transform active:scale-90 ${HIT_SLOP_44_POSITIONED}`}
         >
           <X size={ICON.inline} strokeWidth={STROKE_STRONG} />
         </button>
