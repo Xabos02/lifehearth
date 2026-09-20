@@ -9,6 +9,7 @@ import { test, expect, openApp } from './fixtures';
 test('файл прикрепляется к задаче, сохраняется чанками и показывается карточкой', async ({ page }) => {
   await openApp(page, '/tasks');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
   await expect(page.locator('textarea[placeholder="Что нужно сделать?"]')).toBeVisible();
   await page.locator('textarea[placeholder="Что нужно сделать?"]').fill('Смета на ремонт');
 
@@ -41,6 +42,7 @@ test('файл прикрепляется к задаче, сохраняетс�
 test('файл тяжелее предела не принимается, а объясняется', async ({ page }) => {
   await openApp(page, '/tasks');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
   await expect(page.locator('textarea[placeholder="Что нужно сделать?"]')).toBeVisible();
 
   await page.locator('input[type="file"]:not([accept])').setInputFiles({

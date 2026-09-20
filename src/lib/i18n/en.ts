@@ -1520,6 +1520,7 @@ export const EN: Record<string, string> = {
     'Hold a folder header to move it; right nests it in another, left moves it out',
   'Новый проект': 'New project',
   'Новая задача': 'New task',
+  'Что создать?': 'What would you like to create?',
   'Скопировать название': 'Copy title',
   'Что нужно сделать?': 'What needs to be done?',
   'Скопировать заметки': 'Copy notes',

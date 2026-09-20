@@ -13,6 +13,7 @@ import { test, expect, openApp } from './fixtures';
 test('нумерация продолжается, и следующий пункт начинается с заглавной', async ({ page }) => {
   await openApp(page, '/tasks');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
 
   const notes = page.locator('textarea[placeholder="Детали…"]');
   await notes.click();
@@ -27,6 +28,7 @@ test('нумерация продолжается, и следующий пун�
 test('в середине строки регистр не трогаем', async ({ page }) => {
   await openApp(page, '/tasks');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
 
   const notes = page.locator('textarea[placeholder="Детали…"]');
   await notes.click();
@@ -38,6 +40,7 @@ test('в середине строки регистр не трогаем', asyn
 test('название задачи тоже начинается с заглавной', async ({ page }) => {
   await openApp(page, '/tasks');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
 
   const title = page.locator('textarea[placeholder="Что нужно сделать?"]');
   await title.click();

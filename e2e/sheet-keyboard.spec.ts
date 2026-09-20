@@ -41,6 +41,7 @@ const showKeyboard = (page: Page, px: number) =>
 /** Открыть форму новой задачи — самая частая шторка приложения. */
 async function openTaskSheet(page: Page) {
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
   await expect(page.locator('textarea[placeholder="Что нужно сделать?"]')).toBeVisible();
 }
 

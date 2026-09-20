@@ -116,6 +116,7 @@ test('у задачи без времени с напоминанием — ко
 test('заполненная форма задачи не закрывается свайпом молча', async ({ page }) => {
   await openApp(page, '/tasks', { seenHints: ['tasks-quick-add', 'tasks-gestures'] });
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
   await page.locator('textarea').first().fill('Важное дело');
   let asked = false;
   page.once('dialog', (d) => {

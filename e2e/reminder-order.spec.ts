@@ -18,6 +18,7 @@ async function reminderOptions(page: import('@playwright/test').Page) {
 test('задача со временем: от «за неделю» к «за 5 мин», в конце «Вовремя»', async ({ page }) => {
   await openApp(page, '/tasks');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
   await expect(page.locator('textarea[placeholder="Что нужно сделать?"]')).toBeVisible();
   await page.getByRole('button', { name: 'Сегодня', exact: true }).click();
   // Время нужно, чтобы появились минутные варианты.
@@ -36,6 +37,7 @@ test('задача со временем: от «за неделю» к «за 5
 test('задача без времени: от «за неделю» к «за 1 день», в конце «В день задачи»', async ({ page }) => {
   await openApp(page, '/tasks');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
   await expect(page.locator('textarea[placeholder="Что нужно сделать?"]')).toBeVisible();
   await page.getByRole('button', { name: 'Сегодня', exact: true }).click();
 

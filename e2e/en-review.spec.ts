@@ -188,6 +188,7 @@ test('EN: главные экраны — сегодня, задачи, заме
   await openApp(page, '/tasks', { language: 'en' });
   await shot(page, '02-tasks', { full: true });
   await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('button', { name: 'New task', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'New task' })).toBeVisible();
   await shot(page, '03-task-new-sheet', { full: true });
   await page.getByRole('button', { name: 'Close' }).click();

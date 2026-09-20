@@ -12,6 +12,7 @@ test('задача с периодом: создание, подпись диа�
 
   await openApp(page, '/tasks');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
   await page.locator('textarea[placeholder="Что нужно сделать?"]').fill('Сдать лист в кадры');
 
   // Чип «Период» раскрывает поле начала; «Срок» превращается в «Сдать до».
@@ -72,6 +73,7 @@ test('период из быстрой строки: «с 10 по 25 сентя�
 test('чип «Период» выключается — задача сохраняется обычной датой', async ({ page }) => {
   await openApp(page, '/tasks');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
   await page.locator('textarea[placeholder="Что нужно сделать?"]').fill('Обычная задача');
   await page.getByRole('button', { name: 'Период' }).click();
   await expect(page.getByLabel('Начало')).toBeVisible();

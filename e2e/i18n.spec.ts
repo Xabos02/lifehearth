@@ -16,6 +16,7 @@ test('английский: раздел задач — экран, быстры
   // (как в русских спеках «Добавить», exact) — 'Add task' занят стрелкой
   // быстрого ввода.
   await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('button', { name: 'New task', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'New task' })).toBeVisible();
   await expect(page.getByText('Repeat', { exact: true })).toBeVisible();
 });

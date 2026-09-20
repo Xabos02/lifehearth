@@ -30,6 +30,8 @@ import { alive, update, updateMany } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { Fab } from '../../components/layout/Fab';
+import { Sheet } from '../../components/ui/Sheet';
+import { Button } from '../../components/ui/Button';
 import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -314,6 +316,10 @@ export function TasksPage() {
   const [projectDefaultParent, setProjectDefaultParent] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [freezeSheetOpen, setFreezeSheetOpen] = useState(false);
+  // Кнопка «+» сперва спрашивает, что заводим: задачу или проект — раньше
+  // она сразу открывала задачу, и завести проект можно было только найдя
+  // отдельную кнопку «Новый проект» ниже по списку.
+  const [createChoiceOpen, setCreateChoiceOpen] = useState(false);
 
   // --- Drag-and-drop переноса задачи между секциями-проектами ---
   // Задача, которую сейчас тащим (захвачена long-press внутри TaskItem).
@@ -1438,7 +1444,35 @@ export function TasksPage() {
         </>
       )}
 
-      <Fab onClick={() => openTask(null, null)} />
+      <Fab onClick={() => setCreateChoiceOpen(true)} />
+
+      <Sheet
+        open={createChoiceOpen}
+        onClose={() => setCreateChoiceOpen(false)}
+        title={t('Что создать?')}
+      >
+        <div className="flex flex-col gap-2 pb-2">
+          <Button
+            className="flex w-full items-center justify-center gap-1.5"
+            onClick={() => {
+              setCreateChoiceOpen(false);
+              openTask(null, null);
+            }}
+          >
+            <ListChecks size={ICON.action} /> {t('Новая задача')}
+          </Button>
+          <Button
+            variant="secondary"
+            className="flex w-full items-center justify-center gap-1.5"
+            onClick={() => {
+              setCreateChoiceOpen(false);
+              openProject(null);
+            }}
+          >
+            <FolderPlus size={ICON.action} /> {t('Новый проект')}
+          </Button>
+        </div>
+      </Sheet>
 
       <TaskEditSheet
         open={taskSheetOpen}
