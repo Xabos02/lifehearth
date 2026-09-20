@@ -583,6 +583,17 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               { icon: CircleX, text: <>{t('Крестик в начале текста стирает всё поле')}</> },
             ]}
           />
+          {/* Для простой задачи (без фото/файлов/чек-листа) незачем листать
+              форму до самого низа — «Создать» доступно сразу после заметок. */}
+          {!task && (
+            <Button
+              className="mt-3 w-full"
+              disabled={!title.trim()}
+              onClick={handleSave}
+            >
+              {t('Создать')}
+            </Button>
+          )}
         </div>
 
         <div>
