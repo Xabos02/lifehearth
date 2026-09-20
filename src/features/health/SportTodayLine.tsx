@@ -10,7 +10,7 @@ import { useSettings } from '../../hooks/useSettings';
 import { GChevronRight as ChevronRight } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
-import { DEFAULT_WEEKLY_GOAL, workoutKind } from './workouts';
+import { DEFAULT_WEEKLY_GOAL, resolveKind } from './workouts';
 import { formatMinutes, lastWorkout, todayAdvice, weekProgress } from './workoutStats';
 import { adviceTitle, describeWorkout, relativeDay } from './workoutText';
 import { WorkoutSheet } from './WorkoutSheet';
@@ -39,7 +39,7 @@ export function SportTodayLine() {
   if (!rows || advice === 'start') return null;
 
   const done = advice === 'done' && last;
-  const color = last ? workoutKind(last.type).color : 'var(--app-accent)';
+  const color = last ? resolveKind(last).color : 'var(--app-accent)';
 
   return (
     <section className="mb-5" data-testid="sport-today">

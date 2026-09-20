@@ -29,6 +29,9 @@ function w(date: string, type: Workout['type'] = 'run', minutes = 30, extra: Par
     effort: null,
     note: '',
     source: 'manual',
+    groupId: null,
+    customLabel: null,
+    customColor: null,
     ...extra,
   };
 }

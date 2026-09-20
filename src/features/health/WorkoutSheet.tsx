@@ -1,15 +1,20 @@
 import { useRef, useState, type ChangeEvent } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/db';
 import { Sheet } from '../../components/ui/Sheet';
 import { Chip } from '../../components/ui/Chip';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
-import { GTrash as Trash2 } from '../../components/ui/glyphs';
+import { GTrash as Trash2, GPlus, GClose } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
 import { todayKey } from '../../lib/dates';
-import type { Workout, WorkoutType } from '../../db/types';
-import { EFFORT_LABELS, WORKOUT_KINDS, workoutKind } from './workouts';
-import { addWorkout, removeWorkout, updateWorkout } from './workoutRepo';
+import type { Workout, WorkoutTemplate, WorkoutType } from '../../db/types';
+import { EFFORT_LABELS, WORKOUT_KINDS, workoutKind, type WorkoutKind } from './workouts';
+import { addWorkout, addWorkoutSession, removeWorkout, updateWorkout, type WorkoutDraft } from './workoutRepo';
+import { addExerciseDef } from './exerciseDefRepo';
+import { addTemplate } from './templateRepo';
+import { TemplatesSheet } from './TemplatesSheet';
 
 interface Props {
   open: boolean;
@@ -20,9 +25,36 @@ interface Props {
   date: string;
 }
 
+interface Item {
+  key: string;
+  type: WorkoutType;
+  customLabel: string | null;
+  customColor: string | null;
+  minutes: string;
+  distance: string;
+  minutesTouched: boolean;
+}
+
+let itemKeySeq = 0;
+function newItem(type: WorkoutType = 'run', minutes = String(workoutKind('run').defaultMinutes)): Item {
+  itemKeySeq++;
+  return { key: `i${itemKeySeq}`, type, customLabel: null, customColor: null, minutes, distance: '', minutesTouched: false };
+}
+
+function kindOfItem(it: Pick<Item, 'type' | 'customLabel' | 'customColor'>): WorkoutKind {
+  if (it.type === 'custom') {
+    return { value: 'custom', label: it.customLabel ?? '', color: it.customColor ?? 'var(--app-muted)', hasDistance: false, defaultMinutes: 30 };
+  }
+  return workoutKind(it.type);
+}
+
 /** Форма тренировки. Обязательное — вид и минуты (минуты подставляются по
  *  виду), остальное по желанию: владелец просил отмечать занятие в два
- *  касания, а не заполнять анкету. */
+ *  касания, а не заполнять анкету.
+ *
+ *  Новая запись — это набор ИЗ ОДНОГО ИЛИ НЕСКОЛЬКИХ видов «в одно целое»:
+ *  можно добавить ещё вид кнопкой, загрузить шаблон и убрать из него то, чего
+ *  сегодня не делали. Правка уже сохранённой записи — как раньше, один вид. */
 export function WorkoutSheet({ open, onClose, workout, date }: Props) {
   return (
     <Sheet open={open} onClose={onClose} title={workout ? t('Тренировка') : t('Новая тренировка')}>
@@ -32,44 +64,107 @@ export function WorkoutSheet({ open, onClose, workout, date }: Props) {
 }
 
 function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date: string; onClose: () => void }) {
-  const [type, setType] = useState<WorkoutType>(workout?.type ?? 'run');
   const [day, setDay] = useState(workout?.date ?? date);
-  // Строки, а не числа: контролируемый number-инпут ломает ввод «5.» → «5».
-  const [minutes, setMinutes] = useState(String(workout?.minutes ?? workoutKind(type).defaultMinutes));
-  const [distance, setDistance] = useState(workout?.distanceKm != null ? String(workout.distanceKm).replace('.', ',') : '');
+  const [items, setItems] = useState<Item[]>(() =>
+    workout
+      ? [
+          {
+            key: 'edit',
+            type: workout.type,
+            customLabel: workout.customLabel,
+            customColor: workout.customColor,
+            minutes: String(workout.minutes),
+            distance: workout.distanceKm != null ? String(workout.distanceKm).replace('.', ',') : '',
+            minutesTouched: true,
+          },
+        ]
+      : [newItem()],
+  );
   const [effort, setEffort] = useState<Workout['effort']>(workout?.effort ?? null);
   const [note, setNote] = useState(workout?.note ?? '');
-  const [minutesTouched, setMinutesTouched] = useState(Boolean(workout));
-
-  const kind = workoutKind(type);
-  const minutesNum = Math.round(Number(minutes.replace(',', '.')) || 0);
-  const canSave = minutesNum > 0 && /^\d{4}-\d{2}-\d{2}$/.test(day) && day <= todayKey();
-  // Защита от дабл-тапа: второй тап по «Сохранить» до конца записи давал две
-  // одинаковые тренировки — две точки в ячейке и +2 к счётчику.
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const savingRef = useRef(false);
 
-  const pickType = (next: WorkoutType) => {
-    setType(next);
-    // Минуты по умолчанию следуют за видом, пока человек их не трогал сам.
-    if (!minutesTouched) setMinutes(String(workoutKind(next).defaultMinutes));
-  };
+  const validDay = /^\d{4}-\d{2}-\d{2}$/.test(day) && day <= todayKey();
+  const minutesOf = (it: Item) => Math.round(Number(it.minutes.replace(',', '.')) || 0);
+  const canSave = validDay && items.some((it) => minutesOf(it) > 0);
+
+  function updateItem(key: string, patch: Partial<Item>) {
+    setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
+  }
+
+  function pickType(key: string, type: WorkoutType, customLabel: string | null = null, customColor: string | null = null) {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.key !== key) return it;
+        const patch: Partial<Item> = { type, customLabel, customColor };
+        if (!it.minutesTouched) patch.minutes = String(kindOfItem({ type, customLabel, customColor }).defaultMinutes);
+        return { ...it, ...patch };
+      }),
+    );
+  }
+
+  function applyTemplate(tpl: WorkoutTemplate) {
+    setItems(
+      tpl.items.length
+        ? tpl.items.map((ti) => ({
+            key: `t${itemKeySeq++}`,
+            type: ti.type,
+            customLabel: ti.customLabel,
+            customColor: ti.customColor,
+            minutes: String(ti.minutes),
+            distance: ti.distanceKm != null ? String(ti.distanceKm).replace('.', ',') : '',
+            minutesTouched: true,
+          }))
+        : [newItem()],
+    );
+    setTemplatesOpen(false);
+  }
+
+  async function saveAsTemplate() {
+    const name = window.prompt(t('Название шаблона:'))?.trim();
+    if (!name) return;
+    await addTemplate(
+      name,
+      items.map((it) => {
+        const k = kindOfItem(it);
+        const dist = k.hasDistance ? Number(it.distance.replace(',', '.')) : 0;
+        return {
+          type: it.type,
+          customLabel: it.customLabel,
+          customColor: it.customColor,
+          minutes: minutesOf(it),
+          distanceKm: k.hasDistance && dist > 0 ? Math.round(dist * 100) / 100 : null,
+        };
+      }),
+    );
+  }
 
   const save = async () => {
-    if (savingRef.current) return;
+    if (savingRef.current || !canSave) return;
     savingRef.current = true;
     try {
-      const dist = kind.hasDistance ? Number(distance.replace(',', '.')) : 0;
-      const draft = {
-        date: day,
-        type,
-        minutes: minutesNum,
-        distanceKm: kind.hasDistance && dist > 0 ? Math.round(dist * 100) / 100 : null,
-        effort,
-        note: note.trim(),
-        source: workout?.source ?? ('manual' as const),
-      };
-      if (workout) await updateWorkout(workout.id, draft);
-      else await addWorkout(draft);
+      const drafts: WorkoutDraft[] = items
+        .filter((it) => minutesOf(it) > 0)
+        .map((it) => {
+          const k = kindOfItem(it);
+          const dist = k.hasDistance ? Number(it.distance.replace(',', '.')) : 0;
+          return {
+            date: day,
+            type: it.type,
+            minutes: minutesOf(it),
+            distanceKm: k.hasDistance && dist > 0 ? Math.round(dist * 100) / 100 : null,
+            effort,
+            note: note.trim(),
+            source: workout?.source ?? ('manual' as const),
+            groupId: null,
+            customLabel: it.type === 'custom' ? it.customLabel : null,
+            customColor: it.type === 'custom' ? it.customColor : null,
+          };
+        });
+      if (workout) await updateWorkout(workout.id, drafts[0]);
+      else if (drafts.length === 1) await addWorkout(drafts[0]);
+      else await addWorkoutSession(drafts);
       onClose();
     } finally {
       savingRef.current = false;
@@ -85,50 +180,40 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
 
   return (
     <div className="space-y-4 pb-2">
-      <div>
-        <p className="mb-1.5 text-sm font-medium text-muted">{t('Вид')}</p>
-        {/* Перенос, а не прокрутка: вид — единственное обязательное поле, а в
-            ряду с прокруткой пять из девяти уезжали за край экрана. */}
+      <Field label={t('Когда')}>
+        <Input type="date" value={day} max={todayKey()} onChange={(e: ChangeEvent<HTMLInputElement>) => setDay(e.target.value)} />
+      </Field>
+
+      {items.map((it, idx) => (
+        <ItemFields
+          key={it.key}
+          item={it}
+          index={idx}
+          removable={!workout && items.length > 1}
+          onRemove={() => setItems((prev) => prev.filter((x) => x.key !== it.key))}
+          onPickType={(type, label, color) => pickType(it.key, type, label, color)}
+          onMinutes={(v) => updateItem(it.key, { minutes: v, minutesTouched: true })}
+          onDistance={(v) => updateItem(it.key, { distance: v })}
+        />
+      ))}
+
+      {!workout && (
         <div className="flex flex-wrap gap-2">
-          {WORKOUT_KINDS.map((k) => (
-            <Chip key={k.value} active={type === k.value} onClick={() => pickType(k.value)}>
-              {t(k.label)}
-            </Chip>
-          ))}
+          <button
+            type="button"
+            onClick={() => setItems((prev) => [...prev, newItem()])}
+            className="flex items-center gap-1 rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm font-medium text-accent active:opacity-70"
+          >
+            <GPlus size={14} /> {t('Добавить ещё вид')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTemplatesOpen(true)}
+            className="flex items-center gap-1 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70"
+          >
+            {t('Из шаблона')}
+          </button>
         </div>
-      </div>
-
-      <div className="flex gap-3">
-        <Field label={t('Когда')} className="flex-1">
-          <Input type="date" value={day} max={todayKey()} onChange={(e: ChangeEvent<HTMLInputElement>) => setDay(e.target.value)} />
-        </Field>
-        <Field label={t('Минут')} className="flex-1">
-          <Input
-            inputMode="numeric"
-            value={minutes}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => {
-              setMinutesTouched(true);
-              setMinutes(e.target.value.replace(/[^\d]/g, ''));
-            }}
-            onClear={() => {
-              setMinutesTouched(true);
-              setMinutes('');
-            }}
-            placeholder="30"
-          />
-        </Field>
-      </div>
-
-      {kind.hasDistance && (
-        <Field label={t('Дистанция, км')}>
-          <Input
-            inputMode="decimal"
-            value={distance}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setDistance(e.target.value.replace(/[^\d.,]/g, ''))}
-            onClear={() => setDistance('')}
-            placeholder="5,0"
-          />
-        </Field>
       )}
 
       <div>
@@ -154,6 +239,15 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
       <Button className="w-full" disabled={!canSave} onClick={() => void save()}>
         {t('Сохранить')}
       </Button>
+      {!workout && (
+        <button
+          type="button"
+          onClick={() => void saveAsTemplate()}
+          className="w-full text-center text-sm font-medium text-accent active:opacity-70"
+        >
+          {t('Сделать из этого набора шаблон')}
+        </button>
+      )}
       {workout && (
         <button
           type="button"
@@ -163,6 +257,105 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
           <Trash2 size={ICON.action} /> {t('Удалить')}
         </button>
       )}
+
+      <TemplatesSheet open={templatesOpen} onClose={() => setTemplatesOpen(false)} onPick={applyTemplate} />
+    </div>
+  );
+}
+
+function ItemFields({
+  item,
+  index,
+  removable,
+  onRemove,
+  onPickType,
+  onMinutes,
+  onDistance,
+}: {
+  item: Item;
+  index: number;
+  removable: boolean;
+  onRemove: () => void;
+  onPickType: (type: WorkoutType, customLabel: string | null, customColor: string | null) => void;
+  onMinutes: (v: string) => void;
+  onDistance: (v: string) => void;
+}) {
+  const defs = useLiveQuery(() => db.exerciseDefs.toArray(), []) ?? [];
+  const aliveDefs = defs.filter((d) => !d.deletedAt);
+  const [addingCustom, setAddingCustom] = useState(false);
+  const [customInput, setCustomInput] = useState('');
+  const kind = kindOfItem(item);
+
+  async function confirmCustom() {
+    const name = customInput.trim();
+    if (!name) return;
+    const def = await addExerciseDef(name);
+    onPickType('custom', def.label, def.color);
+    setAddingCustom(false);
+    setCustomInput('');
+  }
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-border p-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-muted">{index === 0 ? t('Вид') : `${t('Вид')} ${index + 1}`}</p>
+        {removable && (
+          <button type="button" onClick={onRemove} className="p-1.5 text-muted active:opacity-60" aria-label={t('Убрать')}>
+            <GClose size={16} />
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {WORKOUT_KINDS.map((k) => (
+          <Chip key={k.value} active={item.type === k.value} onClick={() => onPickType(k.value, null, null)}>
+            {t(k.label)}
+          </Chip>
+        ))}
+        {aliveDefs.map((d) => (
+          <Chip key={d.id} active={item.type === 'custom' && item.customLabel === d.label} onClick={() => onPickType('custom', d.label, d.color)}>
+            {d.label}
+          </Chip>
+        ))}
+        <Chip active={addingCustom} onClick={() => setAddingCustom((v) => !v)}>
+          + {t('Своё')}
+        </Chip>
+      </div>
+      {addingCustom && (
+        <div className="flex gap-2">
+          <Input
+            value={customInput}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setCustomInput(e.target.value)}
+            onClear={() => setCustomInput('')}
+            placeholder={t('Название упражнения')}
+          />
+          <Button className="shrink-0" disabled={!customInput.trim()} onClick={() => void confirmCustom()}>
+            {t('Добавить')}
+          </Button>
+        </div>
+      )}
+
+      <div className="flex gap-3">
+        <Field label={t('Минут')} className="flex-1">
+          <Input
+            inputMode="numeric"
+            value={item.minutes}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => onMinutes(e.target.value.replace(/[^\d]/g, ''))}
+            onClear={() => onMinutes('')}
+            placeholder="30"
+          />
+        </Field>
+        {kind.hasDistance && (
+          <Field label={t('Дистанция, км')} className="flex-1">
+            <Input
+              inputMode="decimal"
+              value={item.distance}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => onDistance(e.target.value.replace(/[^\d.,]/g, ''))}
+              onClear={() => onDistance('')}
+              placeholder="5,0"
+            />
+          </Field>
+        )}
+      </div>
     </div>
   );
 }

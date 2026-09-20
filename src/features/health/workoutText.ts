@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { t } from '../../lib/i18n';
 import { addDaysKey, dateLocale, fromKey, weekStartKey } from '../../lib/dates';
 import type { Workout } from '../../db/types';
-import { workoutKind } from './workouts';
+import { resolveKind } from './workouts';
 import type { TodayAdvice } from './workoutStats';
 
 // Слова раздела «Спорт», общие для вкладки и строки на «Сегодня».
@@ -18,9 +18,12 @@ export function relativeDay(date: string, today: string): string {
 
 /** «бег 5,2 км» / «гири». */
 export function describeWorkout(w: Workout): string {
-  const kind = workoutKind(w.type);
+  const kind = resolveKind(w);
+  // Своё название — данные человека, не строка интерфейса: не переводим и
+  // не трогаем регистр, который он сам выбрал.
+  const label = w.type === 'custom' ? kind.label : t(kind.label).toLowerCase();
   const dist = w.distanceKm != null ? ` ${formatKm(w.distanceKm)}` : '';
-  return `${t(kind.label).toLowerCase()}${dist}`;
+  return `${label}${dist}`;
 }
 
 export function formatKm(km: number): string {

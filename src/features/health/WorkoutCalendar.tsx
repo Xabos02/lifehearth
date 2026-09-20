@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type TouchEvent } from 'react';
 import { addMonths, format, isSameMonth, startOfMonth } from 'date-fns';
 import { GChevronLeft as ChevronLeft, GChevronRight as ChevronRight } from '../../components/ui/glyphs';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -7,7 +7,7 @@ import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
 import { WEEKDAY_LABELS, addDaysKey, dateLocale, fromKey, monthGridKeys, todayKey, toKey, weekStartKey } from '../../lib/dates';
 import type { Workout } from '../../db/types';
-import { workoutKind } from './workouts';
+import { resolveKind } from './workouts';
 
 export type Scale = 'week' | 'month';
 
@@ -67,7 +67,25 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
   const dots = (key: string) => {
     const list = byDay.get(key) ?? [];
     // Не больше трёх точек: четвёртая уже не читается на 40px.
-    return list.slice(0, 3).map((w) => workoutKind(w.type).color);
+    return list.slice(0, 3).map((w) => resolveKind(w).color);
+  };
+
+  // Свайп пальцем влево/вправо — на неделю (в масштабе «месяц» — на месяц),
+  // как в Apple Fitness. preventDefault не зовём: вертикальная прокрутка
+  // страницы через календарь не трогается, свайп нужен только по горизонтали.
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: TouchEvent) => {
+    const p = e.touches[0];
+    touchStart.current = { x: p.clientX, y: p.clientY };
+  };
+  const onTouchEnd = (e: TouchEvent) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+    const p = e.changedTouches[0];
+    const dx = p.clientX - start.x;
+    const dy = p.clientY - start.y;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) shift(dx < 0 ? 1 : -1);
   };
 
   return (
@@ -94,8 +112,9 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
         </div>
       </div>
 
-      {scale === 'week' ? (
-        <div className="grid grid-cols-7 gap-1" data-testid="workout-week">
+      <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        {scale === 'week' ? (
+          <div className="grid grid-cols-7 gap-1" data-testid="workout-week">
           {weekDays.map((key, i) => (
             <DayCell
               key={key}
@@ -136,6 +155,7 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
           ))}
         </div>
       )}
+      </div>
 
       {/* Узкий, справа: во всю ширину он читался как вторые вкладки экрана
           под «Спорт | Замеры» и как переключатель того, что ниже него. */}

@@ -79,24 +79,45 @@ export function weekStreak(workouts: Workout[], today: string, goal: number): nu
   return streak;
 }
 
-/** Сводка по видам за период: минуты и число записей, по убыванию минут. */
+/** Сводка по видам за период: минуты и число записей, по убыванию минут.
+ *
+ *  Свои упражнения (type='custom') не сливаются в одну строку «своё»: ключ
+ *  берёт ещё и название, иначе «йога» и «плавание в бассейне» встали бы одной
+ *  безымянной строкой. customLabel/customColor — только у своих, чтобы
+ *  отрисовать точку и подпись без похода в exerciseDefs. */
 export function byType(
   workouts: Workout[],
   from: string,
   to: string,
-): { type: WorkoutType; minutes: number; count: number; distanceKm: number }[] {
-  const acc = new Map<WorkoutType, { minutes: number; count: number; distanceKm: number }>();
+): {
+  type: WorkoutType;
+  minutes: number;
+  count: number;
+  distanceKm: number;
+  customLabel?: string;
+  customColor?: string;
+}[] {
+  const acc = new Map<
+    string,
+    { type: WorkoutType; minutes: number; count: number; distanceKm: number; customLabel?: string; customColor?: string }
+  >();
   for (const w of workouts) {
     if (w.date < from || w.date > to) continue;
-    const cur = acc.get(w.type) ?? { minutes: 0, count: 0, distanceKm: 0 };
+    const key = w.type === 'custom' ? `custom:${w.customLabel ?? ''}` : w.type;
+    const cur = acc.get(key) ?? {
+      type: w.type,
+      minutes: 0,
+      count: 0,
+      distanceKm: 0,
+      customLabel: w.type === 'custom' ? (w.customLabel ?? undefined) : undefined,
+      customColor: w.type === 'custom' ? (w.customColor ?? undefined) : undefined,
+    };
     cur.minutes += w.minutes;
     cur.count += 1;
     cur.distanceKm += w.distanceKm ?? 0;
-    acc.set(w.type, cur);
+    acc.set(key, cur);
   }
-  return [...acc.entries()]
-    .map(([type, v]) => ({ type, ...v }))
-    .sort((a, b) => b.minutes - a.minutes);
+  return [...acc.values()].sort((a, b) => b.minutes - a.minutes);
 }
 
 /** Сумма минут и число записей за период. */
@@ -109,6 +130,19 @@ export function totals(workouts: Workout[], from: string, to: string): { minutes
     count += 1;
   }
   return { minutes, count };
+}
+
+/** Число ЗАНЯТИЙ за период, а не отдельных видов внутри них: несколько видов
+ *  «в одно целое» (общий groupId) — одно занятие, как и было бы одной
+ *  записью раньше. Для «тренировок за месяц» это честнее totals().count,
+ *  который посчитал бы силовую и растяжку одного дня за два. */
+export function sessionCount(workouts: Workout[], from: string, to: string): number {
+  const keys = new Set<string>();
+  for (const w of workouts) {
+    if (w.date < from || w.date > to) continue;
+    keys.add(w.groupId ?? w.id);
+  }
+  return keys.size;
 }
 
 /** «1 ч 25 м» / «45 мин» — короткая длительность для карточек. */

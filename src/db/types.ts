@@ -390,13 +390,19 @@ export type WorkoutType =
   | 'walk'
   | 'bike'
   | 'swim'
+  | 'custom'
   | 'other';
 
 /** Тренировка — одна запись на занятие. Раздел «Здоровье → Спорт».
  *
  *  Минимум обязательного: дата и вид; минуты по умолчанию из вида. Остальное
  *  — по желанию: владелец просил отмечать тренировку «после каждой» в два
- *  касания, а не заполнять анкету. */
+ *  касания, а не заполнять анкету.
+ *
+ *  Несколько видов «в одно целое» (например силовая + растяжка одним
+ *  занятием) хранятся отдельными записями с общим groupId — так каждый вид
+ *  остаётся своей строкой для статистики по видам, а по groupId их можно
+ *  собрать обратно в одну сессию. Один вид — groupId остаётся null. */
 export interface Workout extends BaseEntity {
   date: string; // 'YYYY-MM-DD'
   type: WorkoutType;
@@ -408,6 +414,37 @@ export interface Workout extends BaseEntity {
   note: string;
   /** Откуда запись: руками или импортом файла (Strava/Garmin CSV). */
   source: 'manual' | 'import';
+  /** Общий id у записей одного занятия из нескольких видов; null — запись одна. */
+  groupId: string | null;
+  /** Название и цвет вида type='custom' — своё упражнение, которого нет в списке. */
+  customLabel: string | null;
+  customColor: string | null;
+}
+
+/** Своё упражнение, однажды введённое руками — предлагается заново при
+ *  следующей записи и в шаблонах, чтобы не набирать название дважды. */
+export interface ExerciseDef extends BaseEntity {
+  label: string;
+  color: string;
+  hasDistance: boolean;
+  defaultMinutes: number;
+}
+
+/** Один вид внутри шаблона тренировки — слепок полей вида без даты,
+ *  самочувствия и заметки: это то, что нужно ДО занятия, а не после. */
+export interface WorkoutTemplateItem {
+  type: WorkoutType;
+  customLabel: string | null;
+  customColor: string | null;
+  minutes: number;
+  distanceKm: number | null;
+}
+
+/** Шаблон тренировки — набор видов, который выбирают целиком, а потом
+ *  убирают то, что сегодня не делали (WorkoutSheet). */
+export interface WorkoutTemplate extends BaseEntity {
+  name: string;
+  items: WorkoutTemplateItem[];
 }
 
 /** Профиль владельца приложения.

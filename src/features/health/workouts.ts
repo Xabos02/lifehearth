@@ -39,6 +39,38 @@ export function workoutKind(type: WorkoutType): WorkoutKind {
   return WORKOUT_KINDS.find((k) => k.value === type) ?? WORKOUT_KINDS[WORKOUT_KINDS.length - 1];
 }
 
+/** Палитра для своих упражнений — по кругу, чтобы у каждого нового имени была
+ *  своя точка, а не серая «другое» для всех сразу. */
+const CUSTOM_COLORS = [
+  'var(--app-warning)',
+  'oklch(0.66 0.19 45)',
+  'var(--app-frost)',
+  'oklch(0.68 0.13 195)',
+  'var(--app-success)',
+  'var(--focus-accent)',
+];
+
+export function nextCustomColor(existingCount: number): string {
+  return CUSTOM_COLORS[existingCount % CUSTOM_COLORS.length];
+}
+
+/** Вид тренировки для конкретной записи: у встроенных — из справочника, у
+ *  своего упражнения (type='custom') — название и цвет, сохранённые прямо в
+ *  записи (без похода в exerciseDefs — они нужны только для подсказки при
+ *  вводе). */
+export function resolveKind(w: { type: WorkoutType; customLabel?: string | null; customColor?: string | null }): WorkoutKind {
+  if (w.type === 'custom' && w.customLabel) {
+    return {
+      value: 'custom',
+      label: w.customLabel,
+      color: w.customColor ?? 'var(--app-muted)',
+      hasDistance: false,
+      defaultMinutes: 30,
+    };
+  }
+  return workoutKind(w.type);
+}
+
 /** «Как прошло» — четыре слова вместо шкалы 1–10: по шкале люди не
  *  запоминают, что значила семёрка, а «тяжело» помнят. */
 export const EFFORT_LABELS: { value: 1 | 2 | 3 | 4; label: string }[] = [

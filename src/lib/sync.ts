@@ -89,6 +89,8 @@ const SYNCED_TABLES = [
   'taskPhotos',
   'taskFiles',
   'workouts',
+  'exerciseDefs',
+  'workoutTemplates',
 ] as const;
 type SyncedTable = (typeof SYNCED_TABLES)[number];
 const isSynced = (t: string): t is SyncedTable => (SYNCED_TABLES as readonly string[]).includes(t);

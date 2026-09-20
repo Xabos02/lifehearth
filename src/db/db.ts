@@ -22,6 +22,8 @@ import type {
   Metric,
   MetricLog,
   Workout,
+  ExerciseDef,
+  WorkoutTemplate,
   Settings,
   SyncConfig,
   FamilyConfig,
@@ -47,7 +49,7 @@ import type {
 // новую версию схемы. Отстав на две версии (11–12.09), константа пропускала
 // копию с тренировками в сборку, которая о них не знает. Сторож —
 // src/db/schemaVersion.test.ts.
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;
 
 export class LifeHearthDB extends Dexie {
   projects!: Table<Project, string>;
@@ -72,6 +74,8 @@ export class LifeHearthDB extends Dexie {
   metrics!: Table<Metric, string>;
   metricLogs!: Table<MetricLog, string>;
   workouts!: Table<Workout, string>;
+  exerciseDefs!: Table<ExerciseDef, string>;
+  workoutTemplates!: Table<WorkoutTemplate, string>;
   settings!: Table<Settings, string>;
   sync!: Table<SyncConfig, string>;
   family!: Table<FamilyConfig, string>;
@@ -408,6 +412,14 @@ export class LifeHearthDB extends Dexie {
     // периодам; updatedAt — для push синхронизации.
     this.version(23).stores({
       workouts: 'id, date, updatedAt',
+    });
+
+    // v24 — несколько видов в одно занятие (groupId) + свои упражнения и
+    // шаблоны тренировок.
+    this.version(24).stores({
+      workouts: 'id, date, updatedAt, groupId',
+      exerciseDefs: 'id, updatedAt',
+      workoutTemplates: 'id, updatedAt',
     });
   }
 }

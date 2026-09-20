@@ -11,7 +11,7 @@ import { t, tPlural } from '../../lib/i18n';
 import { addDaysKey, dateLocale, fromKey, todayKey } from '../../lib/dates';
 import { updateSettings, useSettings } from '../../hooks/useSettings';
 import type { Workout } from '../../db/types';
-import { DEFAULT_WEEKLY_GOAL, EFFORT_LABELS, PACE_TYPES, workoutKind } from './workouts';
+import { DEFAULT_WEEKLY_GOAL, EFFORT_LABELS, PACE_TYPES, resolveKind } from './workouts';
 import {
   avgIntervalDays,
   byType,
@@ -19,6 +19,7 @@ import {
   formatMinutes,
   lastWorkout,
   paceMinPerKm,
+  sessionCount,
   todayAdvice,
   totals,
   weekProgress,
@@ -52,6 +53,9 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
   const week = weekProgress(workouts, today, goal);
   const monthFrom = today.slice(0, 8) + '01';
   const month = totals(workouts, monthFrom, today);
+  // Занятия, а не отдельные виды: силовая + растяжка одним занятием — одна
+  // тренировка к счётчику, а не две.
+  const monthSessions = sessionCount(workouts, monthFrom, today);
   const days30From = addDaysKey(today, -29);
   const kinds = byType(workouts, days30From, today);
   const interval = avgIntervalDays(workouts, addDaysKey(today, -59), today);
@@ -154,7 +158,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
 
       <div className="flex gap-3">
         <Stat value={String(week.done)} label={t('дней на неделе')} />
-        <Stat value={String(month.count)} label={t('тренировок за месяц')} />
+        <Stat value={String(monthSessions)} label={t('тренировок за месяц')} />
         <Stat value={formatHours(month.minutes, t)} label={t('часов за месяц')} />
       </div>
       <div className="flex gap-3">
@@ -166,10 +170,10 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
         <section className="card p-4">
           <h2 className="mb-2 px-1 text-sm font-semibold text-muted">{t('За 30 дней по видам')}</h2>
           {kinds.map((k) => {
-            const kind = workoutKind(k.type);
+            const kind = resolveKind(k);
             return (
-              <div key={k.type} className="flex items-center gap-3 py-1.5">
-                <span className="w-20 shrink-0 truncate text-sm font-medium">{t(kind.label)}</span>
+              <div key={`${k.type}-${k.customLabel ?? ''}`} className="flex items-center gap-3 py-1.5">
+                <span className="w-20 shrink-0 truncate text-sm font-medium">{k.type === 'custom' ? kind.label : t(kind.label)}</span>
                 <span className="h-2 flex-1 overflow-hidden rounded-full bg-hairline">
                   <span
                     className="block h-full rounded-full"
@@ -223,7 +227,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () => void; withDate?: boolean }) {
-  const kind = workoutKind(w.type);
+  const kind = resolveKind(w);
   const effort = EFFORT_LABELS.find((e) => e.value === w.effort)?.label;
   // Темп для бега и ходьбы: прогресс на 3–5 км — это темп, а не минуты.
   const pace = PACE_TYPES.has(w.type) ? paceMinPerKm(w.minutes, w.distanceKm) : null;
@@ -245,7 +249,7 @@ function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () 
     >
       <span className="size-2.5 shrink-0 rounded-full" style={{ background: kind.color }} aria-hidden />
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{t(kind.label)}</span>
+        <span className="block truncate font-medium">{w.type === 'custom' ? kind.label : t(kind.label)}</span>
         {sub && <span className="block truncate text-xs text-muted">{sub}</span>}
       </span>
       <span className="shrink-0 text-right text-sm tabular-nums">
