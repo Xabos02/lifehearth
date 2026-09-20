@@ -164,6 +164,11 @@ test('импорт CSV из Strava добавляет тренировки и н
 
 test('раздел есть в списке «Главной» и открывается оттуда', async ({ page }) => {
   await openApp(page, '/home');
+  // «Главная» показывает первые HOME_VISIBLE_STEP разделов, остальные — за
+  // «Показать ещё» (1.32.0). «Здоровье» в пятёрку не входит, список надо
+  // раскрыть — как это делает человек.
+  const more = page.getByRole('button', { name: /Показать ещё/ });
+  while (await more.isVisible().catch(() => false)) await more.click();
   await page.getByRole('link', { name: /Здоровье/ }).click();
   await expect(page.getByRole('heading', { name: 'Здоровье' })).toBeVisible();
 });

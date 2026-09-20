@@ -46,6 +46,10 @@ export async function openApp(page: Page, path = '', extraSettings: SeedSettings
         ...prev,
         id: 'app',
         onboardingDone: new Date().toISOString(),
+        // Обязательный шаг приоритета разделов идёт сразу после тура и лежит
+        // поверх всего экрана (SectionsPriorityGate, fixed inset-0): без этой
+        // отметки он перехватывает клики во всех тестах, а не только в своих.
+        sectionsPriorityDone: new Date().toISOString(),
         reinstallNoticeSeen: versions.reinstall,
         lastSeenVersion: versions.app,
         // Женский профиль по умолчанию: без пола приложение закрыто гейтом
