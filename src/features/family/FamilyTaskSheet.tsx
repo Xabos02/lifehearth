@@ -21,14 +21,15 @@ const PRIORITIES: { value: PStr; label: string; dot: string }[] = [
   { value: '3', label: 'Высокий', dot: 'bg-danger' },
 ];
 
-// Напоминание на день без времени: те же пресеты, что у личных «весь день»
-// задач (за N дней, срабатывает утром) — семейные задачи времени не имеют.
+// Напоминание на день без времени: те же пресеты и подписи, что у личных
+// «весь день» задач (TaskEditSheet.formatRemind) — семейные задачи времени не
+// имеют, срабатывает утром.
 const REMIND_PRESETS_ALLDAY = [1440, 2880, 4320, 10080];
 function formatRemindLabel(min: number): string {
-  const d = Math.round(min / 1440);
-  if (d <= 1) return t('за 1 день');
-  if (d < 5) return t('за {d} дня', { d });
-  return t('за {d} дней', { d });
+  if (min === 10080) return t('за {d}', { d: t('неделю') });
+  if (min === 4320) return t('за {d}', { d: t('3 дня') });
+  if (min === 2880) return t('за {d}', { d: t('2 дня') });
+  return t('за {d}', { d: t('1 день') });
 }
 
 interface Props {

@@ -305,6 +305,8 @@ export const EN: Record<string, string> = {
   'К уху': 'Earpiece',
   'Наушники': 'Headphones',
   'Блокировка': 'Lock',
+  'Свернуть звонок': 'Minimize call',
+  'Развернуть звонок: {name}, {status}': 'Expand call: {name}, {status}',
   'Завершить': 'End',
   'Экран заблокирован, чтобы не нажать щекой': "Screen is locked so your cheek won't press anything",
   'Разблокировать управление': 'Unlock controls',
@@ -1569,6 +1571,8 @@ export const EN: Record<string, string> = {
   'Добавить пункт': 'Add item',
   'Запустить фокус': 'Start focus',
   'Удалить задачу?': 'Delete task?',
+  'Без цвета': 'No color',
+  'Напоминание приходит утром, в {time}': 'Reminder arrives in the morning, at {time}',
   'Скопировано': 'Copied',
   'Повторится {date}': 'Repeats {date}',
   'Перенесено на завтра': 'Moved to tomorrow',
@@ -2030,4 +2034,20 @@ export const EN: Record<string, string> = {
   'Напишите задачу в строке выше или нажмите «+». Проекты — папки для задач.': 'Type a task in the line above or tap “+”. Projects are folders for tasks.',
   'Забрать накопленное и убрать цель из списка? История пополнений останется в базе.': 'Take the savings and remove the goal from the list? The deposit history stays in the database.',
   'Это не файл резервной копии LifeHearth: внутри не данные, а что-то другое.': 'This is not a LifeHearth backup file: it holds something other than data.',
+
+  // === Расстановка приоритетов разделов (онбординг + настройки) ===
+  'Показать ещё {n}': 'Show {n} more',
+  'Что для вас важнее всего?': 'What\u2019s most important to you?',
+  'Расставьте разделы по важности — верхние {n} сразу видны на «Главной», остальные откроются по кнопке «Показать ещё». Стрелками меняете порядок, переключателем — скрываете ненужное.':
+    'Arrange sections by importance \u2014 the top {n} are shown right on \u201CHome\u201D, the rest open behind the \u201CShow more\u201D button. Use the arrows to reorder, the switch to hide what you don\u2019t need.',
+  'дальше — за кнопкой «Показать ещё»': 'the rest are behind the \u201CShow more\u201D button',
+  'Поднять «{name}»': 'Move \u201C{name}\u201D up',
+  'Опустить «{name}»': 'Move \u201C{name}\u201D down',
+  'Скрыть раздел {name}': 'Hide {name} section',
+  'Скрыто': 'Hidden',
+  'Показать раздел {name}': 'Show {name} section',
+  'на «Главной» — за кнопкой «Показать ещё»': 'on \u201CHome\u201D \u2014 behind the \u201CShow more\u201D button',
+  'Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Главной») — задержите строку пальцем и перетащите. Номер у раздела — его место в списке «Главной»: первые {home} видны сразу, остальные — за кнопкой «Показать ещё».':
+    'The switch turns a section on and off with a tap. To reorder or move a section across the line into the bottom bar (up to {n} spots, not counting \u201CHome\u201D) \u2014 hold the row and drag it. The number next to a section is its place in the \u201CHome\u201D list: the first {home} are shown right away, the rest are behind the \u201CShow more\u201D button.',
+  'Расстановка приоритетов': 'Priority ranking',
 };
