@@ -10,6 +10,9 @@
 //    двигался, синхронизация вставала навсегда.
 // 4. У habitLogs уникальный индекс &[habitId+date] при случайных id: отметка
 //    привычки с двух устройств давала ConstraintError, запись молча терялась.
+// 5. Курсор приёма был меткой времени правки с часов устройства-автора:
+//    запись, пришедшая на сервер позже более свежей, для остальных устройств
+//    пропадала навсегда. Теперь это порядковый номер прихода (nextAfter).
 
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -41,7 +44,7 @@ function mockFetch(handler: FetchStub) {
 /** Пустой pull + приём push с накоплением отправленных записей. */
 function mockQuietNetwork(pushedOut?: { table: string; id: string; updatedAt: string }[]) {
   mockFetch((url, init) => {
-    if (url.includes('/sync/pull')) return jsonRes({ records: [], hasMore: false, nextSince: '' });
+    if (url.includes('/sync/pull')) return jsonRes({ records: [], hasMore: false, nextAfter: 0 });
     if (url.includes('/sync/push')) {
       if (pushedOut && init?.body) {
         pushedOut.push(...(JSON.parse(String(init.body)) as { records: typeof pushedOut }).records);
@@ -113,22 +116,45 @@ describe('курсор push', () => {
 });
 
 describe('критическая секция runSync', () => {
-  it('конкурентный вызов не запускает второй цикл', async () => {
+  it('конкурентный вызов не запускает второй цикл параллельно — он идёт следом', async () => {
     await seedSync();
     let pullCalls = 0;
+    let inFlight = 0;
+    let maxInFlight = 0;
     mockFetch(async (url) => {
       if (url.includes('/sync/pull')) {
         pullCalls++;
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
         await new Promise((res) => setTimeout(res, 20)); // держим цикл занятым
-        return jsonRes({ records: [], hasMore: false, nextSince: '' });
+        inFlight--;
+        return jsonRes({ records: [], hasMore: false, nextAfter: 0 });
       }
       return jsonRes({ ok: true });
     });
 
     const [a, b] = await Promise.all([runSync(), runSync()]);
-    // Ровно один цикл дошёл до сети, второй вызов вышел по флагу.
-    expect(pullCalls).toBe(1);
+    // Второй вызов вышел по флагу — гонки курсоров нет. Но просьба не
+    // пропала: первый цикл, закончив, прогнал ещё один круг. Раньше такой
+    // вызов терялся, и правка, сделанная во время обмена (или чужая, о
+    // которой сообщил сокет), ждала следующего повода — до минуты.
+    expect(maxInFlight).toBe(1);
+    expect(pullCalls).toBe(2);
     expect([a, b].filter(Boolean)).toHaveLength(1);
+  });
+
+  it('вызов после конца цикла новых кругов не плодит', async () => {
+    await seedSync();
+    let pullCalls = 0;
+    mockFetch(async (url) => {
+      if (url.includes('/sync/pull')) {
+        pullCalls++;
+        return jsonRes({ records: [], hasMore: false, nextAfter: 0 });
+      }
+      return jsonRes({ ok: true });
+    });
+    await runSync();
+    expect(pullCalls).toBe(1);
   });
 });
 
@@ -146,7 +172,7 @@ describe('ядовитая запись в pull', () => {
             { table: 'notes', id: 'n-ok', updatedAt: t, deletedAt: null, ciphertext: good },
           ],
           hasMore: false,
-          nextSince: `${t}|n-ok`,
+          nextAfter: 7,
         });
       return jsonRes({ ok: true });
     });
@@ -157,7 +183,7 @@ describe('ядовитая запись в pull', () => {
     expect(r?.pulled).toBe(1);
     expect(await db.notes.get('n-ok')).toBeTruthy();
     const c = await getSyncConfig();
-    expect(c?.lastPullAt).toBe(`${t}|n-ok`);
+    expect(c?.lastPullSeq).toBe(7);
   });
 });
 
@@ -173,7 +199,7 @@ describe('конфликт habitLogs по [habitId+date]', () => {
         return jsonRes({
           records: [{ table: 'habitLogs', id: 'remote', updatedAt: newer, deletedAt: null, ciphertext: ct }],
           hasMore: false,
-          nextSince: `${newer}|remote`,
+          nextAfter: 3,
         });
       return jsonRes({ ok: true });
     });
@@ -196,7 +222,7 @@ describe('конфликт habitLogs по [habitId+date]', () => {
         return jsonRes({
           records: [{ table: 'habitLogs', id: 'remote', updatedAt: older, deletedAt: null, ciphertext: ct }],
           hasMore: false,
-          nextSince: `${older}|remote`,
+          nextAfter: 3,
         });
       return jsonRes({ ok: true });
     });
@@ -212,7 +238,7 @@ describe('конфликт energyLogs по date', () => {
   // день». Та же ловушка, что у привычек, но разрешения конфликта для неё не
   // было: put падал с ConstraintError, а ConstraintError не считается
   // «ядовитой записью», значит pullPage бросал ошибку дальше и курсор
-  // lastPullAt не двигался. Синхронизация вставала НАВСЕГДА и молча — вместе
+  // курсор не двигался. Синхронизация вставала НАВСЕГДА и молча — вместе
   // с задачами, заметками, целями и финансами.
   it('входящая свежее — локальный дубль снимается, синк не встаёт', async () => {
     const key = await seedSync();
@@ -225,7 +251,7 @@ describe('конфликт energyLogs по date', () => {
         return jsonRes({
           records: [{ table: 'energyLogs', id: 'remote', updatedAt: newer, deletedAt: null, ciphertext: ct }],
           hasMore: false,
-          nextSince: `${newer}|remote`,
+          nextAfter: 3,
         });
       return jsonRes({ ok: true });
     });
@@ -236,7 +262,7 @@ describe('конфликт energyLogs по date', () => {
     expect(await db.energyLogs.get('local')).toBeUndefined();
     // И главное: курсор уехал вперёд, то есть следующий цикл пойдёт дальше.
     const c = await getSyncConfig();
-    expect(c?.lastPullAt).toBe(`${newer}|remote`);
+    expect(c?.lastPullSeq).toBe(3);
   });
 
   it('локальная свежее — входящая игнорируется', async () => {
@@ -250,7 +276,7 @@ describe('конфликт energyLogs по date', () => {
         return jsonRes({
           records: [{ table: 'energyLogs', id: 'remote', updatedAt: older, deletedAt: null, ciphertext: ct }],
           hasMore: false,
-          nextSince: `${older}|remote`,
+          nextAfter: 3,
         });
       return jsonRes({ ok: true });
     });
@@ -276,7 +302,7 @@ describe('конфликт energyLogs по date', () => {
         return jsonRes({
           records: [{ table: 'energyLogs', id: 'remote', updatedAt: newer, deletedAt: null, ciphertext: ct }],
           hasMore: false,
-          nextSince: `${newer}|remote`,
+          nextAfter: 3,
         });
       return jsonRes({ ok: true });
     });
@@ -499,7 +525,7 @@ describe('перечитывание истории не теряет прогр
           return jsonRes({
             records: [{ table: 'notes', id: 'n1', updatedAt: t1, deletedAt: null, ciphertext: ct }],
             hasMore: true,
-            nextSince: `${t1}|n1`,
+            nextAfter: 1,
           });
         }
         // Вторая страница не доехала — обрыв связи.
@@ -514,7 +540,7 @@ describe('перечитывание истории не теряет прогр
     // а не начнёт всё сначала.
     expect(await db.notes.get('n1')).toBeTruthy();
     const c = await getSyncConfig();
-    expect(c?.lastPullAt).toBe(`${t1}|n1`);
+    expect(c?.lastPullSeq).toBe(1);
   });
 });
 
@@ -549,7 +575,7 @@ describe('страница входящих применяется одной п
 
     mockFetch((url) => {
       if (url.includes('/sync/pull'))
-        return jsonRes({ records, hasMore: false, nextSince: `${records[11].updatedAt}|t11` });
+        return jsonRes({ records, hasMore: false, nextAfter: 12 });
       return jsonRes({ ok: true });
     });
 
@@ -577,7 +603,7 @@ describe('страница входящих применяется одной п
             { table: 'tasks', id: 'ok', updatedAt: t, deletedAt: null, ciphertext: good },
           ],
           hasMore: false,
-          nextSince: `${t}|ok`,
+          nextAfter: 2,
         });
       return jsonRes({ ok: true });
     });
@@ -586,5 +612,270 @@ describe('страница входящих применяется одной п
     expect(r?.skipped).toBe(1);
     expect(await db.tasks.get('ok')).toBeTruthy();
     expect(await db.tasks.get('bad')).toBeUndefined();
+  });
+});
+
+describe('курсор приёма — порядок прихода на сервер', () => {
+  it('спрашивает сервер по after, двигает lastPullSeq и представляется устройством', async () => {
+    const key = await seedSync();
+    // knownTables ставит первый же круг — иначе защита от новых таблиц
+    // честно перечитает всё с нуля, и after=40 не дойдёт до сервера.
+    mockQuietNetwork();
+    await runSync();
+    await patchSyncConfig({ lastPullSeq: 40 });
+    const ct = await encryptJSON(key, {
+      id: 'late',
+      title: 'Ночная задача',
+      updatedAt: '2026-09-18T01:00:00.000Z',
+      deletedAt: null,
+    });
+    const urls: string[] = [];
+    mockFetch((url) => {
+      if (url.includes('/sync/pull')) {
+        urls.push(url);
+        // Метка записи СТАРЕЕ всего, что устройство уже видело, — но пришла
+        // она позже (seq 41 > 40), и по seq её видно. По времени — не было бы.
+        return jsonRes({
+          records: [{ table: 'tasks', id: 'late', updatedAt: '2026-09-18T01:00:00.000Z', deletedAt: null, ciphertext: ct }],
+          hasMore: false,
+          nextAfter: 41,
+        });
+      }
+      return jsonRes({ ok: true });
+    });
+
+    const r = await runSync();
+    expect(r?.pulled).toBe(1);
+    expect(urls[0]).toContain('/sync/pull?after=40');
+    expect(await db.tasks.get('late')).toBeTruthy();
+    const c = await getSyncConfig();
+    expect(c?.lastPullSeq).toBe(41);
+    // Имя устройства выдано при первом обмене и едет в строке запроса (не
+    // заголовком: новый заголовок — новый preflight, и приложение, обновившееся
+    // раньше сервера, ломалось бы целиком) — сервер по нему не отдаёт
+    // устройству его же записи.
+    expect(c?.deviceId).toMatch(/^[A-Za-z0-9_-]{8,}$/);
+    expect(urls[0]).toContain(`&device=${c?.deviceId}`);
+  });
+
+  it('конфиг без lastPullSeq (старое приложение) читает с нуля — один раз', async () => {
+    await seedSync();
+    // knownTables должен быть на месте, иначе сработает другая защита (новые
+    // таблицы → перечитать всё) и до фолбэка `?? 0` дело не дойдёт вовсе.
+    mockQuietNetwork();
+    await runSync();
+    const c = await getSyncConfig();
+    await db.sync.put({ ...c, lastPullSeq: undefined } as never);
+    const urls: string[] = [];
+    mockFetch((url) => {
+      if (url.includes('/sync/pull')) {
+        urls.push(url);
+        return jsonRes({ records: [], hasMore: false, nextAfter: 40 });
+      }
+      return jsonRes({ ok: true });
+    });
+    await runSync();
+    expect(urls[0]).toContain('after=0');
+    expect((await getSyncConfig())?.lastPullSeq).toBe(40);
+  });
+
+  it('сервер без nextAfter (ещё не обновился) курсор по seq не ломает, а по времени двигает', async () => {
+    // Старый сервер читает только since: без него он отдавал бы всю историю
+    // на каждом опросе, пока не выкатится. Поэтому прежний курсор едет рядом
+    // с новым и двигается по старому ответу.
+    await seedSync();
+    mockQuietNetwork();
+    await runSync(); // knownTables
+    await patchSyncConfig({ lastPullSeq: 5, lastPullAt: '2026-09-18T01:00:00.000Z|a' });
+    const urls: string[] = [];
+    let pulls = 0;
+    mockFetch((url) => {
+      if (url.includes('/sync/pull')) {
+        urls.push(url);
+        pulls++;
+        return jsonRes({ records: [], hasMore: pulls === 1, nextSince: pulls === 1 ? 'x|y' : 'x|z' });
+      }
+      return jsonRes({ ok: true });
+    });
+    await runSync();
+    const c = await getSyncConfig();
+    expect(c?.lastPullSeq).toBe(5);
+    expect(c?.lastPullAt).toBe('x|z');
+    expect(urls[0]).toContain('since=2026-09-18T01%3A00%3A00.000Z%7Ca');
+    expect(urls[1]).toContain('since=x%7Cy'); // вторая страница — с курсора первой
+  });
+});
+
+describe('отправка перед уходом в фон', () => {
+  it('flushSyncNow отправляет накопленное сразу, не дожидаясь паузы', async () => {
+    const { scheduleSyncSoon, flushSyncNow } = await import('./sync');
+    await seedSync();
+    const past = new Date(Date.now() - 1000).toISOString();
+    await db.tasks.put({ id: 't-bg', title: 'перед блокировкой', updatedAt: past, deletedAt: null } as never);
+    const sent: { table: string; id: string; updatedAt: string }[] = [];
+    const order: string[] = [];
+    let keepalive: boolean | undefined;
+    mockFetch((url, init) => {
+      if (url.includes('/sync/pull')) {
+        order.push('pull');
+        return jsonRes({ records: [], hasMore: false, nextAfter: 0 });
+      }
+      if (url.includes('/sync/push')) {
+        order.push('push');
+        keepalive = init?.keepalive;
+        sent.push(...(JSON.parse(String(init?.body)) as { records: typeof sent }).records);
+        return jsonRes({ ok: true });
+      }
+      throw new Error(`неожиданный запрос: ${url}`);
+    });
+    scheduleSyncSoon();
+    flushSyncNow();
+    // Дождаться ВСЕГО круга (отправка, потом приём): он стартовал из
+    // flushSyncNow без ожидания, и оборванный на середине круг ушёл бы в
+    // следующие тесты с настоящей сетью.
+    for (let i = 0; i < 100 && order.length < 2; i++) await new Promise((res) => setTimeout(res, 10));
+    expect(sent.map((s) => s.id)).toEqual(['t-bg']);
+    // Маленькая пачка едет с keepalive — доедет и из свёрнутого приложения.
+    expect(keepalive).toBe(true);
+    // И отправка идёт ПЕРВОЙ: приём перед ней iPhone мог бы уже не дождаться.
+    expect(order).toEqual(['push', 'pull']);
+  });
+
+  it('без накопленного flushSyncNow ничего не запускает', async () => {
+    const { flushSyncNow } = await import('./sync');
+    await seedSync();
+    let calls = 0;
+    mockFetch(() => {
+      calls++;
+      return jsonRes({ records: [], hasMore: false, nextAfter: 0 });
+    });
+    flushSyncNow();
+    await new Promise((res) => setTimeout(res, 30));
+    expect(calls).toBe(0);
+  });
+});
+
+describe('просьба о повторном круге не теряется', () => {
+  it('вызов в хвосте цикла (после кругов, до конца) даёт новый цикл', async () => {
+    await seedSync();
+    let pullCalls = 0;
+    let kicked = false;
+    mockFetch((url) => {
+      if (url.includes('/sync/pull')) pullCalls++;
+      return jsonRes({ records: [], hasMore: false, nextAfter: 0, ok: true });
+    });
+    // Хвост цикла — запись lastSyncedAt. Ловим её и просим ещё круг ровно там:
+    // раньше finally стирал флаг, и сигнал сокета откатывался к минутному опросу.
+    const realPut = db.sync.put.bind(db.sync);
+    vi.spyOn(db.sync, 'put').mockImplementation(((obj: { lastSyncedAt?: string }, key?: string) => {
+      if (!kicked && obj.lastSyncedAt && obj.lastSyncedAt !== '') {
+        kicked = true;
+        void runSync();
+      }
+      return realPut(obj as never, key as never);
+    }) as never);
+    await runSync();
+    for (let i = 0; i < 50 && pullCalls < 2; i++) await new Promise((res) => setTimeout(res, 10));
+    expect(kicked).toBe(true);
+    expect(pullCalls).toBe(2);
+  });
+});
+
+describe('эхо: принятое с сервера не уезжает обратно', () => {
+  it('запись, применённая по pull, в следующую отправку не попадает; правленная — попадает', async () => {
+    const key = await seedSync();
+    mockQuietNetwork();
+    await runSync(); // knownTables и курсоры на месте
+    // Чужая правка СВЕЖЕЕ нашего прошлого круга — обычное дело: именно так
+    // её метка и попадает в наше окно отправки.
+    await new Promise((res) => setTimeout(res, 5));
+    const t = new Date().toISOString();
+    const ct = await encryptJSON(key, { id: 'echo', title: 'чужая', updatedAt: t, deletedAt: null });
+    const sent: { id: string }[] = [];
+    let served = false;
+    mockFetch((url, init) => {
+      if (url.includes('/sync/pull')) {
+        if (served) return jsonRes({ records: [], hasMore: false, nextAfter: 5 });
+        served = true;
+        return jsonRes({
+          records: [{ table: 'tasks', id: 'echo', updatedAt: t, deletedAt: null, ciphertext: ct }],
+          hasMore: false,
+          nextAfter: 5,
+        });
+      }
+      sent.push(...(JSON.parse(String(init?.body)) as { records: { id: string }[] }).records);
+      return jsonRes({ ok: true });
+    });
+    await runSync();
+    expect(await db.tasks.get('echo')).toBeTruthy();
+    // Метка чужой правки попадает в окно отправки — но это та же строка, что
+    // пришла: уезжать обратно (с фотографиями по сотням килобайт) ей незачем.
+    expect(sent.map((r) => r.id)).not.toContain('echo');
+    // А правленная здесь получает новую метку и едет как положено. Правим
+    // напрямую в базе, а не через repo: тот заводит таймер отложенной
+    // отправки, который пережил бы тест и выстрелил бы в соседнем.
+    await db.tasks.update('echo', { title: 'моя', updatedAt: new Date().toISOString() });
+    await runSync();
+    expect(sent.map((r) => r.id)).toContain('echo');
+  });
+});
+
+describe('имя устройства', () => {
+  it('два одновременных запроса имени дают одно имя — то, что сохранено', async () => {
+    // Первый обмен после обновления зовёт выдачу сразу из двух мест: круг
+    // обмена и живое соединение. Без общей выдачи у устройства было бы два
+    // имени, и сервер отдавал бы ему его же записи.
+    const { ensureDeviceId } = await import('./sync');
+    await seedSync();
+    const c = (await getSyncConfig())!;
+    const [a, b] = await Promise.all([ensureDeviceId(c), ensureDeviceId(c)]);
+    expect(a.deviceId).toBeTruthy();
+    expect(a.deviceId).toBe(b.deviceId);
+    expect((await getSyncConfig())?.deviceId).toBe(a.deviceId);
+  });
+});
+
+describe('полное перечитывание', () => {
+  it('сбрасывает курсоры и меняет имя устройства — сервер отдаст прежние свои записи как чужие', async () => {
+    const { requestFullResync } = await import('./sync');
+    await seedSync();
+    mockQuietNetwork();
+    await runSync();
+    const before = await getSyncConfig();
+    await patchSyncConfig({ lastPullSeq: 77 });
+    await requestFullResync();
+    const after = await getSyncConfig();
+    expect(after?.lastPullSeq).toBe(0);
+    expect(after?.lastPushAt).toBe('');
+    expect(after?.deviceId).toBeTruthy();
+    expect(after?.deviceId).not.toBe(before?.deviceId);
+  });
+
+  it('просьба во время идущего круга не перезаписывается его курсорами', async () => {
+    const { requestFullResync } = await import('./sync');
+    await seedSync();
+    mockQuietNetwork();
+    await runSync();
+    const urls: string[] = [];
+    let resolvePull: (() => void) | null = null;
+    let pulls = 0;
+    mockFetch(async (url) => {
+      if (url.includes('/sync/pull')) {
+        urls.push(url);
+        pulls++;
+        if (pulls === 1) await new Promise<void>((r) => (resolvePull = r)); // первый круг завис на приёме
+        return jsonRes({ records: [], hasMore: false, nextAfter: 33 });
+      }
+      return jsonRes({ ok: true });
+    });
+    const first = runSync();
+    for (let i = 0; i < 50 && !resolvePull; i++) await new Promise((res) => setTimeout(res, 5));
+    await requestFullResync(); // пока круг идёт
+    resolvePull!();
+    await first;
+    // Круг дописал бы lastPullSeq=33 поверх сброса — но сброс повторился в
+    // его следующем круге, и тот пошёл с нуля.
+    expect(urls.length).toBeGreaterThanOrEqual(2);
+    expect(urls[urls.length - 1]).toContain('after=0');
   });
 });

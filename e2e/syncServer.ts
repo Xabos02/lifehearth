@@ -4,9 +4,14 @@ import type { Route } from '@playwright/test';
 // «правка → отправка → приём → экран». Настоящий сервер трогать нельзя: там
 // живые данные семьи, и однажды тесты уже выжгли ему дневной лимит.
 //
-// Протокол повторён по воркеру: составной курсор «updatedAt|id»,
-// last-write-wins по updatedAt, /account/check отвечает про существование
-// аккаунта и НЕ регистрирует незнакомый.
+// Протокол повторён по воркеру: курсор — порядковый номер прихода записи на
+// сервер (seq, migrations/0007), а не время правки; устройство называет себя
+// в строке запроса (pull) и в теле (push) и свои записи обратно не получает,
+// но курсор мимо них двигается; last-write-wins по
+// updatedAt; /account/check отвечает про существование аккаунта и НЕ
+// регистрирует незнакомый. Живой сигнал (/sync/ticket, сокет) тут не
+// поднимается: тесты зовут runSync сами, а тикет получает 404 — как от сервера
+// без этой возможности, клиент это переживает молча.
 
 interface Rec {
   table: string;
@@ -18,8 +23,9 @@ interface Rec {
 
 /** Общий на оба устройства «сервер»: хранит шифротексты и отдаёт дельту. */
 export function makeServer(opts: { accountExists?: boolean } = {}) {
-  const rows = new Map<string, Rec>();
+  const rows = new Map<string, Rec & { seq: number; device: string }>();
   const keyOf = (r: Rec) => `${r.table}:${r.id}`;
+  let seq = 0;
   let pushes = 0;
   let pulls = 0;
 
@@ -29,34 +35,37 @@ export function makeServer(opts: { accountExists?: boolean } = {}) {
 
     if (url.pathname === '/sync/push') {
       pushes++;
-      const body = JSON.parse(req.postData() ?? '{}') as { records?: Rec[] };
+      const body = JSON.parse(req.postData() ?? '{}') as { records?: Rec[]; device?: string };
+      const device = body.device ?? '';
       for (const r of body.records ?? []) {
         const prev = rows.get(keyOf(r));
-        // Тот же ON CONFLICT, что у воркера: побеждает более свежая правка.
-        if (!prev || r.updatedAt > prev.updatedAt) rows.set(keyOf(r), r);
+        // Тот же ON CONFLICT, что у воркера: побеждает более свежая правка, и
+        // она получает следующий номер — по нему её и прочитают остальные.
+        if (!prev || r.updatedAt > prev.updatedAt) rows.set(keyOf(r), { ...r, seq: ++seq, device });
       }
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
     }
 
     if (url.pathname === '/sync/pull') {
       pulls++;
-      const since = url.searchParams.get('since') ?? '';
-      const sep = since.indexOf('|');
-      const su = sep >= 0 ? since.slice(0, sep) : since;
-      const sid = sep >= 0 ? since.slice(sep + 1) : '';
-      const out = [...rows.values()]
-        .filter((r) => r.updatedAt > su || (r.updatedAt === su && r.id > sid))
-        .sort((a, b) =>
-          a.updatedAt === b.updatedAt ? a.id.localeCompare(b.id) : a.updatedAt.localeCompare(b.updatedAt),
-        );
-      const last = out[out.length - 1];
+      const after = Number(url.searchParams.get('after') ?? '0') || 0;
+      const device = url.searchParams.get('device') ?? '';
+      const scanned = [...rows.values()].filter((r) => r.seq > after).sort((a, b) => a.seq - b.seq);
+      const out = scanned.filter((r) => !device || r.device !== device);
+      const last = scanned[scanned.length - 1];
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          records: out,
+          records: out.map((r) => ({
+            table: r.table,
+            id: r.id,
+            updatedAt: r.updatedAt,
+            deletedAt: r.deletedAt,
+            ciphertext: r.ciphertext,
+          })),
           hasMore: false,
-          nextSince: last ? `${last.updatedAt}|${last.id}` : since,
+          nextAfter: last ? last.seq : after,
         }),
       });
     }

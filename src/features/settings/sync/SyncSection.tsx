@@ -10,8 +10,8 @@ import {
 import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/toastContext';
 import { db } from '../../../db/db';
-import { getSyncConfig, patchSyncConfig } from '../../../lib/syncState';
-import { createSyncAccount, disableSync, runSync } from '../../../lib/sync';
+import { getSyncConfig } from '../../../lib/syncState';
+import { createSyncAccount, disableSync, requestFullResync, runSync } from '../../../lib/sync';
 import { PairingSheet } from './PairingSheet';
 import { RecoveryKeySheet } from './RecoveryKeySheet';
 import { t } from '../../../lib/i18n';
@@ -106,9 +106,12 @@ export function SyncSection() {
       return;
     setBusy(true);
     try {
-      await patchSyncConfig({ lastPullAt: '', lastPushAt: '' });
+      await requestFullResync();
       const r = await runSync();
       if (r) toast(t('Синхронизировано · получено {pulled}, отправлено {pushed}', { pulled: r.pulled, pushed: r.pushed }));
+      // Круг уже шёл — он и перечитает (сброс повторится в его следующем
+      // круге), а сюда счётчиков не вернётся.
+      else toast(t('Перечитывание идёт — обмен уже был запущен'));
     } catch {
       toast(t('Не удалось синхронизировать. Проверьте связь и попробуйте ещё раз'));
     } finally {

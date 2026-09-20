@@ -13,7 +13,7 @@ import { importBackup, exportBackup } from './backup';
 import { getSyncConfig } from '../lib/syncState';
 import { generateKey } from '../lib/crypto';
 
-async function seedSyncConfig(cursors: { lastPullAt: string; lastPushAt: string }) {
+async function seedSyncConfig(cursors: { lastPullAt: string; lastPushAt: string; lastPullSeq?: number; deviceId?: string }) {
   await db.sync.put({
     id: 'config',
     accountId: 'acc-1',
@@ -33,6 +33,8 @@ describe('восстановление из копии и синхронизац
 
   it('сбрасывает оба курсора — иначе данные после снапшота теряются навсегда', async () => {
     await seedSyncConfig({
+      deviceId: 'dev-old',
+      lastPullSeq: 417,
       lastPullAt: '2026-08-20T10:00:00.000Z|x',
       lastPushAt: '2026-08-20T10:00:00.000Z',
     });
@@ -41,8 +43,13 @@ describe('восстановление из копии и синхронизац
     await importBackup(backup);
 
     const c = await getSyncConfig();
+    expect(c?.lastPullSeq).toBe(0);
     expect(c?.lastPullAt).toBe('');
     expect(c?.lastPushAt).toBe('');
+    // И имя устройства новое: сервер не отдаёт устройству его же записи, а
+    // после восстановления старой копии их-то и нет.
+    expect(c?.deviceId).toBeTruthy();
+    expect(c?.deviceId).not.toBe('dev-old');
     // Остальное в настройках обмена не тронуто — устройство остаётся
     // подключённым к тому же аккаунту.
     expect(c?.accountId).toBe('acc-1');

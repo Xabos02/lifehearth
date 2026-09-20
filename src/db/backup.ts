@@ -217,9 +217,13 @@ export async function importBackup(b: BackupFile): Promise<void> {
   //
   // Сброс безопасен по той же причине, что и в rewindIfTablesGrew: запись
   // применяется, только если она свежее локальной. Цена — один полный обмен.
+  //
+  // Вместе с курсорами меняется и имя устройства: сервер не отдаёт устройству
+  // его же записи, а после восстановления старой копии их-то и нет —
+  // см. requestFullResync.
   try {
-    const { patchSyncConfig } = await import('../lib/syncState');
-    await patchSyncConfig({ lastPullAt: '', lastPushAt: '' });
+    const { requestFullResync } = await import('../lib/sync');
+    await requestFullResync();
   } catch {
     /* синхронизация не настроена — сбрасывать нечего */
   }

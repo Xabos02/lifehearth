@@ -3,10 +3,12 @@
 //   /health                  — проверка живости
 //   /schedule, /cancel       — напоминания (push), KV REMINDERS
 //   /sync/push, /sync/pull   — синхронизация записей, D1 (только шифротекст)
+//   /sync/ticket, /sync/ws   — живой сигнал «есть чужие правки» (SyncHub)
 // Cron (раз в минуту): шлёт пуши, у которых наступило время.
 
 import { buildPushRequest } from './webpush.js';
 export { FamilyRoom } from './familyRoom.js';
+export { SyncHub } from './syncHub.js';
 
 const corsHeaders = (origin) => ({
   'Access-Control-Allow-Origin': origin,
@@ -61,6 +63,132 @@ const PULL_LIMIT = 500;
 // безопасно — остаток приедет следующей.
 const PULL_MAX_BYTES = 3 * 1024 * 1024;
 
+/** Страница выборки: не длиннее PULL_LIMIT и не тяжелее PULL_MAX_BYTES.
+ *  Режем по объёму, но всегда отдаём хотя бы одну запись: иначе единственный
+ *  кусок больше потолка встал бы намертво. Строки — как их отдаёт SELECT,
+ *  шифротекст в поле c. */
+function cutPage(rows) {
+  let hasMore = rows.length > PULL_LIMIT;
+  let page = hasMore ? rows.slice(0, PULL_LIMIT) : rows;
+  let bytes = 0;
+  for (let i = 0; i < page.length; i++) {
+    bytes += (page[i].c || '').length;
+    if (bytes > PULL_MAX_BYTES && i > 0) {
+      page = page.slice(0, i);
+      hasMore = true;
+      break;
+    }
+  }
+  return { page, hasMore };
+}
+
+/** Устройство-автор: случайный id, который приложение держит в настройках
+ *  обмена. Не секрет и не личность — только чтобы не отдавать устройству его
+ *  же записи и не будить его же сокет. Едет в строке запроса (pull) и в теле
+ *  (push), а не заголовком: новый заголовок — новый preflight, и клиент,
+ *  обновившийся раньше сервера, ломался бы целиком вместо того, чтобы
+ *  работать по-старому. Пусто — старое приложение или мусор. */
+function deviceOf(value) {
+  const d = typeof value === 'string' ? value : '';
+  return /^[A-Za-z0-9_-]{1,64}$/.test(d) ? d : '';
+}
+
+// Колонки seq/device_id (migrations/0007) заводим лениво, как таблицу
+// резервных копий: воркер деплоится из CI при push в main, меняющем
+// worker/**, а миграция D1 — отдельная ручная команда, и порядок «сначала
+// миграция, потом деплой» ничем не гарантирован. Без колонки новый INSERT ронял бы /sync/push всем
+// аккаунтам. Проверка — раз на изолят; применённое отмечаем в d1_migrations,
+// чтобы `wrangler d1 migrations apply` потом не пытался добавить колонку
+// второй раз (ALTER ADD COLUMN не идемпотентен).
+let recordsSchemaReady = false;
+async function ensureRecordsSchema(env) {
+  if (recordsSchemaReady) return;
+  // Проба колонок обычным SELECT, а не PRAGMA: набор PRAGMA в D1 ограничен,
+  // а ошибка здесь уронила бы весь обмен.
+  const probe = () =>
+    env.DB.prepare('SELECT seq, device_id FROM records LIMIT 0')
+      .all()
+      .then(() => true)
+      .catch(() => false);
+  if (!(await probe())) {
+    // Одной транзакцией: между добавлением колонки и нумерацией не должно
+    // быть щели, в которую соседний изолят вставит запись с seq = 1 —
+    // меньше всех бэкфилл-номеров и невидимую для курсоров, ушедших вперёд.
+    // Соседний изолят, успевший первым, роняет наш ALTER — тогда вся пачка
+    // откатывается, а схема уже на месте.
+    try {
+      await env.DB.batch([
+        env.DB.prepare('ALTER TABLE records ADD COLUMN seq INTEGER NOT NULL DEFAULT 0'),
+        env.DB.prepare('ALTER TABLE records ADD COLUMN device_id TEXT'),
+        env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_records_seq ON records (account_id, seq)'),
+        // rowid — порядок первой вставки, лучшее приближение для уже лежащих.
+        env.DB.prepare('UPDATE records SET seq = rowid WHERE seq = 0'),
+      ]);
+    } catch {
+      /* колонки уже добавил соседний изолят (или миграция) */
+    }
+    try {
+      await env.DB.prepare('INSERT OR IGNORE INTO d1_migrations (name) VALUES (?)').bind('0007_records_seq.sql').run();
+    } catch {
+      /* таблицы учёта миграций нет — значит, миграции здесь не применяли вовсе */
+    }
+    // Готовой схему считаем только по повторной пробе: проба могла упасть не
+    // из-за колонок, а из-за самой D1 (минутная недоступность), и тогда
+    // «готово» залипло бы на весь срок жизни изолята, а каждая вставка
+    // падала бы на «no such column». Не готово — этот запрос падает, а
+    // следующий пробует заново.
+    if (!(await probe())) throw new Error('records schema not ready');
+  }
+  recordsSchemaReady = true;
+}
+
+/** Записи с seq = 0 — вставленные старым кодом воркера после появления
+ *  колонки (несколько секунд выкатки, пока живы оба изолята). Курсор по seq
+ *  их не увидел бы никогда. Нумеруем их выше максимума аккаунта, в порядке
+ *  вставки; идёт первым выражением в пачке push, чтобы следующие вставки
+ *  считали MAX уже с ними. Когда таких строк нет — пустой UPDATE по индексу
+ *  (account_id, seq).
+ *
+ *  Известное ограничение того же окна: старый код, ОБНОВЛЯЯ существующую
+ *  запись, номер не трогает — такая правка остаётся под старым seq и не
+ *  дойдёт до устройств, чей курсор его уже прошёл, до следующей правки той
+ *  же записи или «Перечитать всё заново». Лекарства внутри воркера нет: старый
+ *  код о seq не знает. Окно — секунды одной выкатки, и только если в эти
+ *  секунды кто-то правил.
+ *
+ *  MAX + rowid, а не MAX + ранг: ранг считался коррелированным подзапросом по
+ *  «seq = 0», а строки выпадают из этого условия по мере обновления — и все
+ *  получали один номер (проверено на sqlite3). rowid уникален, поэтому номера
+ *  различны и растут по порядку вставки при любом способе вычисления MAX —
+ *  разом или на каждую строку. Дыры в нумерации ничему не мешают. */
+function repairUnsequenced(env, accountId) {
+  return env.DB.prepare(
+    `UPDATE records
+     SET seq = (SELECT COALESCE(MAX(seq), 0) FROM records r WHERE r.account_id = ?) + rowid
+     WHERE account_id = ? AND seq = 0`,
+  ).bind(accountId, accountId);
+}
+
+/** SyncHub аккаунта — один объект на аккаунт, имя = accountId. */
+function hubOf(env, accountId) {
+  return env.SYNC_HUB.get(env.SYNC_HUB.idFromName(accountId));
+}
+
+/** Разбудить остальные устройства аккаунта после записи. Сигнал — не
+ *  транспорт: не дошёл — опрос доберёт, поэтому любую ошибку глотаем. */
+async function notifyHub(env, accountId, by) {
+  if (!env.SYNC_HUB) return;
+  try {
+    await hubOf(env, accountId).fetch('https://hub/sync/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ by }),
+    });
+  } catch {
+    /* объект недоступен — опрос доберёт */
+  }
+}
+
 // Таблицу резервных копий создаём лениво (миграции D1 в этом проекте применяются
 // вручную; ленивое создание убирает этот шаг — фича работает сразу после деплоя).
 let backupTableReady = false;
@@ -104,7 +232,7 @@ async function ensureBackupTable(env) {
 const PAIR_TTL_MS = 15 * 60_000;
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const origin = env.ALLOW_ORIGIN || '*';
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
 
@@ -295,31 +423,106 @@ export default {
       if (url.pathname === '/sync/push' && request.method === 'POST') {
         const accountId = await authAccount(request, env);
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
-        const { records } = await request.json();
+        const body = await request.json();
+        const records = body?.records;
         if (!Array.isArray(records)) return json({ error: 'bad request' }, 400, origin);
+        const deviceId = deviceOf(body?.device);
+        await ensureRecordsSchema(env);
 
+        // seq — порядковый номер прихода на сервер, по нему устройства читают
+        // (см. migrations/0007). Считается в самой вставке: пачка идёт одной
+        // транзакцией, каждое следующее выражение видит предыдущее, поэтому
+        // номера растут строго по порядку. Отвергнутая правка (на сервере
+        // свежее) номер не тратит — строка не пишется вовсе.
         const stmt = env.DB.prepare(
-          `INSERT INTO records (account_id, table_name, id, updated_at, deleted_at, ciphertext)
-           VALUES (?, ?, ?, ?, ?, ?)
+          `INSERT INTO records (account_id, table_name, id, updated_at, deleted_at, ciphertext, seq, device_id)
+           VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM records WHERE account_id = ?), ?)
            ON CONFLICT(account_id, table_name, id) DO UPDATE SET
              updated_at = excluded.updated_at,
              deleted_at = excluded.deleted_at,
-             ciphertext = excluded.ciphertext
+             ciphertext = excluded.ciphertext,
+             seq = excluded.seq,
+             device_id = excluded.device_id
            WHERE excluded.updated_at > records.updated_at`,
         );
         const batch = [];
         for (const r of records) {
           if (!r || typeof r.table !== 'string' || typeof r.id !== 'string') continue;
           if (typeof r.updatedAt !== 'string' || typeof r.ciphertext !== 'string') continue;
-          batch.push(stmt.bind(accountId, r.table, r.id, r.updatedAt, r.deletedAt ?? null, r.ciphertext));
+          batch.push(
+            stmt.bind(accountId, r.table, r.id, r.updatedAt, r.deletedAt ?? null, r.ciphertext, accountId, deviceId || null),
+          );
         }
-        if (batch.length) await env.DB.batch(batch);
+        if (batch.length) {
+          const results = await env.DB.batch([repairUnsequenced(env, accountId), ...batch]);
+          // Сигнал остальным устройствам — только если что-то записано.
+          // Пачка из одних отвергнутых правок (устройство переотправило
+          // то, что само же получило) ничего не меняет, и будить по ней
+          // остальные — второе поколение пустых опросов на каждую правку.
+          // Нет сведений о числе изменений (старый рантайм, тесты) — будим.
+          const written = results
+            .slice(1)
+            .reduce((n, r) => n + (typeof r?.meta?.changes === 'number' ? r.meta.changes : 1), 0);
+          if (written > 0) {
+            // После ответа, чтобы не задерживать его; неудача сигнала ничего
+            // не ломает, опрос всё равно доберёт.
+            const wake = notifyHub(env, accountId, deviceId);
+            if (ctx?.waitUntil) ctx.waitUntil(wake);
+            else await wake;
+          }
+        }
         return json({ ok: true, count: batch.length }, 200, origin);
       }
 
       if (url.pathname === '/sync/pull' && request.method === 'GET') {
         const accountId = await authAccount(request, env);
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
+
+        // Курсор по seq — порядку прихода на сервер (migrations/0007). Свои же
+        // записи устройство не получает: они у него есть, а среди них бывают
+        // фотографии по сотням килобайт. Но курсор мимо них ДВИГАЕТСЯ —
+        // иначе устройство, писавшее последним, перечитывало бы свой хвост
+        // на каждом опросе. Без device отдаётся всё.
+        const afterRaw = url.searchParams.get('after');
+        if (afterRaw !== null) {
+          await ensureRecordsSchema(env);
+          const after = Math.max(0, Number.parseInt(afterRaw, 10) || 0);
+          const device = deviceOf(url.searchParams.get('device'));
+          const res = await env.DB.prepare(
+            `SELECT table_name AS tbl, id, updated_at AS u, deleted_at AS d, ciphertext AS c, seq, device_id AS dev
+             FROM records
+             WHERE account_id = ? AND seq > ?
+             ORDER BY seq LIMIT ?`,
+          )
+            .bind(accountId, after, PULL_LIMIT + 1)
+            .all();
+          const rows = res.results || [];
+          let hasMore = rows.length > PULL_LIMIT;
+          const scanned = hasMore ? rows.slice(0, PULL_LIMIT) : rows;
+          const foreign = device ? scanned.filter((r) => r.dev !== device) : scanned;
+          const cut = cutPage(foreign);
+          // Курсор: дорезали по объёму — на последней ОТДАННОЙ (остаток
+          // приедет следом), иначе — на последней просмотренной, включая свои.
+          let nextAfter = after;
+          if (cut.hasMore && cut.page.length < foreign.length) {
+            hasMore = true;
+            nextAfter = Number(cut.page[cut.page.length - 1].seq);
+          } else if (scanned.length) {
+            nextAfter = Number(scanned[scanned.length - 1].seq);
+          }
+          const out = cut.page.map((r) => ({
+            table: r.tbl,
+            id: r.id,
+            updatedAt: r.u,
+            deletedAt: r.d,
+            ciphertext: r.c,
+          }));
+          return json({ records: out, hasMore, nextAfter }, 200, origin);
+        }
+
+        // Прежний курсор по времени правки — для приложений, которые ещё не
+        // обновились. Ненадёжен (см. migrations/0007), но ломать им обмен до
+        // обновления нельзя.
         // Курсор СОСТАВНОЙ: "updatedAt|id" — сортировка идёт по (updated_at, id),
         // поэтому и продолжать надо по паре. С курсором только по updated_at
         // записи с одинаковым миллисекундным штампом, не поместившиеся на
@@ -343,20 +546,7 @@ export default {
         )
           .bind(accountId, sinceU, sinceId, PULL_LIMIT + 1)
           .all();
-        const rows = res.results || [];
-        let hasMore = rows.length > PULL_LIMIT;
-        let page = hasMore ? rows.slice(0, PULL_LIMIT) : rows;
-        // Режем по объёму, но всегда отдаём хотя бы одну запись: иначе
-        // единственный кусок больше потолка встал бы намертво.
-        let bytes = 0;
-        for (let i = 0; i < page.length; i++) {
-          bytes += (page[i].c || '').length;
-          if (bytes > PULL_MAX_BYTES && i > 0) {
-            page = page.slice(0, i);
-            hasMore = true;
-            break;
-          }
-        }
+        const { page, hasMore } = cutPage(res.results || []);
         const out = page.map((r) => ({
           table: r.tbl,
           id: r.id,
@@ -367,6 +557,27 @@ export default {
         const last = out.length ? out[out.length - 1] : null;
         const nextSince = last ? `${last.updatedAt}|${last.id}` : sinceRaw;
         return json({ records: out, hasMore, nextSince }, 200, origin);
+      }
+
+      // === Живой сигнал о чужих правках: тикет и сокет к SyncHub ===
+      // Тикет выдаётся после обычной проверки токена и живёт минуту; сокет
+      // открывается по нему без заголовков (браузерный WebSocket их не шлёт).
+      if (url.pathname === '/sync/ticket' && request.method === 'POST') {
+        const accountId = await authAccount(request, env);
+        if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
+        if (!env.SYNC_HUB) return json({ error: 'not found' }, 404, origin);
+        const res = await hubOf(env, accountId).fetch('https://hub/sync/ticket', { method: 'POST' });
+        return json(await res.json(), res.status, origin);
+      }
+
+      if (url.pathname === '/sync/ws') {
+        const accountId = url.searchParams.get('account') || '';
+        if (!/^[A-Za-z0-9_-]{8,64}$/.test(accountId) || !url.searchParams.get('ticket')) {
+          return json({ error: 'bad request' }, 400, origin);
+        }
+        if (!env.SYNC_HUB) return json({ error: 'not found' }, 404, origin);
+        // Тикет проверяет сам объект — он его и выдавал.
+        return hubOf(env, accountId).fetch(request);
       }
 
       // === Резервная копия аккаунта (E2E, только шифротекст) ===

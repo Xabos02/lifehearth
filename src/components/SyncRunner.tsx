@@ -1,13 +1,33 @@
 import { useEffect } from 'react';
-import { runSync } from '../lib/sync';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { flushSyncNow, runSync } from '../lib/sync';
+import { kickSyncLive, startSyncLive, stopSyncLive } from '../lib/syncLive';
 import { retryPendingReminders } from '../lib/push';
+import { getSyncConfig } from '../lib/syncState';
 import { db } from '../db/db';
 
+// Опрос раз в минуту — запасной путь. Основной — живой сигнал сервера о
+// чужой правке (lib/syncLive.ts): он приходит через секунды. Опрос ловит то,
+// что сигнал пропустил (сокет был оборван, сервер не смог разбудить).
 const INTERVAL_MS = 60_000;
 
-/** Запускает синхронизацию при старте, возврате в приложение и периодически.
+/** Запускает синхронизацию при старте, возврате в приложение, появлении сети
+ *  и периодически; держит живое соединение для сигнала о чужих правках.
  *  runSync сам выходит, если синк не настроен/выключен (или уже идёт). */
 export function SyncRunner() {
+  // Живое соединение живёт ровно столько, сколько включён обмен: включили в
+  // настройках — поднимается, отключили или сменили аккаунт — закрывается.
+  const account = useLiveQuery(async () => {
+    const c = await getSyncConfig();
+    return c?.enabled ? c.accountId : null;
+  }, []);
+
+  useEffect(() => {
+    if (!account) return;
+    startSyncLive();
+    return () => stopSyncLive();
+  }, [account]);
+
   useEffect(() => {
     const sync = () => {
       if (document.visibilityState !== 'visible') return;
@@ -28,14 +48,40 @@ export function SyncRunner() {
           }));
       }).catch(() => {});
     };
+    // Возврат в приложение приходит парой событий подряд (visibilitychange и
+    // focus), а теперь каждый вызов обмена во время идущего круга даёт ещё
+    // один круг — пара стоила бы два опроса вместо одного. Схлопываем.
+    let returnTimer: ReturnType<typeof setTimeout> | null = null;
+    const onReturn = () => {
+      kickSyncLive();
+      if (returnTimer) return;
+      returnTimer = setTimeout(() => {
+        returnTimer = null;
+        sync();
+      }, 150);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        onReturn();
+        return;
+      }
+      // Уходим в фон: накопленное отправляем сейчас. На iPhone таймеры
+      // свёрнутого приложения не срабатывают, и правка, сделанная за секунду
+      // до блокировки экрана, иначе оставалась бы на телефоне до следующего
+      // открытия.
+      flushSyncNow();
+    };
     sync(); // при запуске
-    document.addEventListener('visibilitychange', sync);
-    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onReturn);
+    window.addEventListener('online', onReturn);
     const id = setInterval(sync, INTERVAL_MS);
     return () => {
-      document.removeEventListener('visibilitychange', sync);
-      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onReturn);
+      window.removeEventListener('online', onReturn);
       clearInterval(id);
+      if (returnTimer) clearTimeout(returnTimer);
     };
   }, []);
   return null;

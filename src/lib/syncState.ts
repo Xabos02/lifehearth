@@ -13,9 +13,13 @@ export async function saveSyncConfig(c: SyncConfig): Promise<void> {
   await db.sync.put(c);
 }
 
-export async function patchSyncConfig(p: Partial<Omit<SyncConfig, 'id'>>): Promise<void> {
+/** forAccount — курсоры круга обмена пишутся только в конфиг ТОГО аккаунта,
+ *  с которым круг шёл: отключили обмен и подключили другой, пока круг ещё
+ *  шёл, — его курсоры чужому конфигу не достаются. */
+export async function patchSyncConfig(p: Partial<Omit<SyncConfig, 'id'>>, forAccount?: string): Promise<void> {
   const cur = await getSyncConfig();
   if (!cur) return;
+  if (forAccount && cur.accountId !== forAccount) return;
   await db.sync.put({ ...cur, ...p });
 }
 

@@ -36,6 +36,16 @@ class_name = "FamilyRoom"
 tag = "v1"
 new_sqlite_classes = ["FamilyRoom"]
 
+# Durable Object живого сигнала обмена: один на аккаунт синхронизации, держит
+# сокеты устройств и говорит им «есть чужие правки — забери». Данных не хранит.
+[[durable_objects.bindings]]
+name = "SYNC_HUB"
+class_name = "SyncHub"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["SyncHub"]
+
 # Планировщик: раз в минуту проверяем и шлём наступившие напоминания.
 [triggers]
 crons = ["* * * * *"]

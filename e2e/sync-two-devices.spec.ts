@@ -14,8 +14,8 @@ import { makeServer, randomRawKey } from './syncServer';
 //
 // Сервер здесь подставной, в памяти теста: настоящий трогать нельзя (там живые
 // данные), а проверяется всё равно не он, а клиент — что отправил, что принял,
-// что показал. Протокол повторён по воркеру: составной курсор «updatedAt|id»,
-// last-write-wins по updatedAt.
+// что показал. Протокол повторён по воркеру: курсор — порядок прихода на
+// сервер (seq), last-write-wins по updatedAt.
 
 /** Поднять «устройство»: свой профиль браузера, свой IndexedDB, общий сервер. */
 async function device(
@@ -111,6 +111,144 @@ test.describe('обмен между двумя устройствами', () =>
 
     await ctxA.close();
     await ctxB.close();
+  });
+
+  test('задача, отправленная позже более свежей чужой, всё равно доезжает', async ({ browser }) => {
+    // Дефект, из-за которого ночные задачи с телефона не появлялись на маке.
+    // Телефон завёл задачу без сети (или свёрнутым) — метка времени старая.
+    // Тем временем другое устройство завело свою, и мак её получил: его
+    // курсор ушёл вперёд. Потом телефон отправил ту, ночную. По старому
+    // курсору «всё новее последней полученной метки» она для мака была
+    // старее — и не приходила никогда.
+    //
+    // Устройств три: своих записей устройство обратно не получает, поэтому
+    // курсор мака двигает чужая запись — с планшета. (В прежнем протоколе
+    // хватало двух: мак перечитывал и свои, и курсор уезжал на них.)
+    const server = makeServer();
+    const rawKey = randomRawKey();
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
+    const ctxC = await browser.newContext();
+    const mac = await device(ctxA, server, rawKey);
+    const phone = await device(ctxB, server, rawKey);
+    const tablet = await device(ctxC, server, rawKey);
+
+    const makeTask = (page: Page, title: string) =>
+      page.evaluate(async (title) => {
+        const [{ db }, { create }] = await Promise.all([
+          import('/src/db/db.ts'),
+          import('/src/db/repo.ts'),
+        ]);
+        await create(db.tasks, {
+          title,
+          notes: '',
+          projectId: null,
+          goalId: null,
+          priority: 0,
+          dueDate: null,
+          dueTime: null,
+          duration: null,
+          remindBefore: null,
+          completedAt: null,
+          checklist: [],
+          recurrence: null,
+          tags: [],
+          sortOrder: 1000,
+        });
+      }, title);
+
+    // 1. Телефон заводит задачу — и НЕ обменивается (нет сети). Пишем в
+    //    базу напрямую, со штампами как у репозитория, но без его отложенной
+    //    отправки: иначе через 0,8 с телефон отправил бы её сам, и на
+    //    медленной машине она пришла бы на «сервер» раньше планшетной —
+    //    сценарий рассыпался бы ещё до проверки.
+    await phone.evaluate(async () => {
+      const { db } = await import('/src/db/db.ts');
+      const now = new Date().toISOString();
+      await db.tasks.put({
+        id: crypto.randomUUID(),
+        title: 'Ночная задача с телефона',
+        notes: '',
+        projectId: null,
+        goalId: null,
+        priority: 0,
+        dueDate: null,
+        dueTime: null,
+        duration: null,
+        remindBefore: null,
+        completedAt: null,
+        checklist: [],
+        recurrence: null,
+        tags: [],
+        sortOrder: 1000,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      });
+    });
+    // 2. Планшет заводит свою позже и обменивается; мак её получает —
+    //    курсор мака уходит вперёд, за ночную.
+    await new Promise((r) => setTimeout(r, 20));
+    await makeTask(tablet, 'Утренняя задача с планшета');
+    await sync(tablet);
+    await sync(mac);
+    expect(await tasksOf(mac)).toEqual(['Утренняя задача с планшета']);
+    // 3. Телефон вышел в сеть: отправил ночную (метка СТАРЕЕ утренней).
+    const phoneRound = await sync(phone);
+    expect(phoneRound?.pushed, 'телефон не отправил ночную').toBeGreaterThan(0);
+    // 4. Мак обменивается снова — и ОБЯЗАН получить ночную.
+    const macRound = await sync(mac);
+    expect(macRound?.pulled, 'мак не получил ночную задачу').toBeGreaterThan(0);
+    expect(await tasksOf(mac)).toEqual(['Ночная задача с телефона', 'Утренняя задача с планшета']);
+    await expect(mac.getByText('Ночная задача с телефона')).toBeVisible();
+
+    await ctxA.close();
+    await ctxB.close();
+    await ctxC.close();
+  });
+
+  test('«Перечитать всё заново» возвращает и собственные записи устройства', async ({ browser }) => {
+    // Сервер не отдаёт устройству его же записи (они у него есть). Но после
+    // восстановления старой копии или аварийного «перечитать всё» их как раз
+    // нет — и без смены имени устройства они не вернулись бы никогда.
+    const server = makeServer();
+    const rawKey = randomRawKey();
+    const ctxA = await browser.newContext();
+    const mac = await device(ctxA, server, rawKey);
+
+    const id = await mac.evaluate(async () => {
+      const [{ db }, { create }] = await Promise.all([
+        import('/src/db/db.ts'),
+        import('/src/db/repo.ts'),
+      ]);
+      const row = await create(db.tasks, {
+        title: 'Своя задача', notes: '', projectId: null, goalId: null, priority: 0,
+        dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: null,
+        checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+      });
+      return row.id as string;
+    });
+    await sync(mac);
+    expect(server.rows.size).toBe(1);
+
+    // «Восстановили старую копию»: локально задачи нет, на сервере есть — с
+    // именем этого же устройства.
+    await mac.evaluate(async (id) => {
+      const { db } = await import('/src/db/db.ts');
+      await db.tasks.delete(id);
+    }, id);
+    await sync(mac);
+    expect(await tasksOf(mac)).toEqual([]);
+
+    await mac.evaluate(async () => {
+      const { requestFullResync } = await import('/src/lib/sync.ts');
+      await requestFullResync();
+    });
+    const r = await sync(mac);
+    expect(r?.pulled, 'собственная запись не вернулась').toBeGreaterThan(0);
+    expect(await tasksOf(mac)).toEqual(['Своя задача']);
+
+    await ctxA.close();
   });
 
   test('правка на одном перебивает старую версию на другом', async ({ browser }) => {
@@ -268,69 +406,12 @@ test.describe('обмен между двумя устройствами', () =>
     await ctxB.close();
   });
 
-  test('курсор приёма из будущего чинится сам, а не глушит приём навсегда', async ({ browser }) => {
-    // Курсор приёма приложение берёт НЕ у себя, а с сервера: это метка времени
-    // последней полученной записи, а ставит её то устройство, которое запись
-    // создало. Одно устройство с убежавшими часами — и курсор всех остальных
-    // прыгает в будущее. Дальше сервер честно отвечает «новее ничего нет» на
-    // каждый запрос, и устройство НАВСЕГДА перестаёт получать что-либо. Молча:
-    // ошибки нет, обмен «успешен», данные просто не приходят.
-    const server = makeServer();
-    const rawKey = randomRawKey();
-    const ctxA = await browser.newContext();
-    const ctxB = await browser.newContext();
-    const mac = await device(ctxA, server, rawKey);
-    const phone = await device(ctxB, server, rawKey);
-
-    await mac.evaluate(async () => {
-      const [{ db }, { create }] = await Promise.all([
-        import('/src/db/db.ts'),
-        import('/src/db/repo.ts'),
-      ]);
-      await create(db.tasks, {
-        title: 'Отправить Кате ноутбук', notes: '', projectId: null, goalId: null, priority: 0,
-        dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: null,
-        checklist: [], recurrence: null, tags: [], sortOrder: 1000,
-      });
-    });
-    await sync(mac);
-    // Первый круг телефона — служебный: он записывает набор известных таблиц.
-    // Без него срабатывала бы ДРУГАЯ защита (перечитать всё после релиза,
-    // добавившего таблицу), она сбрасывала курсор сама, и проверка оказалась
-    // бы пустой — мутация это и показала.
-    await sync(phone);
-
-    // У телефона курсор уехал на год вперёд.
-    await phone.evaluate(async () => {
-      const { db } = await import('/src/db/db.ts');
-      const c = await db.sync.get('config');
-      const future = new Date(Date.now() + 365 * 24 * 3600_000).toISOString();
-      await db.sync.put({ ...c, lastPullAt: `${future}|zzz` });
-    });
-
-    // Чтобы было что получать: заводим на маке ещё одну задачу уже ПОСЛЕ
-    // порчи курсора.
-    await mac.evaluate(async () => {
-      const [{ db }, { create }] = await Promise.all([
-        import('/src/db/db.ts'),
-        import('/src/db/repo.ts'),
-      ]);
-      await create(db.tasks, {
-        title: 'Замерить крышку унитаза', notes: '', projectId: null, goalId: null, priority: 0,
-        dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: null,
-        checklist: [], recurrence: null, tags: [], sortOrder: 2000,
-      });
-    });
-    await sync(mac);
-
-    await sync(phone);
-    expect(await tasksOf(phone), 'приём молчит из-за курсора в будущем').toContain(
-      'Замерить крышку унитаза',
-    );
-
-    await ctxA.close();
-    await ctxB.close();
-  });
+  // Теста «курсор приёма из будущего» больше нет — и самой поломки тоже.
+  // Курсор приёма был меткой времени с часов устройства-автора, и одно
+  // устройство с убежавшими часами глушило приём у всех остальных. Теперь
+  // курсор — порядковый номер, который ставит сервер в момент прихода
+  // (migrations/0007); часам устройств до него не дотянуться. Что запись,
+  // пришедшая позже более свежей, всё равно доезжает, проверяет тест выше.
 
   test('курсор отправки из будущего не запирает правки на устройстве', async ({ browser }) => {
     // Зеркальная поломка: часы отъехали НАЗАД, и всё написанное после этого

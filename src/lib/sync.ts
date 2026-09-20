@@ -2,6 +2,11 @@
 // применить по принципу «новейший побеждает») + push (зашифровать свои свежие
 // изменения и отправить). Содержимое шифруется на устройстве; на Worker уходит
 // только шифротекст + служебные поля.
+//
+// Когда запускается: при старте, возврате в приложение, раз в минуту (запасной
+// путь), через DEBOUNCE_MS после своей правки, перед уходом в фон и — главное
+// — по сигналу сервера о чужой правке (lib/syncLive.ts): чужое появляется
+// через секунды, а не на следующем опросе.
 
 import type { IndexableType, Table } from 'dexie';
 import { db } from '../db/db';
@@ -49,6 +54,13 @@ const PUSH_MAX_BYTES = 3 * 1024 * 1024;
 // таблицу чанками, такую запись просто не отправляем: она остаётся на
 // устройстве, а обмен продолжает работать. Про пропуск честно сообщаем.
 const RECORD_MAX_BYTES = 1_600_000;
+// Потолок тела для fetch с keepalive: браузер даёт 64 КиБ на все такие
+// запросы разом, больше — отказ ещё до отправки.
+const KEEPALIVE_MAX_BYTES = 60_000;
+/** Записи, применённые с сервера и ещё не вышедшие из окна отправки:
+ *  «таблица:id» → updatedAt. См. push (эхо). В памяти: после перезагрузки
+ *  одно лишнее эхо безвредно — сервер его отвергнет. */
+const remoteApplied = new Map<string, string>();
 
 // Таблицы, которые синхронизируются. settings (device-local) и sync (секреты)
 // сюда НЕ входят намеренно. Включены legacy habits/metrics (пустые) — безвредно.
@@ -128,12 +140,50 @@ export function shouldApply(localUpdatedAt: string | undefined, remoteUpdatedAt:
   return !localUpdatedAt || remoteUpdatedAt > localUpdatedAt;
 }
 
-function authHeaders(c: SyncConfig): Record<string, string> {
+export function authHeaders(c: SyncConfig): Record<string, string> {
   return {
     'X-Account': c.accountId,
     Authorization: `Bearer ${c.authToken}`,
     'Content-Type': 'application/json',
   };
+}
+
+// Имя устройства для сервера: по нему сервер не отдаёт устройству его же
+// записи и не будит его же сокет. Едет в строке запроса и в теле, а НЕ
+// заголовком: новый заголовок — новый preflight, и приложение, обновившееся
+// раньше сервера, ломалось бы целиком вместо того, чтобы работать по-старому.
+//
+// Выдаётся один раз и живёт с конфигом. Первый обмен после обновления зовёт
+// это сразу из двух мест (круг обмена и живое соединение) — выдача общая,
+// иначе у устройства оказалось бы два имени.
+let deviceIdInFlight: Promise<string> | null = null;
+let knownDeviceId = '';
+
+export async function ensureDeviceId(c: SyncConfig): Promise<SyncConfig> {
+  if (c.deviceId) {
+    knownDeviceId = c.deviceId;
+    return c;
+  }
+  deviceIdInFlight ??= (async () => {
+    const fresh = await getSyncConfig();
+    if (fresh?.deviceId) return fresh.deviceId;
+    const deviceId = randomToken(12);
+    await patchSyncConfig({ deviceId });
+    return deviceId;
+  })();
+  try {
+    const deviceId = await deviceIdInFlight;
+    knownDeviceId = deviceId;
+    return { ...c, deviceId };
+  } finally {
+    deviceIdInFlight = null;
+  }
+}
+
+/** Имя этого устройства, каким его знает сервер, — для фильтра сигналов о
+ *  своих же правках. Пусто до первого обмена. */
+export function currentDeviceId(): string {
+  return knownDeviceId;
 }
 
 // === PULL ===
@@ -162,7 +212,7 @@ function isPoisonRecord(e: unknown): boolean {
  * входящей падает с ConstraintError.
  *
  * А ConstraintError не считается «ядовитой записью», значит pullPage бросает
- * его дальше и курсор lastPullAt не двигается. Синхронизация встаёт НАВСЕГДА и
+ * его дальше и курсор lastPullSeq не двигается. Синхронизация встаёт НАВСЕГДА и
  * молча — вместе с задачами, заметками, целями и финансами. Именно так и было
  * с energyLogs: разрешение конфликта написали под habitLogs поимённо, а вторую
  * таблицу с уникальным индексом просто забыли.
@@ -259,13 +309,23 @@ async function applyRecord(c: SyncConfig, r: RemoteRecord): Promise<boolean> {
 
 async function pullPage(
   c: SyncConfig,
-  since: string,
-): Promise<{ applied: number; skipped: number; nextSince: string; hasMore: boolean }> {
-  const res = await fetch(`${WORKER_URL}/sync/pull?since=${encodeURIComponent(since)}`, {
+  after: number,
+): Promise<{ applied: number; skipped: number; nextAfter: number; hasMore: boolean }> {
+  const device = c.deviceId ? `&device=${encodeURIComponent(c.deviceId)}` : '';
+  // Прежний курсор по времени едет рядом с новым — для сервера, который ещё
+  // не обновился (или откатился): он читает только since. Без него такой
+  // сервер отдавал бы всю историю на каждом опросе, пока не выкатится.
+  const since = `&since=${encodeURIComponent(c.lastPullAt ?? '')}`;
+  const res = await fetch(`${WORKER_URL}/sync/pull?after=${after}${device}${since}`, {
     headers: authHeaders(c),
   });
   if (!res.ok) throw new Error(`pull ${res.status}`);
-  const data = (await res.json()) as { records: RemoteRecord[]; hasMore: boolean; nextSince: string };
+  const data = (await res.json()) as {
+    records: RemoteRecord[];
+    hasMore: boolean;
+    nextAfter?: number;
+    nextSince?: string;
+  };
   let applied = 0;
   let skipped = 0;
 
@@ -295,7 +355,7 @@ async function pullPage(
     }
     if (!isSynced(r.table)) continue; // незнакомая таблица — пропускаем
     // Сбой на ОДНОЙ «ядовитой» записи (битый шифротекст, не-JSON внутри) не
-    // должен ронять весь цикл: иначе курсор lastPullAt не сдвинется и синк
+    // должен ронять весь цикл: иначе курсор lastPullSeq не сдвинется и синк
     // встанет навсегда — перестанут приходить и задачи, и заметки, и семья.
     try {
       decoded.push({ r, obj: await decryptJSON<Row>(c.key, r.ciphertext) });
@@ -320,31 +380,42 @@ async function pullPage(
         // Пишем НАПРЯМУЮ (минуя repo) — сохраняем серверный updatedAt, иначе
         // синк зациклится (repo проставил бы новый updatedAt).
         await table.put(obj);
+        remoteApplied.set(`${r.table}:${r.id}`, r.updatedAt);
         applied++;
       }
     });
   }
 
-  return { applied, skipped, nextSince: data.nextSince, hasMore: data.hasMore };
+  // Сервер без нового курсора (ещё не обновился) nextAfter не отдаёт — тогда
+  // по seq стоим на месте, а двигаем прежний курсор по времени: он ответил
+  // по-старому, и ходить к нему надо по-старому, пока не обновится.
+  const legacy = typeof data.nextAfter !== 'number' || !Number.isFinite(data.nextAfter);
+  if (legacy && typeof data.nextSince === 'string') {
+    await patchSyncConfig({ lastPullAt: data.nextSince }, c.accountId);
+    c.lastPullAt = data.nextSince;
+    return { applied, skipped, nextAfter: after, hasMore: Boolean(data.hasMore) };
+  }
+  const nextAfter = legacy ? after : (data.nextAfter as number);
+  return { applied, skipped, nextAfter, hasMore: data.hasMore && nextAfter > after };
 }
 
-/** Курсор pull двигается по времени, а сервер отдаёт только updated_at > since.
+/** Курсор pull двигается вперёд, а сервер отдаёт только то, что за ним.
  *  Значит запись, пропущенную как «незнакомая таблица», уже не переспросить:
  *  курсор ушёл вперёд вместе со всей страницей.
  *
  *  Так и терялись данные при обновлении. Второй телефон на старом бандле
  *  получал папки заметок и цели-копилок, не знал таких таблиц, пропускал их
- *  через continue — но lastPullAt всё равно сдвигал. После обновления
+ *  через continue — но курсор всё равно сдвигал. После обновления
  *  приложения эти записи не приходили уже никогда, и причина ниоткуда не
  *  видна: на сервере всё цело, на одном устройстве есть, на другом нет.
  *
  *  Поэтому запоминаем набор таблиц, который знала двигавшая курсор версия.
  *  Появились новые — один раз переспрашиваем всё с начала. Полный ре-pull
  *  безопасен: запись применяется только если она свежее локальной. */
-async function rewindIfTablesGrew(c: SyncConfig): Promise<string> {
+async function rewindIfTablesGrew(c: SyncConfig): Promise<number> {
   const known = c.knownTables;
   const now = [...SYNCED_TABLES];
-  if (known && now.every((t) => known.includes(t))) return c.lastPullAt;
+  if (known && now.every((t) => known.includes(t))) return c.lastPullSeq ?? 0;
   // Поля ещё нет — значит курсор двигала версия ДО этой защиты, и что она
   // умела, мы не знаем. Раз не знаем — считаем, что могли пропустить, и
   // перечитываем. Пропустить этот случай было бы бессмысленно: именно этот
@@ -353,8 +424,8 @@ async function rewindIfTablesGrew(c: SyncConfig): Promise<string> {
   // Цена — один полный pull истории аккаунта, единожды. Для личных объёмов
   // это секунды, и он безопасен: запись применяется, только если свежее
   // локальной.
-  await patchSyncConfig({ knownTables: now, lastPullAt: '' });
-  return '';
+  await patchSyncConfig({ knownTables: now, lastPullSeq: 0 }, c.accountId);
+  return 0;
 }
 
 /** Сколько курсору позволено обгонять часы устройства, прежде чем считать его
@@ -362,43 +433,47 @@ async function rewindIfTablesGrew(c: SyncConfig): Promise<string> {
  *  ноутбуком, задержка сети. Сутки — уже не расхождение. */
 const CURSOR_FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 
-/** Курсор, уехавший в будущее, чинится сам.
+/** Курсор отправки, уехавший в будущее, чинится сам.
  *
- *  Курсор приёма приложение берёт НЕ у себя, а с сервера: это метка времени
- *  последней полученной записи, а метку ставит то устройство, которое запись
- *  создало. Стоит одному устройству с убежавшими вперёд часами отправить хоть
- *  одну запись — и курсор всех остальных прыгает в её будущее. После этого
- *  сервер честно отвечает «новее ничего нет» на каждый запрос, и устройство
- *  НАВСЕГДА перестаёт получать что-либо. Молча: ошибки нет, обмен «успешен»,
- *  данные просто не приходят.
+ *  Часы устройства отъехали назад — и новые правки получают штамп МЕНЬШЕ
+ *  курсора, то есть не попадают в окно отправки никогда. Молча: ошибки нет,
+ *  обмен «успешен», данные просто не уезжают.
  *
- *  Курсор отправки ломается зеркально: часы отъехали назад — и новые правки
- *  получают штамп МЕНЬШЕ курсора, то есть не попадают в окно отправки никогда.
+ *  Лечение: сбросить курсор и переотправить с начала. Это безопасно — сервер
+ *  принимает запись, только если она свежее его копии. Цена — один полный
+ *  круг, единожды.
  *
- *  Лечение одно и то же: сбросить курсор и перечитать/переотправить с начала.
- *  Это безопасно — запись применяется, только если свежее локальной, а сервер
- *  принимает по тому же правилу. Цена — один полный круг, единожды. */
+ *  Курсор приёма той же болезнью болел зеркально — пока был меткой времени
+ *  с чужих часов. Теперь это порядковый номер, который ставит сервер, и
+ *  чинить там нечего. */
 export function cursorFromFuture(cursor: string, now: number): boolean {
   if (!cursor) return false;
-  // Курсор приёма составной: «updatedAt|id».
+  // Прежний курсор приёма был составным «updatedAt|id» — разбираем и такой.
   const at = Date.parse(cursor.split('|')[0]);
   return Number.isFinite(at) && at > now + CURSOR_FUTURE_TOLERANCE_MS;
 }
 
+/** Курсор приёма — порядковый номер прихода записи на сервер.
+ *
+ *  Раньше это была метка времени правки, а её ставит устройство-автор по
+ *  своим часам. Стоило записи прийти на сервер позже, чем другая, более
+ *  свежая по метке, — телефон создал задачу без сети и отправил через час,
+ *  часы двух устройств разошлись на секунды, — и для всех, кто ту свежую уже
+ *  получил, эта запись становилась невидимой навсегда: сервер честно отвечал
+ *  «новее ничего нет». На сервере цела, на одном устройстве есть, на другом
+ *  нет. Так задачи, заведённые ночью на телефоне, не доезжали до мака.
+ *
+ *  Номер ставит сервер в момент прихода: что пришло позже, то и читается
+ *  позже, часы устройств ни при чём. */
 async function pull(c: SyncConfig): Promise<{ applied: number; skipped: number }> {
   let applied = 0;
   let skipped = 0;
-  let since = await rewindIfTablesGrew(c);
-  if (cursorFromFuture(since, Date.now())) {
-    console.warn(`sync: курсор приёма из будущего (${since}) — перечитываем с начала`);
-    since = '';
-    await patchSyncConfig({ lastPullAt: '' });
-  }
+  let after = await rewindIfTablesGrew(c);
   for (;;) {
-    const page = await pullPage(c, since);
+    const page = await pullPage(c, after);
     applied += page.applied;
     skipped += page.skipped;
-    since = page.nextSince;
+    after = page.nextAfter;
     // Курсор двигаем ПОСТРАНИЧНО, а не после всего цикла. Иначе обрыв на
     // середине (закрыли вкладку, пропала сеть) стирает весь прогресс, и
     // следующий заход начинает с начала. На полном перечитывании истории —
@@ -407,7 +482,7 @@ async function pull(c: SyncConfig): Promise<{ applied: number; skipped: number }
     //
     // Безопасно по той же причине, что и сам ре-pull: запись применяется,
     // только если свежее локальной, так что повтор ничего не портит.
-    await patchSyncConfig({ lastPullAt: since });
+    await patchSyncConfig({ lastPullSeq: after }, c.accountId);
     if (!page.hasMore) break;
   }
   return { applied, skipped };
@@ -451,7 +526,16 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
       .where('updatedAt')
       .between(from, cutoff, true, false)
       .toArray();
-    for (const row of rows) fresh.push({ name, row });
+    for (const row of rows) {
+      // Эхо: запись, только что ПРИНЯТАЯ с сервера, по метке времени попадает
+      // в окно отправки (её updatedAt — время чужой правки, а оно позже
+      // нашего прошлого круга) и уезжала бы обратно целиком — с фотографиями
+      // по сотням килобайт, — чтобы сервер её отверг как не более свежую.
+      // Та же строка с той же меткой = та, что пришла; правленная получает
+      // новую метку и едет как положено.
+      if (remoteApplied.get(`${name}:${row.id}`) === row.updatedAt) continue;
+      fresh.push({ name, row });
+    }
   }
   // Шифруем параллельно (Promise.all), а не последовательно await в цикле —
   // не блокирует main-thread при правке задачи с большим набором изменений.
@@ -512,23 +596,86 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
   }
 
   for (const batch of batchByBytes(sendable)) {
+    const body = JSON.stringify({ records: batch, ...(c.deviceId ? { device: c.deviceId } : {}) });
     const res = await fetch(`${WORKER_URL}/sync/push`, {
       method: 'POST',
       headers: authHeaders(c),
-      body: JSON.stringify({ records: batch }),
+      body,
+      // Отправка перед сворачиванием (см. flushSyncNow): keepalive доносит
+      // запрос, даже если страница уже ушла в фон. Браузер держит для таких
+      // запросов 64 КиБ на всё — пачку крупнее шлём обычным путём.
+      keepalive: body.length < KEEPALIVE_MAX_BYTES,
     });
     if (!res.ok) throw new Error(`push ${res.status}`);
   }
-  await patchSyncConfig({ lastPushAt: cutoff });
+  await patchSyncConfig({ lastPushAt: cutoff }, c.accountId);
+  // Принятое до этой отсечки в окно отправки больше не попадёт — забываем.
+  for (const [key, at] of remoteApplied) if (at < cutoff) remoteApplied.delete(key);
   return { pushed: sendable.length, oversized };
 }
+
 
 // === Оркестрация ===
 let running = false;
 let lastError: string | null = null;
+// Просьба прогнать ещё круг, пришедшая ПОКА круг шёл. Раньше такой вызов
+// просто выходил по флагу, и правка, сделанная во время обмена (или чужая,
+// о которой сообщил сокет), ждала следующего повода — до минуты. Теперь
+// текущий круг дорабатывает и сразу идёт на второй.
+let rerunRequested = false;
+/** Сколько кругов подряд позволено одному вызову — защита от бесконечного
+ *  «пока шёл, попросили ещё». Три хватает: правка → круг → чужой сигнал.
+ *  Просьба, оставшаяся после третьего (или пришедшая в самом хвосте, когда
+ *  круги уже кончились), не теряется — её подхватывает новый вызов. */
+const MAX_ROUNDS = 3;
+// Полное перечитывание попросили, пока круг шёл: сброшенные курсоры он
+// перезаписал бы своими, поэтому сброс повторяется в начале его следующего
+// круга (см. requestFullResync).
+let resetPending = false;
 
-/** Один цикл: pull → push. Возвращает null, если синк выключен или уже идёт. */
-export async function runSync(): Promise<{
+/** Курсоры сброшены, имя устройства новое — сервер отдаст всё как чужое. */
+const FULL_RESET = (): Partial<SyncConfig> => ({
+  lastPullSeq: 0,
+  lastPullAt: '',
+  lastPushAt: '',
+  deviceId: randomToken(12),
+});
+
+/** Перечитать и переотправить всё с начала: восстановление из копии, кнопка
+ *  «Перечитать всё заново».
+ *
+ *  Одних курсоров мало. Сервер не отдаёт устройству его же записи (они у
+ *  него есть) — но после восстановления старой копии их как раз нет: всё,
+ *  что устройство само создало и удалило после снятия копии, на сервере
+ *  помечено его именем и не вернулось бы никогда. Поэтому вместе с курсорами
+ *  меняется имя: прежние «свои» записи становятся чужими и приходят, а LWW
+ *  защищает от отката того, что свежее.
+ *
+ *  Идущий круг обмена перезаписал бы сброс своими курсорами — тогда сброс
+ *  повторится в начале его следующего круга. */
+export async function requestFullResync(): Promise<void> {
+  if (running) {
+    // Сброс — в начале следующего круга, а не сейчас: сейчас идущий круг
+    // подхватил бы пустой курсор отправки и отправил бы всю базу, а
+    // следующий круг — ещё раз.
+    resetPending = true;
+    rerunRequested = true;
+    return;
+  }
+  await patchSyncConfig(FULL_RESET());
+  knownDeviceId = (await getSyncConfig())?.deviceId ?? '';
+}
+
+export interface RunSyncOptions {
+  /** Сначала отправить, потом получить. Для ухода в фон: на iPhone страница
+   *  замирает через секунды, и приём, стоящий перед отправкой, мог бы её
+   *  не дождаться. */
+  pushFirst?: boolean;
+}
+
+/** Один цикл: pull → push. Возвращает null, если синк выключен или уже идёт
+ *  (тогда идущий цикл, закончив, прогонит ещё один). */
+export async function runSync(opts: RunSyncOptions = {}): Promise<{
   pulled: number;
   pushed: number;
   skipped: number;
@@ -539,21 +686,56 @@ export async function runSync(): Promise<{
   // проверкой и установкой оказывается await-разрыв (раньше здесь стоял
   // getSyncConfig), второй конкурентный вызов (visibilitychange + интервал,
   // дебаунс + ручной запуск) успевает пройти проверку, и два цикла гоняют
-  // курсоры lastPullAt/lastPushAt наперегонки — последний завершившийся молча
+  // курсоры lastPullSeq/lastPushAt наперегонки — последний завершившийся молча
   // перезаписывает более ранний.
-  if (running) return null;
+  if (running) {
+    rerunRequested = true;
+    return null;
+  }
   running = true;
+  // Сбрасываем ЗДЕСЬ, до первого await, а не в начале круга: просьба может
+  // прийти между этой строкой и стартом круга — и её нельзя стереть.
+  rerunRequested = false;
   lastError = null;
   try {
-    const c = await getSyncConfig();
-    if (!c || !c.enabled) return null;
-    const { applied: pulled, skipped } = await pull(c);
-    const fresh = await getSyncConfig(); // курсор pull обновился
-    const sent = fresh ? await push(fresh) : { pushed: 0, oversized: 0 };
+    const first = await getSyncConfig();
+    if (!first || !first.enabled) return null;
+    const total = { pulled: 0, pushed: 0, skipped: 0, oversized: 0 };
+    let c: SyncConfig | undefined = await ensureDeviceId(first);
+    for (let round = 0; round < MAX_ROUNDS && c; round++) {
+      if (resetPending) {
+        resetPending = false;
+        await patchSyncConfig(FULL_RESET());
+        c = await getSyncConfig();
+        if (!c?.enabled) break;
+        knownDeviceId = c.deviceId ?? '';
+      }
+      if (opts.pushFirst && round === 0) {
+        const sent = await push(c);
+        total.pushed += sent.pushed;
+        total.oversized = sent.oversized;
+        const after = await getSyncConfig(); // курсор push обновился
+        const { applied: pulled, skipped } = after ? await pull(after) : { applied: 0, skipped: 0 };
+        total.pulled += pulled;
+        total.skipped += skipped;
+      } else {
+        const { applied: pulled, skipped } = await pull(c);
+        const fresh = await getSyncConfig(); // курсор pull обновился
+        const sent = fresh ? await push(fresh) : { pushed: 0, oversized: 0 };
+        total.pulled += pulled;
+        total.skipped += skipped;
+        total.pushed += sent.pushed;
+        total.oversized = sent.oversized;
+      }
+      if (!rerunRequested) break;
+      rerunRequested = false;
+      c = await getSyncConfig();
+      if (!c?.enabled) break;
+    }
     await patchSyncConfig({ lastSyncedAt: new Date().toISOString() });
     // Прошлая неудача больше не актуальна — снимаем отметку.
     await clearSyncFailure();
-    return { pulled, pushed: sent.pushed, skipped, oversized: sent.oversized };
+    return total;
   } catch (e) {
     lastError = String(e);
     // Фоновый цикл запускается сам и ошибку никому не показывает: раньше она
@@ -563,6 +745,14 @@ export async function runSync(): Promise<{
     throw e;
   } finally {
     running = false;
+    // Просьба, пришедшая в хвосте (между последним кругом и этой строкой) или
+    // оставшаяся после MAX_ROUNDS, — новым вызовом, уже вне этого. Раньше
+    // флаг здесь просто стирался, и сигнал сокета откатывался к минутному
+    // опросу.
+    if (rerunRequested) {
+      rerunRequested = false;
+      setTimeout(() => void runSync().catch(() => {}), 0);
+    }
   }
 }
 
@@ -660,7 +850,12 @@ export function lastSyncError(): string | null {
 // Debounce-синк после правок: любая локальная запись через repo дёргает это,
 // пачка изменений за DEBOUNCE_MS уходит одним синком. runSync сам выходит,
 // если синк выключен, поэтому накладных для не-настроенных пользователей нет.
-const DEBOUNCE_MS = 1500;
+//
+// Пауза короткая: она нужна лишь для того, чтобы серия правок подряд (набор
+// текста, перестановка нескольких задач) уехала одной пачкой, а не по одной.
+// Дальше сервер сам будит остальные устройства (lib/syncLive.ts), так что
+// эта пауза — почти вся задержка между правкой здесь и её появлением там.
+const DEBOUNCE_MS = 800;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function scheduleSyncSoon(): void {
@@ -669,6 +864,18 @@ export function scheduleSyncSoon(): void {
     debounceTimer = null;
     void runSync().catch(() => {});
   }, DEBOUNCE_MS);
+}
+
+/** Отправить накопленное сейчас, не дожидаясь паузы. Зовётся, когда
+ *  приложение уходит в фон: на iPhone таймеры свёрнутого приложения не
+ *  срабатывают, и правка, сделанная за секунду до блокировки экрана,
+ *  оставалась на телефоне до следующего открытия — а другое устройство тем
+ *  временем спрашивало, где она. */
+export function flushSyncNow(): void {
+  if (!debounceTimer) return;
+  clearTimeout(debounceTimer);
+  debounceTimer = null;
+  void runSync({ pushFirst: true }).catch(() => {});
 }
 
 // === Жизненный цикл сопряжения ===
@@ -682,7 +889,9 @@ export async function createSyncAccount(): Promise<void> {
     authToken: randomToken(),
     key,
     enabled: true,
+    lastPullSeq: 0,
     lastPullAt: '',
+    deviceId: randomToken(12),
     lastPushAt: '',
     lastSyncedAt: '',
   });
@@ -763,7 +972,9 @@ export async function connectSync(code: string): Promise<{ records: number | nul
     authToken: p.authToken,
     key,
     enabled: true,
+    lastPullSeq: 0,
     lastPullAt: '',
+    deviceId: randomToken(12),
     lastPushAt: '',
     lastSyncedAt: '',
   });
