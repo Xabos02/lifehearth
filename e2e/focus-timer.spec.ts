@@ -30,7 +30,10 @@ test('при работающем таймере в задаче можно сп
   await page.goto('/tasks');
 
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  // С 1.30.0 «+» сначала спрашивает, что завести — задачу или проект.
+  await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
   const notes = page.locator('textarea[placeholder="Детали…"]');
+  await expect(notes).toBeVisible();
   await notes.click();
 
   // Печатаем длинный текст в несколько строк — как в жалобе.
