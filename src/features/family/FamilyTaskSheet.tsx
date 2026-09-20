@@ -1,11 +1,35 @@
 import { useState } from 'react';
 import { Sheet } from '../../components/ui/Sheet';
-import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
+import { AutoGrowTextarea, Field, Input, Select } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { Chip } from '../../components/ui/Chip';
 import type { FamilyTask, FamilyMember, Priority } from '../../db/types';
 import { createFamilyTask, updateFamilyTask, deleteFamilyTask } from '../../lib/family/familyRepo';
+import { addDaysKey, todayKey } from '../../lib/dates';
+import { PRESET_COLORS, isLightColor } from '../../lib/colors';
+import { ALLDAY_REMIND_TIME, cancelReminder, scheduleReminder } from '../../lib/push';
+import { GCheck as Check } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
+
+type PStr = '0' | '1' | '2' | '3';
+// Цвет полосы приоритета — тот же, что и в личных задачах (TaskItem.PRIORITY_BAR):
+// один язык цвета на всё приложение, а не отдельная палитра для семьи.
+const PRIORITIES: { value: PStr; label: string; dot: string }[] = [
+  { value: '0', label: 'Нет', dot: 'bg-border' },
+  { value: '1', label: 'Низкий', dot: 'bg-muted' },
+  { value: '2', label: 'Средний', dot: 'bg-warning' },
+  { value: '3', label: 'Высокий', dot: 'bg-danger' },
+];
+
+// Напоминание на день без времени: те же пресеты, что у личных «весь день»
+// задач (за N дней, срабатывает утром) — семейные задачи времени не имеют.
+const REMIND_PRESETS_ALLDAY = [1440, 2880, 4320, 10080];
+function formatRemindLabel(min: number): string {
+  const d = Math.round(min / 1440);
+  if (d <= 1) return t('за 1 день');
+  if (d < 5) return t('за {d} дня', { d });
+  return t('за {d} дней', { d });
+}
 
 interface Props {
   familyId: string;
@@ -14,14 +38,6 @@ interface Props {
   task: FamilyTask | null;
   members: FamilyMember[];
 }
-
-type PStr = '0' | '1' | '2' | '3';
-const PRIORITIES: { value: PStr; label: string }[] = [
-  { value: '0', label: 'Нет' },
-  { value: '1', label: 'Низкий' },
-  { value: '2', label: 'Средний' },
-  { value: '3', label: 'Высокий' },
-];
 
 export function FamilyTaskSheet({ familyId, open, onClose, task, members }: Props) {
   return (
@@ -36,20 +52,46 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
   const [notes, setNotes] = useState(task?.notes ?? '');
   const [priority, setPriority] = useState<PStr>(String(task?.priority ?? 0) as PStr);
   const [dueDate, setDueDate] = useState(task?.dueDate ?? '');
+  const [remindBefore, setRemindBefore] = useState<number | null>(task?.remindBefore ?? null);
+  const [color, setColor] = useState<string | null>(task?.color ?? null);
   const [assigneeId, setAssigneeId] = useState<string | null>(task?.assigneeId ?? null);
   const alive = members.filter((m) => !m.leftAt);
+  const tomorrow = addDaysKey(todayKey(), 1);
 
   async function save() {
     if (!title.trim()) return;
-    const data = { title: title.trim(), notes: notes.trim(), priority: Number(priority) as Priority, dueDate: dueDate || null, assigneeId };
-    if (task) await updateFamilyTask(familyId, task.id, data);
-    else await createFamilyTask(familyId, data);
+    const finalRemind = dueDate ? remindBefore : null;
+    const data = {
+      title: title.trim(),
+      notes: notes.trim(),
+      priority: Number(priority) as Priority,
+      dueDate: dueDate || null,
+      dueTime: null,
+      remindBefore: finalRemind,
+      color,
+      assigneeId,
+    };
+    let saved: { id: string; title: string; dueDate: string | null } | null;
+    if (task) {
+      await updateFamilyTask(familyId, task.id, data);
+      saved = { ...task, ...data };
+    } else {
+      saved = await createFamilyTask(familyId, data);
+    }
+    if (saved) {
+      if (finalRemind != null) {
+        await scheduleReminder({ id: saved.id, title: saved.title, dueDate: saved.dueDate, dueTime: null, remindBefore: finalRemind });
+      } else {
+        await cancelReminder(saved.id);
+      }
+    }
     onClose();
   }
 
   async function remove() {
     if (!task) return;
     if (!window.confirm(t('Удалить задачу?'))) return;
+    await cancelReminder(task.id);
     await deleteFamilyTask(familyId, task.id);
     onClose();
   }
@@ -87,15 +129,89 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
         </div>
       </Field>
       <Field label={t('Приоритет')}>
-        <SegmentedControl
-          options={PRIORITIES.map((o) => ({ ...o, label: t(o.label) }))}
-          value={priority}
-          onChange={setPriority}
-        />
+        <div className="flex rounded-xl bg-surface-2 p-1">
+          {PRIORITIES.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              aria-pressed={priority === o.value}
+              onClick={() => setPriority(o.value)}
+              className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-1 py-2.5 text-sm font-medium transition-all duration-200 ${
+                priority === o.value ? 'bg-bg text-text shadow-sm' : 'text-muted active:text-text'
+              }`}
+            >
+              <span className={`size-2 shrink-0 rounded-full ${o.dot}`} />
+              {t(o.label)}
+            </button>
+          ))}
+        </div>
+      </Field>
+      <Field label={t('Цвет')}>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            aria-label={t('Без цвета')}
+            onClick={() => setColor(null)}
+            className={`flex size-8 items-center justify-center rounded-full border-2 border-dashed border-border text-muted ${color === null ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : ''}`}
+          >
+            ×
+          </button>
+          {PRESET_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={c}
+              onClick={() => setColor(c)}
+              style={{ background: c }}
+              className={`flex size-8 items-center justify-center rounded-full ${color === c ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : ''}`}
+            >
+              {color === c && <Check size={14} className={isLightColor(c) ? 'text-black' : 'text-white'} />}
+            </button>
+          ))}
+        </div>
       </Field>
       <Field label={t('Срок')}>
         <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Chip active={dueDate === todayKey()} onClick={() => setDueDate(todayKey())}>
+            {t('Сегодня')}
+          </Chip>
+          <Chip active={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>
+            {t('Завтра')}
+          </Chip>
+          {dueDate && (
+            <Chip
+              onClick={() => {
+                setDueDate('');
+                setRemindBefore(null);
+              }}
+            >
+              {t('Убрать')}
+            </Chip>
+          )}
+        </div>
       </Field>
+      {dueDate && (
+        <Field label={t('Напоминание')}>
+          <Select
+            value={remindBefore ?? ''}
+            onChange={(e) => setRemindBefore(e.target.value === '' ? null : Number(e.target.value))}
+          >
+            <option value="">{t('Выкл')}</option>
+            {[...REMIND_PRESETS_ALLDAY].reverse().map((m) => (
+              <option key={m} value={m}>
+                {formatRemindLabel(m)}
+              </option>
+            ))}
+            <option value="0">{t('В день задачи')}</option>
+          </Select>
+          {remindBefore != null && (
+            <p className="mt-1.5 text-xs leading-snug text-muted">
+              {t('Напоминание приходит утром, в {time}', { time: ALLDAY_REMIND_TIME })}
+            </p>
+          )}
+        </Field>
+      )}
       <Field label={t('Детали')}>
         <AutoGrowTextarea
           value={notes}

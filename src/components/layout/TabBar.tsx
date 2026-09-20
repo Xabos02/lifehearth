@@ -9,7 +9,7 @@ import { t } from '../../lib/i18n';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function TabBar() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const familyUnread = useFamilyUnread();
   // Состав и порядок вкладок — из раскладки «под себя» (экран «Настроить разделы»).
   const { bottom } = useNavLayout();
@@ -22,6 +22,11 @@ export function TabBar() {
 
   // На экране редактора заметки таб-бар скрыт — внизу панель форматирования.
   if (/^\/notes\/.+/.test(pathname)) return null;
+
+  // Чат семьи — на весь экран, как переписка в мессенджере: без нижнего
+  // таббара приложения под ним. Вкладка «Чат» — она же вкладка по умолчанию
+  // (?t=tasks/members переключает на остальные, там таббар нужен).
+  if (pathname === '/more/family' && new URLSearchParams(search).get('t') == null) return null;
 
   return (
     <nav className="z-30 shrink-0 border-t border-hairline bg-elevated pb-[clamp(6px,env(safe-area-inset-bottom),8px)]">

@@ -175,8 +175,9 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
   const [recWeekdays, setRecWeekdays] = useState<number[]>(
     rec?.type === 'weekly' ? [...rec.weekdays] : [],
   );
+  const dayFromDue = dueDate ? parseInt(dueDate.split('-')[2], 10) : 1;
   const [recDayOfMonth, setRecDayOfMonth] = useState(
-    String(rec?.type === 'monthly' ? rec.dayOfMonth : 1),
+    String(rec?.type === 'monthly' ? rec.dayOfMonth : dayFromDue),
   );
   const [checklist, setChecklist] = useState<ChecklistItem[]>(
     task ? task.checklist.map((i) => ({ ...i })) : [],
@@ -246,6 +247,17 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   }, [notes]);
+
+  // При переключении на monthly или смене dueDate подставляем день месяца из
+  // срока, чтобы «10-е число» не превращалось в «1-е» из-за дефолта.
+  // Для уже существующей monthly-задачи не затираем сохранённый dayOfMonth.
+  useEffect(() => {
+    if (recType !== 'monthly') return;
+    if (rec?.type === 'monthly') return;
+    const day = dueDate ? parseInt(dueDate.split('-')[2], 10) : 1;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- подстановка дня месяца из срока при переключении на monthly
+    setRecDayOfMonth(String(day));
+  }, [recType, dueDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildRecurrence = (): Recurrence | null => {
     const interval = Math.max(1, parseInt(recInterval, 10) || 1);

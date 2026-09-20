@@ -54,11 +54,15 @@ export async function createFamilyTask(
     notes?: string;
     priority?: Priority;
     dueDate?: string | null;
+    dueTime?: string | null;
+    remindBefore?: number | null;
+    color?: string | null;
     assigneeId?: string | null;
+    sortOrder?: number;
   },
-): Promise<void> {
+): Promise<FamilyTask | null> {
   const c = await getFamilyConfig(familyId);
-  if (!c) return;
+  if (!c) return null;
   const task: FamilyTask = {
     id: crypto.randomUUID(),
     familyId,
@@ -67,15 +71,29 @@ export async function createFamilyTask(
     notes: data.notes ?? '',
     priority: data.priority ?? 0,
     dueDate: data.dueDate ?? null,
+    dueTime: data.dueTime ?? null,
+    remindBefore: data.remindBefore ?? null,
+    color: data.color ?? null,
     assigneeId: data.assigneeId ?? null,
     createdBy: c.selfMemberId,
     completedAt: null,
     completedBy: null,
-    sortOrder: Date.now(),
+    sortOrder: data.sortOrder ?? Date.now(),
     deletedAt: null,
   };
   await db.familyTasks.put(task);
   await sendItem(familyId, 'task', task.id, stripMeta(task));
+  return task;
+}
+
+/** Переставляет активные задачи в новом порядке (drag-n-drop в списке):
+ *  каждой присваивается убывающий sortOrder — список сортируется по нему
+ *  по убыванию, значит первая в новом порядке получает наибольшее значение. */
+export async function reorderFamilyTasks(familyId: string, orderedIds: string[]): Promise<void> {
+  const base = Date.now();
+  for (let i = 0; i < orderedIds.length; i++) {
+    await updateFamilyTask(familyId, orderedIds[i], { sortOrder: base - i });
+  }
 }
 
 export async function updateFamilyTask(

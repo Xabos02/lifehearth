@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   GClose as X,
@@ -24,7 +25,23 @@ const TABS = [
 ];
 
 export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
-  const [tab, setTab] = useState<Tab>('chat');
+  // Вкладка живёт в URL (?t=...), а не только в состоянии: чат должен идти на
+  // весь экран (без нижнего таббара приложения), а TabBar узнаёт об этом,
+  // только читая адресную строку — состояние этого компонента ему не видно.
+  const [sp, setSp] = useSearchParams();
+  const tabFromUrl = sp.get('t');
+  const tab: Tab = tabFromUrl === 'tasks' || tabFromUrl === 'members' ? tabFromUrl : 'chat';
+  const setTab = (next: Tab) => {
+    setSp(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        if (next === 'chat') n.delete('t');
+        else n.set('t', next);
+        return n;
+      },
+      { replace: true },
+    );
+  };
   const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
   const toast = useToast();
   const [pushOn, setPushOn] = useState(pushEnabled());

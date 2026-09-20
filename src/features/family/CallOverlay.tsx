@@ -9,11 +9,13 @@ import {
 import {
   GPhone as Phone,
   GLock as Lock,
+  GChevronLeft as ChevronLeft,
 } from '../../components/ui/glyphs';
 import { callManager, type CallSnapshot } from '../../lib/family/familyCall';
 import { getLang, t } from '../../lib/i18n';
 import { CallGuard } from './CallGuard';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 /** Через сколько заблокировать экран после того, как звонок ушёл «к уху». */
 const LOCK_AFTER_CONNECT_MS = 1800;
@@ -51,7 +53,7 @@ function statusText(snap: CallSnapshot): string {
   }
 }
 
-export function CallOverlay({ snap }: { snap: CallSnapshot }) {
+export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimize?: () => void }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (snap.status !== 'active') return;
@@ -119,6 +121,20 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
   return (
     <>
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-bg/95 px-6 pb-[calc(env(safe-area-inset-bottom)+40px)] pt-[calc(env(safe-area-inset-top)+72px)] backdrop-blur-xl">
+      {/* Свернуть звонок — та же стрелка, что и «назад» в шапках приложения:
+          звонок продолжается в фоне, а под ней открывается остальной интерфейс.
+          Не для входящего (сначала ответить/отклонить) и не для «завершён»
+          (оверлей и сам сейчас исчезнет). */}
+      {onMinimize && !incoming && !ended && (
+        <button
+          onClick={onMinimize}
+          aria-label={t('Свернуть звонок')}
+          className={`absolute left-4 flex size-9 items-center justify-center rounded-full bg-surface-2/80 text-text active:opacity-70 ${HIT_SLOP_44}`}
+          style={{ top: 'calc(env(safe-area-inset-top) + 16px)' }}
+        >
+          <ChevronLeft size={ICON.accent} />
+        </button>
+      )}
       {/* Кто и статус */}
       <div className="flex flex-1 flex-col items-center justify-center gap-6">
         <span
@@ -204,6 +220,34 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
       />
     )}
     </>
+  );
+}
+
+/** Свёрнутый звонок: узкая плашка сверху справа — не под стрелкой «назад»
+ *  экрана (та слева), поэтому обе управляются пальцем без промаха. Таймер
+ *  идёт своим independent тиком: полноэкранный оверлей размонтирован, и его
+ *  собственный интервал (в CallOverlay) вместе с ним. */
+export function MinimizedCallBar({ snap, onExpand }: { snap: CallSnapshot; onExpand: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (snap.status !== 'active') return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [snap.status]);
+
+  return (
+    <button
+      onClick={onExpand}
+      aria-label={t('Развернуть звонок: {name}, {status}', { name: snap.peerName || t('Участник'), status: statusText(snap) })}
+      className="fixed z-50 flex items-center gap-2 rounded-full bg-success-fill px-3 py-2 text-white shadow-lg active:opacity-90"
+      style={{ top: 'calc(env(safe-area-inset-top) + 10px)', right: '12px' }}
+    >
+      <Phone size={ICON.inline} className="animate-pulse" />
+      <span className="max-w-[7rem] truncate text-xs font-semibold">{snap.peerName || t('Участник')}</span>
+      <span className="text-xs tabular-nums opacity-90">
+        {snap.status === 'active' && snap.startedAt ? fmtElapsed(now - snap.startedAt) : statusText(snap)}
+      </span>
+    </button>
   );
 }
 

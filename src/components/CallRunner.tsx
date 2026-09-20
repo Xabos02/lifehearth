@@ -1,10 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { listFamilyConfigs } from '../lib/family/familyState';
 import { subscribeSignals } from '../lib/family/familyChat';
 import { callManager, useCall } from '../lib/family/familyCall';
 import { armRingtoneUnlock } from '../lib/family/ringtone';
-import { CallOverlay } from '../features/family/CallOverlay';
+import { CallOverlay, MinimizedCallBar } from '../features/family/CallOverlay';
 
 /** Слушает сигналы звонков по ВСЕМ включённым группам (чтобы входящий ловился
  *  на любом экране) и рендерит оверлей активного звонка поверх приложения.
@@ -28,6 +28,20 @@ export function CallRunner() {
   }, [sig]);
 
   const snap = useCall();
+  // Свёрнутый звонок живёт здесь, а не в оверлее: он должен пережить и
+  // размонтирование полноэкранного оверлея, и переходы между экранами
+  // приложения — стрелка «назад» в оверлее лишь переключает этот флаг.
+  const [minimized, setMinimized] = useState(false);
+  useEffect(() => {
+    // Новый звонок (входящий/исходящий) всегда открывается на весь экран;
+    // сброс на 'idle' — тоже подстраховка на случай, если флаг залип.
+    if (snap.status === 'idle' || snap.status === 'incoming' || snap.status === 'outgoing') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- сброс сворачивания на новый/оконченный звонок
+      setMinimized(false);
+    }
+  }, [snap.status]);
+
   if (snap.status === 'idle') return null;
-  return <CallOverlay snap={snap} />;
+  if (minimized) return <MinimizedCallBar snap={snap} onExpand={() => setMinimized(false)} />;
+  return <CallOverlay snap={snap} onMinimize={() => setMinimized(true)} />;
 }

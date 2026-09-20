@@ -59,7 +59,11 @@ export function nextOccurrence(rec: Recurrence, dueKey: string | null): string {
     case 'monthly': {
       const step = Math.max(1, rec.interval);
       const clampDay = (m: Date) => Math.min(rec.dayOfMonth, getDaysInMonth(m));
-      let m = startOfMonth(anchor);
+      // Начинаем с anchor + step, а не с самого anchor: иначе при
+      // dayOfMonth > day(anchor) функция возвращала дату того же месяца
+      // (через несколько дней, а не через месяц), а при опоздании на день
+      // мимо «10-го числа» — перескакивала сразу на 2 месяца вперёд.
+      let m = addMonths(startOfMonth(anchor), step);
       for (let i = 0; i < 600; i++) {
         const cand = setDate(m, clampDay(m));
         if (cand > after) return toKey(cand);
