@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { openApp, test, expect } from './fixtures';
+import { openApp, openFamilyChrome, test, expect } from './fixtures';
 import { addDaysKey, todayKey } from '../src/lib/dates';
 
 // ВРЕМЕННЫЙ спек EN-скриншот-ревью. Не для постоянного набора: снимает каждый
@@ -290,6 +290,7 @@ test('EN: семья — чат, задачи, участники, звонок'
   await seedFamily(page);
   await page.goto('/more/family?g=f1');
   await expect(page.getByRole('heading', { name: 'Our family' })).toBeVisible();
+  await openFamilyChrome(page, 'Chat');
   await page.getByRole('button', { name: 'Chat' }).click();
   await shot(page, '31-family-chat', { full: true });
   await page.getByRole('button', { name: 'Tasks' }).click();

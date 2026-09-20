@@ -322,6 +322,8 @@ export const EN: Record<string, string> = {
   'подключение…': 'connecting…',
   'на связи': 'connected',
   'Управление группами': 'Manage groups',
+  'Показать группы и вкладки': 'Show groups and tabs',
+  'Свернуть панель группы': 'Hide group panel',
   'Пригласить в группу': 'Invite to the group',
   'QR-код приглашения': 'Invitation QR code',
   'Скопировать код': 'Copy code',

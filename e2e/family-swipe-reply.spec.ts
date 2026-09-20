@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openApp, test } from './fixtures';
+import { openApp, openFamilyChrome, test } from './fixtures';
 
 // Свайп вправо по сообщению прикрепляет его как цитату для ответа.
 //
@@ -74,7 +74,9 @@ test('цитата уходит в черновик: вернулся на эк�
   await swipeRight(page, 'Заберёшь колёса в субботу?');
   await expect(page.getByText('Заберёшь колёса в субботу?')).toHaveCount(2);
 
+  await openFamilyChrome(page);
   await page.getByRole('button', { name: 'Участники' }).click();
+  await openFamilyChrome(page);
   await page.getByRole('button', { name: 'Чат' }).click();
 
   await expect(page.getByText('Заберёшь колёса в субботу?')).toHaveCount(2);

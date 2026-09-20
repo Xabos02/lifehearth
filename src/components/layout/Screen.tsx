@@ -32,6 +32,12 @@ interface Props {
   subtitle?: string;
   /** контент занимает всю высоту (для чата): сам скроллится внутри, без резерва снизу */
   fill?: boolean;
+  /** Минималистичная шапка: заголовок в одну строку обычным кеглем.
+   *
+   *  Для экранов, где шапка — не главное на экране, а служебная полоса над
+   *  содержимым (чат). Крупный двухстрочный заголовок вместе с чипами групп и
+   *  вкладками съедал там треть высоты, и переписке оставалось три сообщения. */
+  compact?: boolean;
   children: ReactNode;
 }
 
@@ -91,6 +97,7 @@ export function Screen({
   right,
   subtitle,
   fill = false,
+  compact = false,
   children,
 }: Props) {
   // Пока такой экран открыт, баннер установки не показывается: прокрутки,
@@ -115,7 +122,13 @@ export function Screen({
     >
       {/* Широкие экраны (Mac/Windows/iPad): контент — центральная колонка
           max-w-lg, той же ширины, что таб-бар. На телефоне ничего не меняет. */}
-      <header className="sticky top-0 z-30 shrink-0 border-b border-hairline bg-bg px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3">
+      <header
+        className={`sticky top-0 z-30 shrink-0 border-b border-hairline bg-bg px-4 ${
+          compact
+            ? 'pt-[calc(env(safe-area-inset-top)+8px)] pb-2'
+            : 'pt-[calc(env(safe-area-inset-top)+12px)] pb-3'
+        }`}
+      >
         <div className="mx-auto flex w-full max-w-lg items-center gap-2">
           {/* Стрелка «Назад» — единственная навигация вверх по иерархии, и вес
               у неё акцентный: обычным 1.5px шеврон рядом с жирным заголовком
@@ -139,11 +152,21 @@ export function Screen({
                 словом «Заметка» незачем. Рендерить пустой h1 нельзя — он
                 занимает высоту строки и раздувает шапку. */}
             {title && (
-              <h1 className="line-clamp-2 text-2xl leading-[1.15] font-bold tracking-tight break-words">
+              <h1
+                className={
+                  compact
+                    ? 'truncate text-base leading-tight font-semibold tracking-tight'
+                    : 'line-clamp-2 text-2xl leading-[1.15] font-bold tracking-tight break-words'
+                }
+              >
                 {title}
               </h1>
             )}
-            {subtitle && <p className="text-sm font-medium text-muted">{subtitle}</p>}
+            {subtitle && (
+              <p className={`font-medium text-muted ${compact ? 'truncate text-2xs leading-tight' : 'text-sm'}`}>
+                {subtitle}
+              </p>
+            )}
           </div>
           {right}
         </div>

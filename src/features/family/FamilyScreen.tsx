@@ -24,7 +24,19 @@ const TABS = [
   { value: 'members' as const, label: 'Участники' },
 ];
 
-export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
+export function FamilyScreen({
+  familyId,
+  onLeft,
+  onAddGroup,
+  chromeOpen = true,
+}: {
+  familyId: string;
+  onLeft: () => void;
+  onAddGroup?: () => void;
+  /** «Штора» шапки раскрыта: показываем переключатель вкладок. Свёрнутая
+   *  панель отдаёт эти ~50px переписке — именно за этим её и прячут. */
+  chromeOpen?: boolean;
+}) {
   // Вкладка живёт в URL (?t=...), а не только в состоянии: чат должен идти на
   // весь экран (без нижнего таббара приложения), а TabBar узнаёт об этом,
   // только читая адресную строку — состояние этого компонента ему не видно.
@@ -67,7 +79,13 @@ export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: strin
 
   return (
     <div className="flex h-full flex-col">
-      <div className="shrink-0 space-y-3 pb-3">
+      <div
+        className={`grid shrink-0 transition-[grid-template-rows,opacity] duration-200 ease-out ${
+          chromeOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+        aria-hidden={!chromeOpen}
+      >
+        <div className="min-h-0 space-y-3 overflow-hidden pb-3">
         {config?.removedAt ? (
           // Молчаливое «не в сети» тут было бы обманом: человек чинил бы связь,
           // которой больше нет. Переписку оставляем — она его, и стирать её
@@ -108,7 +126,8 @@ export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: strin
             </button>
           </div>
         )}
-        <SegmentedControl options={TABS.map((o) => ({ ...o, label: t(o.label) }))} value={tab} onChange={setTab} />
+          <SegmentedControl options={TABS.map((o) => ({ ...o, label: t(o.label) }))} value={tab} onChange={setTab} />
+        </div>
       </div>
       {/* Для чата — без внешнего скролла (ChatTab имеет свой), иначе два
           вложенных overflow-y-auto давали «войну скроллов» и заморозку. */}

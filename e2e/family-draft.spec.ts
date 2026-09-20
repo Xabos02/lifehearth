@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openApp, test } from './fixtures';
+import { openApp, openFamilyChrome, test } from './fixtures';
 
 // Недописанное сообщение переживает уход с экрана.
 //
@@ -40,9 +40,11 @@ test('недописанное сообщение возвращается по�
   await seedFamily(page);
 
   await input(page).fill('Заберу, но позже — сначала на');
+  await openFamilyChrome(page);
   await page.getByRole('button', { name: 'Участники' }).click();
   await expect(input(page)).toHaveCount(0);
 
+  await openFamilyChrome(page);
   await page.getByRole('button', { name: 'Чат' }).click();
   await expect(input(page)).toHaveValue('Заберу, но позже — сначала на');
 });
@@ -55,7 +57,9 @@ test('отправленное сообщение черновик не оста
   await page.getByRole('button', { name: 'Отправить' }).click();
   await expect(input(page)).toHaveValue('');
 
+  await openFamilyChrome(page);
   await page.getByRole('button', { name: 'Участники' }).click();
+  await openFamilyChrome(page);
   await page.getByRole('button', { name: 'Чат' }).click();
   // Пустое поле, а не «Готово» второй раз.
   await expect(input(page)).toHaveValue('');
@@ -70,7 +74,9 @@ test('выбранная цитата тоже возвращается', async 
   await page.getByRole('button', { name: 'Ответить' }).click();
   await expect(page.getByText('Заберёшь колёса в субботу?')).toHaveCount(2); // в ленте и в шапке ввода
 
+  await openFamilyChrome(page);
   await page.getByRole('button', { name: 'Участники' }).click();
+  await openFamilyChrome(page);
   await page.getByRole('button', { name: 'Чат' }).click();
 
   // Цитата на месте: сообщение по-прежнему показано дважды.

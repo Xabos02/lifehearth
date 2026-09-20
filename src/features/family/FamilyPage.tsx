@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import {
   GPlus as Plus,
+  GChevronDown as ChevronDown,
 } from '../../components/ui/glyphs';
 import type { FamilyConfig } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
@@ -28,6 +29,9 @@ export function FamilyPage() {
   const [sp, setSp] = useSearchParams();
   const [addMode, setAddMode] = useState<null | 'choose' | 'create' | 'join'>(null);
   const [manageOpen, setManageOpen] = useState(false);
+  // «Штора» шапки: чипы групп и вкладки по умолчанию свёрнуты — экран чата
+  // начинается сразу под однострочной шапкой. Раскрывается шевроном справа.
+  const [chromeOpen, setChromeOpen] = useState(false);
 
   // Выбранная группа живёт в URL (?g=…): так переход по пуш-уведомлению (открыть
   // конкретный чат) надёжно переключает группу, даже если открыта другая.
@@ -67,21 +71,42 @@ export function FamilyPage() {
   const selected = fromUrl && ids.includes(fromUrl) ? fromUrl : fromLs && ids.includes(fromLs) ? fromLs : ids[0];
   const current = configs.find((c) => c.familyId === selected)!;
 
+  const tabParam = sp.get('t');
+  const tabLabel = tabParam === 'tasks' ? t('Задачи') : tabParam === 'members' ? t('Участники') : undefined;
+
   return (
-    <ScreenWithStatus current={current} selected={selected}>
+    <ScreenWithStatus
+      current={current}
+      selected={selected}
+      chromeOpen={chromeOpen}
+      onToggleChrome={() => setChromeOpen((v) => !v)}
+      tabLabel={tabLabel}
+    >
       <div className="flex h-full flex-col">
         {/* Свитчер групп — только когда групп больше одной: при единственной
             группе пилюля с её именем дублировала заголовок экрана строкой ниже
             и вместе с остальной шапкой выталкивала ленту чата за экран.
             «Добавить группу» при этом живёт во вкладке «Участники». */}
         {configs.length > 1 && (
-          <GroupSwitcher
-            configs={configs}
-            selected={selected}
-            onSelect={select}
-            onAdd={() => setAddMode('choose')}
-            onManage={() => setManageOpen(true)}
-          />
+          // Свёртка сеткой (grid-rows 1fr → 0fr), а не max-height: высота
+          // полосы с чипами заранее неизвестна, и подобранный «на глаз»
+          // потолок либо резал длинные имена групп, либо оставлял пустоту.
+          <div
+            className={`grid shrink-0 transition-[grid-template-rows,opacity] duration-200 ease-out ${
+              chromeOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+            }`}
+            aria-hidden={!chromeOpen}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <GroupSwitcher
+                configs={configs}
+                selected={selected}
+                onSelect={select}
+                onAdd={() => setAddMode('choose')}
+                onManage={() => setManageOpen(true)}
+              />
+            </div>
+          </div>
         )}
         <div className="min-h-0 flex-1">
           {/* key=selected: смена группы полностью перемонтирует экран (чистый
@@ -89,6 +114,7 @@ export function FamilyPage() {
           <FamilyScreen
             key={selected}
             familyId={selected}
+            chromeOpen={chromeOpen}
             onAddGroup={() => setAddMode('choose')}
             onLeft={() => {
               const sib = ids.find((i) => i !== selected);
@@ -144,10 +170,19 @@ export function FamilyPage() {
 function ScreenWithStatus({
   current,
   selected,
+  chromeOpen,
+  onToggleChrome,
+  tabLabel,
   children,
 }: {
   current: FamilyConfig;
   selected: string;
+  /** Раскрыта ли «штора» — панель с переключателем групп и вкладками. */
+  chromeOpen: boolean;
+  onToggleChrome: () => void;
+  /** Название открытой вкладки, когда это не «Чат»: со свёрнутой шторой она
+   *  единственная подсказка, где человек находится. */
+  tabLabel?: string;
   children: ReactNode;
 }) {
   const status = useFamilyStatusLine(selected);
@@ -156,10 +191,12 @@ function ScreenWithStatus({
   // стоила бы переписке два десятка пикселей высоты.
   const action = useSyncExternalStore(subscribeScreenAction, screenAction, () => null);
   const ActionIcon = action?.icon as LucideIcon | undefined;
+  const subtitle = [tabLabel, current.removedAt ? undefined : status].filter(Boolean).join(' · ');
   return (
     <Screen
+      compact
       title={current.familyName}
-      subtitle={current.removedAt ? undefined : status}
+      subtitle={subtitle || undefined}
       backTo="/home"
       right={
         // gap-3, а не gap-1: обе кнопки шириной 36px, но зона касания у каждой
@@ -168,6 +205,19 @@ function ScreenWithStatus({
         // кнопка, которую прощают за случайное нажатие: он поднимает трезвон у
         // человека на том конце. 12px дают 4px чистого зазора между зонами.
         <div className="flex items-center gap-3">
+          <button
+            onClick={onToggleChrome}
+            aria-label={chromeOpen ? t('Свернуть панель группы') : t('Показать группы и вкладки')}
+            aria-expanded={chromeOpen}
+            className={`flex size-9 items-center justify-center rounded-full text-muted transition-colors active:text-accent ${
+              chromeOpen ? 'bg-surface-2 text-text' : ''
+            } ${HIT_SLOP_44}`}
+          >
+            <ChevronDown
+              size={ICON.header}
+              className={`transition-transform duration-200 ${chromeOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
           {action && ActionIcon && (
             <button
               onClick={action.onPress}

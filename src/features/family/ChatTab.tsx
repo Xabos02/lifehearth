@@ -485,9 +485,33 @@ function MessageRow({
   // фото или файл возвращают обычный пузырь, иначе им не на чем висеть.
   const jumbo = !m.replyTo && !m.image && !m.audio && !m.file ? emojiOnly(m.text) : 0;
 
+  // Время и галочки — одна перебежка, которую мессенджеры прячут в конец
+  // последней строки текста, а не выносят отдельной строкой: у короткого
+  // сообщения («ок», «.») собственная строка метаданных вдвое выше самого
+  // текста и раздувает пузырь до ширины часов с двумя галочками.
+  const meta = (
+    <>
+      {m.editedAt && <span>{t('изменено')}</span>}
+      {timeLabel(m.createdAt)}
+      {own &&
+        (m.status === 'pending' ? (
+          <Clock size={ICON.inline} />
+        ) : m.seq != null && maxOtherRead >= m.seq ? (
+          <CheckCheck size={ICON.inline} className="text-sky-300" />
+        ) : (
+          <Check size={ICON.inline} />
+        ))}
+    </>
+  );
+  const metaTone = jumbo ? 'text-muted' : own ? 'text-white/70' : 'text-muted';
+  // Текстовый пузырь уводит метку в поток абзаца (float), остальные типы —
+  // фото, голос, файл — держат её отдельной строкой снизу: внутри картинки
+  // потоку не на чем висеть.
+  const inlineMeta = Boolean(m.text) && jumbo === 0;
+
   return (
     <div className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex max-w-[80%] flex-col ${own ? 'items-end' : 'items-start'}`}>
+      <div className={`flex max-w-[78%] flex-col ${own ? 'items-end' : 'items-start'}`}>
         <div className="flex items-center">
           {dragX > 4 && (
             <span
@@ -509,13 +533,13 @@ function MessageRow({
               transition: dragX ? undefined : 'transform 160ms ease',
               WebkitTouchCallout: 'none',
             }}
-            className={`cursor-pointer select-none overflow-hidden transition-shadow active:opacity-80 ${
+            className={`relative cursor-pointer select-none overflow-hidden transition-shadow active:opacity-80 ${
               jumbo
                 ? 'bg-transparent px-1 py-0'
-                : `rounded-2xl ${m.image ? 'p-1' : 'px-3 py-2'} ${
+                : `rounded-[1.15rem] shadow-[0_1px_2px_-1px_rgb(0_0_0/0.25)] ${m.image ? 'p-[3px]' : 'px-3 py-1.5'} ${
                     own
-                      ? `bg-accent-fill text-white ${groupEnd ? 'rounded-br-md' : ''}`
-                      : `bg-surface-2 text-text ${groupEnd ? 'rounded-bl-md' : ''}`
+                      ? `bg-accent-fill text-white ${groupEnd ? 'rounded-br-[0.4rem]' : ''}`
+                      : `bg-surface-2 text-text ${groupEnd ? 'rounded-bl-[0.4rem]' : ''}`
                   }`
             } ${highlight ? 'ring-2 ring-frost' : ''}`}
           >
@@ -564,7 +588,10 @@ function MessageRow({
             {m.text && jumbo === 0 && (
               // Базовый кегль приложения, а не мелкий: чат читают в том числе
               // родители, и 15px здесь были самым мелким текстом в разделе.
-              <p className={`whitespace-pre-wrap break-words ${m.image ? 'px-2 pt-1' : ''}`}>
+              // overflow-hidden — не обрезка, а блочный контекст: без него
+              // плавающая метка времени не считается содержимым абзаца и
+              // вываливалась бы за нижний край пузыря.
+              <p className={`overflow-hidden leading-snug whitespace-pre-wrap break-words ${m.image ? 'px-2 pt-1' : ''}`}>
                 {linkify(m.text).map((part, idx) =>
                   part.kind === 'link' ? (
                     <a
@@ -584,20 +611,26 @@ function MessageRow({
                     <span key={idx}>{part.value}</span>
                   ),
                 )}
+                {inlineMeta && (
+                  <span
+                    className={`float-right ml-2 inline-flex translate-y-1 items-center gap-1 text-2xs tabular-nums ${metaTone}`}
+                  >
+                    {meta}
+                  </span>
+                )}
               </p>
             )}
-            <span className={`mt-0.5 flex items-center justify-end gap-1 text-2xs ${m.image ? 'px-2 pb-1' : ''} ${jumbo ? 'text-muted' : own ? 'text-white/90' : 'text-muted'}`}>
-              {m.editedAt && <span>{t('изменено')}</span>}
-              {timeLabel(m.createdAt)}
-              {own &&
-                (m.status === 'pending' ? (
-                  <Clock size={ICON.inline} />
-                ) : m.seq != null && maxOtherRead >= m.seq ? (
-                  <CheckCheck size={ICON.inline} className="text-sky-300" />
-                ) : (
-                  <Check size={ICON.inline} />
-                ))}
-            </span>
+            {m.image && !m.text ? (
+              // Поверх фото, как в мессенджерах: подпись под картинкой съедала
+              // бы ещё строку, а на светлых снимках без подложки часы не видно.
+              <span className="pointer-events-none absolute right-2.5 bottom-2.5 flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-0.5 text-2xs tabular-nums text-white backdrop-blur-sm">
+                {meta}
+              </span>
+            ) : inlineMeta ? null : (
+              <span className={`-mt-0.5 flex items-center justify-end gap-1 text-2xs tabular-nums ${metaTone}`}>
+                {meta}
+              </span>
+            )}
           </div>
         </div>
         {chips && (

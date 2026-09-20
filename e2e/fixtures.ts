@@ -78,6 +78,17 @@ export async function openApp(page: Page, path = '', extraSettings: SeedSettings
 }
 
 /** Ошибки в консоли и необработанные исключения за время теста. */
+/** Раскрыть «штору» шапки семьи: чипы групп и вкладки Чат/Задачи/Участники по
+ *  умолчанию свёрнуты, чтобы переписке доставался весь экран. */
+export async function openFamilyChrome(page: Page, chatLabel = 'Чат') {
+  const chat = page.getByRole('button', { name: chatLabel, exact: true });
+  if (await chat.isVisible()) return;
+  await page
+    .getByRole('button', { name: /Показать группы и вкладки|Show groups and tabs/ })
+    .click();
+  await expect(chat).toBeVisible();
+}
+
 export function collectErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
