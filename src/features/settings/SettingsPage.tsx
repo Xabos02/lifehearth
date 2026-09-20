@@ -323,6 +323,15 @@ export function SettingsPage() {
         >
           <div className="card">
             <LinkRow icon={SlidersHorizontal} label={t('Разделы')} to="/more/settings/sections" />
+            {/* Тот же приём, что у «Обучение» ниже: сброс флага снова
+                показывает обязательный шаг расстановки приоритета разделов
+                поверх всего приложения (SectionsPriorityGate). */}
+            <ButtonRow
+              icon={SlidersHorizontal}
+              label={t('Расстановка приоритетов')}
+              action={t('Показать заново')}
+              onClick={() => void updateSettings({ sectionsPriorityDone: null })}
+            />
             {/* Раздел ИИ за флагом: пока фича дописывается, её можно мержить в
                 main рабочего приложения, не показывая на «Главной».
                 Переключатель вместо сегментов «Скрыт / Показать»: это выбор из

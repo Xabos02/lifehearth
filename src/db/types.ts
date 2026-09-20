@@ -496,6 +496,11 @@ export interface Settings {
   // Обучение: ISO-время завершения вводного тура. null/undefined — не пройден,
   // при первом запуске поверх приложения показывается OnboardingOverlay.
   onboardingDone?: string | null;
+  // ISO-время, когда человек прошёл обязательный шаг «Приоритет разделов»
+  // сразу после обучения (SectionsPriorityGate). null/undefined — шаг ещё не
+  // пройден, гейт перекрывает приложение, пока он не нажмёт «Готово». Пропуска
+  // нет: смысл шага — чтобы человек сразу вложился в приложение под себя.
+  sectionsPriorityDone?: string | null;
   // Показанные контекстные подсказки (id из useHint) — каждая всплывает один
   // раз при первом использовании раздела и скрывается крестиком навсегда.
   seenHints?: string[];
@@ -650,6 +655,9 @@ export interface FamilyTask {
   notes: string;
   priority: Priority;
   dueDate: string | null; // 'YYYY-MM-DD'
+  dueTime: string | null; // 'HH:mm', опционально
+  remindBefore: number | null; // напомнить за N минут до срока; 0 = вовремя, null = выкл
+  color: string | null; // свой цвет задачи (перебивает цвет исполнителя в списке)
   assigneeId: string | null; // кому поставлена
   createdBy: string; // кто поставил (memberId)
   completedAt: string | null;

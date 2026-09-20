@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { User } from 'lucide-react';
 import {
+  GChevronDown as ChevronDown,
   GChevronRight as ChevronRight,
   GCloud as Cloud,
   GCloudOff as CloudOff,
@@ -14,7 +16,7 @@ import { alive } from '../../db/repo';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import { formatRu } from '../../lib/dates';
 import { ageFrom, yearsLabel } from '../../lib/profile';
-import { SECTION_BY_ID } from '../../lib/sections';
+import { HOME_VISIBLE_STEP, SECTION_BY_ID } from '../../lib/sections';
 import { getLang, t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 
@@ -171,6 +173,11 @@ export function HomePage() {
   // Список разделов и их порядок — из раскладки «под себя»: то, что вынесено в
   // нижнюю панель или спрятано, здесь не повторяется.
   const { more } = useNavLayout();
+  // Показываем не всё сразу: длинный список плиток на «Главной» выглядит
+  // перегруженным, а порядок и так задан приоритетом человека (см. «Настроить
+  // разделы») — первые HOME_VISIBLE_STEP и есть самые ходовые для него.
+  // Остальные — за «Показать ещё», по столько же за раз.
+  const [visibleCount, setVisibleCount] = useState(HOME_VISIBLE_STEP);
   const learning = useLiveQuery(
     () => db.learningItems.where('status').equals('inProgress').toArray(),
     [],
@@ -205,7 +212,7 @@ export function HomePage() {
                 (82 / 95 / 103) — список читался как набор плиток, а не как
                 список. Разделитель идёт от текстовой колонки. */}
             <div className="card overflow-hidden [&>a:first-child>div:last-child]:border-t-0">
-              {sections.map((s) => (
+              {sections.slice(0, visibleCount).map((s) => (
                 <MenuCard
                   key={s.id}
                   to={s.to}
@@ -215,6 +222,16 @@ export function HomePage() {
                 />
               ))}
             </div>
+            {sections.length > visibleCount && (
+              <button
+                type="button"
+                onClick={() => setVisibleCount((c) => c + HOME_VISIBLE_STEP)}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 text-sm font-semibold text-muted active:opacity-70"
+              >
+                {t('Показать ещё {n}', { n: Math.min(HOME_VISIBLE_STEP, sections.length - visibleCount) })}
+                <ChevronDown size={ICON.action} />
+              </button>
+            )}
           </section>
         )}
 

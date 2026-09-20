@@ -53,6 +53,7 @@ import { PomodoroProvider } from './features/focus/PomodoroProvider';
 import { MiniTimer } from './features/focus/MiniTimer';
 import { GenderGate } from './features/onboarding/GenderGate';
 import { OnboardingOverlay } from './features/onboarding/OnboardingOverlay';
+import { SectionsPriorityGate } from './features/onboarding/SectionsPriorityGate';
 import { ReinstallNotice } from './features/onboarding/ReinstallNotice';
 import { WhatsNew } from './features/onboarding/WhatsNew';
 
@@ -264,6 +265,11 @@ export default function App() {
               не дожидаясь перезагрузки. */}
           {/* Вводный тур для нового пользователя — поверх всего, пока не пройден. */}
           <OnboardingOverlay />
+          {/* Сразу после тура — обязательная расстановка приоритета разделов,
+              без кнопки «Пропустить» (см. сам компонент). Ниже тура (80) и
+              выше окон об обновлении: те не должны встревать между обучением
+              и этим шагом. */}
+          <SectionsPriorityGate />
           {/* Одноразовое окно о смене имени/значка — только «старым» пользователям. */}
           <ReinstallNotice />
           {/* Что изменилось в этом обновлении. Обновление ставится тихо, и без

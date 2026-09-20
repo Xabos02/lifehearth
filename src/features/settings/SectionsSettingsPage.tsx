@@ -15,6 +15,7 @@ import {
   MAX_BOTTOM,
   DEFAULT_BOTTOM,
   ANCHOR_ID,
+  HOME_VISIBLE_STEP,
 } from '../../lib/sections';
 import { computeNavLayout } from '../../lib/navLayout';
 import { freezeAllForSection, unfreezeSectionFrozen } from '../habits/habitRepo';
@@ -277,7 +278,7 @@ export function SectionsSettingsPage() {
       />
     ) : null;
 
-  const row = (id: string, opts: { hidden?: boolean } = {}) => {
+  const row = (id: string, opts: { hidden?: boolean; homeIndex?: number } = {}) => {
     const sec = SECTION_BY_ID.get(id);
     if (!sec) return null;
     const Icon = sec.icon;
@@ -303,6 +304,15 @@ export function SectionsSettingsPage() {
           draggable ? 'touch-pan-y cursor-grab select-none [-webkit-touch-callout:none] [-webkit-user-select:none] active:cursor-grabbing' : ''
         }`}
       >
+        {/* Номер приоритета — только у разделов «Главной»: панель и так
+            видна целиком, спорить там не о чем. Число — это позиция в
+            списке HomePage, а не абстрактный ранг: 1 значит «первым увидите
+            на „Главной“». */}
+        {opts.homeIndex != null && (
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-2 text-xs font-bold text-muted">
+            {opts.homeIndex}
+          </span>
+        )}
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
           <Icon size={ICON.header} />
         </div>
@@ -377,10 +387,25 @@ export function SectionsSettingsPage() {
     </div>
   );
 
+  // Второй ориентир — уже внутри списка «Главной»: первые HOME_VISIBLE_STEP
+  // после черты видны на HomePage сразу, остальные — за кнопкой «Показать
+  // ещё». Значит показываем его только если разделов «Главной» больше этого
+  // порога — иначе делить нечего.
+  const homeExpandAt = dividerAt + HOME_VISIBLE_STEP;
+  const homeExpandDivider = (
+    <div className="my-1 flex items-center gap-2 px-1" aria-hidden={false}>
+      <span className="h-px flex-1 border-t border-dashed border-border" />
+      <span className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted">
+        {t('на «Главной» — за кнопкой «Показать ещё»')}
+      </span>
+      <span className="h-px flex-1 border-t border-dashed border-border" />
+    </div>
+  );
+
   return (
     <Screen title={t('Настроить разделы')} backTo="/more/settings">
       <p className="mb-4 px-1 text-sm leading-relaxed text-muted">
-        {t('Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Главной») — задержите строку пальцем и перетащите.', { n: MAX_BOTTOM })}
+        {t('Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Главной») — задержите строку пальцем и перетащите. Номер у раздела — его место в списке «Главной»: первые {home} видны сразу, остальные — за кнопкой «Показать ещё».', { n: MAX_BOTTOM, home: HOME_VISIBLE_STEP })}
       </p>
 
       <div data-zone="enabled" className="mb-6 space-y-2">
@@ -392,8 +417,9 @@ export function SectionsSettingsPage() {
                 {divider}
               </>
             )}
+            {i === homeExpandAt && i > dividerAt && homeExpandDivider}
             {dropLine(i)}
-            {row(id)}
+            {row(id, i >= dividerAt ? { homeIndex: i - dividerAt + 1 } : {})}
           </div>
         ))}
         {dividerAt === state.enabled.length && (
