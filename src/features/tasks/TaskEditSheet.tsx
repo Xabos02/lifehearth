@@ -33,7 +33,7 @@ import { syncTaskPhotos } from '../../lib/taskPhotos';
 import { MAX_FILE_BYTES, formatFileSize, groupTaskAttachments, planTaskFileChunks } from '../../lib/taskFiles';
 import { NoteAttachments } from '../notes/NoteAttachments';
 import { GAttach as Paperclip } from '../../components/ui/glyphs';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { HIT_SLOP_44, HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 import { formatDuration } from '../../lib/duration';
 import { t } from '../../lib/i18n';
 import { useAutoCapitalizeTextarea } from '../../lib/useAutoCapitalizeTextarea';
@@ -506,13 +506,16 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
     <Sheet open onClose={requestClose} title={task ? t('Задача') : t('Новая задача')}>
       <div className="flex flex-col gap-4 pb-2">
         <div>
-          <div className="mb-1.5 flex items-center justify-between">
+          {/* Значок копирования стоит рядом с подписью, а не у правого края:
+              у правого края прямо под ним микрофон с зоной касания 44, и
+              зоны двух кнопок налезали друг на друга на 9px. */}
+          <div className="mb-1.5 flex items-center gap-1">
             <span className="text-sm font-medium text-muted">{t('Название')}</span>
             <button
               type="button"
               aria-label={t('Скопировать название')}
               onClick={() => copyText(title)}
-              className="-mr-1 p-1 text-muted active:opacity-60"
+              className={`p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
               <Copy size={ICON.inline} />
             </button>
@@ -540,13 +543,13 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         </div>
 
         <div>
-          <div className="mb-1.5 flex items-center justify-between">
+          <div className="mb-1.5 flex items-center gap-1">
             <span className="text-sm font-medium text-muted">{t('Заметки')}</span>
             <button
               type="button"
               aria-label={t('Скопировать заметки')}
               onClick={() => copyText(notes)}
-              className="-mr-1 p-1 text-muted active:opacity-60"
+              className={`p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
               <Copy size={ICON.inline} />
             </button>
@@ -584,7 +587,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
         <div>
           <span className="mb-1.5 block text-sm font-medium text-muted">{t('Фото')}</span>
-          <div className="flex flex-wrap gap-2">
+          {/* gap-4: крестик сидит на углу миниатюры и выходит за неё на 6px,
+              зона касания 44 — ещё на 10px дальше. При зазоре 8px она
+              ложилась на соседнюю миниатюру, 16px убирают перекрытие. */}
+          <div className="flex flex-wrap gap-4">
             {photos.map((src, i) => (
               <div key={i} className="relative">
                 <button type="button" onClick={() => setViewPhoto(src)} aria-label={t('Открыть фото')}>
@@ -598,7 +604,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                   type="button"
                   aria-label={t('Удалить фото')}
                   onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
-                  className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full border border-border bg-elevated text-muted active:opacity-60"
+                  className={`absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full border border-border bg-elevated text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
                 >
                   <X size={ICON.inline} />
                 </button>
@@ -690,7 +696,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
             {!showNewProject && (
               <button
                 type="button"
-                className="text-sm font-medium text-accent"
+                className={`text-sm font-medium text-accent ${HIT_SLOP_44}`}
                 onClick={() => setShowNewProject(true)}
               >
                 {t('+ Новый')}
@@ -715,14 +721,17 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                   className="min-w-0 flex-1"
                 />
               </div>
-              <div className="flex flex-wrap gap-2.5">
+              {/* gap-4: кружки по 28px, зона касания у каждого 44 — при
+                  зазоре 10px зоны соседей налезали на 6px. 16px дают шаг
+                  сетки ровно 44 в обе стороны. */}
+              <div className="flex flex-wrap gap-4">
                 {PRESET_COLORS.map((c) => (
                   <button
                     key={c}
                     type="button"
                     aria-label={t('Цвет {c}', { c })}
                     onClick={() => setNewProjectColor(c)}
-                    className="size-7 rounded-full transition-transform active:scale-90"
+                    className={`size-7 rounded-full transition-transform active:scale-90 ${HIT_SLOP_44}`}
                     style={{
                       backgroundColor: c,
                       outline: newProjectColor === c ? `2px solid ${c}` : 'none',
@@ -994,8 +1003,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
         <div>
           <span className="mb-1.5 block text-sm font-medium text-muted">{t('Чеклист')}</span>
+          {/* min-h-11: строка 32px ставила чекбоксы и крестики соседних
+              пунктов в 32px друг от друга — зоны касания 44 налезали. */}
           {checklist.map((item) => (
-            <div key={item.id} className="flex items-center gap-2.5 py-1">
+            <div key={item.id} className="flex min-h-11 items-center gap-2.5">
               <TaskCheck
                 size={20}
                 checked={item.done}
@@ -1010,7 +1021,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               </span>
               <button
                 aria-label={t('Удалить пункт')}
-                className="shrink-0 p-1 text-muted"
+                className={`shrink-0 p-1 text-muted ${HIT_SLOP_44}`}
                 onClick={() => setChecklist((arr) => arr.filter((i) => i.id !== item.id))}
               >
                 <X size={ICON.action} />

@@ -14,7 +14,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { Table } from 'dexie';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Button } from '../../components/ui/Button';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { update } from '../../db/repo';
@@ -144,22 +144,25 @@ export function TrashPage() {
                       {t('удалено {date}', { date: formatRu(entry.deletedAt.slice(0, 10)) })}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    className="shrink-0 px-3 py-2 text-sm"
+                  {/* Обе кнопки — значками в кругах, как «разморозить» в
+                      задачах. С подписью «Восстановить» на ширине телефона
+                      названию оставалось 70px («Зам…»), а дата ложилась в три
+                      строки. Что делает каждая — сказано в подсказке над
+                      списком. gap-3 у строки держит центры кнопок в 48px:
+                      зоны касания 44 не налезают друг на друга. */}
+                  <button
+                    aria-label={t('Восстановить')}
+                    className={`flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent active:opacity-70 ${HIT_SLOP_44}`}
                     onClick={() => void handleRestore(entry)}
                   >
-                    <span className="flex items-center gap-1.5">
-                      <RotateCcw size={ICON.action} />
-                      {t('Восстановить')}
-                    </span>
-                  </Button>
+                    <RotateCcw size={ICON.action} />
+                  </button>
                   <button
                     aria-label={t('Удалить навсегда')}
-                    className="shrink-0 p-2 text-muted active:opacity-60"
+                    className={`flex size-9 shrink-0 items-center justify-center rounded-full text-danger active:opacity-60 ${HIT_SLOP_44}`}
                     onClick={() => void handlePurge(entry)}
                   >
-                    <Trash2 size={ICON.base} className="text-danger" />
+                    <Trash2 size={ICON.base} />
                   </button>
                 </div>
               );

@@ -199,7 +199,9 @@ export function AiPage() {
         backTo="/home"
         fill
         right={
-          <div className="flex items-center gap-1">
+          // gap-4: у IconButton -mx-1 и зона касания 44 — при gap-1 центры
+          // соседей стояли в 32px, и зоны налезали друг на друга на 12px.
+          <div className="flex items-center gap-4">
             <IconButton icon={SlidersHorizontal} label={t('Настройки чата')} onClick={() => setSettingsOpen(true)} />
             <IconButton icon={PanelsTopLeft} label={t('Список чатов')} onClick={() => setListOpen(true)} />
             <IconButton icon={MessageSquarePlus} label={t('Новый чат')} onClick={() => void handleNewChat()} />

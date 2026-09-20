@@ -19,6 +19,7 @@ import type { PlaceItem, PlaceKind, PlaceStatus } from '../../db/types';
 import { PlaceSheet } from './PlaceSheet';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import {
   GPlaces as MapPin,
   GExternalLink as ExternalLink,
@@ -73,7 +74,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
               e.stopPropagation();
               openMaps(item.location);
             }}
-            className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent active:opacity-70"
+            className={`flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent active:opacity-70 ${HIT_SLOP_44}`}
           >
             <MapPin size={ICON.header} />
           </button>
@@ -123,7 +124,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent active:opacity-60"
+              className={`mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
             >
               <ExternalLink size={ICON.inline} />
               {t('Открыть ссылку')}

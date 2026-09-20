@@ -12,6 +12,7 @@ import { create, remove, update } from '../../db/repo';
 import { t } from '../../lib/i18n';
 import type { PlaceItem, PlaceKind, PlaceStatus } from '../../db/types';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 
 // Уменьшает фото до ~1280px и пережимает в JPEG — чтобы dataURL в IndexedDB
 // весил сотни КБ, а не мегабайты с камеры телефона.
@@ -186,7 +187,7 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
               type="button"
               aria-label={t('Удалить фото')}
               onClick={() => setPhoto(null)}
-              className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white active:opacity-80"
+              className={`absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white active:opacity-80 ${HIT_SLOP_44_POSITIONED}`}
             >
               <X size={ICON.action} />
             </button>

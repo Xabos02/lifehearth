@@ -26,7 +26,8 @@ import { ICON } from '../../components/ui/icons';
  * объяснения и отдельной ссылкой — 237px, треть экрана «Сегодня», на котором
  * задачи дня и без того начинались за вторым экраном прокрутки. Служебная
  * просьба, одинаковая на каждом заходе, не может стоить дороже содержимого:
- * теперь это 48px — состояние словом и переход. Объяснение никуда не делось,
+ * теперь это 48px (на телефоне текст ложится в две строки — 64px) —
+ * состояние словом и переход. Объяснение никуда не делось,
  * оно на странице, куда ведёт переход.
  */
 export function ProtectDataCard() {
@@ -55,7 +56,10 @@ export function ProtectDataCard() {
     <section className="mb-5">
       <div className="card flex items-center gap-2.5 p-3">
         <ShieldCheck size={ICON.base} className="shrink-0 text-accent" />
-        <p className="min-w-0 flex-1 truncate text-sm">{text}</p>
+        {/* Две строки, а не truncate: на ширине телефона под текст остаётся
+            ~140px, и «Данные только на этом устройстве» обрезалось до
+            «Данные только н…» — строка переставала что-либо сообщать. */}
+        <p className="min-w-0 flex-1 line-clamp-2 text-sm leading-snug">{text}</p>
         <Link
           to="/more/settings"
           className="flex min-h-11 shrink-0 items-center gap-0.5 pl-1 text-sm font-semibold text-accent active:opacity-70"

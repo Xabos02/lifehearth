@@ -14,6 +14,7 @@ import { t } from '../../lib/i18n';
 import { describeRecurrence } from '../../lib/recurrence';
 import { TaskItem } from './TaskItem';
 import { ICON, STROKE } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { useToast } from '../../components/ui/toastContext';
 import { formatDueDate } from '../../lib/dates';
 import { unfreezeAll, unfreezeTask } from './taskActions';
@@ -179,7 +180,7 @@ export function FrozenSection({
         </button>
         <button
           onClick={() => void unfreezeAll().then(() => toast(t('Все задачи разморожены')))}
-          className="shrink-0 px-2 py-1 text-sm font-medium text-frost active:opacity-60"
+          className={`shrink-0 px-2 py-1 text-sm font-medium text-frost active:opacity-60 ${HIT_SLOP_44}`}
         >
           {t('Разморозить всё')}
         </button>
@@ -216,7 +217,7 @@ export function FrozenSection({
                   onClick={() => void unfreezeTask(task).then(() => toast(t('Разморожено')))}
                   aria-label={t('Разморозить задачу')}
                   // Тёплое солнце-«разморозка» — контраст к голубой теме секции.
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning active:opacity-70"
+                  className={`flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning active:opacity-70 ${HIT_SLOP_44}`}
                 >
                   <Sun size={ICON.action} />
                 </button>

@@ -173,9 +173,13 @@ test('семейный чат: зоны касания не меньше 44 и �
   expect(await small(page), 'мелкие зоны в семейном чате').toEqual([]);
 });
 
-/** Пары кнопок, чьи зоны касания налезают друг на друга, на текущем экране. */
-async function overlapsOn(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
+/** Пары кнопок, чьи зоны касания налезают друг на друга, на текущем экране.
+ *
+ *  rootSel — где искать: по умолчанию #root, но шиты рисуются порталом в
+ *  body, и для них передаётся контейнер шторки (берётся последний
+ *  подходящий — верхняя из открытых). */
+async function overlapsOn(page: Page, rootSel = '#root'): Promise<string[]> {
+  return page.evaluate((rootSel) => {
     /** Реальная зона касания: сама кнопка плюс расширяющий ::after. */
     const hitRect = (el: Element) => {
       const r = el.getBoundingClientRect();
@@ -192,7 +196,7 @@ async function overlapsOn(page: Page): Promise<string[]> {
       const cy = r.top + r.height / 2;
       return { left: cx - w / 2, right: cx + w / 2, top: cy - h / 2, bottom: cy + h / 2 };
     };
-    const root = document.querySelector('#root')!;
+    const root = [...document.querySelectorAll(rootSel)].at(-1)!;
     const btns = [...root.querySelectorAll('button, a[href]')].filter((el) => {
       const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
@@ -229,6 +233,12 @@ async function overlapsOn(page: Page): Promise<string[]> {
         // Вложенные друг в друга — законный случай (кнопка внутри кликабельной
         // карточки), меряем только соседей.
         if (a.contains(b) || b.contains(a)) continue;
+        // Бейдж на своём хозяине — тоже: крестик «удалить фото» сидит на углу
+        // миниатюры-кнопки по замыслу, и его зона лежит на ней так же, как
+        // сам крестик. Узнаём по паре «общий родитель + один из двух absolute»;
+        // с СОСЕДНЕЙ миниатюрой такой бейдж по-прежнему сравнивается.
+        const badge = (el: Element) => getComputedStyle(el).position === 'absolute';
+        if (a.parentElement === b.parentElement && (badge(a) || badge(b))) continue;
         const ra = hitRect(a);
         const rb = hitRect(b);
         const dx = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
@@ -241,8 +251,7 @@ async function overlapsOn(page: Page): Promise<string[]> {
       }
     }
     return bad;
-  });
-
+  }, rootSel);
 }
 
 test('раздел «Задачи»: зоны касания не налезают друг на друга', async ({ page }) => {
@@ -295,4 +304,83 @@ test('просроченная задача не ломает левый кра�
   expect(broken, 'внутри секции чекбоксы стоят на разной вертикали').toEqual([]);
   // Страховка от пустого замера: секция с просроченной задачей обязана быть.
   expect(Object.values(bySection).flat().length).toBeGreaterThan(2);
+});
+
+/** Контейнер открытой шторки (Sheet рисуется порталом в body, вне #root). */
+const SHEET = 'body > div.fixed.inset-0.z-50';
+
+const PNG_1PX =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+// Экраны и шиты, которых аудит по адресам не видит: корзина и «Заморожено»
+// без записей пусты, шиты открываются тапом, редактор заметки живёт по адресу
+// с id. Каждое место здесь — из сквозного прогона: кнопки 22–36px и ряды, где
+// зоны соседей налезали друг на друга (три IconButton в шапке при gap-1
+// стояли центрами в 32px).
+test('шиты и экраны с содержимым: зоны не меньше 44 и не налезают', async ({ page }) => {
+  await openApp(page, '/tasks');
+  await seedForAudit(page);
+  await page.evaluate(async (png) => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    await db.tasks.update('at3', { frozenAt: now });
+    await db.tasks.update('at1', {
+      photos: [png, png],
+      checklist: [
+        { id: 'c1', text: 'Первый пункт', done: false },
+        { id: 'c2', text: 'Второй пункт', done: true },
+      ],
+    });
+    await db.tasks.update('at5', { deletedAt: now });
+    await db.notes.put({
+      id: 'an2', createdAt: now, updatedAt: now, deletedAt: now,
+      title: 'Удалённая', content: '<div>Удалённая</div>', tags: [], pinned: false, folderId: null,
+    } as never);
+    await db.placeItems.put({
+      id: 'ap1', createdAt: now, updatedAt: now, deletedAt: null,
+      title: 'Кафе на углу', kind: 'food', description: '', source: '',
+      location: 'Тверская, 1', link: 'example.com', photo: png, tags: [], status: 'want', sortOrder: 0,
+    } as never);
+  }, PNG_1PX);
+
+  const bad: string[] = [];
+  const check = async (where: string, root?: string) => {
+    for (const b of await small(page)) bad.push(`${where}: ${b}`);
+    for (const o of await overlapsOn(page, root)) bad.push(`${where}: ${o}`);
+  };
+
+  // «Заморожено» и шит задачи с фото, чеклистом и формой нового проекта.
+  await page.goto('/tasks');
+  await expect(page.getByText('Заморожено')).toBeVisible();
+  await check('задачи с заморозкой');
+  await page.getByText('Позвонить поставщику', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Удалить фото' }).first()).toBeVisible();
+  await page.getByRole('button', { name: '+ Новый' }).click();
+  await expect(page.getByRole('button', { name: /^Цвет / }).first()).toBeVisible();
+  await check('шит задачи', SHEET);
+
+  await page.goto('/more/trash');
+  await expect(page.getByRole('button', { name: 'Удалить навсегда' }).first()).toBeVisible();
+  await check('корзина');
+
+  await page.goto('/more/places');
+  await expect(page.getByText('Открыть ссылку')).toBeVisible();
+  await check('места');
+  await page.getByText('Кафе на углу', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Удалить фото' })).toBeVisible();
+  await check('шит места', SHEET);
+
+  await page.goto('/notes/an1');
+  await expect(page.getByRole('button', { name: 'Готово' })).toBeVisible();
+  await check('редактор заметки');
+  await page.goto('/notes');
+  await page.getByRole('button', { name: 'Выбрать' }).click();
+  await expect(page.getByRole('button', { name: 'Готово' })).toBeVisible();
+  await check('заметки, режим выбора');
+
+  await page.goto('/more/ai');
+  await expect(page.getByRole('button', { name: 'Новый чат' })).toBeVisible();
+  await check('ИИ');
+
+  expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
 });

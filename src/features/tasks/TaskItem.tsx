@@ -314,7 +314,10 @@ export const TaskItem = memo(function TaskItem({
             onEdit?.(task);
           }
         }}
-        className={`relative flex touch-pan-y items-start gap-2.5 bg-surface px-4 py-2.5 ${
+        // gap-3, а не gap-2.5: зона касания чекбокса выходит за него на 11px,
+        // и при зазоре 10px ложилась на миниатюру фото в строке (1px — но
+        // сторож перекрытий считает честно).
+        className={`relative flex touch-pan-y items-start gap-3 bg-surface px-4 py-2.5 ${
           draggable ? 'select-none [-webkit-user-select:none] [-webkit-touch-callout:none]' : ''
         } ${isDragSource ? 'scale-[0.97] opacity-40' : ''}`}
         style={{

@@ -46,6 +46,7 @@ import { useToast } from '../../components/ui/toastContext';
 import { create, remove, uid, update } from '../../db/repo';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 const AUTOSAVE_MS = 600;
 
@@ -682,7 +683,9 @@ export function NoteEditorPage() {
       backTo="/notes"
       backLabel={t('Заметки')}
       right={
-        <div className="flex items-center gap-1">
+        // gap-4: у IconButton -mx-1 и зона касания 44 — при gap-1 центры
+        // соседей стояли в 32px, и зона «Удалить» ложилась на «Готово».
+        <div className="flex items-center gap-4">
           <MicButton onText={appendVoice} />
           <IconButton
             icon={Pin}
@@ -694,7 +697,7 @@ export function NoteEditorPage() {
           <IconButton icon={Trash2} label={t('Удалить')} onClick={() => void handleDelete()} tone="danger" />
           <button
             onClick={() => void handleDone()}
-            className="pl-1 pr-1 font-semibold text-accent active:opacity-60"
+            className={`pl-1 pr-1 font-semibold text-accent active:opacity-60 ${HIT_SLOP_44}`}
           >
             {t('Готово')}
           </button>

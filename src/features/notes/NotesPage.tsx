@@ -587,16 +587,18 @@ export function NotesPage() {
                   selected.size === filtered.length ? new Set() : new Set(filtered.map((n) => n.id)),
                 )
               }
-              className="text-sm font-medium text-accent active:opacity-60"
+              className={`text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
             >
               {selected.size === filtered.length && filtered.length > 0 ? t('Снять выбор') : t('Выбрать все')}
             </button>
-            <button onClick={exitSelect} className="text-sm font-semibold text-accent active:opacity-60">
+            <button onClick={exitSelect} className={`text-sm font-semibold text-accent active:opacity-60 ${HIT_SLOP_44}`}>
               {t('Готово')}
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-1">
+          // gap-2, а не gap-1: зона иконки папки выходит на 4px за её края, и
+          // при зазоре 4px ложилась на «Выбрать» и «Изменить».
+          <div className="flex items-center gap-2">
             {/* «Выбрать» — вход в режим нескольких, как в Apple Notes. Есть
                 только когда есть что выбирать и поле поиска пустое. */}
             {filtered.length > 0 && !q && (
@@ -619,7 +621,7 @@ export function NotesPage() {
             {current && (
               <button
                 onClick={() => setFolderSheet(current)}
-                className="pl-1 text-sm font-medium text-accent active:opacity-60"
+                className={`pl-1 text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
                 {t('Изменить')}
               </button>
