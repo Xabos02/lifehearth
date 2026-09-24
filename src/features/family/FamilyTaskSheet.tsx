@@ -7,7 +7,7 @@ import type { FamilyTask, FamilyMember, Priority } from '../../db/types';
 import { createFamilyTask, updateFamilyTask, deleteFamilyTask } from '../../lib/family/familyRepo';
 import { addDaysKey, todayKey } from '../../lib/dates';
 import { PRESET_COLORS, isLightColor } from '../../lib/colors';
-import { ALLDAY_REMIND_TIME, cancelReminder, scheduleReminder } from '../../lib/push';
+import { ALLDAY_REMIND_TIME } from '../../lib/push';
 import { GCheck as Check } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
@@ -63,38 +63,25 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
 
   async function save() {
     if (!title.trim()) return;
-    const finalRemind = dueDate ? remindBefore : null;
     const data = {
       title: title.trim(),
       notes: notes.trim(),
       priority: Number(priority) as Priority,
       dueDate: dueDate || null,
       dueTime: null,
-      remindBefore: finalRemind,
+      remindBefore: dueDate ? remindBefore : null,
       color,
       assigneeId,
     };
-    let saved: { id: string; title: string; dueDate: string | null } | null;
-    if (task) {
-      await updateFamilyTask(familyId, task.id, data);
-      saved = { ...task, ...data };
-    } else {
-      saved = await createFamilyTask(familyId, data);
-    }
-    if (saved) {
-      if (finalRemind != null) {
-        await scheduleReminder({ id: saved.id, title: saved.title, dueDate: saved.dueDate, dueTime: null, remindBefore: finalRemind });
-      } else {
-        await cancelReminder(saved.id);
-      }
-    }
+    // Напоминание ставит и снимает сам репозиторий — по тому, что изменилось.
+    if (task) await updateFamilyTask(familyId, task.id, data);
+    else await createFamilyTask(familyId, data);
     onClose();
   }
 
   async function remove() {
     if (!task) return;
     if (!window.confirm(t('Удалить задачу?'))) return;
-    await cancelReminder(task.id);
     await deleteFamilyTask(familyId, task.id);
     onClose();
   }

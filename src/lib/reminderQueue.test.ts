@@ -168,3 +168,27 @@ describe('постановка напоминания при сбое', () => {
     expect(pendingReminderRetries()).toEqual([]);
   });
 });
+
+describe('снятие напоминания общей задачи', () => {
+  beforeEach(() => {
+    store.clear(); // подписки на этом телефоне нет: уведомления не включали
+    vi.resetModules();
+  });
+
+  it('уходит на сервер и без своей подписки, а личное — нет', async () => {
+    // Напоминание семейной задачи ставил телефон другого участника. Раньше
+    // отметка «выполнена» с телефона без уведомлений до сервера не доходила,
+    // и автор получал напоминание о сделанном деле.
+    const calls: string[] = [];
+    globalThis.fetch = ((url: RequestInfo | URL) => {
+      calls.push(String(url));
+      return Promise.resolve(new Response('{"ok":true}', { status: 200 }));
+    }) as typeof fetch;
+    const { cancelReminder } = await import('./push');
+
+    await cancelReminder('t1');
+    expect(calls).toEqual([]);
+    await cancelReminder('t1', true);
+    expect(calls.map((u) => new URL(u).pathname)).toEqual(['/cancel']);
+  });
+});

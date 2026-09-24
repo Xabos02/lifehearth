@@ -198,9 +198,15 @@ export async function scheduleReminder(t: ReminderTask): Promise<void> {
   }
 }
 
-export async function cancelReminder(taskId: string): Promise<void> {
+/** shared — задача общая (семья): напоминание могло поставить устройство
+ *  другого участника, и снимать его надо, даже если у этого устройства своей
+ *  подписки нет. Раньше отметка «выполнена» с такого телефона до сервера не
+ *  доходила, и автор получал напоминание о сделанном деле. Личная задача без
+ *  подписки на сервер не ходит: приложение без уведомлений не шлёт запрос на
+ *  каждую отметку. */
+export async function cancelReminder(taskId: string, shared = false): Promise<void> {
   clearReminderRetry(taskId);
-  if (!storedSub()) return;
+  if (!shared && !storedSub()) return;
   try {
     await fetch(`${WORKER_URL}/cancel`, {
       method: 'POST',

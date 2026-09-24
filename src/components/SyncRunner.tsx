@@ -36,7 +36,10 @@ export function SyncRunner() {
       // заводят на ходу, там же чаще всего и пропадает сеть, а повторить
       // попытку было некому: напоминание просто не срабатывало.
       void retryPendingReminders(async (ids) => {
-        const rows = await db.tasks.bulkGet(ids);
+        // Семейные задачи — в своей таблице. Без неё напоминание семейной
+        // задачи, поставленное без сети, считалось «задачи больше нет» и
+        // молча выпадало из очереди.
+        const rows = [...(await db.tasks.bulkGet(ids)), ...(await db.familyTasks.bulkGet(ids))];
         return rows
           .filter((t): t is NonNullable<typeof t> => Boolean(t) && !t!.deletedAt && !t!.completedAt)
           .map((t) => ({

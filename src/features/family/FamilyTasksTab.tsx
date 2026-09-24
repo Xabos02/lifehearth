@@ -12,7 +12,6 @@ import { TaskCheck } from '../../components/ui/Checkbox';
 import { Button } from '../../components/ui/Button';
 import { formatDueDate, todayKey } from '../../lib/dates';
 import { toggleFamilyTask, reorderFamilyTasks } from '../../lib/family/familyRepo';
-import { cancelReminder } from '../../lib/push';
 import { FamilyTaskSheet } from './FamilyTaskSheet';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
@@ -184,10 +183,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
         )}
         <TaskCheck
           checked={done}
-          onChange={() => {
-            void cancelReminder(task.id);
-            void toggleFamilyTask(familyId, task);
-          }}
+          onChange={() => void toggleFamilyTask(familyId, task)}
           color={task.color ?? assignee?.color}
         />
         <div className="min-w-0 flex-1">

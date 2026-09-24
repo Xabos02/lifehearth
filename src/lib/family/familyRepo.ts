@@ -7,6 +7,7 @@ import type { FamilyTask, FamilyMember, Priority } from '../../db/types';
 import { PRESET_COLORS } from '../colors';
 import { getFamilyConfig } from './familyState';
 import { sendItem } from './familyChat';
+import { cancelReminder, scheduleReminder, type ReminderTask } from '../push';
 import { t } from '../i18n';
 
 function stripMeta<T extends { id: string; seq: number; familyId: string; pendingNotify?: unknown }>(
@@ -18,6 +19,31 @@ function stripMeta<T extends { id: string; seq: number; familyId: string; pendin
   void familyId;
   void pendingNotify; // локальный флаг доставки, чужим устройствам он не нужен
   return rest;
+}
+
+/** Напоминание, которое задача должна иметь сейчас, или null. */
+function reminderOf(task: FamilyTask | undefined): ReminderTask | null {
+  if (!task || task.completedAt || task.deletedAt || !task.dueDate || task.remindBefore == null) return null;
+  return { id: task.id, title: task.title, dueDate: task.dueDate, dueTime: task.dueTime ?? null, remindBefore: task.remindBefore };
+}
+
+/** Привести напоминание на сервере к задаче после записи.
+ *
+ *  Все пути записи семейной задачи идут через create/update, поэтому решение
+ *  живёт здесь, а не в каждой кнопке. Раньше оно было раскидано по экранам и
+ *  расходилось: снятая отметка «выполнена» снимала напоминание и не
+ *  возвращала его (колокольчик в списке оставался), а правка цвета или
+ *  приоритета ставила напоминание заново. На сервере оно одно на задачу, и
+ *  такая правка с телефона другого участника (с включёнными уведомлениями)
+ *  молча забирала его у автора. Теперь напоминание трогается, только когда
+ *  меняется то, из чего оно состоит. */
+function syncReminder(before: FamilyTask | undefined, after: FamilyTask): void {
+  const now = reminderOf(after);
+  if (now) {
+    if (JSON.stringify(reminderOf(before)) !== JSON.stringify(now)) void scheduleReminder(now);
+  } else if (before?.dueDate && before.remindBefore != null) {
+    void cancelReminder(after.id, true);
+  }
 }
 
 function colorFor(id: string): string {
@@ -82,6 +108,7 @@ export async function createFamilyTask(
     deletedAt: null,
   };
   await db.familyTasks.put(task);
+  syncReminder(undefined, task);
   await sendItem(familyId, 'task', task.id, stripMeta(task));
   return task;
 }
@@ -106,6 +133,7 @@ export async function updateFamilyTask(
   if (!local) return;
   const next: FamilyTask = { ...local, ...changes, id, familyId, seq: 0 }; // seq=0 → неподтверждённая правка
   await db.familyTasks.put(next);
+  syncReminder(local, next);
   const sent = await sendItem(familyId, 'task', id, stripMeta(next), notify);
   // Помечаем повтор, только если кадр не ушёл. Снятие галочки гасит флаг: иначе
   // отложенный пуш объявит выполненной задачу, с которой отметку уже сняли.
