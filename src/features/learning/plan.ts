@@ -61,7 +61,8 @@ export async function togglePart(part: LearningPart, item: LearningItem): Promis
   const doneAt = part.doneAt ? null : todayKey();
   await update(db.learningParts, part.id, { doneAt });
   // Прогресс пересчитываем по всему плану, а не прибавляем: так отметка и
-  // снятие всегда сходятся с планом. Правила — в planProgress.
+  // снятие всегда сходятся с планом. Цель отметка не меняет (кроме шкалы 100
+  // у процентов). Правила — в planProgress.
   const parts = alive(await db.learningParts.where('itemId').equals(item.id).toArray()).map(
     (p) => (p.id === part.id ? { ...p, doneAt } : p),
   );

@@ -11,7 +11,8 @@ import { t, tPlural } from './i18n';
  *  важна ровно в трёх местах, и все три живут здесь, а не по экранам: когда
  *  каждый экран решал сам, вышло пять расхождений сразу (сквозной прогон,
  *  17.09):
- *  - план → прогресс (`planProgress`): у процентов шкала всегда 100;
+ *  - план → прогресс (`planProgress`, `editedPlan`): у процентов шкала всегда
+ *    100, а то, что человек поправил руками, план не перезаписывает;
  *  - прогноз финиша (`forecastPerWeek`): занятия пишутся в часах, поэтому
  *    темп по ним годится только материалу в часах;
  *  - подпись единицы (`unitLabel`): «1 урок», «5 уроков».
@@ -151,31 +152,65 @@ export function forecastPerWeek(
   return (current / Math.max(1, days)) * WEEK;
 }
 
+type PlanPart = { estimate: number; doneAt: string | null };
+
 /** Что отметки плана значат для прогресса материала; null — плана нет.
  *
  *  Часть весит своей оценкой, а если оценок в плане нет — все части весят
  *  поровну. Было: прогресс = сумма оценок закрытых частей, и в плане без
  *  оценок любая отметка обнуляла прогресс — сумма нулей.
  *
- *  Цель — сумма оценок, когда они есть (иначе доля считалась бы от числа,
- *  когда-то введённого руками), и прежняя, когда их нет. У процентов цель
- *  всегда 100, а оценки — только веса: было «цель = сумма», и после плана
- *  «3 + 5» материал в процентах жил на шкале из восьми. */
+ *  Прогресс — на шкале материала: цель отметка не трогает. Было (24.09, до
+ *  выкатки): отметка ставила цель = сумма оценок, и курс на 350 ч с частичным
+ *  планом на 16,7 ч после первой отметки становился курсом на 16,7 ч. Цель по
+ *  оценкам ставит только правка плана (`editedPlan`). У процентов шкала всегда
+ *  100, а оценки — только веса: было «цель = сумма», и после плана «3 + 5»
+ *  материал в процентах жил на шкале из восьми. */
 export function planProgress(
   unit: ProgressUnit,
   target: number,
-  parts: readonly { estimate: number; doneAt: string | null }[],
+  parts: readonly PlanPart[],
 ): { target: number; current: number } | null {
   if (parts.length === 0) return null;
   const sum = parts.reduce((s, p) => s + p.estimate, 0);
   const weight = (p: { estimate: number }) => (sum > 0 ? p.estimate : 1);
   const done = parts.filter((p) => p.doneAt).reduce((s, p) => s + weight(p), 0);
-  if (unit !== 'percent' && sum > 0) return { target: sum, current: done };
   const scale = unit === 'percent' ? 100 : target;
+  // Оценки в единицах материала — прогресс и есть их сумма, без долей.
+  if (unit !== 'percent' && sum > 0) return { target: scale, current: Math.min(scale, done) };
   const total = sum > 0 ? sum : parts.length;
   // Доля шкалы — целым: «113 стр.», «38%», а не «113,333». Не выше цели:
   // округление вверх при дробной цели дало бы «13 из 12,5 ч».
   return { target: scale, current: Math.min(scale, Math.round((scale * done) / total)) };
+}
+
+/** Цель и прогресс после правки плана; null — плана не осталось, материал не
+ *  трогаем.
+ *
+ *  Цель — сумма оценок нового плана (иначе доля считалась бы от числа,
+ *  когда-то введённого руками), без оценок — прежняя, у процентов — 100.
+ *
+ *  Прогресс план ведёт, только пока он из плана и выведен — совпадает с тем,
+ *  что давали отметки до правки: тогда он следует за новыми оценками. Прогресс,
+ *  добавленный руками (степпером между отметками или до первой отметки),
+ *  правка плана не трогает. Было (24.09, до выкатки): при любой закрытой части
+ *  сохранение ставило прогресс по плану, и переименование главы возвращало
+ *  163 стр. к 113. */
+export function editedPlan(
+  item: Pick<LearningItem, 'progressUnit' | 'progressTarget' | 'progressCurrent'>,
+  before: readonly PlanPart[],
+  after: readonly PlanPart[],
+): { target: number; current: number } | null {
+  const sum = after.reduce((s, p) => s + p.estimate, 0);
+  const next = planProgress(item.progressUnit, sum > 0 ? sum : item.progressTarget, after);
+  if (!next) return null;
+  const prev = planProgress(item.progressUnit, item.progressTarget, before);
+  // С допуском: сумма дробных оценок зависит от порядка, в котором её сложили.
+  const fromPlan = prev !== null && Math.abs(item.progressCurrent - prev.current) < 1e-6;
+  return {
+    target: next.target,
+    current: fromPlan ? next.current : Math.min(item.progressCurrent, next.target),
+  };
 }
 
 /** Подпись единицы после числа: «1 урок», «2 урока», «8,4 урока». Страницы,

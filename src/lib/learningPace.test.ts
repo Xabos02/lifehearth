@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { setLang } from './i18n';
 import {
+  editedPlan,
   forecastPerWeek,
   pace,
   planProgress,
@@ -8,6 +9,7 @@ import {
   unitLabel,
   weeksAtPace,
   type PaceInput,
+  type ProgressUnit,
 } from './learningPace';
 
 // Успеваю ли к сроку и сколько нагонять.
@@ -191,12 +193,16 @@ describe('план → прогресс', () => {
     expect(planProgress('percent', 8, parts([3, true], [5, true]))).toEqual({ target: 100, current: 100 });
   });
 
-  it('оценки в единицах материала задают цель и прогресс', () => {
-    // Основной путь — курс в часах: цель — сумма часов плана, прогресс — часы
-    // закрытых дисциплин, без округления долей.
+  it('отметка двигает прогресс, а цель не трогает', () => {
+    // Курс в часах: прогресс — часы закрытых дисциплин, без долей. Цель
+    // остаётся прежней: курс на 350 ч с частичным планом на 16,7 ч после
+    // первой же отметки становился курсом на 16,7 ч (регрессия 24.09) — цель,
+    // поправленную руками после плана, отметка не меняет.
     const p = planProgress('hours', 350, parts([5.4, true], [7.1, false], [4.2, true]))!;
-    expect(p.target).toBeCloseTo(16.7, 5);
+    expect(p.target).toBe(350);
     expect(p.current).toBeCloseTo(9.6, 5);
+    // Цель меньше суммы оценок — прогресс за неё не выходит.
+    expect(planProgress('pages', 300, parts([200, true], [140, true]))).toEqual({ target: 300, current: 300 });
   });
 
   it('округление доли не выводит прогресс за цель', () => {
@@ -205,6 +211,46 @@ describe('план → прогресс', () => {
 
   it('без плана прогресс не трогается', () => {
     expect(planProgress('pages', 340, [])).toBeNull();
+  });
+});
+
+describe('правка плана', () => {
+  const parts = (...xs: [number, boolean][]) =>
+    xs.map(([estimate, done]) => ({ estimate, doneAt: done ? '2026-09-24' : null }));
+  const item = (progressTarget: number, progressCurrent: number, progressUnit: ProgressUnit = 'pages') => ({
+    progressUnit,
+    progressTarget,
+    progressCurrent,
+  });
+
+  it('оценки нового плана задают цель', () => {
+    // Основной путь — курс в часах: цель — сумма часов плана.
+    const p = editedPlan(item(350, 0, 'hours'), [], parts([5.4, false], [7.1, false], [4.2, false]))!;
+    expect(p.target).toBeCloseTo(16.7, 5);
+    expect(p.current).toBe(0);
+  });
+
+  it('прогресс, добавленный руками, правка плана не откатывает', () => {
+    // Регрессия 24.09: книга 340 стр., закрыта глава 1 из 3 (113), степпером
+    // дочитано до 163 — переименование главы возвращало 113.
+    const plan = parts([0, true], [0, false], [0, false]);
+    expect(editedPlan(item(340, 163), plan, plan)).toEqual({ target: 340, current: 163 });
+    // Пока план ничего не закрыл, прогресс тоже ручной: 40 стр. не обнуляются.
+    expect(editedPlan(item(340, 40), [], parts([0, false], [0, false]))).toEqual({ target: 340, current: 40 });
+  });
+
+  it('прогресс из плана следует за правкой оценок', () => {
+    // 5,4 ч закрытой дисциплины — это и есть прогресс; оценку поправили на 6 —
+    // прогресс 6, а не устаревшие 5,4 до следующей отметки.
+    const before = parts([5.4, true], [7.1, false], [4.2, false]);
+    const after = parts([6, true], [7.1, false], [4.2, false]);
+    const p = editedPlan(item(16.7, 5.4, 'hours'), before, after)!;
+    expect(p.target).toBeCloseTo(17.3, 5);
+    expect(p.current).toBe(6);
+  });
+
+  it('план стёрт — материал не трогается', () => {
+    expect(editedPlan(item(340, 40), parts([0, true]), [])).toBeNull();
   });
 });
 

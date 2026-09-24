@@ -5,7 +5,10 @@ import type { Page } from '@playwright/test';
 // экраны и провод от шита плана до базы. Находки сквозного прогона 17.09:
 // экран удалённого материала оставался открытым; на карточке без срока
 // прогресс стоял дважды; отметка плана без оценок обнуляла прогресс; план
-// «3 + 5» у материала в процентах ставил шкалу из восьми.
+// «3 + 5» у материала в процентах ставил шкалу из восьми. И правило, которое
+// первая починка нарушила: действие с планом не меняет то, что человек ввёл
+// руками и что к действию не относится, — цель после отметки, прогресс после
+// правки плана.
 //
 // Сроков здесь нет намеренно: без них проверки не зависят от сегодняшней даты.
 
@@ -25,6 +28,10 @@ const material = (id: string, title: string, extra: Record<string, unknown> = {}
   startedAt: NOW,
   finishedAt: null,
   ...extra,
+});
+
+const part = (itemId: string, id: string, title: string, i: number, extra: Record<string, unknown> = {}) => ({
+  ...row(id), itemId, title, section: '', estimate: 0, doneAt: null, sortOrder: i, ...extra,
 });
 
 async function seed(page: Page, items: unknown[], parts: unknown[] = []) {
@@ -90,16 +97,18 @@ test('отметка плана без оценок двигает прогре�
 test('план с оценками у материала в процентах оставляет шкалу 100', async ({ page }) => {
   await openApp(page, '/more/learning');
   await seed(page, [
-    material('l-pct', 'Английский', { kind: 'language', progressUnit: 'percent', progressTarget: 100, progressCurrent: 0 }),
+    material('l-pct', 'Английский', { kind: 'language', progressUnit: 'percent', progressTarget: 100, progressCurrent: 20 }),
   ]);
   await page.goto('/more/learning/l-pct');
   await page.getByRole('button', { name: 'Составить план', exact: true }).click();
   await page.getByRole('textbox').fill('Тема А — 3\nТема Б — 5');
   await page.getByRole('button', { name: 'Сохранить план', exact: true }).click();
   // Шит закрывается после записи в базу — читаем итог самого сохранения. Опрос
-  // здесь не годится: засеянные {100, 0} совпали бы с ответом ещё до записи.
+  // здесь не годится: засеянные {100, 20} совпали бы с ответом ещё до записи.
+  // Прогресс засеян не нулём: в плане ещё ничего не закрыто, и 20%, отмеченные
+  // руками, сохранение плана не обнуляет — с нулём этого было бы не отличить.
   await expect(page.getByRole('textbox')).toHaveCount(0);
-  expect(await progressOf(page, 'l-pct')).toEqual({ target: 100, current: 0 });
+  expect(await progressOf(page, 'l-pct')).toEqual({ target: 100, current: 20 });
 
   // Оценка у процентов — вес части, а не проценты: «3 %» в строке соврало бы.
   const first = page.getByRole('button', { name: /^Тема А/ });
@@ -107,4 +116,46 @@ test('план с оценками у материала в процентах �
   await first.click();
   // Часть весом 3 из 8 — 38%; было: шкала 8 и «3%».
   await expect.poll(() => progressOf(page, 'l-pct')).toEqual({ target: 100, current: 38 });
+});
+
+test('отметка части не сбрасывает цель, поправленную руками после плана', async ({ page }) => {
+  await openApp(page, '/more/learning');
+  // Курс на 350 ч, в плане пока три дисциплины на 16,7 ч: цель 350 человек
+  // вернул руками после сохранения плана.
+  await seed(
+    page,
+    [material('l-hours', 'Курс в часах', { kind: 'course', progressUnit: 'hours', progressTarget: 350, progressCurrent: 0 })],
+    [
+      part('l-hours', 'd1', 'Дисциплина 1', 0, { estimate: 5.4 }),
+      part('l-hours', 'd2', 'Дисциплина 2', 1, { estimate: 7.1 }),
+      part('l-hours', 'd3', 'Дисциплина 3', 2, { estimate: 4.2 }),
+    ],
+  );
+  await page.goto('/more/learning/l-hours');
+  await page.getByRole('button', { name: /^Дисциплина 1/ }).click();
+  // Отметка двигает прогресс, цель остаётся 350; было {16,7; 5,4}.
+  await expect.poll(() => progressOf(page, 'l-hours')).toEqual({ target: 350, current: 5.4 });
+});
+
+test('правка плана не откатывает прогресс, добавленный после отметки', async ({ page }) => {
+  await openApp(page, '/more/learning');
+  // Книга 340 стр., закрыта глава 1 из 3 (это 113), степпером дочитано до 163.
+  await seed(
+    page,
+    [material('l-edit', 'Книга с главами', { progressCurrent: 163 })],
+    [
+      part('l-edit', 'e1', 'Глава 1', 0, { doneAt: '2026-09-20' }),
+      part('l-edit', 'e2', 'Глава 2', 1),
+      part('l-edit', 'e3', 'Глава 3', 2),
+    ],
+  );
+  await page.goto('/more/learning/l-edit');
+  await page.getByRole('button', { name: 'Изменить план', exact: true }).click();
+  await page.getByRole('textbox').fill('Глава 1\nГлава 2. Основы\nГлава 3');
+  await page.getByRole('button', { name: 'Сохранить план', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Глава 2. Основы', exact: true })).toBeVisible();
+  // Переименование к прогрессу не относится: 163 остаются; было 113. Засеянное
+  // совпадает с ответом, поэтому читаем после закрытия шита, а не опросом.
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+  expect(await progressOf(page, 'l-edit')).toEqual({ target: 340, current: 163 });
 });

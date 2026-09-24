@@ -6,7 +6,7 @@ import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
 import type { LearningItem, LearningPart } from '../../db/types';
 import { t } from '../../lib/i18n';
-import { planProgress } from '../../lib/learningPace';
+import { editedPlan } from '../../lib/learningPace';
 import { parsePlan, planToText } from './plan';
 
 interface Props {
@@ -67,18 +67,15 @@ function PlanForm({
           await remove(db.learningParts, prev.id);
         }
       }
-      // Цель и прогресс — по правилам плана (planProgress): у процентов шкала
-      // остаётся 100, оценки меняют цель. Отметки переезжают по порядку, как
-      // и части выше. Пока ни одна часть не закрыта, план прогресс ещё не
-      // ведёт — прогресс, отмеченный руками, не обнуляется от сохранения.
+      // Цель и прогресс — по правилам плана (editedPlan): оценки меняют цель,
+      // прогресс, добавленный руками, правка плана не трогает. Отметки
+      // переезжают по порядку, как и части выше.
       const saved = parsed.map((p, i) => ({ estimate: p.estimate, doneAt: parts[i]?.doneAt ?? null }));
-      const next = planProgress(item.progressUnit, item.progressTarget, saved);
+      const next = editedPlan(item, parts, saved);
       if (next) {
         await update(db.learningItems, item.id, {
           progressTarget: next.target,
-          progressCurrent: saved.some((p) => p.doneAt)
-            ? next.current
-            : Math.min(item.progressCurrent, next.target),
+          progressCurrent: next.current,
         });
       }
       onClose();
