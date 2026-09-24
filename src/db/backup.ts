@@ -54,6 +54,8 @@ const TABLES = [
   'taskPhotos',
   'taskFiles',
   'workouts',
+  'exerciseDefs',
+  'workoutTemplates',
 ] as const;
 
 type TableName = (typeof TABLES)[number];

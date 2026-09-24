@@ -112,3 +112,25 @@ describe('восстановление и куски вложений', () => {
     expect((await db.taskPhotos.get('from_backup'))?.data).toBe('из копии');
   });
 });
+
+describe('что попадает в копию', () => {
+  beforeEach(async () => {
+    await db.open();
+    await Promise.all(db.tables.map((t) => t.clear()));
+  });
+
+  it('каждая таблица базы — в копии или в списке исключений с причиной', async () => {
+    // Шаблоны тренировок и свои упражнения (v24) попали в синк, но не в
+    // копию: восстановление на новом телефоне без синка их теряло.
+    const outside = [
+      'sync', // ключи синхронизации
+      'family', // ключ и токен семьи
+      'cycles', // кэш, пересчитывается из cycleDays
+      'llmChats', // переписка с ИИ — см. db.ts
+      'llmMessages',
+    ];
+    const backup = await exportBackup();
+    const missing = db.tables.map((t) => t.name).filter((n) => !(n in backup.data) && !outside.includes(n));
+    expect(missing).toEqual([]);
+  });
+});
