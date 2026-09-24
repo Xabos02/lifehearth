@@ -113,13 +113,36 @@ export async function createFamilyTask(
   return task;
 }
 
-/** Переставляет активные задачи в новом порядке (drag-n-drop в списке):
- *  каждой присваивается убывающий sortOrder — список сортируется по нему
- *  по убыванию, значит первая в новом порядке получает наибольшее значение. */
+/** Новый порядок — перестановкой тех же sortOrder: список идёт по убыванию,
+ *  первая в новом порядке берёт наибольшее из прежних значений. Возвращает
+ *  только задачи, у которых значение сменилось.
+ *
+ *  Раньше каждый перенос переписывал ВСЕ задачи метками часов своего
+ *  телефона. Каждая уходила участникам отдельной правкой — и могла в гонке
+ *  перетереть их ещё не отправленную правку любой задачи списка (отметку
+ *  «выполнена», сделанную без сети), а долгое нажатие без движения рассылало
+ *  весь список впустую. Перестановка трогает только сдвинутые строки. */
+export function reorderedSortOrders(
+  rows: { id: string; sortOrder: number }[],
+  orderedIds: string[],
+): { id: string; sortOrder: number }[] {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const ids = orderedIds.filter((id) => byId.has(id));
+  const slots = ids.map((id) => byId.get(id)!.sortOrder).sort((a, b) => b - a);
+  // Равные значения разводим на единицу: перестановкой одинаковых чисел
+  // порядок не выразить. Пару с одним значением оставляют встречные переносы
+  // двух участников — чужая правка перетирает часть своей. Без разводки эти
+  // две задачи уже никогда не поменять местами: перенос ничего не писал, и
+  // строка возвращалась на прежнее место.
+  for (let i = 1; i < slots.length; i++) if (slots[i] >= slots[i - 1]) slots[i] = slots[i - 1] - 1;
+  return ids.flatMap((id, i) => (byId.get(id)!.sortOrder === slots[i] ? [] : [{ id, sortOrder: slots[i] }]));
+}
+
+/** Переставляет активные задачи в новом порядке (перенос удержанием в списке). */
 export async function reorderFamilyTasks(familyId: string, orderedIds: string[]): Promise<void> {
-  const base = Date.now();
-  for (let i = 0; i < orderedIds.length; i++) {
-    await updateFamilyTask(familyId, orderedIds[i], { sortOrder: base - i });
+  const rows = (await db.familyTasks.bulkGet(orderedIds)).filter((r): r is FamilyTask => Boolean(r));
+  for (const { id, sortOrder } of reorderedSortOrders(rows, orderedIds)) {
+    await updateFamilyTask(familyId, id, { sortOrder });
   }
 }
 

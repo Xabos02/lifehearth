@@ -1,15 +1,16 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Семейная задача: напоминание после каждой записи.
+// Семейная задача: напоминание и порядок после каждой записи.
 //
 // Разбор работы 20.09 (задача 26). Напоминание ставилось и снималось прямо из
 // кнопок экрана, и пути разошлись: снятая отметка «выполнена» снимала его и не
 // возвращала (колокольчик в списке оставался), выполнение с телефона без
 // уведомлений до сервера не доходило — автор получал напоминание о сделанном
 // деле, а правка цвета или приоритета ставила его заново и на чужом телефоне
-// забирала себе. Здесь — то, что пишет репозиторий, через который идут все
-// записи семейной задачи.
+// забирала себе. Перенос строки переписывал все задачи группы, даже когда
+// место не менялось. Здесь — то, что пишет репозиторий, через который идут
+// все записи семейной задачи.
 
 vi.mock('../push', () => ({
   scheduleReminder: vi.fn(async () => {}),
@@ -20,7 +21,13 @@ vi.mock('./familyChat', () => ({ sendItem: vi.fn(async () => true) }));
 import { db } from '../../db/db';
 import type { FamilyTask } from '../../db/types';
 import { cancelReminder, scheduleReminder } from '../push';
-import { deleteFamilyTask, toggleFamilyTask, updateFamilyTask } from './familyRepo';
+import { sendItem } from './familyChat';
+import {
+  deleteFamilyTask,
+  reorderFamilyTasks,
+  toggleFamilyTask,
+  updateFamilyTask,
+} from './familyRepo';
 
 const F = 'f1';
 
@@ -92,5 +99,43 @@ describe('напоминание семейной задачи', () => {
     await db.familyTasks.put(task('a'));
     await updateFamilyTask(F, 'a', { dueDate: '2099-01-12' });
     expect(scheduleReminder).toHaveBeenCalledWith(expect.objectContaining({ id: 'a', dueDate: '2099-01-12' }));
+  });
+});
+
+describe('перенос семейной задачи', () => {
+  async function seed() {
+    await db.familyTasks.bulkPut([
+      task('a', { sortOrder: 3000 }),
+      task('b', { sortOrder: 2000 }),
+      task('c', { sortOrder: 1000 }),
+    ]);
+  }
+  const order = async () =>
+    (await db.familyTasks.toArray()).sort((x, y) => y.sortOrder - x.sortOrder).map((x) => x.id);
+
+  it('пишет только сдвинутые задачи и прежними значениями', async () => {
+    await seed();
+    await reorderFamilyTasks(F, ['b', 'a', 'c']); // соседи поменялись местами
+    expect(await order()).toEqual(['b', 'a', 'c']);
+    expect(vi.mocked(sendItem).mock.calls.map((c) => c[2]).sort()).toEqual(['a', 'b']);
+    expect((await db.familyTasks.get('b'))!.sortOrder).toBe(3000);
+  });
+
+  it('тот же порядок — ни одной отправки участникам', async () => {
+    await seed();
+    await reorderFamilyTasks(F, ['a', 'b', 'c']);
+    expect(sendItem).not.toHaveBeenCalled();
+    expect(scheduleReminder).not.toHaveBeenCalled();
+  });
+
+  it('пару с одинаковым значением можно поменять местами', async () => {
+    // Такую пару оставляют встречные переносы двух участников.
+    await db.familyTasks.bulkPut([
+      task('a', { sortOrder: 3000 }),
+      task('b', { sortOrder: 3000 }),
+      task('c', { sortOrder: 1000 }),
+    ]);
+    await reorderFamilyTasks(F, ['b', 'a', 'c']);
+    expect(await order()).toEqual(['b', 'a', 'c']);
   });
 });

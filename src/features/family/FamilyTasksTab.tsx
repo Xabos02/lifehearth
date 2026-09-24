@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
 import {
@@ -25,6 +25,12 @@ const PRIORITY_BAR: Record<number, string> = {
 
 const LONG_PRESS_MS = 400;
 const DRAG_CANCEL_MOVE = 8;
+
+// Пока задачу тащат, страница не прокручивается. Без этого вертикальное
+// движение пальца забирал себе браузер: приходил pointercancel, и пальцем
+// задача не переносилась вовсе — работала только мышь. Тот же приём, что у
+// переноса в «Задачах» (TasksPage).
+const blockScroll = (e: TouchEvent) => e.preventDefault();
 
 export function FamilyTasksTab({ familyId }: { familyId: string }) {
   const tasksRaw = useLiveQuery(() => db.familyTasks.where('familyId').equals(familyId).toArray(), [familyId]);
@@ -64,8 +70,15 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
     y: number;
     pointerId: number;
     timer: number | null;
-    fired: boolean;
   } | null>(null);
+  // Удержание сработало: клик, который браузер пришлёт после отпускания, —
+  // конец жеста, а не тап по задаче. Раньше флаг жил в pressState, а тот
+  // обнулялся на pointerup — раньше клика, и карточка задачи открывалась.
+  const longFired = useRef(false);
+  const dragPointer = useRef(0);
+  // Номер переноса: порядок жеста снимаем, когда запись легла в базу, — если
+  // за это время не начался следующий перенос.
+  const dragSeq = useRef(0);
 
   const openNew = () => {
     setEditing(null);
@@ -84,19 +97,29 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
     window.removeEventListener('pointercancel', clearPress);
   };
 
-  const finishDrag = (order: string[] | null) => {
-    setDraggingId(null);
-    setDragOrder(null);
-    if (order && order.length > 1) void reorderFamilyTasks(familyId, order);
-  };
-
   const onRowPointerDown = (task: FamilyTask, e: ReactPointerEvent<HTMLDivElement>) => {
-    if (active.length < 2) return;
+    longFired.current = false;
+    // Выполненные идут по времени выполнения — переставлять там нечего.
+    if (task.completedAt || active.length < 2) return;
     clearPress();
-    pressState.current = { id: task.id, x: e.clientX, y: e.clientY, pointerId: e.pointerId, timer: null, fired: false };
+    const row = e.currentTarget;
+    pressState.current = { id: task.id, x: e.clientX, y: e.clientY, pointerId: e.pointerId, timer: null };
     pressState.current.timer = window.setTimeout(() => {
-      if (!pressState.current) return;
-      pressState.current.fired = true;
+      const st = pressState.current;
+      if (!st) return;
+      clearPress(); // удержание сработало: дальше жест ведут обработчики окна
+      longFired.current = true;
+      dragPointer.current = st.pointerId;
+      dragSeq.current++;
+      // Палец ещё неподвижен — захватываем его на строке, как строка личной
+      // задачи (TaskItem). Ведение и отпускание ловит окно (эффект ниже), и в
+      // Chromium перенос работает и без захвата; он оставлен подстраховкой для
+      // iPhone, где проверить нечем.
+      try {
+        row.setPointerCapture(st.pointerId);
+      } catch {
+        /* указатель уже отпущен */
+      }
       setDraggingId(task.id);
       setDragOrder(active.map((t) => t.id));
     }, LONG_PRESS_MS);
@@ -104,44 +127,68 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
     window.addEventListener('pointercancel', clearPress);
   };
 
+  // До срабатывания удержания движение пальца — это прокрутка, а не перенос.
   const onRowPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const st = pressState.current;
     if (!st) return;
-    if (!draggingId) {
-      if (Math.abs(e.clientX - st.x) > DRAG_CANCEL_MOVE || Math.abs(e.clientY - st.y) > DRAG_CANCEL_MOVE) {
-        clearPress();
-      }
-      return;
+    if (Math.abs(e.clientX - st.x) > DRAG_CANCEL_MOVE || Math.abs(e.clientY - st.y) > DRAG_CANCEL_MOVE) {
+      clearPress();
     }
-    // Ищем строку, чей центр пересёк палец — она и указывает новую позицию.
-    let order = dragOrder;
-    if (!order) return;
-    const y = e.clientY;
-    let targetIdx = -1;
-    for (let i = 0; i < order.length; i++) {
-      const el = rowRefs.current.get(order[i]);
-      if (!el) continue;
-      const r = el.getBoundingClientRect();
-      if (y >= r.top && y <= r.bottom) {
-        targetIdx = i;
-        break;
-      }
-    }
-    if (targetIdx === -1) return;
-    const fromIdx = order.indexOf(draggingId);
-    if (fromIdx === -1 || fromIdx === targetIdx) return;
-    order = order.slice();
-    order.splice(fromIdx, 1);
-    order.splice(targetIdx, 0, draggingId);
-    setDragOrder(order);
   };
 
-  const onRowPointerUp = () => {
-    const wasDragging = draggingId != null;
-    const order = dragOrder;
-    clearPress();
-    if (wasDragging) finishDrag(order);
-  };
+  // Сам перенос ведут обработчики окна, а не строки: строку под пальцем React
+  // переставляет в DOM, а отпускание может прийти мимо любой строки — раньше
+  // тогда перенос не заканчивался, и строка так и оставалась «поднятой».
+  useEffect(() => {
+    if (!draggingId || !dragOrder) return;
+    const move = (e: PointerEvent) => {
+      if (e.pointerId !== dragPointer.current) return;
+      // Ищем строку, чей центр пересёк палец — она и указывает новую позицию.
+      let targetIdx = -1;
+      for (let i = 0; i < dragOrder.length; i++) {
+        const el = rowRefs.current.get(dragOrder[i]);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (e.clientY >= r.top && e.clientY <= r.bottom) {
+          targetIdx = i;
+          break;
+        }
+      }
+      if (targetIdx === -1) return;
+      const fromIdx = dragOrder.indexOf(draggingId);
+      if (fromIdx === -1 || fromIdx === targetIdx) return;
+      const order = dragOrder.slice();
+      order.splice(fromIdx, 1);
+      order.splice(targetIdx, 0, draggingId);
+      setDragOrder(order);
+    };
+    const end = (e: PointerEvent) => {
+      if (e.pointerId !== dragPointer.current) return;
+      setDraggingId(null);
+      // Системный обрыв жеста (звонок, шторка) — не «отпустил над целью»:
+      // раньше он записывал порядок, в котором строки оказались в тот миг.
+      if (e.type === 'pointercancel') {
+        setDragOrder(null);
+        return;
+      }
+      // Порядок жеста держим, пока запись не легла в базу: иначе список на миг
+      // возвращался к старому порядку и прыгал обратно.
+      const seq = dragSeq.current;
+      void reorderFamilyTasks(familyId, dragOrder).finally(() => {
+        if (dragSeq.current === seq) setDragOrder(null);
+      });
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('touchmove', blockScroll, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('touchmove', blockScroll);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+    };
+  }, [draggingId, dragOrder, familyId]);
 
   const renderRow = (task: FamilyTask) => {
     const done = !!task.completedAt;
@@ -160,7 +207,10 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
         tabIndex={0}
         aria-label={t('Изменить задачу')}
         onClick={() => {
-          if (pressState.current?.fired) return;
+          if (longFired.current) {
+            longFired.current = false;
+            return;
+          }
           openEdit(task);
         }}
         onKeyDown={(e) => {
@@ -171,10 +221,10 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
         }}
         onPointerDown={(e) => onRowPointerDown(task, e)}
         onPointerMove={onRowPointerMove}
-        onPointerUp={onRowPointerUp}
-        onPointerCancel={onRowPointerUp}
         style={{ touchAction: dragSource ? 'none' : undefined }}
-        className={`flex touch-pan-y items-start gap-3 py-3 transition-[opacity,transform] active:opacity-80 ${
+        // select-none и без системного меню: на iPhone удержание строки иначе
+        // выделяло текст названия вместо того, чтобы взять задачу.
+        className={`flex touch-pan-y select-none items-start gap-3 py-3 transition-[opacity,transform] active:opacity-80 [-webkit-touch-callout:none] [-webkit-user-select:none] ${
           dragSource ? 'z-10 scale-[0.98] opacity-70 shadow-lg' : ''
         }`}
       >
@@ -183,7 +233,16 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
         )}
         <TaskCheck
           checked={done}
-          onChange={() => void toggleFamilyTask(familyId, task)}
+          onChange={() => {
+            // Кружок лежит в строке, и удержание на нём тоже берёт задачу. Клик
+            // после такого отпускания — конец жеста, а не отметка: иначе
+            // «взял и передумал» выполнял задачу и слал семье пуш об этом.
+            if (longFired.current) {
+              longFired.current = false;
+              return;
+            }
+            void toggleFamilyTask(familyId, task);
+          }}
           color={task.color ?? assignee?.color}
         />
         <div className="min-w-0 flex-1">
