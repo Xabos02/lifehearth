@@ -17,7 +17,7 @@ import {
   type FertileDay,
   type OvulationEstimate,
 } from '../../lib/cycle/predict';
-import { cycleStats, predictionAccuracy, type Accuracy, type CycleStats } from '../../lib/cycle/stats';
+import { forecastStats, predictionAccuracy, type Accuracy, type CycleStats } from '../../lib/cycle/stats';
 
 export interface CycleData {
   /** undefined, пока Dexie не ответил: отличается от «данных нет». */
@@ -31,7 +31,10 @@ export interface CycleData {
   prediction: CyclePredictionResult;
   ovulation: OvulationEstimate;
   fertile: Map<string, number>;
+  /** По той же выборке, что и прогноз (forecastStats). */
   stats: CycleStats;
+  /** Начала циклов этой выборки: завершённый цикл не отсюда — «не учитывается». */
+  counted: Set<string>;
   accuracy: Accuracy;
   anomalies: Anomaly[];
   hasAnyData: boolean;
@@ -65,6 +68,7 @@ export function useCycleData(): CycleData {
     const episodeList = episodes ?? [];
 
     const prediction = predictNextPeriod({ cycles: cycleList, episodes: episodeList, today });
+    const { stats, counted } = forecastStats(cycleList, episodeList);
     // Овуляция и фертильность считаются всегда, но показываются только там, где
     // их включили: скрывать данные на уровне отрисовки надёжнее, чем не считать,
     // — иначе включение настройки потребовало бы пересчёта в другом месте.
@@ -88,7 +92,8 @@ export function useCycleData(): CycleData {
       prediction,
       ovulation,
       fertile,
-      stats: cycleStats(cycleList),
+      stats,
+      counted,
       accuracy: predictionAccuracy(predictions ?? []),
       anomalies: detectAnomalies({
         cycles: cycleList,

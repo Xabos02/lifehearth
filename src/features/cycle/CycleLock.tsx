@@ -72,11 +72,7 @@ export function CycleLock({
     const delay = delayFor(next);
     if (delay > 0) setWaitUntil(Date.now() + delay);
     setNow(Date.now());
-    setError(
-      delay > 0
-        ? t('Неверный код. Подождите {s}\u00A0с', { s: Math.ceil(delay / 1000) })
-        : t('Неверный код. Попробуйте ещё раз'),
-    );
+    setError(t('Неверный код. Попробуйте ещё раз'));
   }
 
   return (
@@ -111,8 +107,10 @@ export function CycleLock({
 
       {error && (
         <p className="text-sm text-danger" role="alert">
-          {error}
-          {left > 0 && t(' — подождите {s}\u00A0с', { s: left })}
+          {/* Пока идёт пауза — живой отсчёт вместо ошибки, а не вдобавок к
+              ней. Было: к застывшему «Подождите 2 с» дописывалось
+              « — подождите 2 с», а после паузы застывшее так и висело. */}
+          {left > 0 ? t('Неверный код. Подождите {s}\u00A0с', { s: left }) : error}
         </p>
       )}
 

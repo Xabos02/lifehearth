@@ -166,6 +166,27 @@ describe('predictNextPeriod', () => {
     expect(b.centerLength!).toBeGreaterThan(30);
   });
 
+  it('называет ту причину широкого интервала, из-за которой он и широк', () => {
+    const reason = (lengths: number[]) => {
+      const cycles = chain('2026-01-01', lengths);
+      const r = predictNextPeriod({
+        cycles,
+        today: addDaysKey(cycles[cycles.length - 1].startDate, 3),
+      });
+      return [r.confidence, r.wideBecause];
+    };
+    // Четыре ровных цикла: до шести разброс популяционный, и интервал широк
+    // не из-за её длин — экран писал «циклы заметно разной длины».
+    expect(reason([28, 28, 28, 28])).toEqual(['wide', 'few_cycles']);
+    // σ > 5 при размахе в 8 дней: «разница больше двух недель» была неправдой.
+    expect(reason([24, 32, 28, 24, 32, 28])).toEqual(['very_wide', 'variability']);
+    expect(reason([22, 40, 25, 38, 23, 41])).toEqual(['very_wide', 'spread']);
+    // Разброс свой маленький, широким интервал сделал сдвиг последних циклов.
+    expect(reason([27, 27, 27, 30, 31, 31])).toEqual(['wide', 'drift']);
+    expect(reason([26, 30, 28, 26, 30, 28])).toEqual(['wide', 'variability']);
+    expect(reason([28, 28, 28, 28, 28, 28])).toEqual(['normal', undefined]);
+  });
+
   it('внутри эпизода прогноза нет', () => {
     const cycles = chain('2026-01-01', [28, 28]);
     const last = cycles[cycles.length - 1].startDate;

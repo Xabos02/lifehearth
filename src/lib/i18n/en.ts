@@ -533,7 +533,6 @@ export const EN: Record<string, string> = {
   'Раздел закрыт': 'Section locked',
   'Введи код, чтобы открыть.': 'Enter the code to open.',
   'Код доступа': 'Passcode',
-  ' — подождите {s} с': ' — wait {s} s',
   'Привычки по циклу': 'Habits across the cycle',
   'Дни менструации': 'Period days',
   'Перед менструацией': 'Before the period',
@@ -563,6 +562,10 @@ export const EN: Record<string, string> = {
     'This is a rough estimate: your cycles vary by more than two weeks.',
   'Циклы заметно разной длины, поэтому диапазон широкий.':
     'Your cycles vary noticeably in length, so the range is wide.',
+  'Своих циклов пока мало — разброс взят по усреднённым данным, поэтому диапазон широкий.':
+    'Too few of your own cycles yet — the spread is based on averaged data, so the range is wide.',
+  'Последние циклы по длине заметно отличаются от прежних, поэтому диапазон широкий.':
+    'Your recent cycles differ noticeably in length from earlier ones, so the range is wide.',
   'Скорее всего {range}': 'Most likely {range}',
   'Обычно попадает в {range} — примерно в четырёх случаях из пяти.':
     'Usually falls within {range} — about four times out of five.',
@@ -1265,8 +1268,8 @@ export const EN: Record<string, string> = {
   'Рост, см': 'Height, cm',
   '—': '—',
   'Вес, кг': 'Weight, kg',
-  'Определяет набор разделов: «Женские дни» есть только в женском профиле. При смене пола записи раздела не удаляются — он просто скрывается.':
-    "Determines which sections are available: Cycle only exists in a female profile. Switching gender doesn't delete the section's entries — it just hides it.",
+  'Определяет набор разделов: «Женские дни» есть только в женском профиле. При смене пола записи раздела не удаляются — он просто скрывается, а задачи, которые он поставил сам, уходят в «Корзину», если вы их не меняли.':
+    "Determines which sections are available: Cycle only exists in a female profile. Switching gender doesn't delete the section's entries — it just hides it, and the tasks it created move to Trash unless you changed them.",
   'Эти данные остаются на устройстве и попадают только в вашу резервную копию. Никуда больше они не отправляются.':
     "This data stays on your device and only goes into your backup. It's never sent anywhere else.",
   'Срок: {date}': 'Due: {date}',

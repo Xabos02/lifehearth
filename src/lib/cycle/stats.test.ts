@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { closePrediction, cycleStats, predictionAccuracy, symptomFrequency } from './stats';
+import {
+  closePrediction,
+  cycleStats,
+  forecastStats,
+  predictionAccuracy,
+  symptomFrequency,
+} from './stats';
+import { predictNextPeriod } from './predict';
 import type { Cycle, CyclePrediction, LocalDate } from '../../db/cycleTypes';
 import { addDaysKey } from '../dates';
 
@@ -78,6 +85,23 @@ describe('cycleStats', () => {
   it('берёт только последние N циклов', () => {
     const s = cycleStats(chain('2020-01-01', new Array(30).fill(28)), 12);
     expect(s.n).toBe(12);
+  });
+});
+
+describe('forecastStats', () => {
+  it('«в среднем» — по тем же циклам, что и прогноз, а выпавший виден как неучтённый', () => {
+    // 65 дней — пропущенная менструация: derive помечает такой цикл
+    // пропусками, прогноз его отбрасывает, а среднее раньше брало — и
+    // рядом с прогнозом через 28 дней стояло «в среднем 37,5 дня».
+    const cycles = chain('2026-01-01', [28, 29, 65, 28]);
+    cycles[2].hasDataGaps = 1;
+    cycles[2].status = 'needs_confirmation';
+
+    const { stats, counted } = forecastStats(cycles);
+    expect(stats.averageLength).toBe(28.3);
+    expect(stats.n).toBe(predictNextPeriod({ cycles, today: '2026-06-01' }).nCyclesUsed);
+    expect(counted.has(cycles[2].startDate)).toBe(false);
+    expect(counted.size).toBe(3);
   });
 });
 

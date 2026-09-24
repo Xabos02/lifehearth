@@ -10,8 +10,9 @@
 // Побочный эффект принят сознательно: если формула плохая, это станет видно.
 // Смягчать цифру нельзя — можно только объяснять, что разброс биологический.
 
-import type { Cycle, CyclePrediction, LocalDate } from '../../db/cycleTypes';
+import type { Cycle, CycleEpisode, CyclePrediction, LocalDate } from '../../db/cycleTypes';
 import { daysBetween } from './derive';
+import { poolForPrediction } from './predict';
 
 export interface CycleStats {
   /** Сколько завершённых неисключённых циклов участвует в расчёте. */
@@ -61,6 +62,23 @@ export function cycleStats(cycles: Cycle[], limit = 12): CycleStats {
     averagePeriodLength:
       periods.length > 0 ? round1(periods.reduce((a, b) => a + b, 0) / periods.length) : undefined,
   };
+}
+
+/** Статистика экрана раздела — по той же выборке, что и прогноз.
+ *
+ *  «В среднем» стоит рядом с прогнозом, и считать их по разным выборкам
+ *  нельзя: цикл в 65 дней с пропущенной менструацией прогноз отбрасывал
+ *  (poolForPrediction: пропуски в отметках, выброс по длине), а среднее тянул
+ *  вверх — «в среднем 37,5 дня» рядом с прогнозом через 28. counted — начала
+ *  циклов, вошедших в выборку: по нему выпавший цикл честно помечается
+ *  «не учитывается», а не исчезает молча. Отчёт для врача по-прежнему берёт
+ *  cycleStats по всем циклам периода: там нужны отметки как есть. */
+export function forecastStats(
+  cycles: Cycle[],
+  episodes: CycleEpisode[] = [],
+): { stats: CycleStats; counted: Set<LocalDate> } {
+  const { pool } = poolForPrediction(cycles, episodes);
+  return { stats: cycleStats(pool), counted: new Set(pool.map((c) => c.startDate)) };
 }
 
 export interface Accuracy {

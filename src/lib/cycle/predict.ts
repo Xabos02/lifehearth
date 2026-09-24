@@ -108,6 +108,17 @@ export interface CyclePredictionResult {
    *  дней сверх ожидаемого», а не «задержка»: слово «задержка» подразумевает
    *  вывод, который приложение делать не вправе. */
   daysPastPrediction: number;
+  /** Чем на самом деле расширен интервал (у wide и very_wide) — подпись
+   *  обязана называть эту причину, а не одну на все случаи. Было: у трёх
+   *  ровных циклов по 28 дней экран писал «циклы заметно разной длины», хотя
+   *  до шести циклов разброс берётся популяционный (POP_SIGMA) и от её данных
+   *  не зависит; «больше двух недель» писалось и тогда, когда very_wide дала
+   *  σ > 5 при размахе меньше двух недель.
+   *  spread — размах длин больше двух недель; few_cycles — своих циклов
+   *  меньше шести, разброс популяционный; drift — последние циклы ушли от
+   *  прежних, интервал расширен в 1,3 раза; variability — её собственный
+   *  разброс (MAD). */
+  wideBecause?: 'spread' | 'few_cycles' | 'drift' | 'variability';
 }
 
 /** Отбирает циклы, пригодные для расчёта. */
@@ -179,7 +190,8 @@ export function predictNextPeriod(input: PredictInput): CyclePredictionResult {
   const med = median(lengths);
   const mad = median(lengths.map((l) => Math.abs(l - med)));
   const sigmaHat = clamp(1.4826 * mad, 1.5, 9);
-  const sigmaEff = n >= 6 ? sigmaHat : POP_SIGMA;
+  const ownSigma = n >= 6;
+  const sigmaEff = ownSigma ? sigmaHat : POP_SIGMA;
 
   // Нормально-нормальная сопряжённая схема: при малом n центр тянется к
   // популяционному, при большом — к её собственному. Двадцать строк вместо
@@ -201,14 +213,28 @@ export function predictNextPeriod(input: PredictInput): CyclePredictionResult {
   const d80 = Math.round(Z_80 * sigmaPred);
 
   const spread = lengths.length > 1 ? Math.max(...lengths) - Math.min(...lengths) : 0;
+  const overTwoWeeks = spread > 14;
   const confidence: PredictionConfidence =
     n <= 2
       ? 'population_prior'
-      : sigmaPred > 5 || spread > 14
+      : sigmaPred > 5 || overTwoWeeks
         ? 'very_wide'
         : sigmaPred > 3
           ? 'wide'
           : 'normal';
+  // Причина — из тех же величин, что и сама ширина. При n < 6 σ_pred ≈ 4,5
+  // при любых её длинах (дрейфа там не бывает), поэтому «мало циклов» идёт
+  // раньше дрейфа и разброса.
+  const wideBecause =
+    confidence !== 'wide' && confidence !== 'very_wide'
+      ? undefined
+      : overTwoWeeks
+        ? 'spread'
+        : !ownSigma
+          ? 'few_cycles'
+          : drift
+            ? 'drift'
+            : 'variability';
 
   const past = daysBetween(predictedStart, input.today);
 
@@ -226,6 +252,7 @@ export function predictNextPeriod(input: PredictInput): CyclePredictionResult {
     fromCycleStart: current.startDate,
     currentDay,
     daysPastPrediction: past > 0 ? past : 0,
+    ...(wideBecause ? { wideBecause } : {}),
   };
 }
 

@@ -154,7 +154,14 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
   // Считаем менструации, а не циклы: цикл может быть текущим и незавершённым.
   const periodsInWindow = new Set(inWindow.map((c) => c.startDate)).size;
   const hasEpisode = episodes.some((e) => (e.endDate ?? input.today) >= from);
+  // «Меньше обычного за полгода» — вывод об отсутствии, и он требует полгода
+  // наблюдений. Без этого карточка появлялась после самой первой отметки: одно
+  // начало за неделю учёта — начало истории, а не редкие менструации. День
+  // без отметки — «нет данных», а не ноль (PROTOCOL.md §7.2).
+  const firstMark = [...input.days.map((d) => d.date), ...input.cycles.map((c) => c.startDate)].sort()[0];
   if (
+    firstMark !== undefined &&
+    firstMark <= from &&
     periodsInWindow > 0 &&
     periodsInWindow <= INFREQUENT_MAX &&
     !input.onSuppressiveMethod &&

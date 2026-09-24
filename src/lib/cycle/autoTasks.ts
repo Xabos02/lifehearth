@@ -76,6 +76,9 @@ export interface PlanInput {
   /** Тексты, которые сейчас считаются «нашими»: задачу с другим заголовком
    *  человек переименовал, и трогать её нельзя. */
   neutralTitles?: boolean;
+  /** Раздел есть у этого профиля (cycleAllowed). Пол сильнее тумблера: у
+   *  мужского профиля «Женских дней» не существует — и их задач тоже. */
+  sectionAvailable?: boolean;
 }
 
 const titleFor = (tpl: AutoTaskTemplate, neutral: boolean): string =>
@@ -116,7 +119,7 @@ export function planAutoTasks(input: PlanInput): AutoTaskPlan {
   const neutral = input.neutralTitles ?? settings.neutralNotificationText;
   const plan: AutoTaskPlan = { create: [], reschedule: [], remove: [] };
 
-  const enabled = settings.integrations.autoTasks;
+  const enabled = settings.integrations.autoTasks && input.sectionAvailable !== false;
   const byKey = new Map<string, Task[]>();
   for (const t of existing) {
     if (t.origin !== 'cycle' || t.deletedAt) continue;
@@ -127,8 +130,9 @@ export function planAutoTasks(input: PlanInput): AutoTaskPlan {
   const activeOf = (key: AutoTaskKey) =>
     (byKey.get(key) ?? []).filter((t) => !t.completedAt);
 
-  // Шаблоны выключили — убираем только то, чего человек не касался. Задачу,
-  // которую он переименовал или уже выполнил, оставляем: это его запись.
+  // Шаблоны выключили (или раздела у профиля нет) — убираем только то, чего
+  // человек не касался. Задачу, которую он переименовал или уже выполнил,
+  // оставляем: это его запись.
   if (!enabled) {
     for (const [key, tasks] of byKey) {
       const tpl = AUTO_TASK_TEMPLATES[key as AutoTaskKey];

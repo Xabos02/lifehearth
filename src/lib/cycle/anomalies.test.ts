@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { compareToFigo, detectAnomalies } from './anomalies';
+import { deriveCycles } from './derive';
 import type { BleedingLevel, Cycle, CycleDayLog, CycleEpisode, LocalDate } from '../../db/cycleTypes';
 import { MENSTRUAL_LEVELS } from '../../db/cycleTypes';
 import { addDaysKey } from '../dates';
@@ -52,6 +53,22 @@ function daysFor(cycles: Cycle[], level: BleedingLevel = 'medium'): CycleDayLog[
 const kinds = (cycles: Cycle[], days: CycleDayLog[], extra = {}) =>
   detectAnomalies({ cycles, days, today: TODAY, ...extra }).map((a) => a.kind);
 
+const dayOf = (date: LocalDate, bleeding: BleedingLevel): CycleDayLog => ({
+  date,
+  bleeding,
+  isBleedingDay: MENSTRUAL_LEVELS.includes(bleeding) ? 1 : 0,
+  createdAt: NOW,
+  updatedAt: NOW,
+  source: 'user',
+});
+
+/** Одна менструация за полгода — при том, что полгода и наблюдали: первая
+ *  отметка («не было») лежит раньше начала окна. */
+function rareButTracked() {
+  const cycles = chain('2026-05-01', [45]);
+  return { cycles, days: [dayOf('2026-01-01', 'none'), ...daysFor(cycles)] };
+}
+
 describe('detectAnomalies', () => {
   it('на ровных циклах молчит', () => {
     const cycles = chain('2026-02-01', [28, 28, 29, 27, 28, 28]);
@@ -82,23 +99,33 @@ describe('detectAnomalies', () => {
   });
 
   it('ловит редкие менструации', () => {
-    const cycles = chain('2026-05-01', [45]);
-    expect(kinds(cycles, daysFor(cycles))).toContain('infrequent');
+    const { cycles, days } = rareButTracked();
+    expect(kinds(cycles, days)).toContain('infrequent');
+  });
+
+  it('после самой первой отметки про редкие менструации молчит — сравнивать не с чем', () => {
+    // Одно начало в окне при недельной истории читалось как «менструаций за
+    // полгода меньше обычного».
+    const first = [dayOf(TODAY, 'medium')];
+    expect(kinds(deriveCycles({ days: first, today: TODAY, now: NOW }), first)).not.toContain(
+      'infrequent',
+    );
+    // Три месяца отметок — тоже ещё не полгода.
+    const cycles = chain('2026-04-25', [45]);
+    expect(kinds(cycles, daysFor(cycles))).not.toContain('infrequent');
   });
 
   it('на подавляющем методе про редкие менструации молчит', () => {
-    const cycles = chain('2026-05-01', [45]);
-    expect(kinds(cycles, daysFor(cycles), { onSuppressiveMethod: true })).not.toContain(
-      'infrequent',
-    );
+    const { cycles, days } = rareButTracked();
+    expect(kinds(cycles, days, { onSuppressiveMethod: true })).not.toContain('infrequent');
   });
 
   it('активный эпизод гасит разговор о редких менструациях', () => {
-    const cycles = chain('2026-05-01', [45]);
+    const { cycles, days } = rareButTracked();
     const episodes: CycleEpisode[] = [
       { id: 'e1', kind: 'pregnancy', startDate: '2026-06-20', createdAt: NOW, updatedAt: NOW },
     ];
-    expect(kinds(cycles, daysFor(cycles), { episodes })).not.toContain('infrequent');
+    expect(kinds(cycles, days, { episodes })).not.toContain('infrequent');
   });
 
   it('ловит затяжные менструации, если их было минимум две', () => {

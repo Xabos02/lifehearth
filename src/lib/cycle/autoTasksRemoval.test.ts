@@ -2,7 +2,8 @@
 
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { db } from '../../db/db';
+import { db, DEFAULT_SETTINGS } from '../../db/db';
+import { updateSettings } from '../../hooks/useSettings';
 import { syncAutoTasks, updateCycleSettings, ensureCycleSetup } from './cycleRepo';
 
 const NOW = '2026-08-22T10:00:00.000Z';
@@ -56,5 +57,22 @@ describe('выключение связки с задачами', () => {
 
     // Задача в корзине, и заметка при ней: её можно восстановить.
     expect((await db.tasks.get('auto-1'))?.notes).toBe('взять ночные, в «Магните»');
+  });
+
+  it('смена пола на мужской уносит нетронутые автозадачи в корзину', async () => {
+    // У мужского профиля раздела нет — и его задач в общем списке тоже быть
+    // не должно. Раньше они оставались: план автозадач пола не знал, а смена
+    // пола его и не запускала. Тронутую человеком — не трогаем, как и при
+    // выключенной связке: это уже его запись.
+    await db.settings.put({ ...DEFAULT_SETTINGS, gender: 'female' });
+    await seedAutoTask('auto-1');
+    await seedAutoTask('mine', { notes: 'взять выписку' });
+    await ensureCycleSetup();
+    await updateCycleSettings({ integrations: { autoTasks: true } as never });
+
+    await updateSettings({ gender: 'male' });
+
+    expect((await db.tasks.get('auto-1'))?.deletedAt).toBeTruthy();
+    expect((await db.tasks.get('mine'))?.deletedAt).toBeFalsy();
   });
 });

@@ -27,6 +27,7 @@ import type {
 } from '../../db/cycleTypes';
 import { MENSTRUAL_LEVELS } from '../../db/cycleTypes';
 import { todayKey } from '../dates';
+import { cycleAllowed } from '../sections';
 import { deriveCycles } from './derive';
 import { builtInSymptoms } from './symptoms';
 import { planAutoTasks } from './autoTasks';
@@ -84,6 +85,9 @@ export async function updateCycleSettings(changes: Partial<CycleSettings>): Prom
     id: 'app',
     updatedAt: now(),
   });
+  // Настройки решают, какие автозадачи нужны: выключили «Задачи по циклу» —
+  // нетронутые уходят в корзину сразу, а не при следующей отметке дня.
+  await syncAutoTasks();
 }
 
 type DayPatch = Omit<
@@ -201,18 +205,23 @@ async function rebuildCyclesOnly(): Promise<Cycle[]> {
   );
 }
 
-/** Приводит автозадачи в соответствие с прогнозом.
+/** Приводит автозадачи в соответствие с прогнозом, настройками раздела и полом.
  *
  *  Живёт здесь, а не в компоненте: вызывается после каждого пересчёта циклов,
- *  и вызывающему коду не нужно помнить, что после правки дня надо ещё и задачи
- *  подвинуть. Пишет в db.tasks НАПРЯМУЮ, минуя db/repo: тот дёргает
- *  планировщик синхронизации, а автозадача — производная от данных цикла и
- *  уезжать с устройства не должна, пока это не решено явно.
+ *  правки настроек раздела и смены пола (updateSettings), и вызывающему коду
+ *  не нужно помнить, что после правки надо ещё и задачи подвинуть. Пол сильнее
+ *  тумблера: у мужского профиля раздела нет, и нетронутые автозадачи уходят в
+ *  корзину, как при выключенной связке.
+ *
+ *  Пишет в db.tasks НАПРЯМУЮ, минуя db/repo: тот дёргает планировщик
+ *  синхронизации, а автозадача — производная от данных цикла и уезжать с
+ *  устройства не должна, пока это не решено явно.
  *
  *  Возвращает число изменений — удобно в тестах и логах. */
 export async function syncAutoTasks(): Promise<number> {
-  const [settings, cycles, episodes] = await Promise.all([
+  const [settings, app, cycles, episodes] = await Promise.all([
     db.cycleSettings.get('app'),
+    db.settings.get('app'),
     db.cycles.orderBy('startDate').toArray(),
     db.cycleEpisodes.toArray(),
   ]);
@@ -221,6 +230,7 @@ export async function syncAutoTasks(): Promise<number> {
   const existing = await db.tasks.where('origin').equals('cycle').toArray();
   const plan = planAutoTasks({
     settings,
+    sectionAvailable: cycleAllowed(app?.gender),
     prediction: predictNextPeriod({ cycles, episodes, today: todayKey() }),
     existing,
     today: todayKey(),
