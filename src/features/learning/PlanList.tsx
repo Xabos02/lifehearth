@@ -4,6 +4,7 @@ import { db } from '../../db/db';
 import type { LearningPart } from '../../db/types';
 import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
+import { unitLabel, type ProgressUnit } from '../../lib/learningPace';
 import { ICON } from '../../components/ui/icons';
 import { togglePart } from './plan';
 
@@ -11,7 +12,7 @@ import { togglePart } from './plan';
  *
  *  Раздел — просто подпись над группой, а не сущность: у книги их не бывает
  *  вовсе, а у курса они приходят вместе со списком тем и меняются вместе с ним. */
-export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: string }) {
+export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: ProgressUnit }) {
   const item = useLiveQuery(
     () => (parts[0] ? db.learningItems.get(parts[0].itemId) : undefined),
     [parts[0]?.itemId],
@@ -57,7 +58,10 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: string 
               </span>
               {part.estimate > 0 && (
                 <span className="shrink-0 text-xs tabular-nums text-muted">
-                  {formatNum(part.estimate)} {unit}
+                  {formatNum(part.estimate)}
+                  {/* У процентов оценка — только вес части (planProgress),
+                      «3 %» соврало бы: часть весом 3 из 8 — это 38%. */}
+                  {unit !== 'percent' && ` ${unitLabel(unit, part.estimate)}`}
                 </span>
               )}
             </button>

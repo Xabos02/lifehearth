@@ -2,6 +2,7 @@ import { db } from '../../db/db';
 import { alive, update } from '../../db/repo';
 import type { LearningItem, LearningPart } from '../../db/types';
 import { todayKey } from '../../lib/dates';
+import { planProgress } from '../../lib/learningPace';
 
 /** Разобранная строка плана. */
 interface Parsed {
@@ -59,14 +60,16 @@ export function planToText(parts: LearningPart[]): string {
 export async function togglePart(part: LearningPart, item: LearningItem): Promise<void> {
   const doneAt = part.doneAt ? null : todayKey();
   await update(db.learningParts, part.id, { doneAt });
-  // Прогресс материала — сумма закрытых частей. Пересчитываем целиком, а не
-  // прибавляем: так отметка и снятие всегда сходятся с планом.
-  const parts = alive(await db.learningParts.where('itemId').equals(item.id).toArray());
-  const current = parts
-    .map((p) => (p.id === part.id ? { ...p, doneAt } : p))
-    .filter((p) => p.doneAt)
-    .reduce((sum, p) => sum + p.estimate, 0);
-  await update(db.learningItems, item.id, {
-    progressCurrent: Math.min(item.progressTarget, current),
-  });
+  // Прогресс пересчитываем по всему плану, а не прибавляем: так отметка и
+  // снятие всегда сходятся с планом. Правила — в planProgress.
+  const parts = alive(await db.learningParts.where('itemId').equals(item.id).toArray()).map(
+    (p) => (p.id === part.id ? { ...p, doneAt } : p),
+  );
+  const next = planProgress(item.progressUnit, item.progressTarget, parts);
+  if (next) {
+    await update(db.learningItems, item.id, {
+      progressTarget: next.target,
+      progressCurrent: next.current,
+    });
+  }
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router';
+import { Navigate, useParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { differenceInCalendarDays } from 'date-fns';
 import { Clock, Pencil, Plus } from 'lucide-react';
@@ -12,19 +12,12 @@ import { addDaysKey, formatRu, fromKey, todayKey, toKey, WEEKDAY_LABELS } from '
 import { formatDuration } from '../../lib/duration';
 import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
-import { pace, recentPace, weeksAtPace } from '../../lib/learningPace';
+import { forecastPerWeek, pace, recentPace, unitLabel, weeksAtPace } from '../../lib/learningPace';
 import { ICON } from '../../components/ui/icons';
 import { LearningItemSheet } from './LearningItemSheet';
 import { LogSessionSheet } from './LogSessionSheet';
 import { PartsSheet } from './PartsSheet';
 import { PlanList } from './PlanList';
-
-const UNIT_SUFFIX: Record<LearningItem['progressUnit'], string> = {
-  percent: '%',
-  pages: 'стр.',
-  lessons: 'уроков',
-  hours: 'ч',
-};
 
 /** Экран одного материала: успеваю ли к сроку, план и занятия.
  *
@@ -36,7 +29,11 @@ export function LearningItemPage() {
   const [partsOpen, setPartsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  const item = useLiveQuery(() => (id ? db.learningItems.get(id) : undefined), [id]);
+  // null — материала нет: undefined остаётся за загрузкой.
+  const item = useLiveQuery(
+    async () => (id ? ((await db.learningItems.get(id)) ?? null) : null),
+    [id],
+  );
   const logs = useLiveQuery(
     () => (id ? db.learningLogs.where('itemId').equals(id).toArray() : []),
     [id],
@@ -64,10 +61,19 @@ export function LearningItemPage() {
     });
   }, [item]);
 
-  if (!item) return <Screen title={t('Материал')} backTo="/more/learning" children={null} />;
+  if (item === undefined) return <Screen title={t('Материал')} backTo="/more/learning" children={null} />;
+  // Удалённый (здесь или на другом устройстве) — назад к списку, как заметка.
+  // Было: удаление мягкое, get() отдавал строку с deletedAt, и экран оставался
+  // открытым — с планом и «Записать занятие» у материала, которого уже нет.
+  if (item === null || item.deletedAt) return <Navigate to="/more/learning" replace />;
 
-  const unit = t(UNIT_SUFFIX[item.progressUnit]);
   const perWeekActual = recentPace(liveLogs) / 60; // минуты в неделю → часы
+  const perWeekForecast = forecastPerWeek(
+    item.progressUnit,
+    item.progressCurrent,
+    toKey(new Date(item.startedAt ?? item.createdAt)),
+    liveLogs,
+  );
   const done = liveParts.filter((p) => p.doneAt);
 
   return (
@@ -88,14 +94,19 @@ export function LearningItemPage() {
     >
       <div className="space-y-3">
         {sched ? (
-          <Summary item={item} sched={sched} unit={unit} perWeekActual={perWeekActual} />
+          <Summary
+            item={item}
+            sched={sched}
+            perWeekActual={perWeekActual}
+            perWeekForecast={perWeekForecast}
+          />
         ) : (
           <p className="card p-4 text-sm text-muted">
             {t('У материала нет срока. Поставьте его в карточке — появится график и темп.')}
           </p>
         )}
 
-        {sched && <Chart item={item} sched={sched} unit={unit} />}
+        {sched && <Chart item={item} sched={sched} />}
 
         <Button className="flex w-full items-center justify-center gap-2" onClick={() => setLogOpen(true)}>
           <Clock size={ICON.base} />
@@ -112,7 +123,7 @@ export function LearningItemPage() {
             </span>
           </div>
           {liveParts.length > 0 ? (
-            <PlanList parts={liveParts} unit={unit} />
+            <PlanList parts={liveParts} unit={item.progressUnit} />
           ) : (
             <p className="card p-4 text-sm text-muted">
               {t('Разбейте материал на части — главы, темы, дисциплины. Прогресс пойдёт по ним.')}
@@ -146,33 +157,35 @@ export function LearningItemPage() {
 function Summary({
   item,
   sched,
-  unit,
   perWeekActual,
+  perWeekForecast,
 }: {
   item: LearningItem;
   sched: NonNullable<ReturnType<typeof pace>>;
-  unit: string;
   perWeekActual: number;
+  perWeekForecast: number;
 }) {
-  const weeks = weeksAtPace(sched.remaining, perWeekActual);
+  const weeks = weeksAtPace(sched.remaining, perWeekForecast);
   const finish = weeks === null ? null : addDaysKey(todayKey(), Math.round(weeks * 7));
   const lateWeeks =
     finish && item.dueDate
       ? Math.round(differenceInCalendarDays(fromKey(finish), fromKey(item.dueDate)) / 7)
       : null;
+  const remaining = Math.round(sched.remaining);
+  const perWeek = Math.round(sched.perWeek * 10) / 10;
 
   return (
     <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-hairline bg-hairline">
       <Tile
         k={t('осталось')}
-        v={formatNum(Math.round(sched.remaining))}
-        u={unit}
+        v={formatNum(remaining)}
+        u={unitLabel(item.progressUnit, remaining)}
         n={t('срок {date}', { date: formatRu(item.dueDate!) })}
       />
       <Tile
         k={t('нужно в неделю')}
-        v={formatNum(Math.round(sched.perWeek * 10) / 10)}
-        u={unit}
+        v={formatNum(perWeek)}
+        u={unitLabel(item.progressUnit, perWeek)}
         n={t('осталось {n} дн.', { n: Math.max(0, sched.daysLeft) })}
       />
       <Tile
@@ -187,7 +200,11 @@ function Summary({
         u={finish ? formatRu(finish, 'yyyy') : ''}
         n={
           lateWeeks === null
-            ? t('появится после записей')
+            ? // Прогноз у часов идёт по занятиям, у остальных — по прогрессу
+              // (forecastPerWeek): обещать «после записей» книге — неправда.
+              item.progressUnit === 'hours'
+              ? t('появится после записей')
+              : t('появится, когда пойдёт прогресс')
             : lateWeeks > 1
               ? t('+{n} нед. к сроку', { n: lateWeeks })
               : t('в срок')
@@ -227,12 +244,11 @@ function Tile({
 function Chart({
   item,
   sched,
-  unit,
 }: {
   item: LearningItem;
   sched: NonNullable<ReturnType<typeof pace>>;
-  unit: string;
 }) {
+  const debt = Math.round(sched.debt);
   const W = 300;
   const H = 96;
   const PAD = { l: 4, r: 4, t: 6, b: 6 };
@@ -291,7 +307,10 @@ function Chart({
           ? t('Срок прошёл')
           : sched.onTrack
             ? t('Идёшь по графику')
-            : t('Отставание {n} {unit}', { n: formatNum(Math.round(sched.debt)), unit })}
+            : t('Отставание {n} {unit}', {
+                n: formatNum(debt),
+                unit: unitLabel(item.progressUnit, debt),
+              })}
       </p>
     </div>
   );

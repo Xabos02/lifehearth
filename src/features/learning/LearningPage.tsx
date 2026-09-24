@@ -23,7 +23,7 @@ import { formatNum } from '../../lib/finance';
 import { LearningItemSheet } from './LearningItemSheet';
 import { LogSessionSheet } from './LogSessionSheet';
 import { ProgressStepper } from './ProgressStepper';
-import { pace } from '../../lib/learningPace';
+import { pace, unitLabel } from '../../lib/learningPace';
 import { fromKey, todayKey, toKey } from '../../lib/dates';
 import { differenceInCalendarDays } from 'date-fns';
 import { t } from '../../lib/i18n';
@@ -47,14 +47,6 @@ const EMPTY_HINTS: Record<Filter, string> = {
   inProgress: 'Нажмите + и добавьте книгу, курс или статью.',
   planned: 'Сюда попадает то, что вы планируете изучить.',
   done: 'Завершённые материалы появятся здесь.',
-};
-
-/** Единица материала одним словом — для отставания: «на 12 ч», «на 40 стр.». */
-const UNIT_SUFFIX: Record<LearningItem['progressUnit'], string> = {
-  percent: '%',
-  pages: 'стр.',
-  lessons: 'уроков',
-  hours: 'ч',
 };
 
 /** График материала: считается только когда у него есть срок. */
@@ -95,7 +87,9 @@ function LearningCard({
   const pct =
     item.progressTarget > 0 ? (100 * item.progressCurrent) / item.progressTarget : 0;
   const sched = schedule(item);
-  const unit = t(UNIT_SUFFIX[item.progressUnit]);
+  const debt = sched ? Math.round(sched.debt) : 0;
+  const perWeek = sched ? Math.round(sched.perWeek * 10) / 10 : 0;
+  const finished = item.status === 'done' || item.status === 'dropped';
   // Где человек должен быть по плану — засечка на полосе. Без срока её нет.
   const planPct = sched ? Math.min(100, (100 * sched.planned) / item.progressTarget) : null;
 
@@ -151,14 +145,23 @@ function LearningCard({
               ? t('Срок прошёл')
               : sched.onTrack
                 ? t('Идёшь по графику')
-                : t('Отстаёшь на {n} {unit}', { n: formatNum(Math.round(sched.debt)), unit })}
+                : t('Отстаёшь на {n} {unit}', {
+                    n: formatNum(debt),
+                    unit: unitLabel(item.progressUnit, debt),
+                  })}
           </span>
         ) : (
-          <span className="text-xs text-muted">{progressLabel(item)}</span>
+          // Слева — «Без срока», как на артборде (design/learning/List):
+          // было progressLabel и слева, и справа — прогресс дважды.
+          !item.dueDate &&
+          !finished && <span className="text-xs text-muted">{t('Без срока')}</span>
         )}
         <span className="ml-auto text-xs text-muted">
           {sched && !sched.done
-            ? t('{n} {unit} в неделю', { n: formatNum(Math.round(sched.perWeek * 10) / 10), unit })
+            ? t('{n} {unit} в неделю', {
+                n: formatNum(perWeek),
+                unit: unitLabel(item.progressUnit, perWeek),
+              })
             : progressLabel(item)}
         </span>
       </div>

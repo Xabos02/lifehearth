@@ -6,6 +6,7 @@ import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
 import type { LearningItem, LearningPart } from '../../db/types';
 import { t } from '../../lib/i18n';
+import { planProgress } from '../../lib/learningPace';
 import { parsePlan, planToText } from './plan';
 
 interface Props {
@@ -66,10 +67,19 @@ function PlanForm({
           await remove(db.learningParts, prev.id);
         }
       }
-      // Цель материала — сумма частей, когда план непустой: иначе проценты
-      // считались бы от числа, которое человек когда-то ввёл руками.
-      if (parsed.length > 0 && totalEstimate > 0) {
-        await update(db.learningItems, item.id, { progressTarget: totalEstimate });
+      // Цель и прогресс — по правилам плана (planProgress): у процентов шкала
+      // остаётся 100, оценки меняют цель. Отметки переезжают по порядку, как
+      // и части выше. Пока ни одна часть не закрыта, план прогресс ещё не
+      // ведёт — прогресс, отмеченный руками, не обнуляется от сохранения.
+      const saved = parsed.map((p, i) => ({ estimate: p.estimate, doneAt: parts[i]?.doneAt ?? null }));
+      const next = planProgress(item.progressUnit, item.progressTarget, saved);
+      if (next) {
+        await update(db.learningItems, item.id, {
+          progressTarget: next.target,
+          progressCurrent: saved.some((p) => p.doneAt)
+            ? next.current
+            : Math.min(item.progressCurrent, next.target),
+        });
       }
       onClose();
     } finally {

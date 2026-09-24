@@ -8,6 +8,9 @@
  *   plural(21, ['день', 'дня', 'дней']) → 'день'
  */
 export function plural(n: number, forms: readonly [string, string, string]): string {
+  // Дробное — всегда вторая форма: «2,5 урока», «1,5 дня». По последней цифре
+  // выходило «8,4 уроков» и «1,5 дней».
+  if (!Number.isInteger(n)) return forms[1];
   const abs = Math.abs(n) % 100;
   const last = abs % 10;
   if (abs > 10 && abs < 20) return forms[2];

@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { pace, recentPace, weeksAtPace, type PaceInput } from './learningPace';
+import { setLang } from './i18n';
+import {
+  forecastPerWeek,
+  pace,
+  planProgress,
+  recentPace,
+  unitLabel,
+  weeksAtPace,
+  type PaceInput,
+} from './learningPace';
 
 // Успеваю ли к сроку и сколько нагонять.
 //
@@ -64,7 +73,18 @@ describe('график обучения', () => {
   it('в последний день срока темп не уходит в бесконечность', () => {
     const p = pace(input({ today: '2026-12-31', current: 40 }))!;
     expect(Number.isFinite(p.perWeek)).toBe(true);
-    expect(p.perWeek).toBeCloseTo(60 * 7, 0);
+    expect(p.perWeek).toBe(60);
+  });
+
+  it('меньше недели до срока — норма на неделю не больше остатка', () => {
+    // Случай прогона: 6 уроков за день до срока показывались как «42 урока в
+    // неделю» — остаток ÷ 1 день × 7. Сделать за неделю больше, чем осталось,
+    // нельзя: норма — весь остаток. И так же после срока.
+    const lessons = { target: 20, current: 14 };
+    expect(pace(input({ ...lessons, today: '2026-12-30' }))!.perWeek).toBe(6);
+    expect(pace(input({ ...lessons, today: '2027-01-15' }))!.perWeek).toBe(6);
+    // С неделей и больше — прежняя равномерная норма: 12 за 10 дней = 8,4.
+    expect(pace(input({ ...lessons, current: 8, today: '2026-12-21' }))!.perWeek).toBeCloseTo(8.4, 5);
   });
 
   it('просроченный материал помечается, пока не закрыт', () => {
@@ -128,5 +148,89 @@ describe('прогноз', () => {
 
   it('остаток делится на недельный темп', () => {
     expect(weeksAtPace(100, 10)).toBe(10);
+  });
+
+  it('темп прогноза — в единицах материала, а не в часах занятий', () => {
+    // Случай прогона: у курса в уроках «финиш» считался как «15 уроков ÷ 1 ч в
+    // неделю». Четыре часа занятий за 28 дней — это 1 ч в неделю, но не урок.
+    const logs = [0, 7, 14, 21].map((d) => ({ date: `2026-09-${String(24 - d).padStart(2, '0')}`, minutes: 60 }));
+    // Уроки: 5 за 28 дней с начала — 1,25 урока в неделю, часы не участвуют.
+    expect(forecastPerWeek('lessons', 5, '2026-08-27', logs, '2026-09-24')).toBeCloseTo(1.25, 5);
+    expect(forecastPerWeek('lessons', 5, '2026-08-27', [], '2026-09-24')).toBeCloseTo(1.25, 5);
+    // Часы: сами занятия и есть прогресс — 1 ч в неделю.
+    expect(forecastPerWeek('hours', 5, '2026-08-27', logs, '2026-09-24')).toBeCloseTo(1, 5);
+    // Без прогресса прогноза нет, а не «никогда» числом.
+    expect(forecastPerWeek('pages', 0, '2026-08-27', logs, '2026-09-24')).toBe(0);
+  });
+});
+
+describe('план → прогресс', () => {
+  const parts = (...xs: [number, boolean][]) =>
+    xs.map(([estimate, done]) => ({ estimate, doneAt: done ? '2026-09-24' : null }));
+
+  it('план без оценок: части весят поровну, отметка не обнуляет прогресс', () => {
+    // Случай прогона: 40 стр. из 340, план из трёх глав без оценок, отметка
+    // первой главы — прогресс 0 (сумма оценок закрытых — сумма нулей).
+    expect(planProgress('pages', 340, parts([0, true], [0, false], [0, false]))).toEqual({
+      target: 340,
+      current: 113,
+    });
+    expect(planProgress('pages', 340, parts([0, true], [0, true], [0, true]))).toEqual({
+      target: 340,
+      current: 340,
+    });
+  });
+
+  it('у процентов шкала остаётся 100, оценки — только веса', () => {
+    // Случай прогона: план «3 + 5» у материала в процентах ставил цель 8, и
+    // закрытая первая часть показывалась как «3%» вместо 38%.
+    expect(planProgress('percent', 100, parts([3, true], [5, false]))).toEqual({
+      target: 100,
+      current: 38,
+    });
+    expect(planProgress('percent', 8, parts([3, true], [5, true]))).toEqual({ target: 100, current: 100 });
+  });
+
+  it('оценки в единицах материала задают цель и прогресс', () => {
+    // Основной путь — курс в часах: цель — сумма часов плана, прогресс — часы
+    // закрытых дисциплин, без округления долей.
+    const p = planProgress('hours', 350, parts([5.4, true], [7.1, false], [4.2, true]))!;
+    expect(p.target).toBeCloseTo(16.7, 5);
+    expect(p.current).toBeCloseTo(9.6, 5);
+  });
+
+  it('округление доли не выводит прогресс за цель', () => {
+    expect(planProgress('hours', 12.5, parts([0, true], [0, true]))).toEqual({ target: 12.5, current: 12.5 });
+  });
+
+  it('без плана прогресс не трогается', () => {
+    expect(planProgress('pages', 340, [])).toBeNull();
+  });
+});
+
+describe('подпись единицы', () => {
+  it('уроки склоняются по числу, в том числе дробному', () => {
+    expect(['1', '2', '5', '11', '21', '8.4'].map((n) => unitLabel('lessons', Number(n)))).toEqual([
+      'урок',
+      'урока',
+      'уроков',
+      'уроков',
+      'урок',
+      'урока',
+    ]);
+    expect([unitLabel('pages', 1), unitLabel('hours', 1), unitLabel('percent', 1)]).toEqual([
+      'стр.',
+      'ч',
+      '%',
+    ]);
+  });
+
+  it('по-английски — lesson / lessons', () => {
+    setLang('en');
+    try {
+      expect([1, 2, 8.4].map((n) => unitLabel('lessons', n))).toEqual(['lesson', 'lessons', 'lessons']);
+    } finally {
+      setLang('ru');
+    }
   });
 });
