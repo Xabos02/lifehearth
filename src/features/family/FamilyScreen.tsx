@@ -13,7 +13,7 @@ import { MembersTab } from './MembersTab';
 import { ChatTab } from './ChatTab';
 import { FamilyTasksTab } from './FamilyTasksTab';
 import { useToast } from '../../components/ui/toastContext';
-import { getLang, t } from '../../lib/i18n';
+import { t } from '../../lib/i18n';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
 
@@ -115,9 +115,7 @@ export function FamilyScreen({
               onClick={() => void enableFamilyPush()}
               className={`shrink-0 font-semibold text-accent active:opacity-60 ${HIT_SLOP_44}`}
             >
-              {/* «Включить» в словаре занято звуком чата ('Unmute') — здесь смысл
-                  «разрешить уведомления», английская ветка явная. */}
-              {getLang() === 'en' ? 'Turn on' : 'Включить'}
+              {t('Включить')}
             </button>
             <button
               onClick={() => setPushHidden(true)}

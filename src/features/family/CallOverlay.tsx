@@ -176,9 +176,11 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
             </>
           ) : (
             <>
+              {/* «Включить» — омоним: словарь держит «Turn on» (уведомления),
+                  под выключенным микрофоном звонка привычнее «Unmute». */}
               <CallButton
                 color={snap.muted ? 'active' : 'surface'}
-                label={snap.muted ? t('Включить') : t('Микрофон')}
+                label={snap.muted ? (getLang() === 'en' ? 'Unmute' : 'Включить') : t('Микрофон')}
                 onClick={bump(() => callManager.toggleMute())}
               >
                 {snap.muted ? <MicOff size={ICON.accent} /> : <Mic size={ICON.accent} />}

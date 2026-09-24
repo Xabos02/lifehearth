@@ -9,7 +9,7 @@ import { Field, Input } from '../../components/ui/Input';
 import { GTrash as Trash2, GPlus } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
-import { t } from '../../lib/i18n';
+import { getLang, t } from '../../lib/i18n';
 import type { WorkoutTemplate, WorkoutTemplateItem, WorkoutType } from '../../db/types';
 import { WORKOUT_KINDS, workoutKind } from './workouts';
 import { addTemplate, removeTemplate } from './templateRepo';
@@ -138,7 +138,9 @@ function TemplateBuilder({ onDone }: { onDone: () => void }) {
                 type="button"
                 onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}
                 className={`mt-5 p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
-                aria-label={t('Убрать')}
+                // «Убрать» — омоним: в словаре «Clear» (снять срок задачи),
+                // здесь убирается строка вида — английская ветка явная.
+                aria-label={getLang() === 'en' ? 'Remove' : 'Убрать'}
               >
                 <Trash2 size={ICON.base} />
               </button>

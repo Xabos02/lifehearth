@@ -85,3 +85,41 @@ test('английский: раздел заметок — список, пап
   await expect(page.getByRole('button', { name: 'Quote', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Body text' })).toBeVisible();
 });
+
+test('английский: одно русское слово в разных местах — перевод по смыслу места', async ({ page }) => {
+  // Ключ словаря — сама русская строка, а у «Включить», «Обучение», «Занято»,
+  // «Убрать» смыслов больше одного. Сторож покрытия такого не видит: пара в
+  // словаре есть, просто она про другой экран. После переделки настроек 22.08
+  // там стояли «Unmute» у уведомлений (смысл с микрофона звонка), «Learning» у
+  // тура (раздел «Обучение») и «Busy» у объёма хранилища (линия занята), а
+  // крестик вида в тренировке озвучивался «Clear» (очистить срок задачи).
+  await openApp(page, '/more/settings', { language: 'en' });
+  await expect(page.getByRole('button', { name: 'Turn on', exact: true })).toBeVisible();
+  await expect(page.getByText('Intro tour', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Unmute|Learning/)).toHaveCount(0);
+
+  // На звонке тот же «Включить» под перечёркнутым микрофоном — «Unmute».
+  // Звонок без сети не поднять, поэтому снимок «идёт разговор, микрофон
+  // выключен» кладётся прямо в менеджер (громкая связь — без блокировки щекой).
+  await page.evaluate(async () => {
+    const { callManager } = await import('/src/lib/family/familyCall.ts');
+    (callManager as unknown as { set(p: object): void }).set({
+      status: 'active', peerName: 'Dad', muted: true, speakerOn: true, startedAt: Date.now(),
+    });
+  });
+  await expect(page.getByRole('button', { name: 'Unmute', exact: true })).toBeVisible();
+
+  await openApp(page, '/more/settings/backup', { language: 'en' });
+  await expect(page.getByText('Used', { exact: true })).toBeVisible();
+  await expect(page.getByText('Busy', { exact: true })).toHaveCount(0);
+
+  await openApp(page, '/more/health', { language: 'en' });
+  await page.getByRole('button', { name: 'Log a workout' }).click();
+  await page.getByRole('button', { name: 'Add another exercise' }).click();
+  await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(2);
+  await page.getByRole('button', { name: 'From template' }).click();
+  await page.getByRole('button', { name: 'New template' }).click();
+  await page.getByRole('button', { name: 'Add another exercise' }).last().click();
+  await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(4);
+  await expect(page.getByRole('button', { name: 'Clear', exact: true })).toHaveCount(0);
+});

@@ -394,7 +394,9 @@ export function BackupPage() {
               }
             />
             <Row
-              label={t('Занято')}
+              // «Занято» — омоним ключа причины звонка (Busy); здесь объём
+              // хранилища — явная ветка языка.
+              label={getLang() === 'en' ? 'Used' : 'Занято'}
               value={
                 usageMb === null
                   ? t('неизвестно')

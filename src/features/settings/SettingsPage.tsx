@@ -357,10 +357,12 @@ export function SettingsPage() {
             <LinkRow icon={Trash2} label={t('Корзина')} to="/more/trash" />
             {/* Только тур. Подсказки — отдельной строкой ниже: раньше одна
                 кнопка делала два дела, и человек, которому нужен был тур,
-                заодно получал обратно все скрытые советы. */}
+                заодно получал обратно все скрытые советы.
+                «Обучение» — омоним: в словаре это раздел (Learning), здесь
+                вводный тур — английская ветка явная. */}
             <ButtonRow
               icon={GraduationCap}
-              label={t('Обучение')}
+              label={getLang() === 'en' ? 'Intro tour' : 'Обучение'}
               action={t('Показать заново')}
               onClick={() => void updateSettings({ onboardingDone: null })}
             />

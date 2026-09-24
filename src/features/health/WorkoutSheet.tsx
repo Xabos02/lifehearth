@@ -8,7 +8,7 @@ import { Field, Input } from '../../components/ui/Input';
 import { GTrash as Trash2, GPlus, GClose } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
-import { t } from '../../lib/i18n';
+import { getLang, t } from '../../lib/i18n';
 import { todayKey } from '../../lib/dates';
 import type { Workout, WorkoutTemplate, WorkoutType } from '../../db/types';
 import { EFFORT_LABELS, WORKOUT_KINDS, workoutKind, type WorkoutKind } from './workouts';
@@ -300,8 +300,10 @@ function ItemFields({
     <div className="space-y-3 rounded-2xl border border-border p-3">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-muted">{index === 0 ? t('Вид') : `${t('Вид')} ${index + 1}`}</p>
+        {/* «Убрать» — омоним: в словаре «Clear» (снять срок задачи), здесь
+            убирается весь вид — английская ветка явная. */}
         {removable && (
-          <button type="button" onClick={onRemove} className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`} aria-label={t('Убрать')}>
+          <button type="button" onClick={onRemove} className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`} aria-label={getLang() === 'en' ? 'Remove' : 'Убрать'}>
             <GClose size={ICON.action} />
           </button>
         )}

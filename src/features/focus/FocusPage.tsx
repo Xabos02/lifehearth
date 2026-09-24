@@ -17,7 +17,7 @@ import {
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
-import { getLang, t } from '../../lib/i18n';
+import { t } from '../../lib/i18n';
 import { Screen } from '../../components/layout/Screen';
 import { Sheet } from '../../components/ui/Sheet';
 import { Chip, ChipRow } from '../../components/ui/Chip';
@@ -621,9 +621,7 @@ export function FocusPage() {
                 onClick={() => void enableFocusPush()}
                 className={`font-semibold text-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
-                {/* «Включить» в словаре занято звуком чата ('Unmute') — тот же
-                    обход, что в семейном чате. */}
-                {getLang() === 'en' ? 'Turn on' : 'Включить'}
+                {t('Включить')}
               </button>
             </span>
           </div>
