@@ -42,15 +42,31 @@ export function deadlineLabel(days: number | null): { text: string; tone: 'warni
   if (days < 0) return { text: t('Срок прошёл'), tone: 'danger' };
   if (days === 0) return { text: t('Срок сегодня'), tone: 'warning' };
   if (days >= 7) return null;
-  // Русское «Остался/Осталось» согласует род с числом — словарный ключ этого
-  // не выразит, английская фраза строится своей веткой.
-  return {
-    text:
-      getLang() === 'en'
-        ? `${tPlur(days, ['день', 'дня', 'дней'])} left`
-        : `${plural(days, ['Остался', 'Осталось', 'Осталось'])} ${plur(days, ['день', 'дня', 'дней'])}`,
-    tone: 'warning',
-  };
+  return { text: daysLeftText(days), tone: 'warning' };
+}
+
+/** Подпись срока на карточке в «Целях». null — подписи нет.
+ *
+ *  Не deadlineLabel: лента над задачами показывает срок, только когда он
+ *  поджимает, а в «Цели» приходят смотреть на сами цели — там срок виден
+ *  всегда, пока цель в работе. Раньше эта логика жила копией в карточке и
+ *  разошлась с лентой: лента в день срока писала «Срок сегодня», карточка —
+ *  «Осталось 0 дней». */
+export function goalCardDeadline(goal: Goal, days: number): { text: string; danger: boolean } | null {
+  // Завершённой и архивной цели срок уже ни о чём не говорит: красная
+  // «Просрочена» у сделанного читалась как упрёк за то, что закрыто.
+  if (goal.status === 'completed' || goal.status === 'archived') return null;
+  if (days < 0) return { text: t('Просрочена'), danger: true };
+  if (days === 0) return { text: t('Срок сегодня'), danger: true };
+  return { text: daysLeftText(days), danger: days < 7 };
+}
+
+/** «Осталось 3 дня». Русское «Остался/Осталось» согласует род с числом —
+ *  словарный ключ этого не выразит, английская фраза строится своей веткой. */
+function daysLeftText(days: number): string {
+  return getLang() === 'en'
+    ? `${tPlur(days, ['день', 'дня', 'дней'])} left`
+    : `${plural(days, ['Остался', 'Осталось', 'Осталось'])} ${plur(days, ['день', 'дня', 'дней'])}`;
 }
 
 /** Порядок в ленте: впереди то, что горит.

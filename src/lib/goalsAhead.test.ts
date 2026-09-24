@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Goal, Task } from '../db/types';
-import { compareAhead, deadlineLabel, remainingLabel } from './goalsAhead';
+import { compareAhead, deadlineLabel, goalCardDeadline, remainingLabel } from './goalsAhead';
 
 function goal(p: Partial<Goal>): Goal {
   return {
@@ -74,6 +74,22 @@ describe('подпись срока', () => {
 
   it('без срока подписи нет', () => {
     expect(deadlineLabel(null)).toBeNull();
+  });
+});
+
+describe('срок на карточке в «Целях»', () => {
+  it('в день срока — «Срок сегодня», а не «Осталось 0 дней»', () => {
+    // Ноль склоняется формой «много», и счётчик печатал «Осталось 0 дней» —
+    // так не говорят, а лента над задачами в тот же день писала «Срок сегодня».
+    expect(goalCardDeadline(goal({}), 0)).toEqual({ text: 'Срок сегодня', danger: true });
+  });
+
+  it('у завершённой и архивной цели срока нет, у цели в работе просрочка остаётся', () => {
+    // Сквозной прогон 13–17.09: красная «Просрочена» у завершённой цели.
+    expect(goalCardDeadline(goal({ status: 'completed' }), -14)).toBeNull();
+    expect(goalCardDeadline(goal({ status: 'archived' }), -14)).toBeNull();
+    expect(goalCardDeadline(goal({ status: 'active' }), -14)).toEqual({ text: 'Просрочена', danger: true });
+    expect(goalCardDeadline(goal({ status: 'paused' }), -14)).toEqual({ text: 'Просрочена', danger: true });
   });
 });
 

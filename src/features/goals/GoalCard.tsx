@@ -5,9 +5,8 @@ import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Goal, Task } from '../../db/types';
 import { fromKey } from '../../lib/dates';
+import { goalCardDeadline } from '../../lib/goalsAhead';
 import { goalProgress, goalProgressLabel } from '../../lib/progress';
-import { plur, plural } from '../../lib/plural';
-import { getLang, t, tPlur } from '../../lib/i18n';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 
 /** Карточка цели — ссылка на детальную страницу, с кольцом прогресса и сроком. */
@@ -25,23 +24,9 @@ export function GoalCard({ goal }: { goal: Goal }) {
   const value = goalProgress(goal, linkedTasks);
   const label = goalProgressLabel(goal, linkedTasks);
 
-  let deadline: { text: string; danger: boolean } | null = null;
-  if (goal.targetDate) {
-    const days = differenceInCalendarDays(fromKey(goal.targetDate), new Date());
-    deadline =
-      days < 0
-        ? { text: t('Просрочена'), danger: true }
-        : {
-            // Русское «Остался/Осталось» согласует род с числом — словарный ключ
-            // этого не выразит, английская фраза строится своей веткой (как
-            // deadlineLabel в lib/goalsAhead.ts).
-            text:
-              getLang() === 'en'
-                ? `${tPlur(days, ['день', 'дня', 'дней'])} left`
-                : `${plural(days, ['Остался', 'Осталось', 'Осталось'])} ${plur(days, ['день', 'дня', 'дней'])}`,
-            danger: days < 7,
-          };
-  }
+  const deadline = goal.targetDate
+    ? goalCardDeadline(goal, differenceInCalendarDays(fromKey(goal.targetDate), new Date()))
+    : null;
 
   return (
     <Link
