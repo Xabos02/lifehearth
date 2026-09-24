@@ -43,6 +43,37 @@ test('строка версии живая и открывает «Что нов
   await expect(page.getByText('Что нового')).toHaveCount(2); // кнопка + заголовок окна
 });
 
+test('«Что нового» открывается при каждом нажатии и не всплывает само потом', async ({ page }) => {
+  // Прогон 13–17.09: второе нажатие «Открыть» ничего не делало, а сброшенная
+  // кнопкой версия ('') оставалась в базе — и окно выскакивало само при
+  // следующем запуске.
+  await openApp(page, '/more/settings');
+  const open = page.getByRole('button', { name: /Что нового/ });
+  const title = page.getByRole('heading', { name: 'Что нового' });
+  const understood = page.getByRole('button', { name: 'Понятно' });
+
+  await open.click();
+  await expect(title).toBeVisible();
+  await understood.click();
+  await expect(title).toHaveCount(0);
+
+  await open.click();
+  await expect(title).toBeVisible();
+  await understood.click();
+  await expect(title).toHaveCount(0);
+
+  // Закрытие записало текущую версию: при следующем запуске окну взяться неоткуда.
+  const current = await page.evaluate(async () => (await import('/src/lib/changelog.ts')).APP_VERSION);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { db } = await import('/src/db/db.ts');
+        return (await db.settings.get('app'))?.lastSeenVersion;
+      }),
+    )
+    .toBe(current);
+});
+
 test('английский язык: включается, переживает перезагрузку, выключается', async ({ page }) => {
   await openApp(page, '/more/settings');
   await page.getByLabel('Язык').selectOption('en');
