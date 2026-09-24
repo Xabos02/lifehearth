@@ -7,6 +7,8 @@ import { Chip } from '../../components/ui/Chip';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
 import { GTrash as Trash2, GPlus } from '../../components/ui/glyphs';
+import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
 import type { WorkoutTemplate, WorkoutTemplateItem, WorkoutType } from '../../db/types';
 import { WORKOUT_KINDS, workoutKind } from './workouts';
@@ -48,10 +50,10 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
                 onClick={() => {
                   if (window.confirm(t('Удалить шаблон?'))) void removeTemplate(tpl.id);
                 }}
-                className="p-1.5 text-muted active:opacity-60"
+                className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
                 aria-label={t('Удалить шаблон')}
               >
-                <Trash2 size={18} />
+                <Trash2 size={ICON.base} />
               </button>
             </div>
           ))}
@@ -60,7 +62,7 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
             onClick={() => setCreating(true)}
             className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 font-medium text-accent active:opacity-70"
           >
-            <GPlus size={16} /> {t('Новый шаблон')}
+            <GPlus size={ICON.action} /> {t('Новый шаблон')}
           </button>
         </div>
       )}
@@ -135,10 +137,10 @@ function TemplateBuilder({ onDone }: { onDone: () => void }) {
               <button
                 type="button"
                 onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}
-                className="mt-5 p-1.5 text-muted active:opacity-60"
+                className={`mt-5 p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
                 aria-label={t('Убрать')}
               >
-                <Trash2 size={18} />
+                <Trash2 size={ICON.base} />
               </button>
             )}
           </div>
@@ -146,9 +148,9 @@ function TemplateBuilder({ onDone }: { onDone: () => void }) {
             <button
               type="button"
               onClick={() => setRows((prev) => [...prev, newRow()])}
-              className="flex items-center gap-1 text-sm font-medium text-accent active:opacity-70"
+              className={`flex items-center gap-1 text-sm font-medium text-accent active:opacity-70 ${HIT_SLOP_44}`}
             >
-              <GPlus size={14} /> {t('Добавить ещё вид')}
+              <GPlus size={ICON.inline} /> {t('Добавить ещё вид')}
             </button>
           )}
         </div>

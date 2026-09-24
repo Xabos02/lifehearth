@@ -9,6 +9,8 @@ import { addDaysKey, todayKey } from '../../lib/dates';
 import { PRESET_COLORS, isLightColor } from '../../lib/colors';
 import { ALLDAY_REMIND_TIME, cancelReminder, scheduleReminder } from '../../lib/push';
 import { GCheck as Check } from '../../components/ui/glyphs';
+import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
 
 type PStr = '0' | '1' | '2' | '3';
@@ -112,7 +114,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
           <button
             type="button"
             onClick={() => setAssigneeId(null)}
-            className={`rounded-full px-3 py-1.5 text-sm ${assigneeId === null ? 'bg-accent-fill text-white' : 'bg-surface-2 text-muted'}`}
+            className={`rounded-full px-3 py-1.5 text-sm ${HIT_SLOP_44} ${assigneeId === null ? 'bg-accent-fill text-white' : 'bg-surface-2 text-muted'}`}
           >
             {t('Всем')}
           </button>
@@ -121,7 +123,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
               key={m.id}
               type="button"
               onClick={() => setAssigneeId(m.id)}
-              className={`rounded-full px-3 py-1.5 text-sm ${assigneeId === m.id ? 'text-white' : 'bg-surface-2 text-muted'}`}
+              className={`rounded-full px-3 py-1.5 text-sm ${HIT_SLOP_44} ${assigneeId === m.id ? 'text-white' : 'bg-surface-2 text-muted'}`}
               style={assigneeId === m.id ? { background: m.color } : undefined}
             >
               {m.displayName}
@@ -148,12 +150,15 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
         </div>
       </Field>
       <Field label={t('Цвет')}>
-        <div className="flex flex-wrap gap-2">
+        {/* gap-3: кружки по 32px, зона касания у каждого 44 — при gap-2 зоны
+            соседей налезали на 4px. 12px дают шаг ровно 44, как у кружков
+            цвета проекта в форме задачи. */}
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
             aria-label={t('Без цвета')}
             onClick={() => setColor(null)}
-            className={`flex size-8 items-center justify-center rounded-full border-2 border-dashed border-border text-muted ${color === null ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : ''}`}
+            className={`flex size-8 items-center justify-center rounded-full border-2 border-dashed border-border text-muted ${HIT_SLOP_44} ${color === null ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : ''}`}
           >
             ×
           </button>
@@ -161,12 +166,12 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
             <button
               key={c}
               type="button"
-              aria-label={c}
+              aria-label={t('Цвет {c}', { c })}
               onClick={() => setColor(c)}
               style={{ background: c }}
-              className={`flex size-8 items-center justify-center rounded-full ${color === c ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : ''}`}
+              className={`flex size-8 items-center justify-center rounded-full ${HIT_SLOP_44} ${color === c ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : ''}`}
             >
-              {color === c && <Check size={14} className={isLightColor(c) ? 'text-black' : 'text-white'} />}
+              {color === c && <Check size={ICON.inline} className={isLightColor(c) ? 'text-black' : 'text-white'} />}
             </button>
           ))}
         </div>

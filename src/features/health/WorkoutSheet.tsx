@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
 import { GTrash as Trash2, GPlus, GClose } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
 import { todayKey } from '../../lib/dates';
 import type { Workout, WorkoutTemplate, WorkoutType } from '../../db/types';
@@ -202,14 +203,14 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
           <button
             type="button"
             onClick={() => setItems((prev) => [...prev, newItem()])}
-            className="flex items-center gap-1 rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm font-medium text-accent active:opacity-70"
+            className={`flex items-center gap-1 rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm font-medium text-accent active:opacity-70 ${HIT_SLOP_44}`}
           >
-            <GPlus size={14} /> {t('Добавить ещё вид')}
+            <GPlus size={ICON.inline} /> {t('Добавить ещё вид')}
           </button>
           <button
             type="button"
             onClick={() => setTemplatesOpen(true)}
-            className="flex items-center gap-1 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70"
+            className={`flex items-center gap-1 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70 ${HIT_SLOP_44}`}
           >
             {t('Из шаблона')}
           </button>
@@ -243,7 +244,7 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
         <button
           type="button"
           onClick={() => void saveAsTemplate()}
-          className="w-full text-center text-sm font-medium text-accent active:opacity-70"
+          className={`w-full text-center text-sm font-medium text-accent active:opacity-70 ${HIT_SLOP_44}`}
         >
           {t('Сделать из этого набора шаблон')}
         </button>
@@ -300,8 +301,8 @@ function ItemFields({
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-muted">{index === 0 ? t('Вид') : `${t('Вид')} ${index + 1}`}</p>
         {removable && (
-          <button type="button" onClick={onRemove} className="p-1.5 text-muted active:opacity-60" aria-label={t('Убрать')}>
-            <GClose size={16} />
+          <button type="button" onClick={onRemove} className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`} aria-label={t('Убрать')}>
+            <GClose size={ICON.action} />
           </button>
         )}
       </div>

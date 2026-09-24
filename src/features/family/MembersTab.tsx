@@ -5,6 +5,7 @@ import {
   LogOut,
   UserMinus,
   PhoneOff,
+  Trash2,
 } from 'lucide-react';
 import {
   GPencil as Pencil,
@@ -20,7 +21,7 @@ import { Field, Input } from '../../components/ui/Input';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import { subscribePresence, renameFamily } from '../../lib/family/familyChat';
 import { callManager } from '../../lib/family/familyCall';
-import { leaveFamily } from '../../lib/family/familyLifecycle';
+import { deleteFamily, leaveFamily } from '../../lib/family/familyLifecycle';
 import {
   claimOwnership,
   familyHasOwner,
@@ -86,6 +87,16 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
     if (!window.confirm(t('Выйти из группы? Её общий чат и задачи перестанут синхронизироваться на этом устройстве.'))) return;
     await leaveFamily(familyId);
     onLeft();
+  }
+
+  async function removeGroup() {
+    if (!window.confirm(t('Удалить группу навсегда?\n\nОна исчезнет у всех участников: переписка, задачи и звонки станут недоступны, а вернуть их будет нельзя. Продолжить?'))) return;
+    try {
+      await deleteFamily(familyId);
+      onLeft();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : t('Не удалось удалить группу. Проверьте связь и попробуйте ещё раз'));
+    }
   }
 
   return (
@@ -193,6 +204,16 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         >
           <Plus size={ICON.action} className="shrink-0 text-muted" />
           {t('Добавить группу')}
+        </button>
+      )}
+
+      {isOwner && (
+        <button
+          onClick={() => void removeGroup()}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3.5 text-sm font-semibold text-danger active:opacity-70"
+        >
+          <Trash2 size={ICON.action} />
+          {t('Удалить группу')}
         </button>
       )}
 

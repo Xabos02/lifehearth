@@ -281,6 +281,12 @@ export const EN: Record<string, string> = {
   'Стать владельцем': 'Become the owner',
   'Добавить группу': 'Add a group',
   'Выйти из группы': 'Leave the group',
+  'Удалить группу': 'Delete group',
+  'Удалить группу навсегда?\n\nОна исчезнет у всех участников: переписка, задачи и звонки станут недоступны, а вернуть их будет нельзя. Продолжить?':
+    "Delete the group permanently?\n\nIt will disappear for everyone: chat, tasks and calls will become unavailable, and there will be no way to bring them back. Continue?",
+  'Не удалось удалить группу. Проверьте связь и попробуйте ещё раз':
+    "Couldn't delete the group. Check your connection and try again",
+  'Удалить группу может только её создатель': 'Only the group creator can delete it',
   'Не удалось исключить участника. Проверьте связь и попробуйте ещё раз':
     "Couldn't remove the member. Check your connection and try again",
   'Исключить {name}?': 'Remove {name}?',
@@ -1673,6 +1679,8 @@ export const EN: Record<string, string> = {
   // Семья
   'Вас исключили из этой группы. Переписка на этом устройстве осталась, но новые сообщения приходить не будут.':
     'You were removed from this group. The chat history stays on this device, but new messages will not arrive.',
+  'Эту группу удалил её создатель. Переписка на этом устройстве осталась, но новые сообщения приходить не будут.':
+    'This group was deleted by its creator. The chat history stays on this device, but new messages will not arrive.',
   'Пригласить участника': 'Invite a member',
   'Вместе с ним группу потеряют: {names}. У них старая версия приложения — новый ключ передать нечем. Попросите их открыть приложение и повторите.':
     'These members would lose the group too: {names}. They are on an older app version, so the new key cannot reach them. Ask them to open the app and try again.',

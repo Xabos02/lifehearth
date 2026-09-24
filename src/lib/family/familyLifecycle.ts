@@ -18,6 +18,7 @@ import { saveFamilyConfig, getFamilyConfig, listFamilyConfigs, clearFamily } fro
 import { upsertSelfMember } from './familyRepo';
 import { connectFamily, disconnectFamily, sendSystemMessage, unregisterFamilyPush } from './familyChat';
 import { ensureBoxKeys, registerMember } from './familyKeys';
+import { WORKER_URL } from '../workerUrl';
 import { t } from '../i18n';
 
 /** Создать новую группу на этом устройстве (ты — первый участник). Возвращает
@@ -157,6 +158,34 @@ export async function leaveFamily(familyId: string): Promise<void> {
   } catch {
     /* приватный режим */
   }
+}
+
+/** Удалить группу целиком. Доступно только создателю: у него есть секрет
+ *  владельца, и только его сервер пустит. Группа исчезает у ВСЕХ участников —
+ *  сервер стирает переписку, задачи и участников и рвёт живые соединения.
+ *
+ *  Порядок: сначала сервер (если он откажет — локально ничего не трогаем),
+ *  затем та же локальная чистка, что и при выходе из группы. */
+export async function deleteFamily(familyId: string): Promise<void> {
+  const c = await getFamilyConfig(familyId);
+  if (!c) return;
+  const ownerSecret = c.ownerSecret;
+  if (!ownerSecret) throw new Error(t('Удалить группу может только её создатель'));
+  const res = await fetch(`${WORKER_URL}/family/delete?familyId=${familyId}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${c.familyToken}`,
+      'X-Family-Owner': ownerSecret,
+      'Content-Type': 'application/json',
+    },
+  });
+  if (!res.ok) {
+    if (res.status === 403) throw new Error(t('Удалить группу может только её создатель'));
+    throw new Error(t('Не удалось удалить группу. Проверьте связь и попробуйте ещё раз'));
+  }
+  await unregisterFamilyPush(familyId).catch(() => {});
+  disconnectFamily(familyId);
+  await clearFamily(familyId);
 }
 
 /** familyId группы, которую показать по умолчанию (первая по joinedAt). */

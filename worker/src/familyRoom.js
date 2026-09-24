@@ -194,6 +194,10 @@ export class FamilyRoom extends DurableObject {
 
     // WebSocket upgrade — проверяем одноразовый тикет (браузерный WS не шлёт заголовки)
     if (path.endsWith('/ws')) {
+      // Удалённая группа не открывает сокет даже по тикету, выданному до
+      // удаления: иначе в пустую комнату снова начали бы писать, и стёртая
+      // переписка наполнялась бы заново.
+      if (this.metaGet('deleted') === '1') return new Response('deleted', { status: 410 });
       const ticket = url.searchParams.get('ticket');
       const pass = ticket ? this.consumeTicket(ticket) : null;
       if (!pass) return new Response('unauthorized', { status: 401 });
@@ -231,6 +235,13 @@ export class FamilyRoom extends DurableObject {
     // Утечки здесь нет: чтобы спросить, надо знать и familyId, и memberId.
     if (this.isRemoved(url.searchParams.get('memberId'))) {
       return this.json({ error: 'removed' }, 403);
+    }
+
+    // Группа удалена владельцем: старый токен больше не действует, а по нему
+    // пересоздать пустую группу нельзя. 410 — отличимый от 403 («вас
+    // исключили»), чтобы клиент показал честное «группа удалена».
+    if (this.metaGet('deleted') === '1') {
+      return this.json({ error: 'deleted' }, 410);
     }
 
     // Остальное — Bearer-токен
@@ -348,6 +359,33 @@ export class FamilyRoom extends DurableObject {
         }
       }
       this.broadcastFrame({ type: 'removed', memberId });
+      return this.json({ ok: true });
+    }
+
+    // Удалить группу целиком. Пускает только владелец — по своему секрету.
+    // Группа исчезает для всех: живым соединениям рвём сокет кодом 4404
+    // («удалена», отличимым от 4403 «исключён»), офлайн-участникам оставляем
+    // надгробие, чтобы вернувшийся со старым токеном не пересоздал пустую
+    // группу (checkToken на пустой комнате сработал бы как TOFU).
+    if (path.endsWith('/delete') && request.method === 'POST') {
+      if (!(await this.checkOwner(request.headers.get('X-Family-Owner')))) {
+        return this.json({ error: 'forbidden' }, 403);
+      }
+      // Надгробие ДО стирания таблиц: порядок важен, иначе в окне между
+      // wipe и metaSet чужой /ticket заново зарегистрировал бы токен.
+      this.metaSet('deleted', '1');
+      for (const ws of this.ctx.getWebSockets()) {
+        try {
+          ws.close(4404, 'deleted');
+        } catch {
+          /* уже закрыт */
+        }
+      }
+      this.sql.exec('DELETE FROM items');
+      this.sql.exec('DELETE FROM members');
+      // Невыкупленные тикеты и незавершённые дозвоны — тоже: будильник по
+      // дозвону иначе отправил бы «пропущенный звонок» уже из удалённой группы.
+      this.sql.exec("DELETE FROM meta WHERE k LIKE 'ticket:%' OR k LIKE 'callpend:%'");
       return this.json({ ok: true });
     }
 

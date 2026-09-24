@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Напоминания ходят в воркер — в юните их не нужно.
 vi.mock('../../lib/push', () => ({
@@ -9,7 +9,11 @@ vi.mock('../../lib/push', () => ({
 
 import { db } from '../../db/db';
 import { create } from '../../db/repo';
+import { scheduleReminder } from '../../lib/push';
+import type { Task } from '../../db/types';
 import { toggleTask } from './taskActions';
+
+const { reminderFireAt } = await vi.importActual<typeof import('../../lib/push')>('../../lib/push');
 
 describe('повторяющаяся задача: отметить и снять отметку', () => {
   beforeEach(async () => {
@@ -97,4 +101,58 @@ describe('повторяющаяся задача: отметить и снят�
     const alive = (await db.tasks.toArray()).filter((t) => !t.deletedAt);
     expect(alive).toHaveLength(2);
   });
+});
+
+// «Каждый месяц 10-го» с напоминанием за 30 минут. Раньше число повтора в
+// новой задаче по умолчанию было 1-м, и следующий раз вместе с напоминанием
+// уезжал на 1-е. Форма теперь берёт число из срока; здесь проверяется вторая
+// половина цепочки — что после отметки напоминание ставится на следующее
+// 10-е, в то же время, и при отметке в срок, и с опозданием.
+describe('ежемесячный повтор: напоминание следующего раза', () => {
+  const monthlyOn10 = () =>
+    create(db.tasks, {
+      title: 'Оплатить интернет',
+      notes: '',
+      projectId: null,
+      goalId: null,
+      priority: 0,
+      dueDate: '2026-10-10',
+      dueTime: '09:00',
+      duration: null,
+      remindBefore: 30,
+      completedAt: null,
+      checklist: [],
+      recurrence: { type: 'monthly', interval: 1, dayOfMonth: 10 },
+      tags: [],
+      sortOrder: 1000,
+    });
+
+  beforeEach(async () => {
+    await db.tasks.clear();
+    vi.mocked(scheduleReminder).mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  for (const [when, today] of [
+    ['в срок', '2026-10-10T08:00:00'],
+    ['с опозданием на день', '2026-10-11T12:00:00'],
+    ['с опозданием на три недели', '2026-10-31T12:00:00'],
+  ] as const) {
+    it(`отмечена ${when} — напоминание на 10 ноября в 8:30`, async () => {
+      // Подменяем только Date: таймеры fake-indexeddb должны идти как есть.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(today));
+      await toggleTask(await monthlyOn10());
+
+      expect(scheduleReminder).toHaveBeenCalledTimes(1);
+      const next = vi.mocked(scheduleReminder).mock.calls[0][0] as Task;
+      expect(next.dueDate).toBe('2026-11-10');
+      expect(next.dueTime).toBe('09:00');
+      expect(next.remindBefore).toBe(30);
+      expect(reminderFireAt(next)).toBe(new Date('2026-11-10T08:30:00').getTime());
+    });
+  }
 });

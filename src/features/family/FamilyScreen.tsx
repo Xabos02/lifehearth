@@ -79,6 +79,19 @@ export function FamilyScreen({
 
   return (
     <div className="flex h-full flex-col">
+      {/* Вне «шторы», а не внутри: с 1.34.0 она по умолчанию свёрнута, и правда
+          о том, что группы больше нет, пряталась за шевроном — человек видел
+          живой на вид чат, в который ничего не приходит. Молчаливое «не в
+          сети» тут было бы обманом: он чинил бы связь, которой больше нет.
+          Переписку оставляем в обоих случаях — она его, и стирать её вдогонку
+          к исключению или удалению незачем. */}
+      {(config?.groupDeletedAt || config?.removedAt) && (
+        <div className="mb-3 shrink-0 rounded-xl bg-danger/10 p-3 text-sm leading-snug text-danger">
+          {config.groupDeletedAt
+            ? t('Эту группу удалил её создатель. Переписка на этом устройстве осталась, но новые сообщения приходить не будут.')
+            : t('Вас исключили из этой группы. Переписка на этом устройстве осталась, но новые сообщения приходить не будут.')}
+        </div>
+      )}
       <div
         className={`grid shrink-0 transition-[grid-template-rows,opacity] duration-200 ease-out ${
           chromeOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
@@ -86,14 +99,6 @@ export function FamilyScreen({
         aria-hidden={!chromeOpen}
       >
         <div className="min-h-0 space-y-3 overflow-hidden pb-3">
-        {config?.removedAt ? (
-          // Молчаливое «не в сети» тут было бы обманом: человек чинил бы связь,
-          // которой больше нет. Переписку оставляем — она его, и стирать её
-          // вдогонку к исключению незачем.
-          <div className="rounded-xl bg-danger/10 p-3 text-sm leading-snug text-danger">
-            {t('Вас исключили из этой группы. Переписка на этом устройстве осталась, но новые сообщения приходить не будут.')}
-          </div>
-        ) : null}
         {/* Статус соединения здесь больше не рендерится — он ушёл в подзаголовок
             шапки (useFamilyStatusLine): каждая служебная строка над чатом — это
             минус строка переписки на экране. */}

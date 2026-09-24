@@ -15,7 +15,7 @@ import { callManager, type CallSnapshot } from '../../lib/family/familyCall';
 import { getLang, t } from '../../lib/i18n';
 import { CallGuard } from './CallGuard';
 import { ICON } from '../../components/ui/icons';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 
 /** Через сколько заблокировать экран после того, как звонок ушёл «к уху». */
 const LOCK_AFTER_CONNECT_MS = 1800;
@@ -129,7 +129,9 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
         <button
           onClick={onMinimize}
           aria-label={t('Свернуть звонок')}
-          className={`absolute left-4 flex size-9 items-center justify-center rounded-full bg-surface-2/80 text-text active:opacity-70 ${HIT_SLOP_44}`}
+          // POSITIONED, а не обычный: тот несёт relative, и он перебивал
+          // absolute — стрелка уезжала из своего угла в поток (hitSlop.ts).
+          className={`absolute left-4 flex size-9 items-center justify-center rounded-full bg-surface-2/80 text-text active:opacity-70 ${HIT_SLOP_44_POSITIONED}`}
           style={{ top: 'calc(env(safe-area-inset-top) + 16px)' }}
         >
           <ChevronLeft size={ICON.accent} />
@@ -239,7 +241,9 @@ export function MinimizedCallBar({ snap, onExpand }: { snap: CallSnapshot; onExp
     <button
       onClick={onExpand}
       aria-label={t('Развернуть звонок: {name}, {status}', { name: snap.peerName || t('Участник'), status: statusText(snap) })}
-      className="fixed z-50 flex items-center gap-2 rounded-full bg-success-fill px-3 py-2 text-white shadow-lg active:opacity-90"
+      // Плашка ~34px в высоту — зона добирается до 44 невидимо; POSITIONED,
+      // потому что relative из обычного HIT_SLOP сбил бы fixed.
+      className={`fixed z-50 flex items-center gap-2 rounded-full bg-success-fill px-3 py-2 text-white shadow-lg active:opacity-90 ${HIT_SLOP_44_POSITIONED}`}
       style={{ top: 'calc(env(safe-area-inset-top) + 10px)', right: '12px' }}
     >
       <Phone size={ICON.inline} className="animate-pulse" />

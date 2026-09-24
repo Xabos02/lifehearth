@@ -423,3 +423,49 @@ describe('исключение участника: клиент против с�
     });
   });
 });
+
+describe('удаление группы: клиент против сервера', () => {
+  beforeEach(async () => {
+    bootRoom();
+    routeToRoom();
+    await db.family.clear();
+    await db.familyMembers.clear();
+    GROUP_KEY_RAW = await exportKeyRaw(await generateKey());
+  });
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  const ticket = (token: string) =>
+    fetch(`https://w/family/ticket?familyId=${FAMILY_ID}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+  it('создатель удаляет: у него группа исчезает, остальным сервер отвечает «удалена»', async () => {
+    await makeMember({ token: TOKEN });
+    await makeMember({ owner: true, token: TOKEN });
+    const { deleteFamily } = await import('./familyLifecycle');
+
+    await deleteFamily(FAMILY_ID);
+
+    expect(await getFamilyConfig(FAMILY_ID)).toBeFalsy();
+    // 410, а не 401: по 401 приложение участника полезло бы за новым ключом
+    // и переподключалось бы вечно, так и не сказав, что группы больше нет.
+    expect((await ticket(TOKEN)).status).toBe(410);
+  });
+
+  it('с чужим секретом сервер отказывает, и группа остаётся цела', async () => {
+    await makeMember({ owner: true, token: TOKEN });
+    await makeMember({ token: TOKEN });
+    // Участник подделал себе секрет владельца — сервер его не примет.
+    await patchFamilyConfig(FAMILY_ID, { ownerSecret: randomToken() });
+    const { deleteFamily } = await import('./familyLifecycle');
+
+    await expect(deleteFamily(FAMILY_ID)).rejects.toThrow('Удалить группу может только её создатель');
+
+    expect(await getFamilyConfig(FAMILY_ID)).toBeTruthy();
+    expect((await ticket(TOKEN)).status).toBe(200);
+  });
+});

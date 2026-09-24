@@ -198,6 +198,58 @@ describe('исключение участника', () => {
   });
 });
 
+async function deleteGroup(r: Awaited<ReturnType<typeof setup>>, secret = OWNER_SECRET) {
+  return r.call('delete', { method: 'POST', token: TOKEN, headers: { 'X-Family-Owner': secret } });
+}
+
+describe('удаление группы', () => {
+  let r: Awaited<ReturnType<typeof setup>>;
+  beforeEach(async () => {
+    r = await setup();
+  });
+
+  it('удалить может только владелец — чужой секрет ничего не трогает', async () => {
+    expect((await deleteGroup(r, 'wrong-secret')).status).toBe(403);
+    expect((await r.call('ticket', { method: 'POST', token: TOKEN })).status).toBe(200);
+  });
+
+  it('живые соединения рвутся кодом «удалена», а не «исключён»', async () => {
+    const a = r.addSocket(ALICE);
+    const b = r.addSocket(KICKED);
+    expect((await deleteGroup(r)).status).toBe(200);
+    expect(a.closed).toEqual({ code: 4404, reason: 'deleted' });
+    expect(b.closed).toEqual({ code: 4404, reason: 'deleted' });
+  });
+
+  it('после удаления комната отвечает 410 — клиент отличает это от исключения', async () => {
+    await r.call('send', { method: 'POST', token: TOKEN, body: { channel: 'msg', clientMsgId: 'm1', ciphertext: 'x' } });
+    await deleteGroup(r);
+    expect((await r.call('messages?since=0', { token: TOKEN })).status).toBe(410);
+    expect((await r.call('ticket', { method: 'POST', token: TOKEN })).status).toBe(410);
+  });
+
+  it('старым токеном пустую группу не пересоздать', async () => {
+    // Без надгробия первый же register на пустой комнате закрепил бы токен
+    // заново (TOFU), и вернувшийся офлайн-участник поднял бы группу из пепла.
+    await deleteGroup(r);
+    const res = await r.call('register', { method: 'POST', token: TOKEN, body: { memberId: ALICE, boxPub: 'pub-alice' } });
+    expect(res.status).toBe(410);
+  });
+
+  it('тикет, выданный до удаления, сокет не открывает', async () => {
+    const { ticket } = (await (await r.call('ticket', { method: 'POST', token: TOKEN })).json()) as { ticket: string };
+    await deleteGroup(r);
+    expect((await r.call(`ws?ticket=${ticket}`)).status).toBe(410);
+  });
+
+  it('конверты с ключами стираются вместе с группой', async () => {
+    await r.call('send', { method: 'POST', token: TOKEN, body: { channel: 'key', itemId: ALICE, ciphertext: 'конверт-для-alice' } });
+    expect(await (await r.call(`keys?member=${ALICE}`)).json()).toEqual({ sealed: 'конверт-для-alice' });
+    await deleteGroup(r);
+    expect(await (await r.call(`keys?member=${ALICE}`)).json()).toEqual({ sealed: null });
+  });
+});
+
 describe('конверты с новым ключом', () => {
   it('отдаются без авторизации — иначе офлайн-участник заперт снаружи', async () => {
     // Он приходит со старым токеном: новый лежит как раз в конверте.

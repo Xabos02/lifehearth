@@ -20,6 +20,14 @@ interface Props {
 const CLOSE_DISTANCE = 100;
 /** Быстрый флик вниз (px/мс) — закрываем независимо от расстояния. */
 const FLICK_VELOCITY = 0.55;
+/** Первые пиксели вниз ещё не жест. Палец на шапке — тап по заголовку,
+ *  промах мимо крестика — всегда чуть смещается, и без порога панель
+ *  вздрагивала под каждым касанием. Когда порог пройден, панель начинает
+ *  движение с нуля, а не прыгает сразу на 12px. */
+const DRAG_START = 12;
+/** Палец ушёл вбок дальше этого раньше, чем вниз, — это не снятие шторки:
+ *  жест отпускаем совсем, панель не двигается и не закрывается. */
+const DRAG_X_ABORT = 10;
 
 /** Bottom sheet — стандартный контейнер быстрых форм создания/редактирования.
  *  Закрывается свайпом вниз по «ручке»/шапке. */
@@ -37,9 +45,15 @@ export function Sheet({ open, onClose, title, children }: Props) {
   // Текущее смещение панели за пальцем; null — drag не активен (нет transform).
   const [dragY, setDragY] = useState<number | null>(null);
   // Сведения о текущем жесте для расчёта скорости и delta; вне state, чтобы не дёргать рендер.
-  const gesture = useRef<{ startY: number; lastY: number; lastT: number; velocity: number } | null>(
-    null,
-  );
+  // active — порог DRAG_START пройден и панель уже идёт за пальцем.
+  const gesture = useRef<{
+    startX: number;
+    startY: number;
+    lastY: number;
+    lastT: number;
+    velocity: number;
+    active: boolean;
+  } | null>(null);
 
   // При открытии сбрасываем прокрутку шита наверх — формы открываются с верха,
   // а не «доскроленными» вниз (баг iOS с автофокусом/восстановлением скролла).
@@ -76,27 +90,46 @@ export function Sheet({ open, onClose, title, children }: Props) {
     // Жест начинаем только когда контент прокручен к самому верху,
     // иначе свайп вниз — это обычная прокрутка.
     if ((panelRef.current?.scrollTop ?? 0) > 0) return;
-    gesture.current = { startY: e.clientY, lastY: e.clientY, lastT: e.timeStamp, velocity: 0 };
+    gesture.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      lastY: e.clientY,
+      lastT: e.timeStamp,
+      velocity: 0,
+      active: false,
+    };
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
   function handlePointerMove(e: PointerEvent<HTMLDivElement>) {
     const g = gesture.current;
     if (!g) return;
-    const dy = e.clientY - g.startY;
-    // Тянем только вниз; вверх не уводим (резинка только в одну сторону).
-    const next = dy > 0 ? dy : 0;
+    // Скорость считаем и до порога: быстрый флик проходит 12px за один-два
+    // кадра, и без этого отпускание сразу после порога видело бы нулевую.
     const dt = e.timeStamp - g.lastT;
     if (dt > 0) g.velocity = (e.clientY - g.lastY) / dt;
     g.lastY = e.clientY;
     g.lastT = e.timeStamp;
-    setDragY(next);
+    if (!g.active) {
+      const dx = Math.abs(e.clientX - g.startX);
+      if (dx > DRAG_X_ABORT && dx > e.clientY - g.startY) {
+        gesture.current = null;
+        return;
+      }
+      if (e.clientY - g.startY < DRAG_START) return;
+      g.active = true;
+      g.startY += DRAG_START;
+    }
+    const dy = e.clientY - g.startY;
+    // Тянем только вниз; вверх не уводим (резинка только в одну сторону).
+    setDragY(dy > 0 ? dy : 0);
   }
 
   function handlePointerUp() {
     const g = gesture.current;
     gesture.current = null;
-    if (!g) return;
+    // Порог не пройден — панель не двигалась, и закрывать её нечем.
+    if (!g || !g.active) return;
     const travelled = g.lastY - g.startY;
     if (travelled > CLOSE_DISTANCE || g.velocity > FLICK_VELOCITY) {
       // Сброс смещения делаем здесь, а не в эффекте открытия: иначе панель
@@ -145,10 +178,15 @@ export function Sheet({ open, onClose, title, children }: Props) {
       />
       <div
         ref={panelRef}
-        // overscroll-contain обязателен: без него прокрутка внутри панели,
-        // дойдя до края, перетекает на страницу ПОД ней — и экран приложения
-        // уезжает вместе с формой. Со стороны это выглядит как «всё плавает».
-        className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto overscroll-contain rounded-t-[1.6rem] border-t border-hairline bg-elevated pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
+        // overscroll-none, а не contain: оба не дают прокрутке перетечь на
+        // страницу ПОД панелью, но contain оставлял пружину внутри неё —
+        // долистал форму до конца, потянул дальше, и края окна отъезжали.
+        // overflow-x-hidden: панель листается только вверх-вниз. Стоило
+        // чему-то внутри оказаться шире (поле даты в iOS держит свою
+        // минимальную ширину), и вся форма уезжала пальцем вбок. Владелец
+        // (20.09): «это окно должно быть мёртвым и никуда не двигаться
+        // вправо-влево, не плавать».
+        className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto overflow-x-hidden overscroll-none rounded-t-[1.6rem] border-t border-hairline bg-elevated pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
         style={{
           // Панель поднимается ровно на высоту клавиатуры, а её потолок на ту
           // же величину опускается — иначе поднятая панель упёрлась бы в

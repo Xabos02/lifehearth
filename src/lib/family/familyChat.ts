@@ -467,7 +467,7 @@ class FamilyEngine {
       // Нас исключили — переподключаться незачем и нечем. Локальная переписка
       // остаётся: стирать человеку его же историю за то, что его убрали из
       // группы, — лишнее.
-      if (c.removedAt) {
+      if (c.removedAt || c.groupDeletedAt) {
         this.wantConnected = false;
         this.connecting = false;
         this.setState('offline');
@@ -486,6 +486,15 @@ class FamilyEngine {
       }
       if (tr.status === 403) {
         await patchFamilyConfig(this.familyId, { removedAt: new Date().toISOString() });
+        this.wantConnected = false;
+        this.connecting = false;
+        this.setState('offline');
+        return;
+      }
+      // 410 — группа удалена владельцем (надгробие на сервере). В отличие от
+      // 403 тут некого исключать: помечаем удалённой и больше не подключаемся.
+      if (tr.status === 410) {
+        await patchFamilyConfig(this.familyId, { groupDeletedAt: new Date().toISOString() });
         this.wantConnected = false;
         this.connecting = false;
         this.setState('offline');
@@ -560,6 +569,12 @@ class FamilyEngine {
         if (ev.code === 4403) {
           this.wantConnected = false;
           void patchFamilyConfig(this.familyId, { removedAt: new Date().toISOString() });
+        }
+        // 4404 — владелец удалил группу целиком. Тоже не переподключаемся,
+        // но причина другая, и баннер должен сказать правду, а не «вас исключили».
+        if (ev.code === 4404) {
+          this.wantConnected = false;
+          void patchFamilyConfig(this.familyId, { groupDeletedAt: new Date().toISOString() });
         }
         this.ws = null;
         this.connecting = false;

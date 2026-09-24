@@ -111,7 +111,9 @@ export function SectionsPriorityGate() {
                     <span className="h-px flex-1 bg-border" />
                   </div>
                 )}
-                <div className="flex items-center gap-3 card p-3">
+                {/* gap-2, а не 3: стрелкам нужно 64px вместо 34 (см. ниже), и
+                    на 320px иначе от названия ничего не оставалось. */}
+                <div className="flex items-center gap-2 card p-3">
                   <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-2 text-xs font-bold text-muted">
                     {i + 1}
                   </span>
@@ -119,13 +121,18 @@ export function SectionsPriorityGate() {
                     <Icon size={ICON.header} />
                   </div>
                   <span className="min-w-0 grow basis-auto truncate font-semibold">{t(sec.label)}</span>
-                  <div className="flex shrink-0 items-center gap-0.5">
+                  {/* Центры стрелок ровно в 44px (20 + gap-6), и зоны касания
+                      встают встык. Было gap-0.5 при зонах по 44: невидимая зона
+                      «Опустить» лежала поверх почти всей «Поднять» — тап по
+                      верхней стрелке опускал раздел. ml-1 держит 12px до
+                      переключателя: столько зона стрелки выходит за её край. */}
+                  <div className="flex shrink-0 items-center gap-6">
                     <button
                       type="button"
                       disabled={i === 0}
                       onClick={() => move(id, -1)}
                       aria-label={t('Поднять «{name}»', { name: t(sec.label) })}
-                      className={`flex items-center justify-center rounded-full disabled:opacity-25 ${HIT_SLOP_44}`}
+                      className={`flex size-5 items-center justify-center rounded-full disabled:opacity-25 ${HIT_SLOP_44}`}
                     >
                       <ChevronDown size={ICON.action} className="rotate-180" />
                     </button>
@@ -134,7 +141,7 @@ export function SectionsPriorityGate() {
                       disabled={i === state.items.length - 1}
                       onClick={() => move(id, 1)}
                       aria-label={t('Опустить «{name}»', { name: t(sec.label) })}
-                      className={`flex items-center justify-center rounded-full disabled:opacity-25 ${HIT_SLOP_44}`}
+                      className={`flex size-5 items-center justify-center rounded-full disabled:opacity-25 ${HIT_SLOP_44}`}
                     >
                       <ChevronDown size={ICON.action} />
                     </button>
@@ -144,7 +151,7 @@ export function SectionsPriorityGate() {
                       type="button"
                       onClick={() => toggle(id)}
                       aria-label={t('Скрыть раздел {name}', { name: t(sec.label) })}
-                      className={`h-6 w-11 shrink-0 rounded-full border border-transparent bg-accent transition-colors ${HIT_SLOP_44}`}
+                      className={`ml-1 h-6 w-11 shrink-0 rounded-full border border-transparent bg-accent transition-colors ${HIT_SLOP_44}`}
                     >
                       <span className="absolute top-0.5 left-[22px] size-4 rounded-full bg-white shadow transition-all" />
                     </button>

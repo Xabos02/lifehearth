@@ -384,3 +384,55 @@ test('шиты и экраны с содержимым: зоны не меньш
 
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
 });
+
+// Места из работы 20.09, которых аудит не видел: шторки спорта открываются
+// тапом, форма семейной задачи живёт внутри группы, экран приоритета — только
+// до первой отметки. Сверка 24.09 нашла тут кнопки 28–32px без расширения и
+// стрелки «Поднять»/«Опустить», где зона нижней лежала поверх верхней: тап по
+// «Поднять» опускал раздел.
+test('шторки спорта, семейная задача, экран приоритета: зоны не меньше 44 и не налезают', async ({ page }) => {
+  const bad: string[] = [];
+  const check = async (where: string, root?: string) => {
+    for (const b of await small(page)) bad.push(`${where}: ${b}`);
+    for (const o of await overlapsOn(page, root)) bad.push(`${where}: ${o}`);
+  };
+
+  await openApp(page, '/more/health');
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  await page.getByRole('button', { name: 'Добавить ещё вид' }).click();
+  await expect(page.getByRole('button', { name: 'Убрать' }).first()).toBeVisible();
+  await check('новая тренировка', SHEET);
+  await page.getByRole('button', { name: 'Из шаблона' }).click();
+  await page.getByRole('button', { name: 'Новый шаблон' }).click();
+  await page.getByRole('button', { name: 'Добавить ещё вид' }).last().click();
+  await expect(page.getByRole('button', { name: 'Убрать' }).last()).toBeVisible();
+  await check('новый шаблон', SHEET);
+
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    const key = await generateKey();
+    const ts = new Date().toISOString();
+    await db.family.put({
+      id: 'f1', familyId: 'f1', familyToken: 't', familyKey: key, familyName: 'Наши',
+      selfMemberId: 'me', lastSeq: 0, lastReadSeq: 0, enabled: true, joinedAt: ts,
+      keyEpoch: 0, keyRing: { '0': key },
+    } as never);
+    await db.familyMembers.bulkPut([
+      { id: 'me', familyId: 'f1', seq: 1, displayName: 'Влад', color: '#5b7cfa', joinedAt: ts, leftAt: null, removedAt: null },
+      { id: 'p1', familyId: 'f1', seq: 2, displayName: 'Отец', color: '#10b981', joinedAt: ts, leftAt: null, removedAt: null },
+    ] as never[]);
+  });
+  await page.goto('/more/family?g=f1&t=tasks');
+  await page.getByRole('button', { name: 'Новая задача' }).click();
+  await expect(page.getByRole('button', { name: 'Без цвета' })).toBeVisible();
+  await check('семейная задача', SHEET);
+
+  await openApp(page, '/', { sectionsPriorityDone: null });
+  await expect(page.getByText('Что для вас важнее всего?')).toBeVisible();
+  // Только сам экран: он лежит поверх «Главной», и её строки под ним с
+  // кнопкой «Готово» формально пересекаются, но пальцу недоступны.
+  await check('экран приоритета', 'div[class*="z-[82]"]');
+
+  expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
+});
