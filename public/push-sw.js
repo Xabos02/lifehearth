@@ -1,5 +1,18 @@
 // Подключается в сгенерированный Workbox-SW через workbox.importScripts.
 // Показывает уведомление по входящему пушу и фокусирует приложение по клику.
+
+// База приложения — из области действия самого SW, а не строкой. 07.09 адрес
+// сменился с /life-hub/ на /lifehearth/, а здесь остался прежний: тап по пушу
+// при закрытом приложении открывал страницу-объявление о переезде, при
+// открытом — «страница не найдена». Из scope база верна и в разработке ('/').
+function appBase() {
+  return new URL(self.registration.scope).pathname;
+}
+// Уведомления, пришедшие до правки, так и лежат в центре уведомлений со
+// старым адресом внутри — переводим его на нынешнюю базу при тапе.
+function toAppUrl(url) {
+  return url.replace(/^\/life-hub\//, appBase());
+}
 self.addEventListener('push', (event) => {
   let data = {};
   try {
@@ -16,19 +29,19 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || '',
-      icon: '/life-hub/icons/icon-192.png',
-      badge: '/life-hub/icons/icon-192.png',
+      icon: appBase() + 'icons/icon-192.png',
+      badge: appBase() + 'icons/icon-192.png',
       tag: tag,
       renotify: isCall && !!tag, // renotify без tag — TypeError, уведомление не показалось бы вовсе
       requireInteraction: isCall,
-      data: { url: data.family ? '/life-hub/more/family' + (data.familyId ? '?g=' + data.familyId : '') : '/life-hub/' },
+      data: { url: data.family ? appBase() + 'more/family' + (data.familyId ? '?g=' + data.familyId : '') : appBase() },
     }),
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/life-hub/';
+  const url = toAppUrl((event.notification.data && event.notification.data.url) || appBase());
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const c of clients) {

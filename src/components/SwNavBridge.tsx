@@ -14,9 +14,17 @@ export function SwNavBridge() {
       if (!d || d.type !== 'open-url' || typeof d.url !== 'string') return;
       try {
         const u = new URL(d.url, location.origin);
-        const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // '/life-hub' (prod) | '' (dev)
+        const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // '/lifehearth' (prod) | '' (dev)
         let path = u.pathname + u.search;
-        if (base && path.startsWith(base)) path = path.slice(base.length) || '/';
+        // '/life-hub' — адрес до переезда 07.09: его несут уведомления, пришедшие
+        // раньше, и SW до обновления. Без этой ветки роутер получал чужой
+        // префикс целиком и показывал «страница не найдена».
+        for (const b of [base, '/life-hub']) {
+          if (b && (path === b || path.startsWith(b + '/') || path.startsWith(b + '?'))) {
+            path = path.slice(b.length) || '/';
+            break;
+          }
+        }
         navigate(path);
       } catch {
         /* битый url — игнорируем */

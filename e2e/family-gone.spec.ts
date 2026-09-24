@@ -48,6 +48,8 @@ test('удалённая создателем группа говорит об �
   await seedFamily(page, { groupDeletedAt: new Date().toISOString() });
   await expect.poll(() => seen(page.getByText('Эту группу удалил её создатель.', { exact: false }))).toBe(true);
   await expect(page.getByText('Заберёшь колёса в субботу?')).toBeVisible();
+  // И никакого «не в сети» под названием: чинить связь незачем.
+  await expect(page.locator('header').getByText('не в сети', { exact: false })).toHaveCount(0);
 });
 
 test('исключённый видит, что его исключили, без раскрытия шапки', async ({ page }) => {

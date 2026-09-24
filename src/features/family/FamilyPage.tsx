@@ -191,7 +191,10 @@ function ScreenWithStatus({
   // стоила бы переписке два десятка пикселей высоты.
   const action = useSyncExternalStore(subscribeScreenAction, screenAction, () => null);
   const ActionIcon = action?.icon as LucideIcon | undefined;
-  const subtitle = [tabLabel, current.removedAt ? undefined : status].filter(Boolean).join(' · ');
+  // Группы больше нет — «не в сети» под названием было бы враньём: чинить
+  // нечего, правду говорит баннер над чатом.
+  const gone = current.removedAt || current.groupDeletedAt;
+  const subtitle = [tabLabel, gone ? undefined : status].filter(Boolean).join(' · ');
   return (
     <Screen
       compact
