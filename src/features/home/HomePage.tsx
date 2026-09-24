@@ -12,6 +12,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { db } from '../../db/db';
+import { isBackupDue } from '../../db/backup';
 import { alive } from '../../db/repo';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import { formatRu } from '../../lib/dates';
@@ -183,12 +184,9 @@ export function HomePage() {
     [],
   );
   // Date.now() внутри запроса, а не в рендере: пересчитывается при изменении
-  // настроек, поэтому бейдж гаснет сразу после копии.
-  const backupDue =
-    useLiveQuery(async () => {
-      const s = await db.settings.get('app');
-      return !s?.lastBackupAt || Date.now() - new Date(s.lastBackupAt).getTime() > BACKUP_STALE_MS;
-    }, []) ?? false;
+  // настроек, поэтому бейдж гаснет сразу после копии. Правило одно с точкой на
+  // вкладке (isBackupDue): нечего сохранять — не зовём.
+  const backupDue = useLiveQuery(() => isBackupDue(), []) ?? false;
 
   const learningCount = alive(learning ?? []).length;
   // Настройки показываем отдельной карточкой внизу, поэтому из общего списка

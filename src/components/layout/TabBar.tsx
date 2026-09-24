@@ -1,24 +1,18 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { NavLink, useLocation } from 'react-router';
-import { db } from '../../db/db';
+import { isBackupDue } from '../../db/backup';
 import { useFamilyUnread } from '../../hooks/useFamilyUnread';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import { ICON, STROKE, STROKE_STRONG } from '../ui/icons';
 import { t } from '../../lib/i18n';
-
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function TabBar() {
   const { pathname, search } = useLocation();
   const familyUnread = useFamilyUnread();
   // Состав и порядок вкладок — из раскладки «под себя» (экран «Настроить разделы»).
   const { bottom } = useNavLayout();
-  // Date.now() внутри querier (не в рендере) — иначе react-hooks/purity ругается.
-  const backupStale =
-    useLiveQuery(async () => {
-      const s = await db.settings.get('app');
-      return !s?.lastBackupAt || Date.now() - new Date(s.lastBackupAt).getTime() > WEEK_MS;
-    }, []) ?? false;
+  // Правило одно с карточкой настроек на «Главной» — там эта точка и объяснена.
+  const backupStale = useLiveQuery(() => isBackupDue(), []) ?? false;
 
   // На экране редактора заметки таб-бар скрыт — внизу панель форматирования.
   if (/^\/notes\/.+/.test(pathname)) return null;

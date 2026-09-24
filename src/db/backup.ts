@@ -123,6 +123,34 @@ export function backupFilename(): string {
   return `life-hub-backup-${new Date().toISOString().slice(0, 10)}.json`;
 }
 
+/** Не данные человека: настройки есть у всех с первого запуска (тема,
+ *  раскладка, флаги обучения), а настройки «Женских дней» и справочник
+ *  симптомов раздел заводит сам при первом открытии (ensureCycleSetup). */
+const NOT_DATA: readonly TableName[] = ['settings', ...CYCLE_CONFIG_TABLES];
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Пора ли звать сделать копию — точка на вкладке «Главная» и «Пора сделать
+ *  резервную копию» на карточке настроек. Копии нет или она старше недели — и
+ *  при этом есть что сохранять.
+ *
+ *  Без второго условия точка горела на только что созданном профиле, через
+ *  секунду после знакомства: сохранять было нечего, а приложение уже
+ *  тревожилось (прогон 13–17.09). Что сохранять — заполненный профиль или хоть
+ *  одна запись в таблицах копии; записи в корзине считаются — копия уносит и
+ *  их. Таблицы смотрим до первой непустой и читаем один ключ, а не строки:
+ *  зовётся из живого запроса таб-бара, который открыт всегда. */
+export async function isBackupDue(): Promise<boolean> {
+  const s = await db.settings.get('app');
+  if (s?.lastBackupAt && Date.now() - new Date(s.lastBackupAt).getTime() <= WEEK_MS) return false;
+  if (Object.values(s?.profile ?? {}).some(Boolean)) return true;
+  for (const name of TABLES) {
+    if (NOT_DATA.includes(name)) continue;
+    if ((await db.table(name).limit(1).primaryKeys()).length > 0) return true;
+  }
+  return false;
+}
+
 export interface ImportPreview {
   counts: Record<TableName, number>;
   exportedAt: string;
