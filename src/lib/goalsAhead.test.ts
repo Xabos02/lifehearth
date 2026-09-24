@@ -91,6 +91,12 @@ describe('срок на карточке в «Целях»', () => {
     expect(goalCardDeadline(goal({ status: 'active' }), -14)).toEqual({ text: 'Просрочена', danger: true });
     expect(goalCardDeadline(goal({ status: 'paused' }), -14)).toEqual({ text: 'Просрочена', danger: true });
   });
+
+  it('у цели, взятой на 100%, но не отмеченной, срок тоже не горит', () => {
+    expect(goalCardDeadline(goal({}), -14, 100)).toBeNull();
+    expect(goalCardDeadline(goal({}), 0, 100)).toBeNull();
+    expect(goalCardDeadline(goal({}), -14, 99)).toEqual({ text: 'Просрочена', danger: true });
+  });
 });
 
 describe('порядок в ленте', () => {

@@ -52,10 +52,12 @@ export function deadlineLabel(days: number | null): { text: string; tone: 'warni
  *  всегда, пока цель в работе. Раньше эта логика жила копией в карточке и
  *  разошлась с лентой: лента в день срока писала «Срок сегодня», карточка —
  *  «Осталось 0 дней». */
-export function goalCardDeadline(goal: Goal, days: number): { text: string; danger: boolean } | null {
+export function goalCardDeadline(goal: Goal, days: number, value = 0): { text: string; danger: boolean } | null {
   // Завершённой и архивной цели срок уже ни о чём не говорит: красная
-  // «Просрочена» у сделанного читалась как упрёк за то, что закрыто.
-  if (goal.status === 'completed' || goal.status === 'archived') return null;
+  // «Просрочена» у сделанного читалась как упрёк за то, что закрыто. Цель,
+  // взятая на 100%, но не отмеченная, — то же самое: лента над задачами её
+  // срок уже прячет, карточка теперь тоже.
+  if (goal.status === 'completed' || goal.status === 'archived' || value >= 100) return null;
   if (days < 0) return { text: t('Просрочена'), danger: true };
   if (days === 0) return { text: t('Срок сегодня'), danger: true };
   return { text: daysLeftText(days), danger: days < 7 };

@@ -25,7 +25,7 @@ export function GoalCard({ goal }: { goal: Goal }) {
   const label = goalProgressLabel(goal, linkedTasks);
 
   const deadline = goal.targetDate
-    ? goalCardDeadline(goal, differenceInCalendarDays(fromKey(goal.targetDate), new Date()))
+    ? goalCardDeadline(goal, differenceInCalendarDays(fromKey(goal.targetDate), new Date()), value)
     : null;
 
   return (
