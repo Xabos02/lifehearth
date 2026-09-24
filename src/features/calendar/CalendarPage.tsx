@@ -210,7 +210,12 @@ export function CalendarPage() {
                   cycleMarks.has(day.key) ? t(', менструация') : ''
                 }`}
                 aria-pressed={isSelected}
-                onClick={() => setSelectedDate(day.key)}
+                onClick={() => {
+                  setSelectedDate(day.key);
+                  // Серый день соседнего месяца листает сетку на свой месяц:
+                  // иначе выбранный день висел на краю чужого месяца.
+                  if (!day.inMonth) setMonthKey(day.key);
+                }}
                 className={`relative flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition-colors ${
                   isSelected
                     ? 'bg-accent-fill font-semibold text-white'
