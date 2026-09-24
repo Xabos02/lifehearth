@@ -88,6 +88,16 @@ describe('напоминание семейной задачи', () => {
     expect(cancelReminder).toHaveBeenCalledWith('a', true);
   });
 
+  it('снятый срок снимает его на сервере, даже без своей подписки', async () => {
+    // «Убрать» в карточке. Форма заодно гасит и «за сколько», но репозиторий
+    // на это не полагается: у задачи без срока напоминания нет. Иначе снятый
+    // срок ушёл бы в постановку, а та без своей подписки молча выходит.
+    await db.familyTasks.put(task('a'));
+    await updateFamilyTask(F, 'a', { dueDate: null, dueTime: null });
+    expect(cancelReminder).toHaveBeenCalledWith('a', true);
+    expect(scheduleReminder).not.toHaveBeenCalled();
+  });
+
   it('правка цвета, приоритета или исполнителя напоминание не трогает', async () => {
     await db.familyTasks.put(task('a'));
     await updateFamilyTask(F, 'a', { color: '#10b981', priority: 3, assigneeId: 'p1', notes: 'хлеб' });
