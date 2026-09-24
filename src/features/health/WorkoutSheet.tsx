@@ -158,7 +158,10 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
             effort,
             note: note.trim(),
             source: workout?.source ?? ('manual' as const),
-            groupId: null,
+            // Правка вида оставляет его в занятии: с null исправленные минуты
+            // превращали силовую + растяжку в две тренировки за месяц. Перенос
+            // на другой день — уже отдельное занятие.
+            groupId: workout && day === workout.date ? (workout.groupId ?? null) : null,
             customLabel: it.type === 'custom' ? it.customLabel : null,
             customColor: it.type === 'custom' ? it.customColor : null,
           };

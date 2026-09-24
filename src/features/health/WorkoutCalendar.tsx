@@ -8,6 +8,7 @@ import { t } from '../../lib/i18n';
 import { WEEKDAY_LABELS, addDaysKey, dateLocale, fromKey, monthGridKeys, todayKey, toKey, weekStartKey } from '../../lib/dates';
 import type { Workout } from '../../db/types';
 import { resolveKind } from './workouts';
+import { sessionCount } from './workoutStats';
 
 export type Scale = 'week' | 'month';
 
@@ -126,7 +127,8 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
               isSelected={key === selected}
               muted={false}
               future={key > today}
-              count={(byDay.get(key) ?? []).length}
+              // Занятия, а не виды: силовая + растяжка одним занятием — одна.
+              count={sessionCount(byDay.get(key) ?? [], key, key)}
               onSelect={onSelect}
             />
           ))}
@@ -148,7 +150,7 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
               isSelected={d.key === selected}
               muted={!d.inMonth}
               future={d.key > today}
-              count={(byDay.get(d.key) ?? []).length}
+              count={sessionCount(byDay.get(d.key) ?? [], d.key, d.key)}
               onSelect={onSelect}
               square
             />

@@ -114,6 +114,37 @@ test('месяц и неделя переключаются; тренировк�
   expect(nextMonday > todayKey()).toBe(true);
 });
 
+test('занятие из двух видов — одна тренировка: в подписи дня и после правки одного вида', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  await page.getByRole('button', { name: 'Силовая', exact: true }).click();
+  await page.getByRole('button', { name: 'Добавить ещё вид', exact: true }).click();
+  // Второй набор чипов — у второго вида.
+  await page.getByRole('button', { name: 'Растяжка', exact: true }).nth(1).click();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+
+  // Подпись дня для чтения с экрана считала виды: «тренировок: 2» за одно занятие.
+  await expect(page.getByTestId('workout-week').getByRole('button', { name: /тренировок: 1/ })).toHaveCount(1);
+  const monthTile = page.getByText('тренировок за месяц', { exact: true }).locator('..');
+  await expect(monthTile.locator('p').first()).toHaveText('1');
+
+  // Правка минут одного вида выводила его из занятия (groupId → null), и
+  // «тренировок за месяц» становилось 2.
+  await page.getByRole('button', { name: /^Растяжка/ }).first().click();
+  await page.getByPlaceholder('30').fill('25');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Растяжка.*25 мин/ }).first()).toBeVisible();
+  await expect(monthTile.locator('p').first()).toHaveText('1');
+
+  const groups = await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    return (await db.workouts.toArray()).map((w) => w.groupId);
+  });
+  expect(groups).toHaveLength(2);
+  expect(groups[0]).toBeTruthy();
+  expect(groups[1]).toBe(groups[0]);
+});
+
 test('замер веса: карточка показывает значение, второй за день заменяет первый', async ({ page }) => {
   await openApp(page, '/more/health');
   await page.getByRole('button', { name: 'Замеры' }).click();
