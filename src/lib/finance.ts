@@ -34,6 +34,9 @@ export function financeSummary(items: ExpenseItem[]): FinanceSummary {
       income += m;
     } else {
       expense += m;
+      // Разовая трата в месяц даёт 0 ₽ — строки в разбивке ей не положено:
+      // иначе карточка показывала пустое «Прочее — 0 ₽» с нулевой полосой.
+      if (m === 0) continue;
       const cat = item.category || t('Прочее');
       cats.set(cat, (cats.get(cat) ?? 0) + m);
     }
