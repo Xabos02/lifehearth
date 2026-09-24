@@ -21,8 +21,6 @@ import { HOME_VISIBLE_STEP, SECTION_BY_ID } from '../../lib/sections';
 import { getLang, t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 
-const BACKUP_STALE_MS = 7 * 24 * 60 * 60 * 1000;
-
 interface MenuCardProps {
   to: string;
   icon: LucideIcon;
@@ -128,21 +126,20 @@ function ProfileCard() {
  *  категории, и она почти всегда следует из того, что человек не знал. */
 function DataStatusCard() {
   const syncCfg = useLiveQuery(() => db.sync.get('config').then((c) => c ?? null), []);
-  // Date.now() внутри запроса, а не в рендере: рендер обязан быть чистым, а
-  // здесь значение к тому же пересчитывается при каждом изменении настроек —
-  // значит после копии предупреждение гаснет сразу.
+  // Оранжевая строка о копии — по тому же правилу, что точка на вкладке и
+  // «Пора сделать резервную копию» у «Настроек» (isBackupDue): копии нет или
+  // она старше недели — и есть что сохранять. На только что созданном профиле
+  // строка горела оранжевым по своему правилу, пока остальная «Главная» уже
+  // молчала (прогон 13–17.09). В запросе, а не в рендере: после копии строка
+  // гаснет сразу.
   const status = useLiveQuery(async () => {
     const s = await db.settings.get('app');
-    const last = s?.lastBackupAt ?? null;
-    return {
-      last,
-      stale: !last || Date.now() - new Date(last).getTime() > BACKUP_STALE_MS,
-    };
+    return { last: s?.lastBackupAt ?? null, due: await isBackupDue() };
   }, []);
   if (syncCfg === undefined || status === undefined) return null;
 
   const syncOn = Boolean(syncCfg?.enabled);
-  const { last, stale } = status;
+  const { last, due } = status;
 
   return (
     <Link
@@ -161,7 +158,7 @@ function DataStatusCard() {
         {/* Без truncate по той же причине, что и в MenuCard: «Копию ещё не
             делали» на 320px не влезает в 158px и обрывалось на «не дел…» —
             ровно то предупреждение, которое обязано читаться целиком. */}
-        <p className={`text-sm leading-snug ${stale ? 'text-warning' : 'text-muted'}`}>
+        <p className={`text-sm leading-snug ${due ? 'text-warning' : 'text-muted'}`}>
           {last ? t('Копия: {date}', { date: formatRu(last.slice(0, 10), 'd MMMM') }) : t('Резервную копию ещё не делали')}
         </p>
       </div>
