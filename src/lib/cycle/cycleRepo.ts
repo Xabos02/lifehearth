@@ -87,7 +87,14 @@ export async function updateCycleSettings(changes: Partial<CycleSettings>): Prom
   });
   // Настройки решают, какие автозадачи нужны: выключили «Задачи по циклу» —
   // нетронутые уходят в корзину сразу, а не при следующей отметке дня.
-  await syncAutoTasks();
+  // Ошибку глушим, как в rebuildCycles: настройки уже записаны, и сбой с
+  // задачами не должен отклонять их сохранение — иначе снятие кода не дошло
+  // бы до lockCycleSection(), а сохранение — до очистки полей.
+  try {
+    await syncAutoTasks();
+  } catch {
+    /* автозадачи подождут следующего пересчёта */
+  }
 }
 
 type DayPatch = Omit<
