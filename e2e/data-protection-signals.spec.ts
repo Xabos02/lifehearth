@@ -32,3 +32,27 @@ test('точка «нужна копия» горит, только когда �
   await expect(tab).toHaveAccessibleName('Главная');
   await expect(due).toHaveCount(0);
 });
+
+test('«Скрыть» у строки защиты данных держится до следующего запуска, а не до смены вкладки', async ({ page }) => {
+  // Прогон 13–17.09 и §12 протокола: «Скрыть» — до следующего запуска. Строка
+  // «Данные только на этом устройстве» возвращалась уже после перехода на
+  // другую вкладку и обратно.
+  await openApp(page, '/');
+  const line = page.getByText('Данные только на этом устройстве');
+  await expect(line).toBeVisible();
+  await page.getByRole('main').getByRole('button', { name: 'Скрыть', exact: true }).click();
+  await expect(line).toHaveCount(0);
+
+  const bar = page.locator('nav').last();
+  await bar.getByRole('link', { name: /^Задачи/ }).click();
+  await expect(page.getByRole('heading', { name: 'Задачи' })).toBeVisible();
+  await bar.getByRole('link', { name: /^Сегодня/ }).click();
+  // «Сегодня» дочитала базу (пустой день нарисован) — строка к этому моменту
+  // уже вернулась бы.
+  await expect(page.getByText('На сегодня задач нет')).toBeVisible();
+  await expect(line).toHaveCount(0);
+
+  // Новый запуск — строка снова на месте: навсегда её не прячем.
+  await page.reload();
+  await expect(line).toBeVisible();
+});

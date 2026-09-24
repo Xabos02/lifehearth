@@ -12,6 +12,13 @@ import { HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 
+// «Скрыть» — до следующего запуска, поэтому в памяти модуля, а не в состоянии
+// строки: то жило, пока открыта «Сегодня», и строка возвращалась после первой
+// же смены вкладки (прогон 13–17.09). Модуль живёт до перезагрузки страницы —
+// ровно столько, сколько обещано; так же устроены подсказки «скрыть пока»
+// (useHint).
+let hiddenThisLaunch = false;
+
 /**
  * Мягкое напоминание на «Сегодня»: защитить данные — включить синхронизацию,
  * облачную копию и уведомления. Показывается, пока и синхронизация, и
@@ -35,7 +42,7 @@ export function ProtectDataCard() {
   // «ещё грузится» (тоже undefined) — и карточка пряталась бы именно когда
   // синхронизации нет, то есть когда она нужнее всего.
   const syncCfg = useLiveQuery(() => db.sync.get('config').then((c) => c ?? null), []);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(hiddenThisLaunch);
   // pushEnabled() синхронный; для карточки достаточно значения на монтировании.
   const [pushOn] = useState(() => pushEnabled());
   const syncOn = Boolean(syncCfg?.enabled);
@@ -70,7 +77,10 @@ export function ProtectDataCard() {
         <button
           type="button"
           aria-label={t('Скрыть')}
-          onClick={() => setDismissed(true)}
+          onClick={() => {
+            hiddenThisLaunch = true;
+            setDismissed(true);
+          }}
           className={`relative flex size-7 shrink-0 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
         >
           <X size={ICON.action} />
