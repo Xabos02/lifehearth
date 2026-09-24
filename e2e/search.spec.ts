@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openApp, test } from './fixtures';
+import { collectErrors, openApp, test } from './fixtures';
 
 // Общий поиск по приложению.
 //
@@ -111,37 +111,54 @@ test('поиск по переписке не различает регистр 
   await expect(page.getByText('Колёса лежат в гараже')).toBeVisible();
 });
 
-test('«назад» из найденного возвращает запрос и результаты', async ({ page }) => {
+test('запрос переживает уход к найденному: «назад» и новый вход из шапки', async ({ page }) => {
   // Прогон 13–17.09: запрос жил только в состоянии экрана и пропадал вместе с
-  // ним — после «назад» поле было пустым. Набор посимвольный, а не fill: поле,
-  // привязанное к адресу напрямую, при быстром наборе теряло буквы, и fill
-  // (одна вставка целиком) этого бы не заметил.
+  // ним — после «назад» из найденного поле было пустым.
+  //
+  // Первая починка писала запрос в адрес (history.replaceState) на каждую
+  // букву, а WebKit разрешает не больше 100 таких вызовов за 10 секунд: дальше
+  // SecurityError, адрес отставал от поля, и «назад» возвращал обрезанный
+  // запрос. Поэтому запрос длиннее сотни букв и набирается посимвольно, без
+  // пауз. Этот край ловит только прогон в WebKit
+  // (--config=playwright.webkit.config.ts): Chromium лимита не бросает.
+  //
+  // Второй путь — вкладка «Сегодня» и значок поиска в шапке: у приложения,
+  // установленного на экран «Домой», нет кнопки «назад» браузера.
   //
   // Своя задача, а не seed(): там задачи урезаны под поиск (без checklist и
   // прочего), и экран «Задачи», куда ведёт результат, на них падает.
+  const errors = collectErrors(page);
+  const long = 'колёса '.repeat(22).trim(); // 153 символа
   await openApp(page, '/');
-  await page.evaluate(async () => {
+  await page.evaluate(async (notes) => {
     const { db } = await import('/src/db/db.ts');
     const ts = new Date().toISOString();
     await db.tasks.put({
-      id: 'w1', title: 'Поменять колёса', notes: '', projectId: null, goalId: null, priority: 0,
+      id: 'w1', title: 'Поменять колёса', notes, projectId: null, goalId: null, priority: 0,
       dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: null,
       checklist: [], recurrence: null, tags: [], sortOrder: 1000,
       createdAt: ts, updatedAt: ts, deletedAt: null,
     } as never);
-  });
+  }, long);
   await page.goto('/search');
-  const input = page.getByPlaceholder('Искать везде…');
-  await input.pressSequentially('колёса');
-  await expect(input).toHaveValue('колёса');
-  await page.getByText('Поменять колёса', { exact: true }).click();
+  const input = page.getByPlaceholder('Искать везде…', { exact: true });
+  const hit = page.getByText('Поменять колёса', { exact: true });
+  await input.pressSequentially(long);
+  await expect(input).toHaveValue(long);
+  await hit.click();
   await expect(page).toHaveURL((url) => url.pathname === '/tasks');
   // Экран дорисовался — «назад» уходит с готовой страницы, а не на лету.
   await expect(page.locator('[data-task-id="w1"]')).toBeVisible();
 
   await page.goBack();
-  await expect(input).toHaveValue('колёса');
-  await expect(page.getByText('Поменять колёса', { exact: true })).toBeVisible();
+  await expect(input).toHaveValue(long);
+  await expect(hit).toBeVisible();
+
+  await page.getByRole('navigation').getByRole('link', { name: 'Сегодня', exact: true }).click();
+  await page.getByRole('link', { name: 'Поиск', exact: true }).click();
+  await expect(input).toHaveValue(long);
+  await expect(hit).toBeVisible();
+  expect(errors).toEqual([]);
 });
 
 test('по одной букве база не читается', async ({ page }) => {

@@ -15,7 +15,7 @@ import {
   GSearch as Search,
 } from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router';
+import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchField } from '../../components/ui/Input';
@@ -66,20 +66,23 @@ function Row({ icon: Icon, hit }: { icon: LucideIcon; hit: Hit }) {
   );
 }
 
+// Запрос живёт в памяти модуля до перезагрузки страницы — как «Скрыть» у
+// строки защиты данных и подсказки «скрыть пока» (useHint). Переход к
+// найденному размонтирует экран, и «назад» возвращал пустое поле —
+// следующий результат приходилось искать заново (прогон 13–17.09). Память
+// модуля переживает и «назад», и новый вход из шапки «Сегодня»: у
+// приложения, установленного на экран «Домой», кнопки «назад» браузера нет.
+//
+// В адрес запрос не пишем. Первая починка писала его туда на каждую букву
+// (history.replaceState), а WebKit разрешает не больше 100 таких вызовов за
+// 10 секунд: дальше SecurityError, и «назад» возвращал обрезанный запрос.
+let lastQuery = '';
+
 export function SearchPage() {
-  // Запрос дублируется в адрес (?q=): переход к найденному размонтирует
-  // экран, и «назад» жестом или кнопкой браузера возвращал пустое поле —
-  // следующий результат приходилось искать заново (прогон 13–17.09). replace —
-  // чтобы буквы не становились шагами истории. Поле при этом держит своё
-  // состояние, а не читает адрес: BrowserRouter обновляет адрес в
-  // startTransition, и привязанное к нему поле при быстром наборе теряло буквы
-  // («колёса и шины для машины» → «клса ыны», замерено) и роняло каретку в
-  // конец.
-  const [params, setParams] = useSearchParams();
-  const [query, setQueryState] = useState(() => params.get('q') ?? '');
+  const [query, setQueryState] = useState(lastQuery);
   const setQuery = (v: string) => {
+    lastQuery = v;
     setQueryState(v);
-    setParams(v ? { q: v } : {}, { replace: true });
   };
   // «ё» и «е» — одна буква, как в поиске по чату: «колеса» должно находить
   // «колёса». Нормализуем и запрос, и текст.
