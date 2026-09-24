@@ -111,6 +111,39 @@ test('поиск по переписке не различает регистр 
   await expect(page.getByText('Колёса лежат в гараже')).toBeVisible();
 });
 
+test('«назад» из найденного возвращает запрос и результаты', async ({ page }) => {
+  // Прогон 13–17.09: запрос жил только в состоянии экрана и пропадал вместе с
+  // ним — после «назад» поле было пустым. Набор посимвольный, а не fill: поле,
+  // привязанное к адресу напрямую, при быстром наборе теряло буквы, и fill
+  // (одна вставка целиком) этого бы не заметил.
+  //
+  // Своя задача, а не seed(): там задачи урезаны под поиск (без checklist и
+  // прочего), и экран «Задачи», куда ведёт результат, на них падает.
+  await openApp(page, '/');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const ts = new Date().toISOString();
+    await db.tasks.put({
+      id: 'w1', title: 'Поменять колёса', notes: '', projectId: null, goalId: null, priority: 0,
+      dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: null,
+      checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+      createdAt: ts, updatedAt: ts, deletedAt: null,
+    } as never);
+  });
+  await page.goto('/search');
+  const input = page.getByPlaceholder('Искать везде…');
+  await input.pressSequentially('колёса');
+  await expect(input).toHaveValue('колёса');
+  await page.getByText('Поменять колёса', { exact: true }).click();
+  await expect(page).toHaveURL((url) => url.pathname === '/tasks');
+  // Экран дорисовался — «назад» уходит с готовой страницы, а не на лету.
+  await expect(page.locator('[data-task-id="w1"]')).toBeVisible();
+
+  await page.goBack();
+  await expect(input).toHaveValue('колёса');
+  await expect(page.getByText('Поменять колёса', { exact: true })).toBeVisible();
+});
+
 test('по одной букве база не читается', async ({ page }) => {
   await openApp(page, '/');
   await seed(page);

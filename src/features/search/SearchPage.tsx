@@ -15,7 +15,7 @@ import {
   GSearch as Search,
 } from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchField } from '../../components/ui/Input';
@@ -67,7 +67,20 @@ function Row({ icon: Icon, hit }: { icon: LucideIcon; hit: Hit }) {
 }
 
 export function SearchPage() {
-  const [query, setQuery] = useState('');
+  // Запрос дублируется в адрес (?q=): переход к найденному размонтирует
+  // экран, и «назад» жестом или кнопкой браузера возвращал пустое поле —
+  // следующий результат приходилось искать заново (прогон 13–17.09). replace —
+  // чтобы буквы не становились шагами истории. Поле при этом держит своё
+  // состояние, а не читает адрес: BrowserRouter обновляет адрес в
+  // startTransition, и привязанное к нему поле при быстром наборе теряло буквы
+  // («колёса и шины для машины» → «клса ыны», замерено) и роняло каретку в
+  // конец.
+  const [params, setParams] = useSearchParams();
+  const [query, setQueryState] = useState(() => params.get('q') ?? '');
+  const setQuery = (v: string) => {
+    setQueryState(v);
+    setParams(v ? { q: v } : {}, { replace: true });
+  };
   // «ё» и «е» — одна буква, как в поиске по чату: «колеса» должно находить
   // «колёса». Нормализуем и запрос, и текст.
   const norm = (s: string) => s.toLowerCase().replace(/ё/g, 'е');
