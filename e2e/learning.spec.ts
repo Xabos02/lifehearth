@@ -10,7 +10,8 @@ import type { Page } from '@playwright/test';
 // руками и что к действию не относится, — цель после отметки, прогресс после
 // правки плана.
 //
-// Сроков здесь нет намеренно: без них проверки не зависят от сегодняшней даты.
+// Срок есть только у теста «финиша», и часы там прибиты (page.clock до
+// openApp): остальные проверки от сегодняшней даты не зависят.
 
 const NOW = '2026-09-01T09:00:00.000Z';
 const row = (id: string) => ({ id, createdAt: NOW, updatedAt: NOW, deletedAt: null });
@@ -34,14 +35,15 @@ const part = (itemId: string, id: string, title: string, i: number, extra: Recor
   ...row(id), itemId, title, section: '', estimate: 0, doneAt: null, sortOrder: i, ...extra,
 });
 
-async function seed(page: Page, items: unknown[], parts: unknown[] = []) {
+async function seed(page: Page, items: unknown[], parts: unknown[] = [], logs: unknown[] = []) {
   await page.evaluate(
-    async ({ items, parts }) => {
+    async ({ items, parts, logs }) => {
       const { db } = await import('/src/db/db.ts');
       await db.learningItems.bulkPut(items as never[]);
       await db.learningParts.bulkPut(parts as never[]);
+      await db.learningLogs.bulkPut(logs as never[]);
     },
-    { items, parts },
+    { items, parts, logs },
   );
 }
 
@@ -176,4 +178,32 @@ test('проценты, испорченные старым планом, чин
   await page.goto('/more/learning/l-old2');
   await expect(page.getByRole('heading', { name: 'Итальянский', exact: true })).toBeVisible();
   await expect.poll(() => progressOf(page, 'l-old2')).toEqual({ target: 100, current: 38 });
+});
+
+test('«финиш» считает темп в единицах материала, а не в часах занятий', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-24T10:00:00'));
+  await openApp(page, '/more/learning');
+  // Курс: 14 уроков из 20 за 28 дней, срок завтра; занятий — по часу в неделю.
+  const hour = (id: string, date: string) => ({ ...row(id), itemId: 'l-fin', date, value: 14, minutes: 60, note: '' });
+  await seed(
+    page,
+    [
+      material('l-fin', 'Курс со сроком', {
+        kind: 'course',
+        progressUnit: 'lessons',
+        progressTarget: 20,
+        progressCurrent: 14,
+        startedAt: '2026-08-27T09:00:00.000Z',
+        dueDate: '2026-09-25',
+      }),
+    ],
+    [],
+    [hour('s1', '2026-09-03'), hour('s2', '2026-09-10'), hour('s3', '2026-09-17'), hour('s4', '2026-09-24')],
+  );
+  await page.goto('/more/learning/l-fin');
+  // Темп — 3,5 урока в неделю: остаток 6 закончится 6 октября, на 2 недели
+  // позже срока. По часам занятий (1 ч в неделю как «1 урок») вышло бы +6.
+  await expect(page.getByText('+2 нед. к сроку', { exact: true })).toBeVisible();
+  // Месяц и год финиша — один абзац плитки, год отбит отступом, не пробелом.
+  await expect(page.getByText('окт.2026', { exact: true })).toBeVisible();
 });
