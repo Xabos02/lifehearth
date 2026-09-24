@@ -76,7 +76,7 @@ export function CycleYearPage() {
             ) : (
               <div className="card divide-y divide-hairline px-4">
                 {view.cycles.map((c) => (
-                  <div key={c.startDate} className="py-3">
+                  <div key={c.startDate} className="py-3" data-testid="year-cycle">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="font-medium">{formatRu(c.startDate)}</span>
                       <span className="shrink-0 text-sm tabular-nums text-muted">
@@ -87,11 +87,20 @@ export function CycleYearPage() {
                     </div>
                     {/* Не скрываем исключённые циклы — прячем только их вклад
                         в статистику, а не сам факт, что цикл был. То же для
-                        выпавших из выборки прогноза (пропуски в отметках,
-                        выброс по длине): раньше такой цикл молча уходил из
-                        прогноза, а «в среднем» при этом раздувал. */}
-                    {(c.excluded || !data.counted.has(c.startDate)) && (
+                        выпавших из выборки прогноза (длина искажена пропуском
+                        отметок, выброс по длине): раньше такой цикл молча
+                        уходил из прогноза, а «в среднем» при этом раздувал.
+                        Годный, но старше последних 12, — с причиной: при
+                        коротких циклах в году их 13–14, и обычный цикл с
+                        голым «не учитывается» выглядел бы ошибкой. */}
+                    {c.excluded || !data.eligible.has(c.startDate) ? (
                       <p className="mt-0.5 text-xs text-muted">{t('не учитывается')}</p>
+                    ) : (
+                      !data.counted.has(c.startDate) && (
+                        <p className="mt-0.5 text-xs text-muted">
+                          {t('не учитывается — в расчёт идут последние 12 циклов')}
+                        </p>
+                      )
                     )}
                   </div>
                 ))}

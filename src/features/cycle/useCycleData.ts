@@ -33,8 +33,10 @@ export interface CycleData {
   fertile: Map<string, number>;
   /** По той же выборке, что и прогноз (forecastStats). */
   stats: CycleStats;
-  /** Начала циклов этой выборки: завершённый цикл не отсюда — «не учитывается». */
+  /** Начала циклов, по которым посчитаны stats и прогноз (последние 12 годных). */
   counted: Set<string>;
+  /** Начала всех годных циклов: завершённый цикл не отсюда — «не учитывается». */
+  eligible: Set<string>;
   accuracy: Accuracy;
   anomalies: Anomaly[];
   hasAnyData: boolean;
@@ -68,7 +70,7 @@ export function useCycleData(): CycleData {
     const episodeList = episodes ?? [];
 
     const prediction = predictNextPeriod({ cycles: cycleList, episodes: episodeList, today });
-    const { stats, counted } = forecastStats(cycleList, episodeList);
+    const { stats, counted, eligible } = forecastStats(cycleList, episodeList);
     // Овуляция и фертильность считаются всегда, но показываются только там, где
     // их включили: скрывать данные на уровне отрисовки надёжнее, чем не считать,
     // — иначе включение настройки потребовало бы пересчёта в другом месте.
@@ -94,6 +96,7 @@ export function useCycleData(): CycleData {
       fertile,
       stats,
       counted,
+      eligible,
       accuracy: predictionAccuracy(predictions ?? []),
       anomalies: detectAnomalies({
         cycles: cycleList,

@@ -543,6 +543,7 @@ export const EN: Record<string, string> = {
   'Циклы за период': 'Cycles in this range',
   ', менструация {n}': ', period {n}',
   'не учитывается': 'not counted',
+  'не учитывается — в расчёт идут последние 12 циклов': 'not counted — only the last 12 cycles are used',
 
   // === Цикл: настройки, страница, лог дня ===
   'Отметить': 'Log',

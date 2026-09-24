@@ -47,12 +47,25 @@ function chain(start: LocalDate, lengths: number[], periodLen = 5): Cycle[] {
 }
 
 describe('poolForPrediction', () => {
-  it('отбрасывает исключённые, текущий и неполные циклы', () => {
+  it('отбрасывает исключённые и текущий, а цикл с неотмеченным днём менструации оставляет', () => {
     const cycles = chain('2026-01-01', [28, 29, 27]);
     cycles[0].excluded = 1;
+    // Пропуск внутри менструации: derive ставит hasDataGaps, но длина — от
+    // начала до начала — от него не врёт. Раньше такой цикл выпадал целиком.
     cycles[1].hasDataGaps = 1;
     const { pool } = poolForPrediction(cycles);
-    expect(pool.map((c) => c.startDate)).toEqual([cycles[2].startDate]);
+    expect(pool.map((c) => c.startDate)).toEqual([cycles[1].startDate, cycles[2].startDate]);
+  });
+
+  it('цикл, длину которого исказила неотмеченная менструация, не проходит и в широком фильтре', () => {
+    // Длинные свои циклы расширяют фильтр до 90 дней, и 65 прошёл бы по
+    // длине. Держит его только пометка derive: от 60 дней — пропущенная
+    // менструация, пока человек не подтвердил начало.
+    const cycles = chain('2026-01-01', [50, 55, 48, 65]);
+    cycles[3].hasDataGaps = 1;
+    const { pool, widened } = poolForPrediction(cycles);
+    expect(widened).toBe(true);
+    expect(pool.map((c) => c.lengthDays)).toEqual([50, 55, 48]);
   });
 
   it('подтверждённый пользователем цикл с пропусками остаётся в пуле', () => {

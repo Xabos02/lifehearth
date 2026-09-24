@@ -10,7 +10,7 @@
 
 import type { Cycle, CycleEpisode, LocalDate } from '../../db/cycleTypes';
 import { addDaysKey } from '../dates';
-import { daysBetween, overlapsEpisode } from './derive';
+import { daysBetween, overlapsEpisode, SUSPICIOUS_CYCLE_LENGTH } from './derive';
 
 /** Длина лютеиновой фазы по умолчанию.
  *
@@ -121,7 +121,19 @@ export interface CyclePredictionResult {
   wideBecause?: 'spread' | 'few_cycles' | 'drift' | 'variability';
 }
 
-/** Отбирает циклы, пригодные для расчёта. */
+/** Отбирает циклы, пригодные для расчёта.
+ *
+ *  Это выборка всего экрана раздела, а не только прогноза: по ней же считаются
+ *  «в среднем», «Статистика», карточка о разной длине циклов и пометки «не
+ *  учитывается» в обзоре года (stats.ts, forecastStats; anomalies.ts).
+ *
+ *  Пропуски в отметках выбрасывают цикл, только когда из-за них врёт сама
+ *  длина: SUSPICIOUS_CYCLE_LENGTH и больше — почти наверняка не отмечена целая
+ *  менструация (как цикл в 65 дней из двух настоящих). Неотмеченный день
+ *  внутри менструации длину не меняет — она считается от начала до начала.
+ *  Было: выпадал любой цикл с hasDataGaps, и обычный 28-дневный цикл с одним
+ *  забытым днём уходил из «Статистики» с пометкой «не учитывается» без видимой
+ *  причины, а подтвердить его в интерфейсе нечем. */
 export function poolForPrediction(
   cycles: Cycle[],
   episodes: CycleEpisode[] = [],
@@ -131,7 +143,7 @@ export function poolForPrediction(
       c.status !== 'current' &&
       c.excluded === 0 &&
       c.lengthDays !== undefined &&
-      (c.hasDataGaps === 0 || c.startConfirmed === 1) &&
+      (c.hasDataGaps === 0 || c.startConfirmed === 1 || c.lengthDays < SUSPICIOUS_CYCLE_LENGTH) &&
       !overlapsEpisode(c.startDate, c.endDate, episodes),
   );
   const narrow = base.filter(

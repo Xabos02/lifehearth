@@ -18,6 +18,7 @@
 import type { AgeBand, Cycle, CycleDayLog, CycleEpisode, LocalDate } from '../../db/cycleTypes';
 import { addDaysKey } from '../dates';
 import { daysBetween, overlapsEpisode } from './derive';
+import { poolForPrediction } from './predict';
 import { t, tPlur } from '../i18n';
 
 // Числа в этих текстах — про здоровье, и читает их человек, а не машина.
@@ -130,9 +131,17 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
       c.excluded === 0 &&
       !overlapsEpisode(c.startDate, c.endDate, episodes),
   );
-  const complete = inWindow.filter((c) => c.lengthDays !== undefined);
 
   // --- Нерегулярные циклы ---
+  // Длины — из той же выборки, что «в среднем» и «Статистика» на этом экране
+  // (poolForPrediction). Было: здесь брались все завершённые циклы, и в одном
+  // экране карточка писала «самый длинный 65», а «Статистика» ниже — «28 и
+  // 29»: 65 дней — две менструации, одна из которых не отмечена, а не цикл
+  // такой длины. Цена: одиночный выброс (скажем, 50 дней среди 28) карточку
+  // тоже не зажигает — как не двигает он ни прогноз, ни среднее.
+  const complete = poolForPrediction(input.cycles, episodes).pool.filter(
+    (c) => c.startDate >= from,
+  );
   if (complete.length >= 3) {
     const lens = complete.map((c) => c.lengthDays!);
     const spread = Math.max(...lens) - Math.min(...lens);
@@ -154,10 +163,15 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
   // Считаем менструации, а не циклы: цикл может быть текущим и незавершённым.
   const periodsInWindow = new Set(inWindow.map((c) => c.startDate)).size;
   const hasEpisode = episodes.some((e) => (e.endDate ?? input.today) >= from);
-  // «Меньше обычного за полгода» — вывод об отсутствии, и он требует полгода
-  // наблюдений. Без этого карточка появлялась после самой первой отметки: одно
+  // «Меньше обычного за полгода» — вывод об отсутствии, и отметки должны
+  // покрывать всё окно. Проверяется одно: история начинается не позже начала
+  // окна. Без этого карточка появлялась после самой первой отметки: одно
   // начало за неделю учёта — начало истории, а не редкие менструации. День
   // без отметки — «нет данных», а не ноль (PROTOCOL.md §7.2).
+  // Перерыв посреди истории эта проверка не ловит: год отметок, пять месяцев
+  // тишины, одна отметка сейчас — и карточка есть. Без явных «не было» пустые
+  // месяцы неотличимы от настоящих редких менструаций, а молчать о настоящих
+  // хуже, чем сказать лишнее с оговоркой «по вашим отметкам».
   const firstMark = [...input.days.map((d) => d.date), ...input.cycles.map((c) => c.startDate)].sort()[0];
   if (
     firstMark !== undefined &&

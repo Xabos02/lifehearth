@@ -49,7 +49,13 @@ export function cycleStats(cycles: Cycle[], limit = 12): CycleStats {
 
   const periods = pool.map((c) => c.periodLengthDays ?? 0).filter((v) => v > 0);
   const diffs: number[] = [];
-  for (let i = 1; i < lens.length; i++) diffs.push(Math.abs(lens[i] - lens[i - 1]));
+  for (let i = 1; i < lens.length; i++) {
+    // Соседние — только идущие подряд. Если между ними выпал цикл (исключён,
+    // длину исказила пропущенная отметка, выброс), разница двух несоседних —
+    // уже не «скачок от раза к разу»: 40 и 28 через выпавший 65 давали 12.
+    if (daysBetween(pool[i - 1].startDate, pool[i].startDate) !== lens[i - 1]) continue;
+    diffs.push(Math.abs(lens[i] - lens[i - 1]));
+  }
 
   return {
     n: lens.length,
@@ -68,17 +74,28 @@ export function cycleStats(cycles: Cycle[], limit = 12): CycleStats {
  *
  *  «В среднем» стоит рядом с прогнозом, и считать их по разным выборкам
  *  нельзя: цикл в 65 дней с пропущенной менструацией прогноз отбрасывал
- *  (poolForPrediction: пропуски в отметках, выброс по длине), а среднее тянул
- *  вверх — «в среднем 37,5 дня» рядом с прогнозом через 28. counted — начала
- *  циклов, вошедших в выборку: по нему выпавший цикл честно помечается
- *  «не учитывается», а не исчезает молча. Отчёт для врача по-прежнему берёт
- *  cycleStats по всем циклам периода: там нужны отметки как есть. */
+ *  (poolForPrediction: длина искажена пропуском, выброс по длине), а среднее
+ *  тянуло вверх — «в среднем 37,5 дня» рядом с прогнозом через 28.
+ *
+ *  eligible — начала годных циклов, counted — тех, по которым посчитаны
+ *  статистика и прогноз: последние 12 годных, как в predictNextPeriod. Было:
+ *  counted = все годные, и при 15 циклах по 24 дня «Циклов учтено 12», а в
+ *  обзоре года 14 циклов без единой пометки. По этим двум множествам цикл
+ *  помечается «не учитывается», а годный старше последних 12 — с причиной.
+ *  Отчёт для врача по-прежнему берёт cycleStats по всем циклам периода: там
+ *  нужны отметки как есть. */
 export function forecastStats(
   cycles: Cycle[],
   episodes: CycleEpisode[] = [],
-): { stats: CycleStats; counted: Set<LocalDate> } {
+): { stats: CycleStats; counted: Set<LocalDate>; eligible: Set<LocalDate> } {
   const { pool } = poolForPrediction(cycles, episodes);
-  return { stats: cycleStats(pool), counted: new Set(pool.map((c) => c.startDate)) };
+  const sorted = [...pool].sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
+  const used = sorted.slice(-12);
+  return {
+    stats: cycleStats(used),
+    counted: new Set(used.map((c) => c.startDate)),
+    eligible: new Set(sorted.map((c) => c.startDate)),
+  };
 }
 
 export interface Accuracy {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { compareToFigo, detectAnomalies } from './anomalies';
 import { deriveCycles } from './derive';
+import { forecastStats } from './stats';
 import type { BleedingLevel, Cycle, CycleDayLog, CycleEpisode, LocalDate } from '../../db/cycleTypes';
 import { MENSTRUAL_LEVELS } from '../../db/cycleTypes';
 import { addDaysKey } from '../dates';
@@ -91,6 +92,24 @@ describe('detectAnomalies', () => {
     const cycles = chain('2026-02-01', [23, 39, 28, 30]);
     // 39 − 23 = 16
     expect(kinds(cycles, daysFor(cycles))).not.toContain('irregular');
+  });
+
+  it('о разной длине говорит о тех же циклах, что и «Статистика»', () => {
+    // Было: на одном экране карточка писала «самый длинный 65 — разница 43
+    // дня», а «Статистика» ниже — «самый короткий и длинный 22 и 40». 65 дней
+    // — две менструации, вторую не отметили (derive: пропуски), и в выборку
+    // экрана такой цикл не входит. Карточка обязана смотреть на неё же.
+    const cycles = chain('2026-02-10', [22, 40, 65, 28]);
+    cycles[2].hasDataGaps = 1;
+    const irregular = detectAnomalies({ cycles, days: daysFor(cycles), today: TODAY }).find(
+      (a) => a.kind === 'irregular',
+    );
+    const { stats } = forecastStats(cycles);
+
+    expect([stats.shortestLength, stats.longestLength]).toEqual([22, 40]);
+    expect(irregular?.detail).toBe(
+      'За полгода самый короткий цикл 22 дня, самый длинный 40 — разница 18 дней.',
+    );
   });
 
   it('меньше трёх завершённых циклов — не судим о регулярности', () => {

@@ -38,8 +38,10 @@ const MIN_CYCLE_LENGTH = 15;
 
 /** Аномально длинный интервал: внутри него почти наверняка пропущенная
  *  менструация, а не цикл длиной в квартал. Такой цикл помечаем
- *  hasDataGaps — прогноз его учитывать не должен, пока человек не подтвердит. */
-const SUSPICIOUS_CYCLE_LENGTH = 60;
+ *  hasDataGaps — прогноз его учитывать не должен, пока человек не подтвердит.
+ *  Экспортируется для выборки прогноза (predict.ts, poolForPrediction): из
+ *  двух видов пропусков длину цикла искажает только этот. */
+export const SUSPICIOUS_CYCLE_LENGTH = 60;
 
 const isMenstrual = (d: CycleDayLog): boolean =>
   d.bleeding !== undefined && MENSTRUAL_LEVELS.includes(d.bleeding);

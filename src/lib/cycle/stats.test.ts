@@ -7,7 +7,8 @@ import {
   symptomFrequency,
 } from './stats';
 import { predictNextPeriod } from './predict';
-import type { Cycle, CyclePrediction, LocalDate } from '../../db/cycleTypes';
+import { deriveCycles } from './derive';
+import type { Cycle, CycleDayLog, CyclePrediction, LocalDate } from '../../db/cycleTypes';
 import { addDaysKey } from '../dates';
 
 const NOW = '2026-07-25T10:00:00.000Z';
@@ -86,6 +87,14 @@ describe('cycleStats', () => {
     const s = cycleStats(chain('2020-01-01', new Array(30).fill(28)), 12);
     expect(s.n).toBe(12);
   });
+
+  it('«разница между соседними» — только между циклами, идущими подряд', () => {
+    // Исключённый 40 между 30 и 22: разница |22−30| = 8 — это сравнение через
+    // голову, а не скачок от раза к разу. Соседи здесь только 28 и 30.
+    const cycles = chain('2026-01-01', [28, 30, 40, 22]);
+    cycles[2].excluded = 1;
+    expect(cycleStats(cycles).variability).toBe(2);
+  });
 });
 
 describe('forecastStats', () => {
@@ -102,6 +111,49 @@ describe('forecastStats', () => {
     expect(stats.n).toBe(predictNextPeriod({ cycles, today: '2026-06-01' }).nCyclesUsed);
     expect(counted.has(cycles[2].startDate)).toBe(false);
     expect(counted.size).toBe(3);
+  });
+
+  it('цикл обычной длины с неотмеченным днём менструации учитывается', () => {
+    // Путь настоящих данных: отметки дней → derive. Забытый третий день
+    // первой менструации даёт hasDataGaps, и раньше выборка выбрасывала цикл
+    // целиком: «Циклов учтено 2» из трёх ровных, в обзоре года «не
+    // учитывается» без видимой причины, а подтвердить цикл в интерфейсе
+    // нечем. Длина от начала до начала от забытого дня не меняется.
+    const days: CycleDayLog[] = [];
+    for (const start of ['2026-03-01', '2026-03-29', '2026-04-26', '2026-05-24']) {
+      for (let i = 0; i < 5; i++) {
+        if (start === '2026-03-01' && i === 2) continue;
+        days.push({
+          date: addDaysKey(start, i),
+          bleeding: 'medium',
+          isBleedingDay: 1,
+          createdAt: NOW,
+          updatedAt: NOW,
+          source: 'user',
+        });
+      }
+    }
+    const cycles = deriveCycles({ days, today: '2026-06-01', now: NOW });
+    // Предпосылка: derive действительно пометил первый цикл пропусками.
+    expect(cycles[0]).toMatchObject({ startDate: '2026-03-01', lengthDays: 28, hasDataGaps: 1 });
+
+    const { stats, counted, eligible } = forecastStats(cycles);
+    expect(stats.n).toBe(3);
+    expect(counted.has('2026-03-01')).toBe(true);
+    expect(eligible.has('2026-03-01')).toBe(true);
+    expect(predictNextPeriod({ cycles, today: '2026-06-01' }).nCyclesUsed).toBe(3);
+  });
+
+  it('учтённые — те же 12 последних, что берёт прогноз; годные постарше видны отдельно', () => {
+    // 15 циклов по 24 дня: «Циклов учтено 12», а в обзоре года их 14 — и
+    // раньше ни один не был помечен, потому что counted было всем пулом.
+    const cycles = chain('2025-08-01', new Array(15).fill(24));
+    const { stats, counted, eligible } = forecastStats(cycles);
+
+    expect(stats.n).toBe(12);
+    expect(stats.n).toBe(predictNextPeriod({ cycles, today: '2026-08-01' }).nCyclesUsed);
+    expect([...counted]).toEqual(cycles.slice(-12).map((c) => c.startDate));
+    expect(eligible.size).toBe(15);
   });
 });
 
