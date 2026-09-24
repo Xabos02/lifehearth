@@ -416,6 +416,8 @@ export async function removeMember(familyId: string, memberId: string): Promise<
   const familyToken = randomToken();
   // ШАГ 1. Сервер. Пока ничего не изменилось ни у кого: не пройдёт — просто
   // выходим, группа осталась ровно в том состоянии, в каком была.
+  // Текст ошибки экран показывает как есть, поэтому он — словами: раньше без
+  // сети туда уходило «Failed to fetch», а на отказ — код ответа сервера.
   const res = await fetch(`${WORKER_URL}/family/remove?familyId=${familyId}`, {
     method: 'POST',
     headers: {
@@ -424,8 +426,10 @@ export async function removeMember(familyId: string, memberId: string): Promise<
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ memberId, newTokenHash: await sha256hex(familyToken) }),
-  });
-  if (!res.ok) throw new Error(`сервер отказал в исключении (${res.status})`);
+  }).catch(() => null);
+  if (!res) throw new Error(t('Нет связи с сервером. Проверьте интернет и попробуйте снова.'));
+  if (res.status === 403) throw new NotOwnerError();
+  if (!res.ok) throw new Error(t('Не удалось исключить участника. Проверьте связь и попробуйте ещё раз'));
 
   // ШАГ 2. Себя переводим на новый ключ СРАЗУ. Иначе обрыв на следующем шаге
   // оставил бы владельца со старым токеном, который сервер уже не принимает,

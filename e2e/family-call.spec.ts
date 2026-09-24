@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Page, WebSocketRoute } from '@playwright/test';
 import { openApp, openFamilyChrome, test } from './fixtures';
 
 // Звонок из семейного экрана.
@@ -85,6 +85,51 @@ test('звонить некому — кнопки нет вовсе', async ({ 
   await openApp(page, '/more/family');
   await seedFamily(page, []);
   await expect(page.getByRole('button', { name: /Позвонить/ })).toHaveCount(0);
+});
+
+// Без связи с сервером (фикстура обрывает все запросы к нему — ровно то, что
+// видит телефон без сети). Найдено сквозным прогоном 13–17.09.
+test.describe('без связи с сервером', () => {
+  test('звонок сразу говорит «Нет связи с сервером», а не полминуты «Вызов…»', async ({ page }) => {
+    // Микрофон разрешён: иначе звонок кончался бы на «Нет доступа к
+    // микрофону» и прятал бы то, ради чего тест, — полминуты «Вызов…» и
+    // «Не ответили», хотя приглашение не ушло никому.
+    await page.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia = async () => new MediaStream();
+    });
+    await openApp(page, '/more/family');
+    await seedFamily(page, ['Отец']);
+    await page.getByRole('button', { name: 'Позвонить: Отец' }).click();
+    const reason = page.getByText('Нет связи с сервером', { exact: true });
+    await expect(reason).toBeVisible();
+    // И в переписке нет «пропущенного звонка»: у Отца ничего не звонило.
+    await expect(reason).toBeHidden();
+    await expect(page.getByText('Пропущенный аудиозвонок', { exact: false })).toHaveCount(0);
+  });
+
+  test('своя зелёная точка — это связь устройства: пропала связь — пропала точка', async ({ page }) => {
+    // Точка у себя горела всегда, в том числе без сети, — рядом с «не в сети»
+    // в шапке. Здесь сервер сначала есть (подставной), потом пропадает.
+    let up = true;
+    let server: WebSocketRoute | undefined;
+    await page.route(/\/family\/ticket/, (r) => (up ? r.fulfill({ json: { ticket: 't' } }) : r.abort('failed')));
+    await page.routeWebSocket(/\/family\/ws/, (ws) => {
+      server = ws;
+      ws.onMessage((m) => {
+        if (JSON.parse(String(m)).type === 'hello') ws.send(JSON.stringify({ type: 'ready', online: ['me'] }));
+      });
+    });
+    await openApp(page, '/more/family');
+    await seedFamily(page, ['Отец']);
+    await openFamilyChrome(page);
+    await page.getByRole('button', { name: 'Участники' }).click();
+    const dot = page.getByRole('button', { name: /Влад · вы/ }).getByTestId('presence-dot');
+    await expect(dot).toBeVisible();
+
+    up = false;
+    await server!.close();
+    await expect(dot).toHaveCount(0);
+  });
 });
 
 test.describe('разбор неудавшегося звонка', () => {

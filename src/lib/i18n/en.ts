@@ -127,6 +127,7 @@ export const EN: Record<string, string> = {
     "Couldn't connect — the network is blocking the call",
   'Соединение потеряно': 'Connection lost',
   'Нет доступа к микрофону': 'No microphone access',
+  'Нет связи с сервером': 'No connection to the server',
   'Не ответили': 'No answer',
   'Ошибка': 'Error',
   'Отклонено': 'Declined',
@@ -1685,8 +1686,8 @@ export const EN: Record<string, string> = {
   'Вместе с ним группу потеряют: {names}. У них старая версия приложения — новый ключ передать нечем. Попросите их открыть приложение и повторите.':
     'These members would lose the group too: {names}. They are on an older app version, so the new key cannot reach them. Ask them to open the app and try again.',
   'Всем': 'Everyone',
-  'Покажите QR участнику: у него — «Главная → Семья → ＋ → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.':
-    'Show this QR to the new member: on their phone it is Home → Family → ＋ → Join with an invitation. After scanning it asks for the code word — say it out loud, never send it along with the code.',
+  'Покажите QR участнику: у него — «Главная → Семья → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.':
+    'Show this QR to the new member: on their phone it is Home → Family → Join with an invitation. After scanning it asks for the code word — say it out loud, never send it along with the code.',
   'Назовите его вслух. Без слова код не откроется.':
     'Say it out loud. The code will not open without the word.',
   'Кто войдёт по этому приглашению, увидит и прошлую переписку тоже, а отозвать доступ обратно пока нельзя.':

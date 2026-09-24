@@ -142,8 +142,11 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
                 >
                   {m.displayName.slice(0, 1).toUpperCase()}
                 </span>
-                {(onlineSet.has(m.id) || m.id === selfId) && (
-                  <span className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-surface" />
+                {/* У себя — тоже по списку сервера, без поблажки «я всегда в
+                    сети»: он включает и это устройство, пока оно на связи.
+                    Раньше точка горела и без сети, рядом с «не в сети» в шапке. */}
+                {onlineSet.has(m.id) && (
+                  <span data-testid="presence-dot" className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-surface" />
                 )}
               </span>
               <span className="min-w-0 flex-1 truncate font-medium">

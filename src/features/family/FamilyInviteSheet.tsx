@@ -64,7 +64,7 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
     <Sheet open={open} onClose={onClose} title={t('Пригласить в группу')}>
       <div className="space-y-4">
         <p className="text-sm leading-snug text-muted">
-          {t('Покажите QR участнику: у него — «Главная → Семья → ＋ → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.')}
+          {t('Покажите QR участнику: у него — «Главная → Семья → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.')}
         </p>
         {qrUrl && (
           <div className="flex justify-center">

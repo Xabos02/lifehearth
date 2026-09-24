@@ -171,6 +171,8 @@ export async function deleteFamily(familyId: string): Promise<void> {
   if (!c) return;
   const ownerSecret = c.ownerSecret;
   if (!ownerSecret) throw new Error(t('Удалить группу может только её создатель'));
+  // Обрыв сети — исключение fetch, и его текст («Failed to fetch») экран
+  // показал бы как есть: переводим в слова здесь, в одном месте.
   const res = await fetch(`${WORKER_URL}/family/delete?familyId=${familyId}`, {
     method: 'POST',
     headers: {
@@ -178,7 +180,8 @@ export async function deleteFamily(familyId: string): Promise<void> {
       'X-Family-Owner': ownerSecret,
       'Content-Type': 'application/json',
     },
-  });
+  }).catch(() => null);
+  if (!res) throw new Error(t('Нет связи с сервером. Проверьте интернет и попробуйте снова.'));
   if (!res.ok) {
     if (res.status === 403) throw new Error(t('Удалить группу может только её создатель'));
     throw new Error(t('Не удалось удалить группу. Проверьте связь и попробуйте ещё раз'));

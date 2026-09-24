@@ -167,6 +167,20 @@ class FamilyEngine {
     fn(this.state);
     return () => this.connListeners.delete(fn);
   }
+  /** Чем кончилась попытка подключения: true — на связи, false — не вышло.
+   *  Идущую попытку дожидаемся, а не судим по состоянию на эту секунду:
+   *  «подключение…» после возврата в приложение — ещё не «нет связи». */
+  connectionSettled(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const l = (s: ConnState) => {
+        if (s === 'connecting') return;
+        this.connListeners.delete(l);
+        resolve(s === 'online');
+      };
+      if (this.state === 'connecting') this.connListeners.add(l);
+      else l(this.state);
+    });
+  }
   onlineMembers(): string[] {
     return this.onlineIds;
   }
@@ -989,6 +1003,9 @@ export function connectionState(familyId: string) {
 }
 export function subscribeConnection(familyId: string, fn: (s: ConnState) => void): () => void {
   return getEngine(familyId).subscribeConnection(fn);
+}
+export function connectionSettled(familyId: string): Promise<boolean> {
+  return getEngine(familyId).connectionSettled();
 }
 export function onlineMembers(familyId: string): string[] {
   return getEngine(familyId).onlineMembers();

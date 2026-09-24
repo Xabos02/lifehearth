@@ -331,6 +331,21 @@ describe('исключение участника: клиент против с�
     expect((await snapshot())!.familyToken).toBe(TOKEN);
   });
 
+  it('без связи и при отказе сервера причина видна словами, а не «Failed to fetch» или кодом', async () => {
+    // Текст ошибки «Исключить» и «Удалить группу» экран показывает как есть.
+    // Без сети туда уходило исключение fetch — «Failed to fetch», а на отказ
+    // сервера — «сервер отказал в исключении (500)»: мимо словаря и с кодом.
+    breakRoute('/family/');
+    await expect(removeMember(FAMILY_ID, kickedId)).rejects.toThrow('Нет связи с сервером');
+    const { deleteFamily } = await import('./familyLifecycle');
+    await expect(deleteFamily(FAMILY_ID)).rejects.toThrow('Нет связи с сервером');
+
+    breakRoute('/family/remove', 500);
+    await expect(removeMember(FAMILY_ID, kickedId)).rejects.toThrow('Не удалось исключить участника');
+    breakRoute('/family/remove', 403);
+    await expect(removeMember(FAMILY_ID, kickedId)).rejects.toThrow(NotOwnerError);
+  });
+
   it('конверты не дошли: исключение состоялось, а не откатилось, и чинится повтором', async () => {
     breakRoute('/family/send');
     // Ошибка отдельного класса: переигрывать исключение не надо, надо повторить

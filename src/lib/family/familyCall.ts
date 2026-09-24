@@ -11,7 +11,7 @@ import { useSyncExternalStore } from 'react';
 import { db } from '../../db/db';
 import { encryptJSON, decryptJSON } from '../crypto';
 import { getFamilyConfig } from './familyState';
-import { sendSignal, sendSystemMessage, connectFamily, type SignalFrame, type SignalKind } from './familyChat';
+import { sendSignal, sendSystemMessage, connectFamily, connectionSettled, type SignalFrame, type SignalKind } from './familyChat';
 import { startRingtone, stopRingtone } from './ringtone';
 import { tuneOpusSdp } from './callTuning';
 import { t } from '../i18n';
@@ -623,6 +623,19 @@ class CallManager {
     const name = await this.peerName(peerId);
     if (this.gen !== gen) return;
     this.set({ peerName: name });
+    // Без связи с сервером приглашение не уйдёт никому — ни сокетом, ни пушем.
+    // Раньше тут полминуты висело «Вызов…», а потом «Не ответили», хотя не
+    // звонили никому. Исход попытки подключения (её запустил connectFamily
+    // выше) узнаём до микрофона: спрашивать разрешение на несостоявшийся
+    // звонок незачем.
+    // ponytail: ждём без потолка — зависшая сеть держит «Вызов…», пока fetch
+    // не сдастся (как и fetchIce ниже); нужен потолок — гонка с RING_TIMEOUT_MS.
+    const reachable = await connectionSettled(familyId);
+    if (this.gen !== gen) return;
+    if (!reachable) {
+      this.end('Нет связи с сервером');
+      return;
+    }
     let stream: MediaStream;
     try {
       stream = await this.getMic();
@@ -990,8 +1003,10 @@ class CallManager {
     // Журнал звонка в ленту чата пишет ТОЛЬКО звонящий — иначе обе стороны
     // продублировали бы одно событие. Сервер писать не может (E2E: у него нет
     // ключа), поэтому кейс «звонящий умер до таймаута» остаётся без записи —
-    // его прикрывает missed-пуш от alarm'а.
-    if (this.role === 'caller' && this.familyId && reason !== 'Нет доступа к микрофону') {
+    // его прикрывает missed-пуш от alarm'а. Несостоявшийся звонок (нет
+    // микрофона, нет связи) не пишется: «пропущенный» у собеседника значил бы,
+    // что ему звонили.
+    if (this.role === 'caller' && this.familyId && reason !== 'Нет доступа к микрофону' && reason !== 'Нет связи с сервером') {
       const dur = this.snap.startedAt ? Date.now() - this.snap.startedAt : null;
       void sendSystemMessage(
         this.familyId,
