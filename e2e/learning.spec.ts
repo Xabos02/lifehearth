@@ -134,7 +134,12 @@ test('отметка части не сбрасывает цель, поправ
     ],
   );
   await page.goto('/more/learning/l-hours');
-  await page.getByRole('button', { name: /^Дисциплина 1/ }).click();
+  const first = page.getByRole('button', { name: /^Дисциплина 1/ });
+  // Число и единица — через неразрывный пробел (§7.5). toHaveText приводит
+  // пробелы к обычным и разницы не видит — сверяем сырой текст.
+  await expect(first).toBeVisible();
+  expect(await first.textContent()).toBe('Дисциплина 15,4\u00A0ч');
+  await first.click();
   // Отметка двигает прогресс, цель остаётся 350; было {16,7; 5,4}.
   await expect.poll(() => progressOf(page, 'l-hours')).toEqual({ target: 350, current: 5.4 });
 });

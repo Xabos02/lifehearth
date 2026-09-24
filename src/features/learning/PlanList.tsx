@@ -61,7 +61,7 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
                   {formatNum(part.estimate)}
                   {/* У процентов оценка — только вес части (planProgress),
                       «3 %» соврало бы: часть весом 3 из 8 — это 38%. */}
-                  {unit !== 'percent' && ` ${unitLabel(unit, part.estimate)}`}
+                  {unit !== 'percent' && `\u00A0${unitLabel(unit, part.estimate)}`}
                 </span>
               )}
             </button>
