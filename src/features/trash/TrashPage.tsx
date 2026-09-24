@@ -84,7 +84,21 @@ export function TrashPage() {
     if (busyRef.current) return;
     busyRef.current = true;
     try {
-      await update(entry.table, entry.id, { deletedAt: null });
+      // Задача не возвращается в проект, которого больше нет. Удаление проекта
+      // отвязывает только живые задачи, а лежащие в корзине хранят ссылку на
+      // него — и восстановленная после проекта задача пропадала из списка
+      // целиком: секции строятся по живым проектам (прогон 13–17.09). Кладём
+      // её в «Без проекта», как обещает само удаление проекта. Проект не
+      // воскрешаем: его удалили отдельным решением, и вернулся бы он без
+      // подпроектов — те при удалении уже поднялись наверх.
+      let detach = false;
+      if (entry.tableName === 'tasks') {
+        const projectId = (await db.tasks.get(entry.id))?.projectId;
+        const project = projectId ? await db.projects.get(projectId) : undefined;
+        detach = Boolean(projectId) && (!project || Boolean(project.deletedAt));
+      }
+      if (detach) await update(db.tasks, entry.id, { deletedAt: null, projectId: null });
+      else await update(entry.table, entry.id, { deletedAt: null });
       toast(t('Восстановлено'));
     } finally {
       busyRef.current = false;
