@@ -19,8 +19,15 @@ import { collectErrors, openApp, test, WORKER_MATCH } from './fixtures';
 //    «поднятой»;
 //  - напоминание семейной задачи, поставленное без сети, очередь повторов
 //    искала только среди личных задач и молча выбрасывала.
+// Перепроверка починки (24.09) нашла ещё две беды жеста:
+//  - последнее движение через границу строки и отпускание в одном кадре —
+//    записывался порядок на шаг раньше того, что под пальцем;
+//  - отпущенный в первые миллисекунды после подъёма палец терялся: строка
+//    залипала поднятой, прокрутка страницы оставалась заглушённой.
 // Палец здесь — настоящие touch-события Chromium через CDP: у page.mouse нет
 // прокрутки, которая отбирает жест, — на нём первая беда не видна.
+// «Строка поднята» — атрибут data-dragging, а не оформление: смена вида
+// подъёма не должна ронять эти тесты.
 
 async function seed(page: Page, extra: { sub?: boolean; retry?: string[] } = {}) {
   await page.evaluate(async (extra) => {
@@ -67,8 +74,20 @@ async function order(page: Page): Promise<string[]> {
   });
 }
 
-const rows = (page: Page) => page.locator('[role="button"][aria-label="Изменить задачу"]');
+/** Названия выполненных задач по алфавиту. */
+async function doneTitles(page: Page): Promise<string[]> {
+  return page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    return (await db.familyTasks.toArray())
+      .filter((t) => t.completedAt)
+      .map((t) => t.title)
+      .sort();
+  });
+}
+
+const rows = (page: Page) => page.getByRole('button', { name: 'Изменить задачу', exact: true });
 const row = (page: Page, title: string) => rows(page).filter({ hasText: title });
+const raised = (page: Page) => page.locator('[data-dragging]');
 
 async function center(page: Page, title: string) {
   const box = (await page.getByText(title, { exact: true }).boundingBox())!;
@@ -87,22 +106,25 @@ async function finger(page: Page, x: number) {
 
 const START = ['Купить хлеб:3000', 'Позвонить бабушке:2000', 'Забрать колёса:1000'];
 
-test('перенос пальцем: задача встаёт на новое место', async ({ page }) => {
+test('перенос пальцем: задача встаёт туда, где её отпустили', async ({ page }) => {
   const errors = collectErrors(page);
   await openApp(page, '/more/family');
   await seed(page);
   expect(await order(page)).toEqual(START);
 
   const from = await center(page, 'Забрать колёса');
+  const mid = await center(page, 'Позвонить бабушке');
   const to = await center(page, 'Купить хлеб');
   const touch = await finger(page, from.x);
 
   await touch('touchStart', from.y);
-  // Удержание — время самого жеста, а не ожидание состояния: 400 мс + запас.
-  await page.waitForTimeout(600);
-  await expect(row(page, 'Забрать колёса'), 'удержание не взяло задачу').toHaveClass(/opacity-70/);
-  for (let i = 1; i <= 12; i++) await touch('touchMove', from.y + ((to.y - from.y) * i) / 12);
-  await touch('touchEnd');
+  await expect(row(page, 'Забрать колёса'), 'удержание не взяло задачу').toHaveAttribute('data-dragging');
+  for (let i = 1; i <= 6; i++) await touch('touchMove', from.y + ((mid.y - from.y) * i) / 6);
+  await expect(rows(page).nth(1)).toContainText('Забрать колёса');
+  // Последний шаг через границу строки и отпускание — в одном кадре, как у
+  // живого пальца. Раньше тогда записывался порядок на шаг раньше: задача
+  // вставала на вторую строку, хотя палец отпустили над первой.
+  await Promise.all([touch('touchMove', to.y), touch('touchEnd')]);
 
   // Значения прежние, переставлены: вверх встала перенесённая.
   await expect
@@ -119,7 +141,7 @@ test('обрыв жеста системой: порядок остаётся п
   const to = await center(page, 'Позвонить бабушке');
   const touch = await finger(page, from.x);
   await touch('touchStart', from.y);
-  await page.waitForTimeout(600);
+  await expect(row(page, 'Забрать колёса'), 'удержание не взяло задачу').toHaveAttribute('data-dragging');
   for (let i = 1; i <= 6; i++) await touch('touchMove', from.y + ((to.y - from.y) * i) / 6);
   // Самопроверка: на экране задача уже переехала — обрыву есть что отменять.
   await expect(rows(page).nth(1)).toContainText('Забрать колёса');
@@ -127,7 +149,41 @@ test('обрыв жеста системой: порядок остаётся п
 
   // Строка вернулась на место и не осталась поднятой — и в базе ничего.
   await expect(rows(page).nth(2)).toContainText('Забрать колёса');
-  await expect(page.locator('[aria-label="Изменить задачу"].opacity-70')).toHaveCount(0);
+  await expect(raised(page)).toHaveCount(0);
+  expect(await order(page)).toEqual(START);
+});
+
+test('отпустил в миг подъёма: строка не залипает, прокрутка не заглушена', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await seed(page);
+
+  // Отпускание приходит сразу, как строка поднялась, — раньше всего прочего.
+  // Раньше слушатели окна подписывал эффект уже после отрисовки, и палец,
+  // отпущенный в эти миллисекунды, терялся. Живым пальцем в такое окно не
+  // попасть по заказу, поэтому отпускание шлёт сама страница, тем же
+  // pointerId, из наблюдателя за разметкой.
+  await page.evaluate(() => {
+    let pointerId = 0;
+    addEventListener('pointerdown', (e) => (pointerId = e.pointerId), { capture: true });
+    new MutationObserver((_, mo) => {
+      if (!document.querySelector('[data-dragging]')) return;
+      mo.disconnect();
+      dispatchEvent(new PointerEvent('pointerup', { pointerId }));
+      document.body.dataset.released = '1';
+    }).observe(document.body, { subtree: true, attributeFilter: ['data-dragging'] });
+  });
+
+  const at = await center(page, 'Позвонить бабушке');
+  await page.mouse.move(at.x, at.y);
+  await page.mouse.down();
+  await expect(page.locator('body[data-released]'), 'удержание не взяло задачу').toHaveCount(1);
+
+  await expect(raised(page)).toHaveCount(0);
+  // Прокрутку пальцем глушит слушатель touchmove на окне — он уходит вместе
+  // с жестом, а не остаётся ждать отпускания, которое уже было.
+  const scrollBlocked = await page.evaluate(() => !dispatchEvent(new Event('touchmove', { cancelable: true })));
+  expect(scrollBlocked).toBe(false);
+  await page.mouse.up();
   expect(await order(page)).toEqual(START);
 });
 
@@ -138,13 +194,14 @@ test('удержание без движения: список не перепи
   const at = await center(page, 'Позвонить бабушке');
   await page.mouse.move(at.x, at.y);
   await page.mouse.down();
-  await page.waitForTimeout(600);
   // Самопроверка: удержание действительно сработало, иначе тест пуст.
-  await expect(row(page, 'Позвонить бабушке')).toHaveClass(/opacity-70/);
+  await expect(row(page, 'Позвонить бабушке')).toHaveAttribute('data-dragging');
   await page.mouse.up();
 
-  await expect(row(page, 'Позвонить бабушке')).not.toHaveClass(/opacity-70/);
-  await expect(page.getByRole('button', { name: 'Сохранить' })).toHaveCount(0);
+  // Клик после отпускания мыши приходит в той же задаче браузера, что и само
+  // отпускание: когда строка опустилась, карточка уже открылась бы.
+  await expect(raised(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Сохранить', exact: true })).toHaveCount(0);
   expect(await order(page)).toEqual(START);
 });
 
@@ -152,22 +209,20 @@ test('удержание на кружке отметки и отпускани�
   await openApp(page, '/more/family');
   await seed(page);
 
-  const box = (await row(page, 'Позвонить бабушке').getByRole('button', { name: 'Выполнить' }).boundingBox())!;
+  const check = (title: string) => row(page, title).getByRole('button', { name: 'Выполнить', exact: true });
+  const box = (await check('Позвонить бабушке').boundingBox())!;
   const touch = await finger(page, box.x + box.width / 2);
   await touch('touchStart', box.y + box.height / 2);
-  await page.waitForTimeout(600);
-  await expect(row(page, 'Позвонить бабушке'), 'удержание не взяло задачу').toHaveClass(/opacity-70/);
+  await expect(row(page, 'Позвонить бабушке'), 'удержание не взяло задачу').toHaveAttribute('data-dragging');
   // Отпускание без движения Chromium завершает кликом по кружку.
   await touch('touchEnd');
-  await expect(row(page, 'Позвонить бабушке')).not.toHaveClass(/opacity-70/);
-  // Отметка пишется в базу не мгновенно — даём ей время случиться, если она есть.
-  await page.waitForTimeout(500);
+  await expect(raised(page)).toHaveCount(0);
 
-  const done = await page.evaluate(async () => {
-    const { db } = await import('/src/db/db.ts');
-    return (await db.familyTasks.toArray()).filter((t) => t.completedAt).map((t) => t.title);
-  });
-  expect(done).toEqual([]);
+  // Отметка ложится в базу не сразу. Чтобы не ждать наугад, отмечаем соседнюю
+  // задачу обычным нажатием: её отметка идёт тем же путём и позже — когда она
+  // в базе, лишняя отметка уже была бы там же.
+  await check('Забрать колёса').click();
+  await expect.poll(() => doneTitles(page)).toEqual(['Забрать колёса']);
 });
 
 test('отпустил мимо списка: перенос закончен, строка не осталась поднятой', async ({ page }) => {
@@ -178,13 +233,12 @@ test('отпустил мимо списка: перенос закончен, �
   const last = await center(page, 'Забрать колёса');
   await page.mouse.move(at.x, at.y);
   await page.mouse.down();
-  await page.waitForTimeout(600);
-  await expect(row(page, 'Купить хлеб')).toHaveClass(/opacity-70/);
+  await expect(row(page, 'Купить хлеб')).toHaveAttribute('data-dragging');
   // Ведём вниз через обе строки и дальше — за край списка.
   await page.mouse.move(at.x, last.y + 200, { steps: 12 });
   await page.mouse.up();
 
-  await expect(page.locator('[aria-label="Изменить задачу"].opacity-70')).toHaveCount(0);
+  await expect(raised(page)).toHaveCount(0);
   await expect
     .poll(() => order(page))
     .toEqual(['Позвонить бабушке:3000', 'Забрать колёса:2000', 'Купить хлеб:1000']);

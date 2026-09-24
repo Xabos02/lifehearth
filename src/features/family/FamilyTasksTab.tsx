@@ -63,7 +63,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
   const [editing, setEditing] = useState<FamilyTask | null>(null);
   const [open, setOpen] = useState(false);
   const [showDone, setShowDone] = useState(false); // выполненные свёрнуты по умолчанию
-  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const listRef = useRef<HTMLDivElement>(null);
   const pressState = useRef<{
     id: string;
     x: number;
@@ -75,10 +75,22 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
   // конец жеста, а не тап по задаче. Раньше флаг жил в pressState, а тот
   // обнулялся на pointerup — раньше клика, и карточка задачи открывалась.
   const longFired = useRef(false);
-  const dragPointer = useRef(0);
   // Номер переноса: порядок жеста снимаем, когда запись легла в базу, — если
   // за это время не начался следующий перенос.
   const dragSeq = useRef(0);
+  // Снимает слушатели окна идущего переноса; null — переноса нет.
+  const stopDrag = useRef<(() => void) | null>(null);
+
+  // Вкладку закрыли посреди жеста: ни таймер удержания, ни слушатели окна (а с
+  // ними и глушение прокрутки) не должны пережить экран.
+  useEffect(
+    () => () => {
+      const st = pressState.current;
+      if (st?.timer != null) window.clearTimeout(st.timer);
+      stopDrag.current?.();
+    },
+    [],
+  );
 
   const openNew = () => {
     setEditing(null);
@@ -109,10 +121,9 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
       if (!st) return;
       clearPress(); // удержание сработало: дальше жест ведут обработчики окна
       longFired.current = true;
-      dragPointer.current = st.pointerId;
-      dragSeq.current++;
+      startDrag(task.id, st.pointerId);
       // Палец ещё неподвижен — захватываем его на строке, как строка личной
-      // задачи (TaskItem). Ведение и отпускание ловит окно (эффект ниже), и в
+      // задачи (TaskItem). Ведение и отпускание ловит окно (startDrag), и в
       // Chromium перенос работает и без захвата; он оставлен подстраховкой для
       // iPhone, где проверить нечем.
       try {
@@ -120,8 +131,6 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
       } catch {
         /* указатель уже отпущен */
       }
-      setDraggingId(task.id);
-      setDragOrder(active.map((t) => t.id));
     }, LONG_PRESS_MS);
     window.addEventListener('pointerup', clearPress);
     window.addEventListener('pointercancel', clearPress);
@@ -139,31 +148,33 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
   // Сам перенос ведут обработчики окна, а не строки: строку под пальцем React
   // переставляет в DOM, а отпускание может прийти мимо любой строки — раньше
   // тогда перенос не заканчивался, и строка так и оставалась «поднятой».
-  useEffect(() => {
-    if (!draggingId || !dragOrder) return;
+  //
+  // Вешаются они в миг подъёма, из таймера удержания, а не эффектом после
+  // отрисовки: палец, отпущенный между таймером и эффектом (в замере 14–29 мс),
+  // терялся — строка залипала поднятой, а прокрутка страницы оставалась
+  // заглушённой. Порядок жеста живёт здесь же, в замыкании: отпускание в
+  // одном кадре с последним движением брало порядок из прошлой отрисовки и
+  // записывало задачу на шаг раньше того места, где её отпустили.
+  const startDrag = (id: string, pointerId: number) => {
+    const seq = ++dragSeq.current;
+    let order = active.map((t) => t.id);
     const move = (e: PointerEvent) => {
-      if (e.pointerId !== dragPointer.current) return;
-      // Ищем строку, чей центр пересёк палец — она и указывает новую позицию.
-      let targetIdx = -1;
-      for (let i = 0; i < dragOrder.length; i++) {
-        const el = rowRefs.current.get(dragOrder[i]);
-        if (!el) continue;
+      if (e.pointerId !== pointerId) return;
+      // Место — номер строки под пальцем в разметке. Порядок может опережать
+      // отрисовку на шаг, но «задача встаёт на место номер at» от этого не
+      // зависит.
+      const at = Array.from(listRef.current?.children ?? []).findIndex((el) => {
         const r = el.getBoundingClientRect();
-        if (e.clientY >= r.top && e.clientY <= r.bottom) {
-          targetIdx = i;
-          break;
-        }
-      }
-      if (targetIdx === -1) return;
-      const fromIdx = dragOrder.indexOf(draggingId);
-      if (fromIdx === -1 || fromIdx === targetIdx) return;
-      const order = dragOrder.slice();
-      order.splice(fromIdx, 1);
-      order.splice(targetIdx, 0, draggingId);
+        return e.clientY >= r.top && e.clientY <= r.bottom;
+      });
+      if (at === -1 || order[at] === id) return;
+      order = order.filter((x) => x !== id);
+      order.splice(at, 0, id);
       setDragOrder(order);
     };
     const end = (e: PointerEvent) => {
-      if (e.pointerId !== dragPointer.current) return;
+      if (e.pointerId !== pointerId) return;
+      stop();
       setDraggingId(null);
       // Системный обрыв жеста (звонок, шторка) — не «отпустил над целью»:
       // раньше он записывал порядок, в котором строки оказались в тот миг.
@@ -173,22 +184,25 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
       }
       // Порядок жеста держим, пока запись не легла в базу: иначе список на миг
       // возвращался к старому порядку и прыгал обратно.
-      const seq = dragSeq.current;
-      void reorderFamilyTasks(familyId, dragOrder).finally(() => {
+      void reorderFamilyTasks(familyId, order).finally(() => {
         if (dragSeq.current === seq) setDragOrder(null);
       });
+    };
+    const stop = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('touchmove', blockScroll);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      stopDrag.current = null;
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('touchmove', blockScroll, { passive: false });
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
-    return () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('touchmove', blockScroll);
-      window.removeEventListener('pointerup', end);
-      window.removeEventListener('pointercancel', end);
-    };
-  }, [draggingId, dragOrder, familyId]);
+    stopDrag.current = stop;
+    setDraggingId(id);
+    setDragOrder(order);
+  };
 
   const renderRow = (task: FamilyTask) => {
     const done = !!task.completedAt;
@@ -199,13 +213,10 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
     return (
       <div
         key={task.id}
-        ref={(el) => {
-          if (el) rowRefs.current.set(task.id, el);
-          else rowRefs.current.delete(task.id);
-        }}
         role="button"
         tabIndex={0}
         aria-label={t('Изменить задачу')}
+        data-dragging={dragSource || undefined}
         onClick={() => {
           if (longFired.current) {
             longFired.current = false;
@@ -277,7 +288,11 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
         loaded && <p className="py-10 text-center text-sm text-muted">{t('Пока нет общих задач.')}</p>
       ) : (
         <>
-          {active.length > 0 && <div className="card divide-y divide-hairline px-4">{active.map(renderRow)}</div>}
+          {active.length > 0 && (
+            <div ref={listRef} className="card divide-y divide-hairline px-4">
+              {active.map(renderRow)}
+            </div>
+          )}
 
           {completed.length > 0 && (
             <div>
