@@ -9,6 +9,11 @@ export type ExerciseDefDraft = Omit<ExerciseDef, keyof import('../../db/types').
  *  чтобы у каждого нового имени была своя точка в календаре и списках. */
 export async function addExerciseDef(label: string, hasDistance = false, defaultMinutes = 30): Promise<ExerciseDef> {
   const existing = (await db.exerciseDefs.toArray()).filter((d) => !d.deletedAt);
+  // То же название второй раз — то же упражнение: иначе рядом вставал второй
+  // чип «Йога» со своим цветом, и одно упражнение в календаре метилось
+  // точками двух цветов.
+  const same = existing.find((d) => d.label.toLowerCase() === label.toLowerCase());
+  if (same) return same;
   return create(db.exerciseDefs, {
     label,
     color: nextCustomColor(existing.length),
