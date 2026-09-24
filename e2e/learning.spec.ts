@@ -159,3 +159,21 @@ test('правка плана не откатывает прогресс, доб
   await expect(page.getByRole('textbox')).toHaveCount(0);
   expect(await progressOf(page, 'l-edit')).toEqual({ target: 340, current: 163 });
 });
+
+test('проценты, испорченные старым планом, чинятся при открытии', async ({ page }) => {
+  await openApp(page, '/more/learning');
+  // Старый план «3 + 5» ставил материалу в процентах цель 8: карточка
+  // показывала «3%» при полосе на 37,5%. Та же доля на шкале 100 — 38%.
+  const broken = { kind: 'language', progressUnit: 'percent', progressTarget: 8, progressCurrent: 3 };
+  await seed(page, [material('l-old', 'Испанский', broken)]);
+  await page.goto('/more/learning');
+  await expect.poll(() => progressOf(page, 'l-old')).toEqual({ target: 100, current: 38 });
+  await expect(page.getByText('38%', { exact: true }).first()).toBeVisible();
+
+  // Экран материала, открытый напрямую (перезагрузка на нём, тихое
+  // обновление), чинит так же — список мог и не открываться.
+  await seed(page, [material('l-old2', 'Итальянский', broken)]);
+  await page.goto('/more/learning/l-old2');
+  await expect(page.getByRole('heading', { name: 'Итальянский', exact: true })).toBeVisible();
+  await expect.poll(() => progressOf(page, 'l-old2')).toEqual({ target: 100, current: 38 });
+});

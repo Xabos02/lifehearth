@@ -56,6 +56,26 @@ export function planToText(parts: LearningPart[]): string {
 }
 
 
+/** Ремонт процентов, которые испортил старый план. Зовётся при открытии списка
+ *  и экрана материала; схему не трогает, починенное повторно не пишет.
+ *
+ *  Старый план (с 10.09) при сохранении с оценками ставил материалу в
+ *  процентах цель = сумма оценок: после плана «3 + 5» шкала была 8, и карточка
+ *  показывала «3%» при полосе на 37,5%. Полоса — доля, которую человек и
+ *  видел; её переносим на шкалу 100 (38%). Без ремонта правка материала
+ *  поставила бы цель 100 и оставила 3 — «3%» уже и на полосе. */
+export async function repairPercentScale(): Promise<void> {
+  const broken = alive(await db.learningItems.toArray()).filter(
+    (i) => i.progressUnit === 'percent' && i.progressTarget !== 100 && i.progressTarget > 0,
+  );
+  for (const i of broken) {
+    await update(db.learningItems, i.id, {
+      progressTarget: 100,
+      progressCurrent: Math.min(100, Math.round((100 * i.progressCurrent) / i.progressTarget)),
+    });
+  }
+}
+
 /** Отметка части плана — вынесена, чтобы список не тянул за собой репозиторий. */
 export async function togglePart(part: LearningPart, item: LearningItem): Promise<void> {
   const doneAt = part.doneAt ? null : todayKey();

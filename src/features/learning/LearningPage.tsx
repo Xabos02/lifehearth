@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
@@ -23,6 +23,7 @@ import { formatNum } from '../../lib/finance';
 import { LearningItemSheet } from './LearningItemSheet';
 import { LogSessionSheet } from './LogSessionSheet';
 import { ProgressStepper } from './ProgressStepper';
+import { repairPercentScale } from './plan';
 import { pace, unitLabel } from '../../lib/learningPace';
 import { fromKey, todayKey, toKey } from '../../lib/dates';
 import { differenceInCalendarDays } from 'date-fns';
@@ -203,6 +204,9 @@ export function LearningPage() {
 
   const rows = useLiveQuery(() => db.learningItems.toArray(), []);
   const loaded = useLoaded(rows);
+  useEffect(() => {
+    void repairPercentScale();
+  }, []);
   const items = alive(rows ?? [])
     .filter((i) =>
       filter === 'done' ? i.status === 'done' || i.status === 'dropped' : i.status === filter,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { differenceInCalendarDays } from 'date-fns';
@@ -18,6 +18,7 @@ import { LearningItemSheet } from './LearningItemSheet';
 import { LogSessionSheet } from './LogSessionSheet';
 import { PartsSheet } from './PartsSheet';
 import { PlanList } from './PlanList';
+import { repairPercentScale } from './plan';
 
 /** Экран одного материала: успеваю ли к сроку, план и занятия.
  *
@@ -44,6 +45,11 @@ export function LearningItemPage() {
     [id],
     [] as LearningPart[],
   );
+
+  // Экран открывается и мимо списка (перезагрузка на нём, тихое обновление).
+  useEffect(() => {
+    void repairPercentScale();
+  }, []);
 
   const liveLogs = useMemo(() => alive(logs ?? []), [logs]);
   const liveParts = useMemo(
