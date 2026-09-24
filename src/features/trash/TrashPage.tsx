@@ -150,7 +150,11 @@ export function TrashPage() {
             {entries.map((entry) => {
               const Icon = entry.icon;
               return (
-                <div key={`${entry.tableName}-${entry.id}`} className="flex items-center gap-3 px-4 py-3">
+                <div
+                  key={`${entry.tableName}-${entry.id}`}
+                  data-testid={`trash-${entry.id}`}
+                  className="flex items-center gap-3 px-4 py-3"
+                >
                   <Icon size={ICON.base} className="mt-0.5 shrink-0 self-start text-muted" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{entry.title || t('Без названия')}</p>

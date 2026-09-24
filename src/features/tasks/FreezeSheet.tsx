@@ -14,6 +14,7 @@ import { useToast } from '../../components/ui/toastContext';
 import { formatDueDate } from '../../lib/dates';
 import { formatDueRange } from '../../lib/taskDates';
 import { freezeTasks } from './taskActions';
+import { unlinkDeadProjects } from './projectTree';
 import { ICON, STROKE, STROKE_HEAVY } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
 
@@ -42,8 +43,12 @@ function GroupIcon({ project, size = 15 }: { project: Project | null; size?: num
  *  проекты (с подпроектами) в своём порядке, внутри — активные задачи. */
 export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const toast = useToast();
-  const tasks = alive(useLiveQuery(() => db.tasks.toArray(), []) ?? []);
-  const projects = alive(useLiveQuery(() => db.projects.toArray(), []) ?? [])
+  const tasksRaw = useLiveQuery(() => db.tasks.toArray(), []);
+  const projectsRaw = useLiveQuery(() => db.projects.toArray(), []);
+  // Задача удалённого или стёртого проекта — «Без проекта», как на главном
+  // экране (unlinkDeadProjects).
+  const tasks = unlinkDeadProjects(alive(tasksRaw ?? []), projectsRaw);
+  const projects = alive(projectsRaw ?? [])
     .filter((p) => !p.archivedAt)
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -53,12 +58,12 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
     const byProject = new Map<string, Task[]>();
     for (const task of tasks) {
       if (task.completedAt || task.frozenAt) continue;
-      // Проект задачи архивирован (или удалён) — задачу исключаем совсем, а не
-      // сваливаем в «Без проекта». На главном экране секции строятся только по
-      // живым неархивным проектам, так что такая задача там уже не видна —
+      // Проект задачи архивирован — задачу исключаем совсем, а не сваливаем в
+      // «Без проекта». На главном экране секции строятся только по живым
+      // неархивным проектам, так что такая задача там уже не видна —
       // архивация проекта уже поставила на паузу все его задачи разом. Шит
-      // обязан быть консистентен с главным экраном; «Без проекта» — только для
-      // настоящего projectId === null.
+      // обязан быть консистентен с главным экраном. Задача удалённого проекта
+      // сюда не доходит: её ссылку уже снял unlinkDeadProjects выше.
       if (task.projectId && !projectIds.has(task.projectId)) continue;
       const key = task.projectId ?? '';
       const arr = byProject.get(key);

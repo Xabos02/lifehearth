@@ -60,7 +60,7 @@ import {
   MAX_DEPTH,
 } from './dragTuning';
 import { useHoldToReorder } from './useHoldToReorder';
-import { nestRefusal } from './projectTree';
+import { nestRefusal, unlinkDeadProjects } from './projectTree';
 import {
   AddTaskRow,
   CompletedSubsection,
@@ -975,7 +975,11 @@ export function TasksPage() {
   // проектам, дети, выполненные, заморозка) пересчитывалась при каждом
   // движении линии вставки, сворачивании папки, открытии шторки — при том,
   // что данные не менялись. Разбор 08.09, подтверждён 12.09.
-  const allTasks = useMemo(() => alive(tasksRaw ?? []), [tasksRaw]);
+  // Задача удалённого или стёртого проекта — «Без проекта» (unlinkDeadProjects).
+  const allTasks = useMemo(
+    () => unlinkDeadProjects(alive(tasksRaw ?? []), projectsRaw),
+    [tasksRaw, projectsRaw],
+  );
   // Уникальные теги из живых задач для фильтра.
   const tagOptions = useMemo(
     () => [...new Set(allTasks.flatMap((task) => task.tags))].sort((a, b) => a.localeCompare(b)),

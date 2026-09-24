@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { depthOf, descendantsOf, heightOf, nestRefusal, parentCandidates } from './projectTree';
+import { depthOf, descendantsOf, heightOf, nestRefusal, parentCandidates, unlinkDeadProjects } from './projectTree';
 
 // Дерево: A → B → C (три уровня), D отдельно, E → F.
 const tree = [
@@ -71,5 +71,28 @@ describe('кандидаты в родители для формы', () => {
   });
   it('для проекта на три уровня — никто', () => {
     expect(parentCandidates(tree, 'A')).toEqual([]);
+  });
+});
+
+describe('задача удалённого проекта', () => {
+  const projects = [
+    { id: 'live', deletedAt: null, archivedAt: null },
+    { id: 'trashed', deletedAt: '2026-09-01T00:00:00.000Z', archivedAt: null },
+    { id: 'paused', deletedAt: null, archivedAt: '2026-09-01T00:00:00.000Z' },
+  ];
+  const tasks = [
+    { id: 't1', projectId: 'live' },
+    { id: 't2', projectId: 'trashed' },
+    { id: 't3', projectId: 'purged' }, // проекта в базе нет вовсе
+    { id: 't4', projectId: 'paused' },
+    { id: 't5', projectId: null },
+  ];
+  it('удалённый и стёртый — «Без проекта», живой и архивный — на месте', () => {
+    expect(unlinkDeadProjects(tasks, projects).map((t) => t.projectId)).toEqual([
+      'live', null, null, 'paused', null,
+    ]);
+  });
+  it('пока проекты не прочитаны — не трогаем', () => {
+    expect(unlinkDeadProjects(tasks, undefined)).toBe(tasks);
   });
 });

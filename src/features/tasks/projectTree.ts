@@ -1,4 +1,4 @@
-import type { Project } from '../../db/types';
+import type { Project, Task } from '../../db/types';
 import { MAX_DEPTH } from './dragTuning';
 
 // Дерево проектов: те же правила, что у папок заметок (notes/folderTree.ts),
@@ -97,4 +97,29 @@ export function parentCandidates<P extends Node>(projects: P[], movingId: string
     if (!movingId) return depthOf(projects, p.id) < MAX_DEPTH; // новый проект — высота 1
     return nestRefusal(projects, movingId, p.id) === null;
   });
+}
+
+/** Задача, чей проект удалён (лежит в корзине) или стёрт насовсем, — задача
+ *  «Без проекта»: копия с projectId: null.
+ *
+ *  Секции «Задач» строятся по живым проектам, и задача с мёртвой ссылкой не
+ *  попадала ни в одну — пропадала из списка целиком (прогон 13–17.09). Так
+ *  выходило у задачи, возвращённой из корзины после удаления её проекта, и
+ *  у правки задачи с другого устройства, пришедшей после удаления. Чинить
+ *  каждый такой путь — не угнаться, поэтому правило стоит перед раскладкой по
+ *  секциям, одно для списка задач и шита заморозки. Форма задачи получает ту
+ *  же копию и сохранением снимает мёртвую ссылку уже в базе.
+ *
+ *  Архивный проект жив: его задачи прячутся вместе с ним, как и прежде. Пока
+ *  проекты не прочитаны (undefined), задачи не трогаем — иначе на миг «без
+ *  проекта» оказались бы все. */
+export function unlinkDeadProjects<T extends Pick<Task, 'projectId'>>(
+  tasks: T[],
+  projects: Pick<Project, 'id' | 'deletedAt'>[] | undefined,
+): T[] {
+  if (!projects) return tasks;
+  const live = new Set(projects.filter((p) => !p.deletedAt).map((p) => p.id));
+  return tasks.map((task) =>
+    task.projectId && !live.has(task.projectId) ? { ...task, projectId: null } : task,
+  );
 }
