@@ -7,7 +7,7 @@
 // «сколько стоил ответ» должно включать и служебные круги.
 
 import { requestChat, type AiChatMessage, type AiReply } from './aiClient';
-import { TOOL_DEFS, TOOL_LABELS, runTool, toolsSystemPrompt, type ToolTraceEntry } from './tools';
+import { TOOL_DEFS, TOOL_LABELS, runTool, noDataSystemPrompt, toolsSystemPrompt, type ToolTraceEntry } from './tools';
 
 // Потолок кругов — страховка от зацикливания «прочитаю-ка ещё раз». Насыщение
 // потолка — не ошибка: отдаём накопленный текст, а модель к этому моменту уже
@@ -32,9 +32,9 @@ export async function runAgent(params: {
   request?: typeof requestChat;
 }): Promise<AgentReply> {
   const send = params.request ?? requestChat;
-  const system = params.dataTools
-    ? [params.systemPrompt?.trim(), toolsSystemPrompt()].filter(Boolean).join('\n\n')
-    : params.systemPrompt;
+  const system = [params.systemPrompt?.trim(), params.dataTools ? toolsSystemPrompt() : noDataSystemPrompt()]
+    .filter(Boolean)
+    .join('\n\n');
 
   const wire: AiChatMessage[] = [...params.messages];
   const trace: ToolTraceEntry[] = [];

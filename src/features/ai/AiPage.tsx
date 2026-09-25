@@ -164,9 +164,9 @@ export function AiPage() {
   }
 
   async function handleNewChat() {
-    // Новый чат наследует модель текущего: выбранная один раз живая модель
-    // не должна откатываться к заглушке на каждом «＋».
-    const c = await createChat(chat?.model);
+    // Новый чат наследует модель и «Данные» текущего: выбранное один раз не
+    // должно откатываться на каждом «＋».
+    const c = await createChat(chat?.model, chat?.dataTools === true);
     setPickedId(c.id);
     setListOpen(false);
     setDraft('');
@@ -210,7 +210,9 @@ export function AiPage() {
       >
         <div className="relative flex h-full min-h-0 flex-col">
           <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-3">
-            {!messages.length && !busy && <AiWelcome onAsk={(q) => void handleSend(q)} />}
+            {!messages.length && !busy && (
+              <AiWelcome dataTools={chat?.dataTools === true} onAsk={(q) => void handleSend(q)} />
+            )}
             {messages.map((m) =>
               m.role === 'user' ? (
                 <UserBubble key={m.id} message={m} />
@@ -301,7 +303,7 @@ const SUGGESTIONS = [
   'Что просело по привычкам за месяц?',
 ];
 
-function AiWelcome({ onAsk }: { onAsk: (q: string) => void }) {
+function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string) => void }) {
   return (
     <div className="flex flex-col items-center px-4 pt-10 text-center">
       <div
@@ -313,9 +315,13 @@ function AiWelcome({ onAsk }: { onAsk: (q: string) => void }) {
       </div>
       <p className="text-lg font-bold tracking-tight">{t('Спросите о своём')}</p>
       <p className="mt-1 mb-5 max-w-[17rem] text-sm text-muted">
-        {t('С «Данными» ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.')}
+        {dataTools
+          ? t('Ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.')
+          : t('Включите «Данные» под полем ввода — и ассистент ответит по вашим задачам, заметкам, финансам и привычкам.')}
       </p>
-      <div className="flex w-full max-w-sm flex-col gap-2">
+      {/* Все подсказки — вопросы о своих записях. Без «Данных» тап отправил бы
+          платный вопрос, на который модели нечем ответить. */}
+      {dataTools && <div className="flex w-full max-w-sm flex-col gap-2">
         {SUGGESTIONS.map((q) => (
           <button
             key={q}
@@ -325,7 +331,7 @@ function AiWelcome({ onAsk }: { onAsk: (q: string) => void }) {
             {t(q)}
           </button>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }

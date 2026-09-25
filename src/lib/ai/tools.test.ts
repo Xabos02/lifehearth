@@ -8,7 +8,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const { db } = await import('../../db/db');
-const { runTool } = await import('./tools');
+const { runTool, toolsSystemPrompt } = await import('./tools');
 
 const base = { createdAt: '2026-08-01T00:00:00.000Z', updatedAt: '2026-08-01T00:00:00.000Z', deletedAt: null };
 const task = (id: string, title: string, extra: Record<string, unknown> = {}) => ({
@@ -130,6 +130,16 @@ describe('list_finance', () => {
     // 60000 + 1000×52/12 ≈ 64333
     expect(r.monthlyExpense).toBe(Math.round(60000 + (1000 * 52) / 12));
     expect(r.monthlyIncome).toBe(90000);
+  });
+});
+
+describe('системная приписка', () => {
+  it('не обещает модели «Женские дни» и велит честно сказать, что их нет', () => {
+    // Инструмент убран 25.09; приписка, обещающая цикл, толкала модель искать
+    // его по заметкам и отвечать «записей нет» при записях в разделе.
+    const p = toolsSystemPrompt();
+    expect(p).not.toMatch(/женские дни \(цикл\)/i);
+    expect(p).toContain('«Женские дни» тебе недоступен');
   });
 });
 

@@ -154,7 +154,7 @@ function DataStatusCard() {
         {syncOn ? <Cloud size={ICON.header} /> : <CloudOff size={ICON.header} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-semibold">{syncOn ? t('Данные синхронизируются') : t('Только на этом устройстве')}</p>
+        <p className="font-semibold">{syncOn ? t('Данные синхронизируются') : t('Не синхронизируется')}</p>
         {/* Без truncate по той же причине, что и в MenuCard: «Копию ещё не
             делали» на 320px не влезает в 158px и обрывалось на «не дел…» —
             ровно то предупреждение, которое обязано читаться целиком. */}
