@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Настройки без согласия</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;font-size:17px;-webkit-font-smoothing:antialiased}
+.screen{--bg:oklch(0.168 0.013 283);--surface:oklch(0.232 0.016 284);--surface2:oklch(0.258 0.018 284);--hair:oklch(1 0 0 / 0.09);--text:oklch(0.965 0.006 286);--muted:oklch(0.675 0.022 282);--accent:oklch(0.72 0.18 264);--accentFill:oklch(0.562 0.18 264);--warning:oklch(0.83 0.135 80);--success:oklch(0.80 0.16 158);
+  width:375px;height:812px;box-sizing:border-box;position:relative;overflow:hidden;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+.bar{padding:59px 16px 12px;border-bottom:1px solid var(--hair);display:flex;flex-direction:column;gap:2px}
+.back{display:flex;align-items:center;gap:2px;min-height:44px;margin-left:-4px;color:var(--accent);font-size:17px;text-decoration:none;align-self:flex-start}
+h1{margin:0;font-size:26px;line-height:1.15;letter-spacing:-0.015em;font-weight:700}
+.main{padding:16px 16px 0;display:flex;flex-direction:column;gap:24px}
+h2{margin:0 0 8px;padding:0 4px;font-size:15px;line-height:1.45;font-weight:600;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--hair);border-radius:16px;overflow:hidden}
+.row{display:flex;align-items:center;gap:8px;min-height:44px;padding:10px 16px;box-sizing:border-box;color:var(--text);text-decoration:none}
+.row + .row{border-top:1px solid var(--hair)}
+.row .l{flex:1}
+.ic{color:var(--muted);flex:none}
+.val{font-size:15px;color:var(--muted)}
+.paused{font-size:15px;font-weight:500;color:var(--warning)}
+.foot{margin:8px 0 0;padding:0 4px;font-size:13px;line-height:1.35;color:var(--muted)}
+.banner{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:16px;background:color-mix(in oklab,var(--warning) 12%,var(--surface));border:1px solid color-mix(in oklab,var(--warning) 28%,transparent)}
+.banner svg{flex:none;color:var(--warning);margin-top:1px}
+.bt{font-size:15px;line-height:1.35;font-weight:600}
+.bd{margin-top:2px;font-size:13px;line-height:1.45;color:var(--text)}
+.bb{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin-top:8px;padding:0 16px;border:0;border-radius:999px;background:var(--accentFill);color:#fff;font:600 15px/1.2 'Inter',system-ui,sans-serif}
+svg{display:block}
+</style>
+</helmet>
+<div class="screen">
+  <div class="bar">
+    <a class="back" href="#"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.4 5.6 8 12l6.4 6.4"></path></svg>Главная</a>
+    <h1>Настройки</h1>
+  </div>
+  <div class="main">
+    <div class="banner">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.04" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6" fill="currentColor" fill-opacity="0.25"></circle><circle cx="12" cy="12" r="8.6"></circle><path d="M9.8 8.8v6.4M14.2 8.8v6.4"></path></svg>
+      <div>
+        <div class="bt">Внешнее на паузе</div>
+        <div class="bd">Синхронизация, семья и напоминания ждут вашего согласия. Настройки и записи на месте.</div>
+        <button class="bb" type="button">Прочитать и принять</button>
+      </div>
+    </div>
+
+    <section>
+      <h2>Уведомления</h2>
+      <div class="card">
+        <div class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.04" stroke-linecap="round" stroke-linejoin="round"><path d="M6.4 9.8a5.6 5.6 0 0 1 11.2 0v4.4l1.6 2.6H4.8l1.6-2.6Z" fill="currentColor" fill-opacity="0.25"></path><path d="M6.4 9.8a5.6 5.6 0 0 1 11.2 0v4.4l1.6 2.6H4.8l1.6-2.6Z"></path><path d="M10.2 19.6a2 2 0 0 0 3.6 0"></path></svg><span class="l">Уведомления</span><span class="paused">На паузе</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Синхронизация</h2>
+      <div class="card">
+        <div class="row"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.04" stroke-linecap="round" stroke-linejoin="round"><path d="M8.05 18.2A4.05 4.05 0 0 1 7.22 10.19A4.8 4.8 0 1 1 16.75 11.31A3.45 3.45 0 0 1 16.55 18.2Z" fill="currentColor" fill-opacity="0.25"></path><path d="M8.05 18.2A4.05 4.05 0 0 1 7.22 10.19A4.8 4.8 0 1 1 16.75 11.31A3.45 3.45 0 0 1 16.55 18.2Z"></path></svg><span class="l">Синхронизация</span><span class="paused">На паузе</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Данные</h2>
+      <div class="card">
+        <a class="row" href="#"><span class="l">Что уходит с телефона</span><span class="val">Нет согласия</span><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.55" stroke-linecap="round" stroke-linejoin="round"><path d="M9.6 5.6 16 12l-6.4 6.4"></path></svg></a>
+        <a class="row" href="#"><span class="l">Копии и восстановление</span><span class="val">вчера</span><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.55" stroke-linecap="round" stroke-linejoin="round"><path d="M9.6 5.6 16 12l-6.4 6.4"></path></svg></a>
+      </div>
+      <p class="foot">После согласия строка покажет дату: «Принято 25 сентября».</p>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":812}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

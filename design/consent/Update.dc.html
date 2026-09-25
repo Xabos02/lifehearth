@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Согласие после обновления</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;font-size:17px;-webkit-font-smoothing:antialiased}
+.screen{--bg:oklch(0.168 0.013 283);--surface:oklch(0.232 0.016 284);--surface2:oklch(0.258 0.018 284);--hair:oklch(1 0 0 / 0.09);--text:oklch(0.965 0.006 286);--muted:oklch(0.675 0.022 282);--accent:oklch(0.72 0.18 264);--accentFill:oklch(0.562 0.18 264);--warning:oklch(0.83 0.135 80);--success:oklch(0.80 0.16 158);--shadowAccent:0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);--shadowTile:0 8px 20px -14px color-mix(in oklab,var(--accent) 55%,transparent);
+  width:375px;height:812px;box-sizing:border-box;position:relative;overflow:hidden;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+.aurora{position:absolute;left:0;right:0;top:0;height:460px;pointer-events:none;background-image:radial-gradient(78% 48% at 12% -6%,oklch(0.62 0.12 268 / 0.12),transparent 58%),radial-gradient(72% 46% at 96% -2%,oklch(0.62 0.11 282 / 0.08),transparent 56%),radial-gradient(130% 75% at 50% -12%,oklch(0.26 0.03 286 / 0.45),transparent 72%)}
+.scroll{position:relative;flex:1;min-height:0;overflow:hidden}
+.head{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:72px 24px 20px}
+.tile{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:16px;color:var(--accent);background-image:linear-gradient(150deg,color-mix(in oklab,var(--accent) 20%,var(--surface)),color-mix(in oklab,var(--accent) 8%,var(--surface)));border:1px solid color-mix(in oklab,var(--accent) 24%,transparent);box-shadow:var(--shadowTile)}
+h1{margin:0;font-size:20px;line-height:1.25;letter-spacing:-0.01em;font-weight:700}
+.now{margin:0 20px 20px;padding:14px 16px;border-radius:16px;background:color-mix(in oklab,var(--warning) 12%,var(--surface));border:1px solid color-mix(in oklab,var(--warning) 28%,transparent)}
+.nt{font-size:15px;line-height:1.35;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{font-size:13px;line-height:1.35;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface2);color:var(--text)}
+.nd{font-size:13px;line-height:1.45;color:var(--text)}
+.points{display:flex;flex-direction:column;gap:16px;margin:0 24px}
+.pt{display:flex;gap:12px;align-items:flex-start}
+.pt svg{flex:none;margin-top:1px}
+.px{font-size:15px;line-height:1.45}
+.px b{font-weight:600}
+.px span{color:var(--muted)}
+.ok{color:var(--success)}
+.lock{color:var(--accent)}
+.eye{color:var(--warning)}
+.actions{position:relative;display:flex;flex-direction:column;gap:4px;padding:16px 24px 34px;background:var(--bg);border-top:1px solid var(--hair)}
+.primary{display:flex;align-items:center;justify-content:center;border:0;border-radius:16px;background:var(--accentFill);color:#fff;font:600 17px/1.2 'Inter',system-ui,sans-serif;padding:15px 20px;box-shadow:var(--shadowAccent)}
+.ghost{display:flex;align-items:center;justify-content:center;min-height:44px;border:0;background:transparent;color:var(--accent);font:500 15px/1.2 'Inter',system-ui,sans-serif}
+svg{display:block}
+</style>
+</helmet>
+<div class="screen">
+  <div class="aurora"></div>
+  <div class="scroll">
+    <div class="head">
+      <div class="tile"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="11" height="18" rx="2.6" fill="currentColor" fill-opacity="0.25"></rect><rect x="4" y="3" width="11" height="18" rx="2.6"></rect><path d="M8.5 17.6h2"></path><path d="M13.4 10.6 20.2 3.8"></path><path d="M15.6 3.8h4.6v4.6"></path></svg></div>
+      <h1>Что уходит с телефона</h1>
+    </div>
+    <div class="now">
+      <div class="nt">Сейчас у вас включено</div>
+      <div class="chips"><span class="chip">Синхронизация</span><span class="chip">Семья</span><span class="chip">Напоминания</span></div>
+      <div class="nd">Без согласия они встанут на паузу. Ничего не удалится — «Принимаю» вернёт как было.</div>
+    </div>
+    <div class="points">
+      <div class="pt">
+        <svg class="ok" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.04" stroke-linecap="round" stroke-linejoin="round"><rect x="5.6" y="2.6" width="12.8" height="18.8" rx="3" fill="currentColor" fill-opacity="0.25"></rect><rect x="5.6" y="2.6" width="12.8" height="18.8" rx="3"></rect><path d="M11 17.6h2"></path></svg>
+        <div class="px"><b>Записи хранятся на телефоне</b> <span>и работают без интернета — задачи, заметки, цели, деньги, здоровье.</span></div>
+      </div>
+      <div class="pt">
+        <svg class="lock" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.04" stroke-linecap="round" stroke-linejoin="round"><rect x="4.4" y="10.2" width="15.2" height="10.6" rx="3" fill="currentColor" fill-opacity="0.25"></rect><rect x="4.4" y="10.2" width="15.2" height="10.6" rx="3"></rect><path d="M8.2 10.2V7.4a3.8 3.8 0 0 1 7.6 0v2.8"></path></svg>
+        <div class="px"><b>Синхронизация, напоминания и семья</b> <span>передают записи на наш сервер зашифрованными. Сервер видит служебное: когда, из какого раздела, кто в сети.</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="primary" type="button">Принимаю</button>
+    <button class="ghost" type="button">Не принимать — поставить на паузу</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":812}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

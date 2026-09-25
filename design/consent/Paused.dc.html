@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Семья на паузе</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;font-size:17px;-webkit-font-smoothing:antialiased}
+.screen{--bg:oklch(0.168 0.013 283);--surface:oklch(0.232 0.016 284);--surface2:oklch(0.258 0.018 284);--hair:oklch(1 0 0 / 0.09);--text:oklch(0.965 0.006 286);--muted:oklch(0.675 0.022 282);--accent:oklch(0.72 0.18 264);--accentFill:oklch(0.562 0.18 264);--warning:oklch(0.83 0.135 80);--shadowAccent:0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);--shadowTile:0 8px 20px -14px color-mix(in oklab,var(--accent) 55%,transparent);
+  width:375px;height:812px;box-sizing:border-box;position:relative;overflow:hidden;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+.bar{padding:59px 16px 12px;border-bottom:1px solid var(--hair)}
+h1{margin:0;font-size:26px;line-height:1.15;letter-spacing:-0.015em;font-weight:700}
+.sub{margin:2px 0 0;font-size:15px;font-weight:500;color:var(--muted)}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 32px 120px;text-align:center}
+.tile{position:relative;display:flex;align-items:center;justify-content:center;width:80px;height:80px;border-radius:24px;color:var(--accent);background-image:linear-gradient(150deg,color-mix(in oklab,var(--accent) 20%,var(--surface)),color-mix(in oklab,var(--accent) 8%,var(--surface)));border:1px solid color-mix(in oklab,var(--accent) 24%,transparent);box-shadow:var(--shadowTile)}
+.badge{position:absolute;right:-6px;bottom:-6px;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:var(--surface2);border:2px solid var(--bg);color:var(--warning)}
+h2{margin:8px 0 0;font-size:20px;line-height:1.25;letter-spacing:-0.01em;font-weight:700}
+p{margin:0;font-size:15px;line-height:1.45;color:var(--muted)}
+.primary{display:flex;align-items:center;justify-content:center;margin-top:8px;border:0;border-radius:16px;background:var(--accentFill);color:#fff;font:600 17px/1.2 'Inter',system-ui,sans-serif;padding:15px 24px;box-shadow:var(--shadowAccent)}
+svg{display:block}
+</style>
+</helmet>
+<div class="screen">
+  <div class="bar"><h1>Семья</h1></div>
+  <div class="empty">
+    <div class="tile">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.6" cy="6.4" r="3" fill="currentColor" fill-opacity="0.25"></circle><circle cx="8.6" cy="6.4" r="3"></circle><path d="M2.9 18.9a5.7 5.7 0 0 1 11.4 0"></path><circle cx="18" cy="8.2" r="2.3"></circle><path d="M13.89 16.78a3.9 3.9 0 0 1 7.11 2.22"></path></svg>
+      <span class="badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M9 7v10M15 7v10"></path></svg></span>
+    </div>
+    <h2>Семья на паузе</h2>
+    <p>Чат, общие задачи и звонки выходят в сеть — для них нужно ваше согласие. Группа и переписка остаются на телефоне.</p>
+    <button class="primary" type="button">Прочитать и принять</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":812}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Согласие — вариант Б</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;font-size:17px;-webkit-font-smoothing:antialiased}
+.screen{--bg:oklch(0.168 0.013 283);--surface:oklch(0.232 0.016 284);--surface2:oklch(0.258 0.018 284);--hair:oklch(1 0 0 / 0.09);--text:oklch(0.965 0.006 286);--muted:oklch(0.675 0.022 282);--accent:oklch(0.72 0.18 264);--accentFill:oklch(0.562 0.18 264);--warning:oklch(0.83 0.135 80);--shadowAccent:0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);--shadowTile:0 8px 20px -14px color-mix(in oklab,var(--accent) 55%,transparent);
+  width:375px;box-sizing:border-box;position:relative;overflow:hidden;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+.aurora{position:absolute;left:0;right:0;top:0;height:460px;pointer-events:none;background-image:radial-gradient(78% 48% at 12% -6%,oklch(0.62 0.12 268 / 0.12),transparent 58%),radial-gradient(72% 46% at 96% -2%,oklch(0.62 0.11 282 / 0.08),transparent 56%),radial-gradient(130% 75% at 50% -12%,oklch(0.26 0.03 286 / 0.45),transparent 72%)}
+.tile{display:flex;align-items:center;justify-content:center;flex:none;color:var(--accent);background-image:linear-gradient(150deg,color-mix(in oklab,var(--accent) 20%,var(--surface)),color-mix(in oklab,var(--accent) 8%,var(--surface)));border:1px solid color-mix(in oklab,var(--accent) 24%,transparent);box-shadow:var(--shadowTile)}
+.t56{width:56px;height:56px;border-radius:16px}
+.head{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:72px 24px 20px}
+h1{margin:0;font-size:20px;line-height:1.25;letter-spacing:-0.01em;font-weight:700}
+.lead{margin:0;font-size:15px;line-height:1.45;color:var(--muted)}
+.group{position:relative;margin:0 20px 16px}
+.gh{display:flex;align-items:center;gap:8px;padding:0 4px 8px}
+.gh svg{flex:none}
+.gt{font-size:15px;line-height:1.35;font-weight:700}
+.gs{font-size:13px;line-height:1.35;color:var(--muted)}
+.lock{color:var(--accent)}
+.eye{color:var(--warning)}
+.card{background:var(--surface);border:1px solid var(--hair);border-radius:16px;overflow:hidden}
+.row{padding:12px 16px}
+.row + .row{border-top:1px solid var(--hair)}
+.rt{font-size:15px;line-height:1.35;font-weight:600}
+.rd{margin-top:2px;font-size:13px;line-height:1.45;color:var(--muted)}
+.plain{position:relative;margin:4px 24px 0;font-size:13px;line-height:1.45;color:var(--muted)}
+.plain b{color:var(--text);font-weight:600}
+.actions{position:relative;display:flex;flex-direction:column;gap:4px;padding:24px 24px 34px}
+.primary{display:flex;align-items:center;justify-content:center;border:0;border-radius:16px;background:var(--accentFill);color:#fff;font:600 17px/1.2 'Inter',system-ui,sans-serif;padding:15px 20px;box-shadow:var(--shadowAccent)}
+.ghost{display:flex;align-items:center;justify-content:center;min-height:44px;border:0;background:transparent;color:var(--accent);font:500 15px/1.2 'Inter',system-ui,sans-serif}
+.cap{margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--muted);text-align:center}
+svg{display:block}
+</style>
+</helmet>
+<div class="screen" style="height: 1532px">
+  <div class="aurora"></div>
+  <div class="head">
+    <div class="tile t56"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="11" height="18" rx="2.6" fill="currentColor" fill-opacity="0.25"></rect><rect x="4" y="3" width="11" height="18" rx="2.6"></rect><path d="M8.5 17.6h2"></path><path d="M13.4 10.6 20.2 3.8"></path><path d="M15.6 3.8h4.6v4.6"></path></svg></div>
+    <h1>Что уходит с телефона</h1>
+    <p class="lead">Всё, что вы записываете, хранится на этом телефоне и работает без интернета. Часть функций выходит в сеть. Согласие одно — на всё сразу.</p>
+  </div>
+
+  <div class="group">
+    <div class="gh">
+      <svg class="lock" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.04" stroke-linecap="round" stroke-linejoin="round"><rect x="4.4" y="10.2" width="15.2" height="10.6" rx="3" fill="currentColor" fill-opacity="0.25"></rect><rect x="4.4" y="10.2" width="15.2" height="10.6" rx="3"></rect><path d="M8.2 10.2V7.4a3.8 3.8 0 0 1 7.6 0v2.8"></path></svg>
+      <div><div class="gt">Уходит зашифрованным</div><div class="gs">Ключ шифрования остаётся на ваших устройствах</div></div>
+    </div>
+    <div class="card">
+      <div class="row"><div class="rt">Синхронизация и облачная копия</div><div class="rd">Наш сервер хранит шифротекст и видит, из какого раздела запись и когда её меняли.</div></div>
+      <div class="row"><div class="rt">Напоминания</div><div class="rd">Сервер хранит время и зашифрованный текст. Доставляет служба уведомлений браузера — Apple или Google, текст ей тоже не виден.</div></div>
+      <div class="row"><div class="rt">Семья</div><div class="rd">Сообщения, фото и общие задачи зашифрованы. Серверу видны название группы, кто и когда писал, кто в сети.</div></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="gh">
+      <svg class="eye" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.04" stroke-linecap="round" stroke-linejoin="round"><path d="M2.4 12s3.4-6.6 9.6-6.6S21.6 12 21.6 12s-3.4 6.6-9.6 6.6S2.4 12 2.4 12Z" fill="currentColor" fill-opacity="0.25"></path><path d="M2.4 12s3.4-6.6 9.6-6.6S21.6 12 21.6 12s-3.4 6.6-9.6 6.6S2.4 12 2.4 12Z"></path><circle cx="12" cy="12" r="2.8"></circle></svg>
+      <div><div class="gt">Видно другим</div><div class="gs">Открытый текст или ваш IP-адрес</div></div>
+    </div>
+    <div class="card">
+      <div class="row"><div class="rt">Ассистент</div><div class="rd">Вопрос — и прочитанные записи, если включены «Данные», — через наш сервер к Polza.ai и модели Claude компании Anthropic (США). «Женские дни» ассистенту недоступны.</div></div>
+      <div class="row"><div class="rt">Звонки в семье</div><div class="rd">Разговор шифруется. Соединение идёт напрямую или через серверы связи Cloudflare и Metered, запасной — Google: им и собеседнику виден ваш IP-адрес.</div></div>
+      <div class="row"><div class="rt">Голосовой ввод</div><div class="rd">Речь распознаёт браузер: в Chrome — Google, в Safari на маке — Apple. На iPhone приложение голос не слушает.</div></div>
+      <div class="row"><div class="rt">Погода</div><div class="rd">Open-Meteo получает место с точностью около 11 км и ваш IP-адрес.</div></div>
+    </div>
+  </div>
+
+  <p class="plain"><b>И без согласия.</b> Приложение загружается и обновляется с GitHub Pages — GitHub видит IP-адрес и время. Ссылки и «Открыть на карте» открывают чужие сайты, только когда вы нажмёте; картам Apple уходит адрес места.</p>
+
+  <div class="actions">
+    <button class="primary" type="button">Принимаю</button>
+    <button class="ghost" type="button">Не сейчас</button>
+    <p class="cap">Без согласия работает всё, что на телефоне. Внешнее включится после «Принимаю» — окно откроется само, когда понадобится. Перечитать: Настройки → Что уходит с телефона</p>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":1532}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
