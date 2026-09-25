@@ -1171,6 +1171,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
       toast(t('Файл ещё не получен целиком — подождите пару секунд'));
       return;
     }
+    // Ссылка — только на встроенный файл: javascript: в href исполнился бы
+    // внутри приложения (файл мог прийти и из подложенной копии).
+    if (!/^data:/i.test(m.fileData)) return;
     const a = document.createElement('a');
     a.href = m.fileData;
     a.download = m.file.name;

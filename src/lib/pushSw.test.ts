@@ -122,3 +122,27 @@ describe('push-sw: текст напоминания сервер не види�
     expect(body).not.toContain('интернет');
   });
 });
+
+describe('ключ напоминаний: первый запуск в двух вкладках', () => {
+  it('обе вкладки запечатывают ключом, который лежит в базе', async () => {
+    // Две вкладки (или вкладка и PWA на Android) поднимаются после
+    // обновления одновременно: раньше каждая заводила свой ключ, побеждал
+    // последний, и напоминания проигравшей не расшифровывались.
+    await new Promise<void>((resolve) => {
+      const r = indexedDB.deleteDatabase('lifehearth-push-key');
+      r.onsuccess = r.onerror = () => resolve();
+    });
+    vi.resetModules();
+    const tabA = await import('./reminderSeal');
+    vi.resetModules();
+    const tabB = await import('./reminderSeal');
+    const [a, b] = await Promise.all([
+      tabA.sealReminderText('Задача вкладки А', ''),
+      tabB.sealReminderText('Задача вкладки Б', ''),
+    ]);
+    const sw = bootSw('https://xabos02.github.io/lifehearth/');
+    await sw.fire('push', pushOf({ title: 'Напоминание', body: a, taskId: 'a' }));
+    await sw.fire('push', pushOf({ title: 'Напоминание', body: b, taskId: 'b' }));
+    expect(sw.shown.map((n) => n.title)).toEqual(['Задача вкладки А', 'Задача вкладки Б']);
+  });
+});

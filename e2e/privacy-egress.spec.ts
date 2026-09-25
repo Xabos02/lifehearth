@@ -65,3 +65,31 @@ test('заметка с внешней картинкой и onerror откры�
   expect(await page.locator('.note-editor img').count()).toBe(0);
   expect(hits).toEqual([]);
 });
+
+test('семейный файл со ссылкой javascript: по тапу не исполняется', async ({ page }) => {
+  // Файл мог прийти из подложенной копии: ссылка скачивания — только data:.
+  await openApp(page, '/more/family');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    const key = await generateKey();
+    const ts = new Date().toISOString();
+    await db.family.put({
+      id: 'f1', familyId: 'f1', familyToken: 't', familyKey: key, familyName: 'Наши', selfMemberId: 'me',
+      lastSeq: 0, lastReadSeq: 0, enabled: true, joinedAt: ts, keyEpoch: 0, keyRing: { '0': key },
+    });
+    await db.familyMembers.bulkPut([
+      { id: 'me', familyId: 'f1', seq: 1, displayName: 'Влад', color: '#5b7cfa', joinedAt: ts, leftAt: null, removedAt: null },
+      { id: 'm0', familyId: 'f1', seq: 1, displayName: 'Отец', color: '#5b7cfa', joinedAt: ts, leftAt: null, removedAt: null },
+    ]);
+    await db.familyMessages.put({
+      clientMsgId: 'evil-file', familyId: 'f1', seq: 5, senderMemberId: 'm0', createdAt: ts, text: '',
+      file: { fileId: 'fe', name: 'отчёт.pdf', mime: 'application/pdf', size: 10, chunksTotal: 1 },
+      fileData: 'javascript:window.__pwned=1', status: 'acked', deletedAt: null,
+    } as never);
+  });
+  await page.goto('/more/family?g=f1');
+  await page.getByText('отчёт.pdf').click();
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();
+});

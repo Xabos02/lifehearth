@@ -9,8 +9,9 @@ function appBase() {
   return new URL(self.registration.scope).pathname;
 }
 // Текст напоминания приходит шифротекстом (src/lib/reminderSeal.ts): сервер
-// хранит его до срока и видеть не должен. Ключ — в базе устройства, общей у
-// страницы и сервис-воркера; тем же форматом, что encryptJSON:
+// хранит его до срока и видеть не должен. Ключ — сырые байты в базе
+// устройства, общей у страницы и сервис-воркера (почему байты, а не CryptoKey,
+// — там же); формат тот же, что у encryptJSON:
 // 'e2e1:' + base64url(iv(12) ‖ шифротекст).
 const SEALED_PREFIX = 'e2e1:';
 function b64urlToBytes(s) {
@@ -31,7 +32,7 @@ function reminderKey() {
         const get = db.transaction('keys').objectStore('keys').get('reminders');
         get.onsuccess = () => {
           db.close();
-          resolve(get.result || null);
+          resolve(get.result instanceof Uint8Array ? get.result : null);
         };
         get.onerror = () => {
           db.close();
@@ -48,8 +49,9 @@ function reminderKey() {
 // данных сайта). Тогда уведомление нейтральное — открытым текст не бывает.
 async function unseal(text) {
   try {
-    const key = await reminderKey();
-    if (!key) return null;
+    const raw = await reminderKey();
+    if (!raw) return null;
+    const key = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
     const all = b64urlToBytes(text.slice(SEALED_PREFIX.length));
     const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, key, all.slice(12));
     return JSON.parse(new TextDecoder().decode(plain));

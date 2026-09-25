@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { msgPayload, msgRowFromWire } from './familyChat';
+import { hexColor, msgPayload, msgRowFromWire } from './familyChat';
 import type { FamilyMessage } from '../../db/types';
 
 // Контракт двух концов провода сообщений: msgPayload (отправка) и
@@ -53,6 +53,13 @@ describe('провод сообщений чата: payload ↔ строка', (
     const kept = msgRowFromWire('f1', meta, ok, null);
     expect(kept.image).toBe('data:image/jpeg;base64,AAA');
     expect(kept.audio).toBe('data:audio/mp4;base64,AAA');
+  });
+
+  it('цвет участника и задачи — только hex: url() в background загрузил бы чужой адрес', () => {
+    expect(hexColor('#7c9aff')).toBe('#7c9aff');
+    expect(hexColor('url(https://evil.example/px)')).toBeNull();
+    expect(hexColor('#fff url(https://evil.example/px)')).toBeNull();
+    expect(hexColor(null)).toBeNull();
   });
 
   it('незнакомое поле будущей версии отбрасывается белым списком', () => {

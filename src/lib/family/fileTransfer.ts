@@ -33,7 +33,11 @@ export function splitDataUrl(dataUrl: string): string[] {
  *  не гарантирует порядок доставки) и с дублями (переотправка из outbox при
  *  реконнекте) — последний дубль в массиве побеждает. undefined, если хотя бы
  *  одного индекса 0..total-1 не хватает: значит либо ещё не всё доехало, либо
- *  часть истории уже вытеснена ретеншном сервера. */
+ *  часть истории уже вытеснена ретеншном сервера.
+ *
+ *  Собранное — только data:: куски шлёт любой держатель ключа группы, а файл
+ *  уходит в <audio src> (длинное голосовое) и в ссылку скачивания — внешний
+ *  адрес загрузился бы сам, javascript: исполнился бы в приложении. */
 export function assembleFile(chunks: { idx: number; data: string }[], total: number): string | undefined {
   const byIdx = new Map<number, string>();
   for (const c of chunks) byIdx.set(c.idx, c.data); // более поздний элемент массива перезаписывает более ранний
@@ -43,7 +47,7 @@ export function assembleFile(chunks: { idx: number; data: string }[], total: num
     if (piece === undefined) return undefined;
     out += piece;
   }
-  return out;
+  return /^data:/i.test(out) ? out : undefined;
 }
 
 /** Округляет до 1 знака после запятой и печатает по-русски: целое — без

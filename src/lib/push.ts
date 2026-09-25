@@ -172,14 +172,21 @@ function bodyFor(t: ReminderTask): string {
 
 /** Единственная дверь в /schedule. Текст — только шифротекстом (reminderSeal.ts):
  *  сервер хранит его до срока и видеть не должен. Не вышло зашифровать — уходит
- *  пустым, и уведомление придёт нейтральным «Напоминание», но не открытым. */
-async function postSchedule(id: string, fireAt: number, title: string, body: string): Promise<Response> {
-  const sealed = await sealReminderText(title, body).catch(() => '');
-  return fetch(`${WORKER_URL}/schedule`, {
+ *  пустым (уведомление придёт нейтральным «Напоминание», но не открытым), и
+ *  sealed=false: напоминание задачи остаётся в очереди повтора. */
+async function postSchedule(
+  id: string,
+  fireAt: number,
+  title: string,
+  body: string,
+): Promise<{ res: Response; sealed: boolean }> {
+  const text = await sealReminderText(title, body).catch(() => '');
+  const res = await fetch(`${WORKER_URL}/schedule`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ taskId: id, fireAt, title: '', body: sealed, subscription: storedSub() }),
+    body: JSON.stringify({ taskId: id, fireAt, title: '', body: text, subscription: storedSub() }),
   });
+  return { res, sealed: text !== '' };
 }
 
 /** Ставит/обновляет напоминание задачи на Worker (или снимает, если не годится). */
@@ -193,10 +200,13 @@ export async function scheduleReminder(t: ReminderTask): Promise<void> {
   // Тон уведомлений: без эмодзи, коротко и по делу (title — название задачи).
   const body = bodyFor(t);
   try {
-    const res = await postSchedule(t.id, fireAt, t.title, body);
+    const { res, sealed } = await postSchedule(t.id, fireAt, t.title, body);
     // Проверяем ответ, а не только отсутствие исключения: сервер мог ответить
     // отказом, и тогда напоминания тоже нет.
     if (!res.ok) throw new Error(`schedule ${res.status}`);
+    // Ушло без текста (сбой базы ключа) — стоит, но нейтральное; повтор
+    // запечатает название, когда база оживёт.
+    if (!sealed) throw new Error('schedule: not sealed');
     clearReminderRetry(t.id);
   } catch {
     // Раньше здесь стояло молчание с обещанием «переедет при следующем

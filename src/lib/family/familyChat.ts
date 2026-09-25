@@ -14,6 +14,7 @@ import type { FamilyConfig, FamilyMessage, FamilySystemEvent, FamilyTask, Family
 import { getPushSubscription } from '../push';
 import { getFamilyConfig, patchFamilyConfig, listFamilyConfigs } from './familyState';
 import { assembleFile, splitDataUrl } from './fileTransfer';
+import { PRESET_COLORS } from '../colors';
 import { systemEventText } from './systemMessage';
 import { t } from '../i18n';
 import { importBoxPrivate, importBoxPublic, openFrom } from '../crypto';
@@ -86,6 +87,13 @@ export function msgPayload(m: FamilyMessage): object {
  *  целиком, и echo собственного манифеста иначе стёрло бы его в гонке с ack. */
 function inlineOnly(v: unknown, re: RegExp): string | null {
   return typeof v === 'string' && re.test(v) ? v : null;
+}
+
+/** Цвет участника или общей задачи — только hex, как его ставит приложение.
+ *  Он уходит в style.background, а 'url(https://…)' — законное значение
+ *  background: трекинг-пиксель от любого, у кого есть ключ группы. */
+export function hexColor(v: unknown): string | null {
+  return typeof v === 'string' && /^#[0-9a-f]{3,8}$/i.test(v) ? v : null;
 }
 
 export function msgRowFromWire(
@@ -367,10 +375,10 @@ class FamilyEngine {
           await db.familyMessages.put(row);
         } else if (it.channel === 'task') {
           const local = await db.familyTasks.get(it.itemId);
-          if (!local || it.seq > local.seq) await db.familyTasks.put({ ...(p as unknown as FamilyTask), id: it.itemId, familyId: this.familyId, seq: it.seq });
+          if (!local || it.seq > local.seq) await db.familyTasks.put({ ...(p as unknown as FamilyTask), color: hexColor(p.color), id: it.itemId, familyId: this.familyId, seq: it.seq });
         } else if (it.channel === 'member') {
           const local = await db.familyMembers.get(it.itemId);
-          if (!local || it.seq > local.seq) await db.familyMembers.put({ ...(p as unknown as FamilyMember), id: it.itemId, familyId: this.familyId, seq: it.seq });
+          if (!local || it.seq > local.seq) await db.familyMembers.put({ ...(p as unknown as FamilyMember), color: hexColor(p.color) ?? PRESET_COLORS[0], id: it.itemId, familyId: this.familyId, seq: it.seq });
         }
       }
     });

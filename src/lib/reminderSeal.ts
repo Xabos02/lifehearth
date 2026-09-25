@@ -6,11 +6,18 @@
 // зашифрована сквозным ключом. Владелец (24.09): «надо чтобы всё было
 // защищено».
 //
-// Ключ — свой у каждого телефона, неизвлекаемый, в отдельной маленькой базе
-// на устройстве (не в основной: в копию и синхронизацию он попасть не должен).
-// Напоминание всегда приходит на тот телефон, который его поставил, — туда же,
-// где лежит ключ; расшифровывает его public/push-sw.js в момент показа.
-// Сервер видит только время срабатывания и адрес подписки.
+// Ключ — свой у каждого телефона, в отдельной маленькой базе на устройстве
+// (не в основной: в копию и синхронизацию он попасть не должен). Напоминание
+// всегда приходит на тот телефон, который его поставил, — туда же, где лежит
+// ключ; расшифровывает его public/push-sw.js в момент показа. Сервер видит
+// время срабатывания, адрес подписки и шифротекст.
+//
+// Ключ лежит СЫРЫМИ байтами, а не объектом CryptoKey. CryptoKey в IndexedDB
+// WebKit заворачивает мастер-ключом устройства, а у сервис-воркера iOS
+// 16.4–17 развернуть его нечем (у его страницы нет crypto-клиента, появился
+// с Safari 18): get() молча отдаёт null, и каждое напоминание пришло бы без
+// названия. Байты читаются везде одинаково. Защиты это почти не снимает:
+// скрипт того же сайта и неизвлекаемым ключом расшифровал бы что угодно.
 import { encryptJSON } from './crypto';
 
 export const SEALED_PREFIX = 'e2e1:';
@@ -27,26 +34,31 @@ function openKeyDb(): Promise<IDBDatabase> {
   });
 }
 
-function request<T>(r: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
-  });
-}
-
+/** Ключ устройства; заводится один раз. get и put — в ОДНОЙ readwrite-
+ *  транзакции: IndexedDB выполняет их по очереди, и две вкладки на первом
+ *  запуске не заведут по своему ключу (тогда одна запечатывала бы тем,
+ *  которого в базе нет). Ключ идёт в дело после фиксации транзакции. */
 async function loadOrCreateKey(): Promise<CryptoKey> {
+  const fresh = crypto.getRandomValues(new Uint8Array(32));
   const db = await openKeyDb();
+  let raw: Uint8Array<ArrayBuffer>;
   try {
-    const have = (await request(db.transaction(STORE).objectStore(STORE).get(KEY_ID))) as CryptoKey | undefined;
-    if (have) return have;
-    // Неизвлекаемый: достать его из браузера в виде байтов нельзя, а
-    // сервис-воркер пользуется им как есть.
-    const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-    await request(db.transaction(STORE, 'readwrite').objectStore(STORE).put(key, KEY_ID));
-    return key;
+    raw = await new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      const store = tx.objectStore(STORE);
+      let value = fresh;
+      const get = store.get(KEY_ID);
+      get.onsuccess = () => {
+        if (get.result instanceof Uint8Array) value = new Uint8Array(get.result);
+        else store.put(fresh, KEY_ID);
+      };
+      tx.oncomplete = () => resolve(value);
+      tx.onerror = tx.onabort = () => reject(tx.error);
+    });
   } finally {
     db.close();
   }
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt']);
 }
 
 // Одно обещание на страницу: два напоминания подряд при первом запуске иначе

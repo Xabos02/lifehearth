@@ -1,5 +1,6 @@
 // Напоминания, которые не удалось поставить: очередь и повтор.
 
+import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Юниты идут без браузерного окружения, а очередь живёт в localStorage:
@@ -166,6 +167,27 @@ describe('постановка напоминания при сбое', () => {
     await scheduleReminder(task);
 
     expect(pendingReminderRetries()).toEqual([]);
+  });
+
+  it('ушло без текста (база ключа не открылась) — задача остаётся в очереди', async () => {
+    // Сервер принял, но текст не запечатан: придёт нейтральное «Напоминание».
+    // Повтор запечатает название, когда база ключа оживёт.
+    const idb = globalThis.indexedDB;
+    globalThis.indexedDB = { open: () => { throw new Error('IDB down'); } } as unknown as IDBFactory;
+    const sent: { body: string }[] = [];
+    globalThis.fetch = ((_u: string, init: RequestInit) => {
+      sent.push(JSON.parse(String(init.body)));
+      return Promise.resolve(new Response('{"ok":true}', { status: 200 }));
+    }) as typeof fetch;
+    try {
+      const { scheduleReminder } = await import('./push');
+      await scheduleReminder(task);
+    } finally {
+      globalThis.indexedDB = idb;
+    }
+    expect(sent).toHaveLength(1);
+    expect(sent[0].body).toBe('');
+    expect(pendingReminderRetries()).toEqual(['t1']);
   });
 });
 
