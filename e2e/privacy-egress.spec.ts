@@ -93,3 +93,24 @@ test('семейный файл со ссылкой javascript: по тапу н
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();
 });
+
+test('страховка CSP: картинка и звук с чужого адреса не грузятся, даже попав в страницу', async ({ page }) => {
+  // На случай, если однажды санитайз пропустит разметку: браузер сам не пойдёт
+  // по внешнему адресу картинки или медиа.
+  const hits: string[] = [];
+  await page.route('https://evil.example/**', (r) => {
+    hits.push(r.request().url());
+    return r.abort();
+  });
+  await openApp(page, '/');
+  await page.evaluate(() => {
+    const img = document.createElement('img');
+    img.src = 'https://evil.example/px.png';
+    const audio = document.createElement('audio');
+    audio.preload = 'auto';
+    audio.src = 'https://evil.example/a.mp3';
+    document.body.append(img, audio);
+  });
+  await page.waitForTimeout(500);
+  expect(hits).toEqual([]);
+});
