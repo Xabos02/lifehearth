@@ -79,7 +79,7 @@ function channelRows(female: boolean): Record<ConsentChannel, { title: string; t
     },
     voice: {
       title: t('Голосовой ввод'),
-      text: t('Речь распознаёт браузер: в Chrome — Google, в Safari на маке — Apple. На iPhone приложение голос не слушает.'),
+      text: t('Речь распознаёт браузер: в Chrome — Google, в Edge — Microsoft, в Safari на маке — Apple. На iPhone приложение голос не слушает.'),
     },
     weather: {
       title: t('Погода'),
@@ -214,7 +214,7 @@ export function ConsentGate() {
                   ))}
                 </div>
                 <p className="text-xs leading-relaxed">
-                  {t('Без согласия это встанет на паузу: телефон ничего не отправит, но уже поставленное на сервере придёт. Ничего не удалится — «Принимаю» вернёт как было.')}
+                  {t('Без согласия это встанет на паузу: телефон ничего не отправит, а сервер продолжит присылать уведомления — напоминания, сообщения и звонки семьи. Ничего не удалится — «Принимаю» вернёт как было.')}
                 </p>
               </div>
             )}
@@ -226,13 +226,13 @@ export function ConsentGate() {
               <Point icon={<GLock size={ICON.header} className="text-accent" />}>
                 <span className="font-semibold">{t('Синхронизация, напоминания и семья')}</span>{' '}
                 <span className="text-muted">
-                  {t('передают записи на наш сервер зашифрованными. Сервер видит служебное: когда, из какого раздела, кто в сети. При звонке ваш IP-адрес виден серверам связи и собеседнику.')}
+                  {t('передают записи на наш сервер зашифрованными. Сервер видит служебное: когда, из какого раздела, кто в сети, название семейной группы и ваш IP-адрес. При звонке IP-адрес виден ещё серверам связи и собеседнику.')}
                 </span>
               </Point>
               <Point icon={<Eye size={ICON.header} strokeWidth={STROKE_STRONG} className="text-warning" />}>
                 <span className="font-semibold">{t('Ассистент, голосовой ввод и погода')}</span>{' '}
                 <span className="text-muted">
-                  {t('передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Polza.ai, Anthropic, Google, Apple, Open-Meteo.')}
+                  {t('передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Polza.ai, Anthropic, Google, Apple, Microsoft, Open-Meteo.')}
                 </span>
               </Point>
             </ul>
@@ -280,7 +280,7 @@ export function ConsentGate() {
             </button>
             {!pausing && (
               <p className="text-center text-xs leading-snug text-muted">
-                {t('Без согласия работает всё, что на телефоне. Перечитать: Настройки → Что уходит с телефона')}
+                {t('Без согласия работает всё, что на телефоне, кроме семьи. Перечитать: Настройки → Что уходит с телефона')}
               </p>
             )}
           </>

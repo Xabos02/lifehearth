@@ -29,7 +29,7 @@ import { enablePush, isIOS, isStandalone, pushEnabled, pushPaused, pushSupported
 import { showConsent, useConsent } from '../../lib/consent';
 import { EXTERNAL_LABELS, useExternalOn } from '../../hooks/useExternalOn';
 import { GPause } from '../../components/ui/glyphs';
-import { formatRu } from '../../lib/dates';
+import { formatRu, toKey } from '../../lib/dates';
 import { HINT_IDS, resetSessionHints } from '../../hooks/useHint';
 import { SyncSection } from './sync/SyncSection';
 import type { Settings } from '../../db/types';
@@ -357,7 +357,8 @@ export function SettingsPage() {
               <span className="min-w-0 flex-1">{t('Что уходит с телефона')}</span>
               {settings.consentAt ? (
                 <span className="shrink-0 text-sm text-muted">
-                  {t('принято {date}', { date: formatRu(settings.consentAt.slice(0, 10), 'd MMMM') })}
+                  {/* Местный день, а не UTC: принятое ночью по Москве иначе было бы «вчера». */}
+                  {t('принято {date}', { date: formatRu(toKey(new Date(settings.consentAt))) })}
                 </span>
               ) : (
                 <span className="shrink-0 text-sm font-medium text-warning">{t('нет согласия')}</span>

@@ -2073,11 +2073,11 @@ export const EN: Record<string, string> = {
   'Записи хранятся на телефоне': 'Your records stay on the phone',
   'и работают без интернета — задачи, заметки, цели, деньги, здоровье.': 'and work offline — tasks, notes, goals, money, health.',
   'Синхронизация, напоминания и семья': 'Sync, reminders and family',
-  'передают записи на наш сервер зашифрованными. Сервер видит служебное: когда, из какого раздела, кто в сети. При звонке ваш IP-адрес виден серверам связи и собеседнику.':
-    'send your records to our server encrypted. The server sees the metadata: when, which section, who is online. During a call your IP address is visible to the relay servers and the other person.',
+  'передают записи на наш сервер зашифрованными. Сервер видит служебное: когда, из какого раздела, кто в сети, название семейной группы и ваш IP-адрес. При звонке IP-адрес виден ещё серверам связи и собеседнику.':
+    'send your records to our server encrypted. The server sees the metadata: when, which section, who is online, the family group name and your IP address. During a call your IP address is also visible to the relay servers and the other person.',
   'Ассистент, голосовой ввод и погода': 'The assistant, voice input and weather',
-  'передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Polza.ai, Anthropic, Google, Apple, Open-Meteo.':
-    'send what you give them in plain text — to our server and third-party services: Polza.ai, Anthropic, Google, Apple, Open-Meteo.',
+  'передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Polza.ai, Anthropic, Google, Apple, Microsoft, Open-Meteo.':
+    'send what you give them in plain text — to our server and third-party services: Polza.ai, Anthropic, Google, Apple, Microsoft, Open-Meteo.',
   'Подробно, по каждой функции': 'Details for each feature',
   'Коротко': 'In short',
   'Всё, что вы записываете, хранится на этом телефоне и работает без интернета. Часть функций выходит в сеть. Согласие одно — на всё сразу.':
@@ -2100,8 +2100,8 @@ export const EN: Record<string, string> = {
   'Звонки в семье': 'Family calls',
   'Разговор шифруется. Соединение идёт напрямую или через серверы связи Cloudflare и Metered, запасной — Google: им и собеседнику виден ваш IP-адрес.':
     'The call is encrypted. It connects directly or through Cloudflare and Metered relay servers, with Google as a fallback: they and the other person can see your IP address.',
-  'Речь распознаёт браузер: в Chrome — Google, в Safari на маке — Apple. На iPhone приложение голос не слушает.':
-    'Speech is recognized by the browser: Google in Chrome, Apple in Safari on a Mac. On iPhone the app doesn’t listen to your voice.',
+  'Речь распознаёт браузер: в Chrome — Google, в Edge — Microsoft, в Safari на маке — Apple. На iPhone приложение голос не слушает.':
+    'Speech is recognized by the browser: Google in Chrome, Microsoft in Edge, Apple in Safari on a Mac. On iPhone the app doesn’t listen to your voice.',
   'Погода': 'Weather',
   'Open-Meteo получает место с точностью около 11 км и ваш IP-адрес.': 'Open-Meteo receives your location to within about 11 km and your IP address.',
   'И без согласия.': 'Even without consent.',
@@ -2116,13 +2116,13 @@ export const EN: Record<string, string> = {
   'Согласие одно — на всё внешнее сразу: семья, ассистент и остальное второй раз этого окна не покажут.':
     'One consent covers everything online: family, the assistant and the rest won’t show this window again.',
   'Сейчас у вас включено': 'Currently on',
-  'Без согласия это встанет на паузу: телефон ничего не отправит, но уже поставленное на сервере придёт. Ничего не удалится — «Принимаю» вернёт как было.':
-    'Without consent these will pause: the phone will send nothing, but anything already scheduled on the server will still arrive. Nothing is deleted — “I agree” brings it all back.',
+  'Без согласия это встанет на паузу: телефон ничего не отправит, а сервер продолжит присылать уведомления — напоминания, сообщения и звонки семьи. Ничего не удалится — «Принимаю» вернёт как было.':
+    'Without consent these will pause: the phone will send nothing, while the server keeps sending notifications — reminders, family messages and calls. Nothing is deleted — “I agree” brings it all back.',
   'Принимаю': 'I agree',
   'Не принимать — поставить на паузу': 'Don’t agree — pause them',
   'Не сейчас': 'Not now',
-  'Без согласия работает всё, что на телефоне. Перечитать: Настройки → Что уходит с телефона':
-    'Without consent, everything on the phone still works. To reread: Settings → What leaves your phone',
+  'Без согласия работает всё, что на телефоне, кроме семьи. Перечитать: Настройки → Что уходит с телефона':
+    'Without consent, everything on the phone still works except family. To reread: Settings → What leaves your phone',
   'Прочитать и принять': 'Read and agree',
   'Семья на паузе': 'Family is paused',
   'Чат, общие задачи и звонки выходят в сеть — для них нужно ваше согласие. Группа и переписка остаются на телефоне.':
