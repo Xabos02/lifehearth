@@ -243,7 +243,13 @@ async function overlapsOn(page: Page, rootSel = '#root'): Promise<string[]> {
         const rb = hitRect(b);
         const dx = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
         const dy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
-        if (dx > 0 && dy > 0) {
+        // Не «> 0», а от полупикселя. Кружки цвета стоят с шагом ровно 44 —
+        // зоны соседей касаются краями. Пока шторка выезжает, её сдвиг
+        // дробный, браузер отдаёт координаты с точностью float32, и край
+        // одного ряда оказывается на 0,00003px ниже края другого: тест видел
+        // «налезают на 44×0px» (деплой 1.39.0 25.09). Пальцу такой зазор не
+        // заметен, в отчёте он и печатался как 0.
+        if (dx >= 0.5 && dy >= 0.5) {
           const name = (el: Element) =>
             (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24);
           bad.push(`«${name(a)}» и «${name(b)}» налезают на ${Math.round(dx)}×${Math.round(dy)}px`);
