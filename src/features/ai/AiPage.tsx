@@ -122,7 +122,7 @@ export function AiPage() {
         systemPrompt: target.systemPrompt,
         model: target.model,
         signal: ac.signal,
-        dataTools: target.dataTools !== false,
+        dataTools: target.dataTools === true,
         onDelta: (piece) => {
           setToolLabel(null);
           setStreamText((prev) => (prev ?? '') + piece);
@@ -249,7 +249,7 @@ export function AiPage() {
             value={draft}
             busy={busy}
             modelName={modelLabel(chat?.model ?? null) || t('Модель')}
-            dataTools={chat?.dataTools !== false}
+            dataTools={chat?.dataTools === true}
             onModelTap={() => setModelOpen(true)}
             onDataTools={(v) => chat && void patchChat(chat.id, { dataTools: v })}
             onChange={setDraft}
@@ -313,7 +313,7 @@ function AiWelcome({ onAsk }: { onAsk: (q: string) => void }) {
       </div>
       <p className="text-lg font-bold tracking-tight">{t('Спросите о своём')}</p>
       <p className="mt-1 mb-5 max-w-[17rem] text-sm text-muted">
-        {t('Ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.')}
+        {t('С «Данными» ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.')}
       </p>
       <div className="flex w-full max-w-sm flex-col gap-2">
         {SUGGESTIONS.map((q) => (
@@ -535,8 +535,9 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
           <span className="truncate">{modelName}</span>
           <ChevronDown size={ICON.inline} className="shrink-0 text-muted" />
         </button>
-        {/* Доступ модели к данным приложения. Включён по умолчанию — это и
-            есть смысл раздела; выключатель — для разговоров «не о своём». */}
+        {/* Доступ модели к данным приложения. Выключен по умолчанию (решение
+            25.09, задача 33): прочитанное уходит через наш воркер провайдеру
+            открытым текстом — включает человек, сам и для этого чата. */}
         <button
           aria-label={t('Доступ к данным')}
           aria-pressed={dataTools}

@@ -179,6 +179,8 @@ test('доступ к данным: модель вызывает инструм
   });
   await page.getByRole('button', { name: 'Модель' }).click();
   await page.getByRole('button', { name: /Claude Sonnet 5/ }).click();
+  // Доступ к данным по умолчанию выключен (решение 25.09) — включает человек.
+  await page.getByRole('button', { name: 'Доступ к данным' }).click();
 
   await page.getByPlaceholder('Сообщение…').fill('что по задачам?');
   await page.getByRole('button', { name: 'Отправить' }).click();
@@ -252,7 +254,7 @@ test('ответ не двоится: поток гаснет до того, к�
   expect(await page.evaluate(() => (window as unknown as { __maxSeen: number }).__maxSeen)).toBe(1);
 });
 
-test('тумблер «Доступ к данным» выключает инструменты: запрос уходит без tools', async ({ page }) => {
+test('доступ к данным по умолчанию выключен: запрос уходит без tools, включение запоминается', async ({ page }) => {
   const bodies: string[] = [];
   await page.route('**/ai/chat', (route) => {
     bodies.push(route.request().postData() ?? '');
@@ -264,9 +266,9 @@ test('тумблер «Доступ к данным» выключает инс�
   await openApp(page, '/more/ai');
   await seedSyncAccount(page);
 
+  // Прочитанное уходит через наш воркер провайдеру открытым текстом, поэтому
+  // без явного включения модель данных не видит (решение 25.09, задача 33).
   const toggle = page.getByRole('button', { name: 'Доступ к данным' });
-  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-  await toggle.click();
   await expect(toggle).toHaveAttribute('aria-pressed', 'false');
 
   await page.getByPlaceholder('Сообщение…').fill('привет');
@@ -274,9 +276,11 @@ test('тумблер «Доступ к данным» выключает инс�
   await expect(page.getByText('ответ без данных')).toBeVisible();
   expect(bodies[0]).not.toContain('"tools"');
 
-  // Выбор запоминается в чате: после перезагрузки тумблер остаётся выключен.
+  // Включение запоминается в чате: после перезагрузки тумблер остаётся включён.
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
   await page.goto('/more/ai');
-  await expect(page.getByRole('button', { name: 'Доступ к данным' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: 'Доступ к данным' })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('пустой чат: подсказка отправляется одним тапом', async ({ page }) => {

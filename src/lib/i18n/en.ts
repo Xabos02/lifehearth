@@ -102,8 +102,7 @@ export const EN: Record<string, string> = {
   'Экспортировать резервную копию': 'Export a backup',
   'Импортировать резервную копию': 'Import a backup',
   'Что нового': "What's new",
-  'Версия {v} · данные хранятся только на этом устройстве':
-    'Version {v} · your data stays on this device',
+  'Версия {v}': 'Version {v}',
 
   // === Общие компоненты ===
   'Очистить поле': 'Clear field',
@@ -1272,8 +1271,8 @@ export const EN: Record<string, string> = {
   'Вес, кг': 'Weight, kg',
   'Определяет набор разделов: «Женские дни» есть только в женском профиле. При смене пола записи раздела не удаляются — он просто скрывается, а задачи, которые он поставил сам, уходят в «Корзину», если вы их не меняли.':
     "Determines which sections are available: Cycle only exists in a female profile. Switching gender doesn't delete the section's entries — it just hides it, and the tasks it created move to Trash unless you changed them.",
-  'Эти данные остаются на устройстве и попадают только в вашу резервную копию. Никуда больше они не отправляются.':
-    "This data stays on your device and only goes into your backup. It's never sent anywhere else.",
+  'Эти данные хранятся на устройстве и в вашей резервной копии. Вес ещё записывается замером в «Здоровье» — с синхронизацией он зашифрованным попадает на ваши устройства.':
+    'This data is kept on your device and in your backup. Weight is also logged as a Health measurement — with sync on, it reaches your other devices encrypted.',
   'Срок: {date}': 'Due: {date}',
   'Цель не найдена': 'Goal not found',
   'К списку целей': 'Back to goals',
@@ -1803,8 +1802,8 @@ export const EN: Record<string, string> = {
   'Инструкция для модели': 'Instructions for the model',
   'Например: отвечай кратко, в два-три предложения': 'For example: answer briefly, in two or three sentences',
   'Действует на все ответы в этом чате.': 'Applies to every reply in this chat.',
-  'Модель читает задачи, заметки, финансы и другие разделы.':
-    'The model reads tasks, notes, finance and other sections.',
+  'Модель читает задачи, заметки, финансы и другие разделы, кроме «Женских дней».':
+    'The model reads tasks, notes, finance and other sections, except Cycle.',
   'Включён': 'On',
   'Выключен': 'Off',
   'Экспорт в markdown': 'Export as markdown',
@@ -1822,8 +1821,8 @@ export const EN: Record<string, string> = {
   'Точная стоимость каждого ответа видна под ним и в шапке чата.':
     'The exact cost of each reply is shown under it and in the chat header.',
   'Спросите о своём': 'Ask about your own data',
-  'Ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.':
-    'The assistant reads your tasks, notes, finance and habits — and answers with facts.',
+  'С «Данными» ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.':
+    'With Data on, the assistant reads your tasks, notes, finance and habits — and answers with facts.',
   'Разбери мои расходы за месяц': 'Break down my spending for the month',
   'Что у меня по задачам на этой неделе?': 'What are my tasks for this week?',
   'Собери план на завтра из моих задач': 'Build a plan for tomorrow from my tasks',

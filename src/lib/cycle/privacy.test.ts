@@ -49,6 +49,16 @@ describe('данные цикла не покидают устройство', (
     }
   });
 
+  it('ИИ-инструменты не читают таблицы раздела', () => {
+    // Ответ облачной модели идёт через наш воркер к провайдеру открытым
+    // текстом; экран раздела обещает «не уходят на сервер» (решение 25.09).
+    // Автозадачи раздела в list_tasks — поведенческий тест в ai/tools.test.ts.
+    const body = code('lib/ai/tools.ts');
+    for (const t of CYCLE_TABLES) {
+      expect(body, `lib/ai/tools.ts обращается к ${t}`).not.toContain(`db.${t}`);
+    }
+  });
+
   it('репозиторий раздела не вызывает планировщик синхронизации', () => {
     const repo = code('lib/cycle/cycleRepo.ts');
     expect(repo).not.toContain('scheduleSyncSoon');

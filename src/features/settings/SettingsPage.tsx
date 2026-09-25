@@ -319,7 +319,7 @@ export function SettingsPage() {
 
         <Section
           title={t('Приложение')}
-          footnote={t('Версия {v} · данные хранятся только на этом устройстве', { v: APP_VERSION })}
+          footnote={t('Версия {v}', { v: APP_VERSION })}
         >
           <div className="card">
             <LinkRow icon={SlidersHorizontal} label={t('Разделы')} to="/more/settings/sections" />

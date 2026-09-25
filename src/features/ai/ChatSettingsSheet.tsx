@@ -101,7 +101,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
             <div className="min-w-0">
               <p className="font-medium">{t('Доступ к данным')}</p>
               <p className="text-xs text-muted">
-                {t('Модель читает задачи, заметки, финансы и другие разделы.')}
+                {t('Модель читает задачи, заметки, финансы и другие разделы, кроме «Женских дней».')}
               </p>
             </div>
           </div>
@@ -110,7 +110,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
               { value: 'on', label: t('Включён') },
               { value: 'off', label: t('Выключен') },
             ]}
-            value={chat.dataTools !== false ? 'on' : 'off'}
+            value={chat.dataTools === true ? 'on' : 'off'}
             onChange={(v) => void patchChat(chat.id, { dataTools: v === 'on' })}
           />
         </div>
