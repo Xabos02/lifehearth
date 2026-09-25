@@ -165,7 +165,7 @@ export function ConsentGate() {
               <GChevronLeft size={ICON.accent} strokeWidth={STROKE_STRONG} />
               {t('Коротко')}
             </button>
-            <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="mt-2 text-lg font-bold tracking-tight outline-none">
+            <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="mt-2 text-lg font-bold tracking-tight">
               {t('Что уходит с телефона')}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -194,7 +194,7 @@ export function ConsentGate() {
               <div className="flex size-14 items-center justify-center rounded-2xl tile-accent text-accent">
                 {reason ? REASON_ICON[reason] : <GPhoneOut size={ICON.accent} />}
               </div>
-              <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="text-lg font-bold tracking-tight outline-none">
+              <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="text-lg font-bold tracking-tight">
                 {reason && !review ? t(REASON_TITLES[reason]) : t('Что уходит с телефона')}
               </h2>
               {reason && !review && (
