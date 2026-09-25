@@ -229,11 +229,15 @@ test('вес из профиля попадает в «Замеры», а зам
   await page.getByPlaceholder('75').fill('81,5');
   await page.getByRole('button', { name: 'Сохранить' }).click();
   await expect(page.getByTestId('measure-weight')).toContainText('81,5');
-  const profile = await page.evaluate(async () => {
-    const { db } = await import('/src/db/db.ts');
-    return (await db.settings.get('app'))?.profile;
-  });
-  expect(profile?.weightKg).toBe(81.5);
+  // Профиль догоняет дневник следующей записью (logMeasure): карточка уже
+  // показывает замер, а профиль — через миллисекунды. Ждём значение, а не
+  // читаем разово — разовое чтение падало через раз под нагрузкой.
+  const weight = () =>
+    page.evaluate(async () => {
+      const { db } = await import('/src/db/db.ts');
+      return (await db.settings.get('app'))?.profile?.weightKg ?? null;
+    });
+  await expect.poll(weight).toBe(81.5);
 });
 
 test('удалённый последний замер веса снимает число и с профиля', async ({ page }) => {
@@ -248,11 +252,15 @@ test('удалённый последний замер веса снимает �
   await card.getByRole('button', { name: '+ замер' }).click();
   await page.getByRole('button', { name: 'Удалить замер за этот день' }).click();
   await expect(card).toContainText('Замеров пока нет');
-  const profile = await page.evaluate(async () => {
-    const { db } = await import('/src/db/db.ts');
-    return (await db.settings.get('app'))?.profile;
-  });
-  expect(profile?.weightKg ?? null).toBeNull();
+  // Та же гонка, что выше: профиль догоняет дневник следующей записью.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { db } = await import('/src/db/db.ts');
+        return (await db.settings.get('app'))?.profile?.weightKg ?? null;
+      }),
+    )
+    .toBeNull();
 });
 
 test('масштаб «Месяц» переживает переход на «Замеры» и обратно', async ({ page }) => {
