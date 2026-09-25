@@ -434,5 +434,31 @@ test('шторки спорта, семейная задача, экран пр�
   // кнопкой «Готово» формально пересекаются, но пальцу недоступны.
   await check('экран приоритета', 'div[class*="z-[82]"]');
 
+  // Окно согласия (задача 34): коротко, подробно, у обновившегося — две
+  // кнопки друг под другом; настройки и семья на паузе.
+  await openApp(page, '/', { consentAt: null });
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    await db.sync.put({
+      id: 'config', accountId: 'acc', authToken: 'tok', key: await generateKey(), enabled: true,
+      lastPullAt: '', lastPushAt: '', lastSyncedAt: '',
+    } as never);
+  });
+  await page.goto('/');
+  const consent = page.getByRole('dialog', { name: 'Что уходит с телефона' });
+  await expect(consent.getByText('Сейчас у вас включено')).toBeVisible();
+  await check('окно согласия', 'div[class*="z-[84]"]');
+  await consent.getByRole('button', { name: 'Подробно, по каждой функции' }).click();
+  await check('окно согласия, подробно', 'div[class*="z-[84]"]');
+  await consent.getByRole('button', { name: 'Коротко' }).click();
+  await consent.getByRole('button', { name: 'Не принимать — поставить на паузу' }).click();
+  await page.goto('/more/settings');
+  await expect(page.getByText('Внешнее на паузе')).toBeVisible();
+  await check('настройки на паузе');
+  await page.goto('/more/family');
+  await expect(page.getByRole('button', { name: 'Прочитать и принять' })).toBeVisible();
+  await check('семья на паузе');
+
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
 });

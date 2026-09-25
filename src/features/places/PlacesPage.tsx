@@ -20,6 +20,7 @@ import { PlaceSheet } from './PlaceSheet';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { APPLE_MAPS_URL } from '../../lib/consent';
 import {
   GPlaces as MapPin,
   GExternalLink as ExternalLink,
@@ -49,9 +50,12 @@ const STATUS_LABELS: Record<PlaceStatus, string> = {
 
 const KIND_ORDER: PlaceKind[] = ['place', 'thing', 'tip', 'food', 'travel'];
 
-/** Открывает адрес в Картах (на iPhone/Mac — приложение Apple Карты). */
+/** Открывает адрес в Картах (на iPhone/Mac — приложение Apple Карты).
+ *  Только по нажатию и без согласия: в окне «Что уходит с телефона» это
+ *  раскрыто строкой «И без согласия». noreferrer — картам достаётся адрес
+ *  места, но не адрес приложения. */
 function openMaps(location: string) {
-  window.open(`https://maps.apple.com/?q=${encodeURIComponent(location)}`, '_blank', 'noopener');
+  window.open(`${APPLE_MAPS_URL}?q=${encodeURIComponent(location)}`, '_blank', 'noopener,noreferrer');
 }
 
 type KindFilter = 'all' | PlaceKind;

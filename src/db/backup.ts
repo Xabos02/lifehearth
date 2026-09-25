@@ -116,6 +116,14 @@ export async function exportBackup(): Promise<BackupFile> {
     // включая soft-deleted — бэкап должен быть полным
     data[name] = await db.table(name).toArray();
   }
+  // Согласие на внешнее даёт человек на этом телефоне (задача 34): в копию оно
+  // не уходит, иначе восстановление на другом телефоне согласилось бы за него.
+  data.settings = data.settings.map((row) => {
+    const rest = { ...(row as Record<string, unknown>) };
+    delete rest.consentAt;
+    delete rest.consentAskedAt;
+    return rest;
+  });
   return { app: 'life-hub', schemaVersion: SCHEMA_VERSION, exportedAt: now(), data };
 }
 
@@ -215,8 +223,20 @@ const CHUNK_TABLES = new Set(['taskPhotos', 'noteFiles', 'taskFiles']);
 export async function importBackup(b: BackupFile): Promise<void> {
   const tables = TABLES.map((name) => db.table(name));
   await db.transaction('rw', tables, async () => {
+    // Строка настроек заменяется целиком, но согласие — этого телефона: копия
+    // со старого его не приносит, копия без него (все снятые до 1.39.0) не
+    // стирает. Иначе сразу после «Восстановить из облака» всё внешнее встало
+    // бы на паузу, а окно всплыло бы второй раз.
+    const here = await db.settings.get('app');
     for (const name of TABLES) {
-      const rows = b.data[name];
+      let rows = b.data[name];
+      if (name === 'settings' && rows) {
+        rows = rows.map((r) => ({
+          ...(r as object),
+          consentAt: here?.consentAt,
+          consentAskedAt: here?.consentAskedAt,
+        }));
+      }
       // Таблицу, отсутствующую в файле, НЕ трогаем — иначе частичный или
       // старый бэкап молча затёр бы её текущие данные без возможности отката.
       if (rows === undefined) continue;

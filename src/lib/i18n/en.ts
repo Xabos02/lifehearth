@@ -2067,4 +2067,77 @@ export const EN: Record<string, string> = {
   'Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Главной») — задержите строку пальцем и перетащите. Номер у раздела — его место в списке «Главной»: первые {home} видны сразу, остальные — за кнопкой «Показать ещё».':
     'The switch turns a section on and off with a tap. To reorder or move a section across the line into the bottom bar (up to {n} spots, not counting \u201CHome\u201D) \u2014 hold the row and drag it. The number next to a section is its place in the \u201CHome\u201D list: the first {home} are shown right away, the rest are behind the \u201CShow more\u201D button.',
   'Расстановка приоритетов': 'Priority ranking',
+
+  // === Окно согласия «Что уходит с телефона» (задача 34) ===
+  'Что уходит с телефона': 'What leaves your phone',
+  'Записи хранятся на телефоне': 'Your records stay on the phone',
+  'и работают без интернета — задачи, заметки, цели, деньги, здоровье.': 'and work offline — tasks, notes, goals, money, health.',
+  'Синхронизация, напоминания и семья': 'Sync, reminders and family',
+  'передают записи на наш сервер зашифрованными. Сервер видит служебное: когда, из какого раздела, кто в сети. При звонке ваш IP-адрес виден серверам связи и собеседнику.':
+    'send your records to our server encrypted. The server sees the metadata: when, which section, who is online. During a call your IP address is visible to the relay servers and the other person.',
+  'Ассистент, голосовой ввод и погода': 'The assistant, voice input and weather',
+  'передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Polza.ai, Anthropic, Google, Apple, Open-Meteo.':
+    'send what you give them in plain text — to our server and third-party services: Polza.ai, Anthropic, Google, Apple, Open-Meteo.',
+  'Подробно, по каждой функции': 'Details for each feature',
+  'Коротко': 'In short',
+  'Всё, что вы записываете, хранится на этом телефоне и работает без интернета. Часть функций выходит в сеть. Согласие одно — на всё сразу.':
+    'Everything you write down is stored on this phone and works offline. Some features go online. One consent covers them all.',
+  'Уходит зашифрованным': 'Sent encrypted',
+  'Ключ шифрования остаётся на ваших устройствах': 'The encryption key stays on your devices',
+  'Видно другим': 'Visible to others',
+  'Открытый текст или ваш IP-адрес': 'Plain text or your IP address',
+  'Синхронизация и облачная копия': 'Sync and cloud backup',
+  'Наш сервер хранит шифротекст и видит, из какого раздела запись и когда её меняли.':
+    'Our server stores ciphertext and sees which section a record belongs to and when it changed.',
+  'Сервер хранит время, зашифрованный текст и адрес доставки. Доставляет служба уведомлений браузера — на iPhone это Apple, в Chrome — Google; текст ей тоже не виден.':
+    'The server stores the time, the encrypted text and the delivery address. Your browser’s push service delivers it — Apple on iPhone, Google in Chrome; it can’t see the text either.',
+  'Сообщения, фото, голосовые, файлы и общие задачи зашифрованы. Серверу видны название группы, кто и когда писал, кто в сети.':
+    'Messages, photos, voice notes, files and shared tasks are encrypted. The server sees the group name, who wrote and when, and who is online.',
+  'Ассистент': 'Assistant',
+  'Вопрос — и прочитанные записи, если включены «Данные», — через наш сервер к Polza.ai и модели Claude компании Anthropic (США).':
+    'Your question — and the records it reads, if “Data” is on — goes through our server to Polza.ai and Anthropic’s Claude model (USA).',
+  '«Женские дни» ассистенту недоступны.': 'The assistant has no access to “Cycle”.',
+  'Звонки в семье': 'Family calls',
+  'Разговор шифруется. Соединение идёт напрямую или через серверы связи Cloudflare и Metered, запасной — Google: им и собеседнику виден ваш IP-адрес.':
+    'The call is encrypted. It connects directly or through Cloudflare and Metered relay servers, with Google as a fallback: they and the other person can see your IP address.',
+  'Речь распознаёт браузер: в Chrome — Google, в Safari на маке — Apple. На iPhone приложение голос не слушает.':
+    'Speech is recognized by the browser: Google in Chrome, Apple in Safari on a Mac. On iPhone the app doesn’t listen to your voice.',
+  'Погода': 'Weather',
+  'Open-Meteo получает место с точностью около 11 км и ваш IP-адрес.': 'Open-Meteo receives your location to within about 11 km and your IP address.',
+  'И без согласия.': 'Even without consent.',
+  'Приложение загружается и обновляется с GitHub Pages — GitHub видит IP-адрес и время. Ссылки и «Открыть на карте» открывают чужие сайты, только когда вы нажмёте; картам Apple уходит адрес места.':
+    'The app loads and updates from GitHub Pages — GitHub sees your IP address and the time. Links and “Open on the map” open other sites only when you tap them; Apple Maps receives the place’s address.',
+  'Синхронизации нужно согласие': 'Sync needs your consent',
+  'Облачной копии нужно согласие': 'Cloud backup needs your consent',
+  'Уведомлениям нужно согласие': 'Notifications need your consent',
+  'Семье нужно согласие': 'Family needs your consent',
+  'Ассистенту нужно согласие': 'The assistant needs your consent',
+  'Голосовому вводу нужно согласие': 'Voice input needs your consent',
+  'Согласие одно — на всё внешнее сразу: семья, ассистент и остальное второй раз этого окна не покажут.':
+    'One consent covers everything online: family, the assistant and the rest won’t show this window again.',
+  'Сейчас у вас включено': 'Currently on',
+  'Без согласия это встанет на паузу: телефон ничего не отправит, но уже поставленное на сервере придёт. Ничего не удалится — «Принимаю» вернёт как было.':
+    'Without consent these will pause: the phone will send nothing, but anything already scheduled on the server will still arrive. Nothing is deleted — “I agree” brings it all back.',
+  'Принимаю': 'I agree',
+  'Не принимать — поставить на паузу': 'Don’t agree — pause them',
+  'Не сейчас': 'Not now',
+  'Без согласия работает всё, что на телефоне. Перечитать: Настройки → Что уходит с телефона':
+    'Without consent, everything on the phone still works. To reread: Settings → What leaves your phone',
+  'Прочитать и принять': 'Read and agree',
+  'Семья на паузе': 'Family is paused',
+  'Чат, общие задачи и звонки выходят в сеть — для них нужно ваше согласие. Группа и переписка остаются на телефоне.':
+    'Chat, shared tasks and calls go online — they need your consent. Your group and messages stay on the phone.',
+  'Чат, общие задачи и звонки выходят в сеть. Согласие одно — на всё внешнее сразу.':
+    'Chat, shared tasks and calls go online. One consent covers everything online.',
+  'Внешнее на паузе': 'Online features paused',
+  'На паузе: {list}. Настройки и записи на месте — «Принимаю» вернёт как было.':
+    'Paused: {list}. Your settings and records are intact — “I agree” brings it all back.',
+  'нет согласия': 'no consent',
+  'принято {date}': 'agreed {date}',
+  'нет согласия на внешнее': 'no consent to online features',
+  'Синхронизация на паузе': 'Sync is paused',
+  'Синхронизация и уведомления на паузе — нужно согласие': 'Sync and notifications are paused — consent needed',
+  'На паузе, пока нет согласия на внешнее: Настройки → Что уходит с телефона':
+    'Paused until you agree to online features: Settings → What leaves your phone',
+  'Ассистенту нужно согласие. Настройки → Что уходит с телефона': 'The assistant needs your consent. Settings → What leaves your phone',
 };

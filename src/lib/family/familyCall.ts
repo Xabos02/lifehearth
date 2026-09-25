@@ -17,6 +17,7 @@ import { tuneOpusSdp } from './callTuning';
 import { t } from '../i18n';
 
 import { WORKER_URL } from '../workerUrl';
+import { STUN_FALLBACK } from '../consent';
 const RING_TIMEOUT_MS = 30_000;
 // Сколько ждём самовосстановления после 'disconnected' до ICE-restart.
 // 6 секунд: короткие провалы мобильной сети укладываются, а человек ещё не
@@ -32,10 +33,8 @@ const ICE_GATHER_CAP_MS = 2000;
 // Фолбэк на случай недоступности /family/turn: только STUN. TURN-креды
 // короткоживущие и приходят с воркера — статических здесь держать нельзя
 // (анонимный Open Relay мёртв — проверено).
-const DEFAULT_ICE: RTCIceServer[] = [
-  { urls: 'stun:stun.cloudflare.com:3478' },
-  { urls: 'stun:stun.l.google.com:19302' },
-];
+// Адреса — в перечне внешних хостов (lib/consent.ts), окно согласия их называет.
+const DEFAULT_ICE: RTCIceServer[] = STUN_FALLBACK.map((urls) => ({ urls }));
 
 export type CallStatus = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'active' | 'ended';
 

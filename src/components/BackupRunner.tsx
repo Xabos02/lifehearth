@@ -5,6 +5,7 @@ import { updateSettings } from '../hooks/useSettings';
 import { getSyncConfig } from '../lib/syncState';
 import { BackupWouldLoseDataError, pushAccountSnapshot } from '../lib/cloudBackup';
 import { shouldBackupNow } from '../lib/backupSchedule';
+import { hasConsent } from '../lib/consent';
 
 const CHECK_MS = 5 * 60_000; // сверяемся раз в 5 минут (пока приложение открыто)
 
@@ -12,7 +13,9 @@ const CHECK_MS = 5 * 60_000; // сверяемся раз в 5 минут (по�
 let inFlight = false;
 
 async function maybeBackup(): Promise<void> {
-  if (inFlight) return;
+  // Без согласия — пауза, и здесь, а не только в pushAccountSnapshot: иначе
+  // тихий отказ записался бы как сделанная копия (lastCloudBackupAt).
+  if (inFlight || !hasConsent()) return;
   const s = await db.settings.get('app');
   if (!s || s.autoBackup !== 'cloud') return;
   const c = await getSyncConfig();

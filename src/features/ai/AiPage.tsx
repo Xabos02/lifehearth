@@ -38,6 +38,7 @@ import {
   toContext,
 } from '../../lib/ai/llmRepo';
 import { t } from '../../lib/i18n';
+import { askConsent } from '../../lib/consent';
 import { Markdown } from './Markdown';
 import { ChatListSheet } from './ChatListSheet';
 import { ChatSettingsSheet } from './ChatSettingsSheet';
@@ -151,6 +152,10 @@ export function AiPage() {
   async function handleSend(textArg?: string) {
     const text = (textArg ?? draft).trim();
     if (!text || busy || !chat) return;
+    // Без согласия — окно, до записи вопроса: иначе он лёг бы в чат, а ответом
+    // стала бы ошибка. Черновик остаётся в поле; после «Принимаю» вопрос
+    // уходит сам.
+    if (!(await askConsent('ai'))) return;
     if (!textArg) setDraft('');
     await addUserMessage(chat, text);
     await runTurn(chat);
@@ -159,6 +164,7 @@ export function AiPage() {
   /** Повтор: снимаем прошлый ответ и спрашиваем заново тем же контекстом. */
   async function handleRetry(m: LlmMessage) {
     if (busy || !chat) return;
+    if (!(await askConsent('ai'))) return;
     await removeMessage(m.id);
     await runTurn(chat);
   }

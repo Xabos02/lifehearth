@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { flushSyncNow, runSync } from '../lib/sync';
 import { kickSyncLive, startSyncLive, stopSyncLive } from '../lib/syncLive';
-import { retryPendingReminders } from '../lib/push';
+import { ensurePushRegistered, retryPendingReminders } from '../lib/push';
+import { useConsent } from '../lib/consent';
 import { getSyncConfig } from '../lib/syncState';
 import { db } from '../db/db';
 
@@ -21,14 +22,23 @@ export function SyncRunner() {
     const c = await getSyncConfig();
     return c?.enabled ? c.accountId : null;
   }, []);
+  // Без согласия на внешнее (задача 34) — пауза: ни сокета, ни опроса, ни
+  // повтора напоминаний. Конфиг и ключ не трогаем; «Принимаю» перезапускает
+  // эффекты, и обмен догоняет всё по курсорам.
+  const consent = useConsent();
 
   useEffect(() => {
-    if (!account) return;
+    if (!account || !consent) return;
     startSyncLive();
     return () => stopSyncLive();
-  }, [account]);
+  }, [account, consent]);
 
   useEffect(() => {
+    if (!consent) return;
+    // Само-восстановление push-подписки в списке рассылки об обновлениях — при
+    // запуске и сразу после «Принимаю» (раньше стояло в main.tsx до чтения
+    // настроек и уходило в сеть без спроса).
+    void ensurePushRegistered();
     const sync = () => {
       if (document.visibilityState !== 'visible') return;
       void runSync().catch(() => {});
@@ -86,6 +96,6 @@ export function SyncRunner() {
       clearInterval(id);
       if (returnTimer) clearTimeout(returnTimer);
     };
-  }, []);
+  }, [consent]);
   return null;
 }

@@ -25,7 +25,10 @@ import { useToast } from '../../components/ui/toastContext';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
-import { enablePush, isIOS, isStandalone, pushEnabled, pushSupported, rescheduleAll } from '../../lib/push';
+import { enablePush, isIOS, isStandalone, pushEnabled, pushPaused, pushSupported, rescheduleAll } from '../../lib/push';
+import { showConsent, useConsent } from '../../lib/consent';
+import { EXTERNAL_LABELS, useExternalOn } from '../../hooks/useExternalOn';
+import { GPause } from '../../components/ui/glyphs';
 import { formatRu } from '../../lib/dates';
 import { HINT_IDS, resetSessionHints } from '../../hooks/useHint';
 import { SyncSection } from './sync/SyncSection';
@@ -85,10 +88,43 @@ function BackupStatus() {
   return <span className="shrink-0 text-sm text-muted">{formatRu(last.slice(0, 10))}</span>;
 }
 
+/** Плашка наверху настроек, пока внешнее стоит на паузе без согласия
+ *  (задача 34, артборд «Настройки без согласия»): что именно ждёт и одна
+ *  кнопка — то же окно. Новому человеку, у которого внешнего нет, не
+ *  показывается: ему нечего возвращать. */
+function ConsentPausedBanner() {
+  const settings = useSettings();
+  const consent = useConsent();
+  const on = useExternalOn(settings);
+  if (consent || !on?.length) return null;
+  const list = on.map((k) => t(EXTERNAL_LABELS[k]).toLowerCase()).join(', ');
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/12 px-4 py-3.5">
+      <GPause size={ICON.header} className="mt-0.5 shrink-0 text-warning" />
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{t('Внешнее на паузе')}</p>
+        <p className="mt-0.5 text-xs leading-relaxed">
+          {t('На паузе: {list}. Настройки и записи на месте — «Принимаю» вернёт как было.', { list })}
+        </p>
+        <button
+          type="button"
+          onClick={() => showConsent()}
+          className="mt-2 inline-flex min-h-11 items-center rounded-full bg-accent-fill px-4 text-sm font-semibold text-white active:opacity-80"
+        >
+          {t('Прочитать и принять')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function SettingsPage() {
   const settings = useSettings();
   const toast = useToast();
-  const [pushOn, setPushOn] = useState(pushEnabled());
+  // Согласие — в зависимостях рендера: «Принимаю» возвращает «Включены» сразу.
+  useConsent();
+  const [pushOnLocal, setPushOn] = useState(false);
+  const pushOn = pushOnLocal || pushEnabled();
   // Защита от повторного запуска async-операций при быстрых повторных кликах.
   const pushingRef = useRef(false);
   async function handleEnablePush() {
@@ -108,6 +144,8 @@ export function SettingsPage() {
     pushingRef.current = true;
     try {
       const res = await enablePush();
+      // Окно согласия закрыли без «Принимаю» — это ответ, а не сбой.
+      if (res.reason === 'consent') return;
       if (!res.ok) {
         toast(
           res.reason === 'denied'
@@ -135,6 +173,7 @@ export function SettingsPage() {
   return (
     <Screen title={t('Настройки')} backTo="/home">
       <div className="space-y-6">
+        <ConsentPausedBanner />
         <Section title={t('Оформление')}>
           <div className="card">
             <div className="p-4">
@@ -225,6 +264,8 @@ export function SettingsPage() {
             <Row icon={BellRing} label={t('Уведомления')}>
               {pushOn ? (
                 <span className="shrink-0 text-sm font-medium text-success">{t('Включены')}</span>
+              ) : pushPaused() ? (
+                <span className="shrink-0 text-sm font-medium text-warning">{t('На паузе')}</span>
               ) : (
                 // Кнопка, а не переключатель: включение уходит в системный
                 // запрос разрешения, и отменить его приложение не может —
@@ -306,6 +347,22 @@ export function SettingsPage() {
           footnote={t('Копия переживает потерю телефона. Синхронизация держит устройства в одном состоянии.')}
         >
           <div className="card">
+            {/* Перечитать окно согласия. Не сбрасывает ответ (как «Что нового»
+                сбрасывает версию): открывает то же окно поверх. */}
+            <button
+              type="button"
+              onClick={() => showConsent()}
+              className="flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left active:bg-surface-2"
+            >
+              <span className="min-w-0 flex-1">{t('Что уходит с телефона')}</span>
+              {settings.consentAt ? (
+                <span className="shrink-0 text-sm text-muted">
+                  {t('принято {date}', { date: formatRu(settings.consentAt.slice(0, 10), 'd MMMM') })}
+                </span>
+              ) : (
+                <span className="shrink-0 text-sm font-medium text-warning">{t('нет согласия')}</span>
+              )}
+            </button>
             <Link
               to="/more/settings/backup"
               className="flex min-h-11 items-center gap-2 border-t border-hairline px-4 py-2.5 active:bg-surface-2"

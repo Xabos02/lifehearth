@@ -152,6 +152,47 @@ for (const theme of ['dark', 'light'] as const) {
   }
 }
 
+// Окно согласия и экраны паузы (задача 34) закрывают обычные экраны и
+// показываются только без согласия — обход SCREENS под фикстурой их не видит.
+// Плашка «Сейчас у вас включено» лежит на жёлтой подложке: серый текст на ней
+// в тёмной теме давал 4.42 (посчитано на канве), поэтому там основной цвет.
+test('окно согласия и пауза: контраст не ниже AA в обеих темах', async ({ page }) => {
+  await openApp(page, '/', { consentAt: null });
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    await db.sync.put({
+      id: 'config', accountId: 'acc', authToken: 'tok', key: await generateKey(), enabled: true,
+      lastPullAt: '', lastPushAt: '', lastSyncedAt: '',
+    } as never);
+  });
+  await page.goto('/');
+  const dialog = page.getByRole('dialog', { name: 'Что уходит с телефона' });
+  await expect(dialog.getByText('Сейчас у вас включено')).toBeVisible();
+
+  const bad: string[] = [];
+  const both = async (where: string) => {
+    for (const theme of ['dark', 'light'] as const) {
+      await page.evaluate((t) => document.documentElement.classList.toggle('light', t === 'light'), theme);
+      // Цвета меняются с переходом — мерить посреди него значит мерить смесь тем.
+      await page.waitForTimeout(400);
+      for (const f of await scan(page)) bad.push(`${where} (${theme}) — «${f.что}» ${f.контраст}:1 (нужно ${f.нужно})`);
+    }
+  };
+  await both('окно, коротко');
+  await dialog.getByRole('button', { name: 'Подробно, по каждой функции' }).click();
+  await both('окно, подробно');
+  await dialog.getByRole('button', { name: 'Коротко' }).click();
+  await dialog.getByRole('button', { name: 'Не принимать — поставить на паузу' }).click();
+  await page.goto('/more/settings');
+  await expect(page.getByText('Внешнее на паузе')).toBeVisible();
+  await both('настройки на паузе');
+  await page.goto('/more/family');
+  await both('семья на паузе');
+
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+});
+
 // Карточка обязана отличаться от фона под ней.
 //
 // Проверки выше меряют текст на поверхности. А поверхность может слиться с

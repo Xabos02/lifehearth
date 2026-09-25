@@ -297,6 +297,8 @@ export function FocusPage() {
       return;
     }
     const res = await enablePush();
+    // Окно согласия закрыли без «Принимаю» — это ответ, а не сбой.
+    if (res.reason === 'consent') return;
     if (!res.ok) {
       toast(res.reason === 'denied' ? t('Разрешение не выдано. Включите в настройках устройства.') : t('Не удалось включить уведомления. Проверьте разрешения в настройках устройства'));
       return;
