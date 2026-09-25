@@ -49,6 +49,42 @@ async function grab(page: Page, name: string, offsetX: number) {
   return from;
 }
 
+/** Прокрутить ленту так, чтобы точка экрана y встала в середину спокойной
+ *  полосы — вне краевых зон авто-скролла (72px от низа ленты и от низа липкой
+ *  шапки, как считает приложение), — и вернуть её новую координату.
+ *
+ *  Без этого тесты гонялись с авто-скроллом. На экране телефона цель лежала
+ *  в нижней зоне разгона или вовсе за краем ленты (Здоровье — y≈706 при
+ *  низе ленты 584): палец вставал над ней, список начинал ехать, цель
+ *  уплывала из-под неподвижного пальца, и подпись «Внутрь …» держалась лишь
+ *  несколько кадров. Проверка успевала её поймать или нет — отсюда 20–30%
+ *  падений с «Поменяет порядок».
+ *
+ *  Звать после grab: до старта жеста палец не двигался, авто-скролл заперт
+ *  (флаг moved), и прокрутка ничего не пересчитывает. Шапка липкая, а баннер
+ *  над ней уезжает с лентой — полоса меняется от самой прокрутки, поэтому
+ *  подгоняем в несколько проходов. Палец к точке ведём одним шагом:
+ *  промежуточные точки пути могли бы задеть зону разгона. */
+async function calmY(page: Page, y: number) {
+  return page.evaluate((y) => {
+    const sc = document.getElementById('app-scroll')!;
+    const band = () => {
+      const r = sc.getBoundingClientRect();
+      const top = Math.max(r.top, document.querySelector('header')?.getBoundingClientRect().bottom ?? r.top);
+      return { top: top + 72, bottom: r.bottom - 72 };
+    };
+    for (let i = 0; i < 3; i++) {
+      const b = band();
+      const before = sc.scrollTop;
+      sc.scrollTop += y - (b.top + b.bottom) / 2;
+      y -= sc.scrollTop - before;
+    }
+    const b = band();
+    if (y < b.top || y > b.bottom) throw new Error(`цель вне спокойной полосы: y=${y}, ${b.top}..${b.bottom}`);
+    return y;
+  }, y);
+}
+
 test('вложение достижимо коротким сдвигом вправо, а не «до края экрана»', async ({ page }) => {
   await openApp(page, '/tasks');
   await seed(page);
@@ -57,7 +93,7 @@ test('вложение достижимо коротким сдвигом впр
   const biz = (await page.getByText('Бизнес', { exact: true }).first().boundingBox())!;
   // Ведём к «Бизнесу» и вправо ровно на 30px — чуть больше порога, но далеко
   // не «до правого края». Со старым порогом 40 этого не хватало.
-  await page.mouse.move(from.x + 30, biz.y + biz.height / 2, { steps: 10 });
+  await page.mouse.move(from.x + 30, await calmY(page, biz.y + biz.height / 2));
 
   await expect(page.locator(GHOST)).toContainText('Внутрь «Бизнес»');
   await page.mouse.up();
@@ -84,9 +120,9 @@ test('цель не теряется в зазоре между папками',
   // пикселей, и точка «в зазоре», посчитанная заранее, оказывается мимо.
   const from = await grab(page, 'Здоровье', 4);
   const sec = (await page.locator('[data-drop-key="p1"]').first().boundingBox())!;
-  const gapY = Math.round(sec.y + sec.height + 20);
+  const gapY = await calmY(page, Math.round(sec.y + sec.height + 20));
 
-  await page.mouse.move(from.x + 30, gapY, { steps: 10 });
+  await page.mouse.move(from.x + 30, gapY);
 
   await expect(page.locator(GHOST)).toContainText('Внутрь «Бизнес»');
   await page.mouse.up();
@@ -102,7 +138,7 @@ test('проект с подпроектом вкладывается в дру�
   // это предел, и он проходит.
   const from = await grab(page, 'Бизнес', 4);
   const health = (await page.getByText('Здоровье', { exact: true }).first().boundingBox())!;
-  await page.mouse.move(from.x + 60, health.y + health.height / 2, { steps: 10 });
+  await page.mouse.move(from.x + 60, await calmY(page, health.y + health.height / 2));
 
   await expect(page.locator(GHOST)).toContainText('Внутрь «Здоровье»');
   await page.mouse.up();
@@ -134,15 +170,11 @@ test('отказ вложить объяснён словами: глубже т
   });
   await page.goto('/tasks');
   await expect(page.getByText('Китай')).toBeVisible();
-  // Экран стал длиннее на два уровня — цель должна быть в кадре до жеста,
-  // иначе её координаты уедут за низ и палец окажется не над ней.
-  await page.getByText('Здоровье', { exact: true }).first().scrollIntoViewIfNeeded();
-
   const from = await grab(page, 'Бизнес', 4);
   // Координаты цели — ПОСЛЕ старта жеста: плашка и приглушение источника
   // уже отрисованы, раскладка окончательная.
   const health = (await page.getByText('Здоровье', { exact: true }).first().boundingBox())!;
-  await page.mouse.move(from.x + 60, health.y + health.height / 2, { steps: 10 });
+  await page.mouse.move(from.x + 60, await calmY(page, health.y + health.height / 2));
 
   await expect(page.locator(GHOST)).toContainText('Глубже трёх уровней');
   await page.mouse.up();
