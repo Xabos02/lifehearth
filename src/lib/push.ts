@@ -248,9 +248,15 @@ export async function scheduleReminder(t: ReminderTask): Promise<void> {
  *  каждую отметку. */
 export async function cancelReminder(taskId: string, shared = false): Promise<void> {
   clearReminderRetry(taskId);
-  // Без согласия не уходит и снятие общей задачи: цена паузы, названная
-  // Владу, — напомнит о сделанном на паузе.
-  if (!hasConsent() || (!shared && !storedSub())) return;
+  // Без согласия снятие не уходит (цена паузы, названная Владу: напомнит о
+  // сделанном на паузе), но и не теряется: id — в очередь, и после
+  // «Принимаю» повтор снимет напоминание задачи, которой больше нет. Иначе
+  // выполненная на паузе задача напомнила бы о себе и через неделю.
+  if (!hasConsent()) {
+    if (shared || localStorage.getItem(SUB_KEY)) queueReminderRetry(taskId);
+    return;
+  }
+  if (!shared && !storedSub()) return;
   try {
     await fetch(`${WORKER_URL}/cancel`, {
       method: 'POST',
@@ -277,8 +283,11 @@ export async function schedulePush(
   }
 }
 
-/** Снять пуш по произвольному id. */
+/** Снять пуш по произвольному id. Без согласия — ничего и без очереди:
+ *  «Фокус» сам переставит свой пуш после «Принимаю» (PomodoroProvider), а
+ *  отложенное снятие спорило бы с этой постановкой. */
 export async function cancelPush(id: string): Promise<void> {
+  if (!hasConsent()) return;
   return cancelReminder(id);
 }
 
@@ -295,9 +304,10 @@ export async function retryPendingReminders(
   if (!ids.length || !storedSub()) return 0;
   const tasks = await load(ids);
   const known = new Set(tasks.map((t) => t.id));
-  // Задачи, которых больше нет (удалили, пока ждали сети), снимаем с очереди —
-  // иначе она копилась бы вечно.
-  for (const id of ids) if (!known.has(id)) clearReminderRetry(id);
+  // Задачи, которых больше нет (удалили или выполнили, пока ждали сети или
+  // согласия), — снимаем и с очереди, и с сервера: иначе очередь копилась бы
+  // вечно, а поставленное раньше напоминание пришло бы о сделанном.
+  for (const id of ids) if (!known.has(id)) await cancelReminder(id);
   let done = 0;
   for (const t of tasks) {
     await scheduleReminder(t);

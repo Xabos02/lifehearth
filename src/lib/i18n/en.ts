@@ -2136,7 +2136,7 @@ export const EN: Record<string, string> = {
   'принято {date}': 'agreed {date}',
   'нет согласия на внешнее': 'no consent to online features',
   'Синхронизация на паузе': 'Sync is paused',
-  'Синхронизация и уведомления на паузе — нужно согласие': 'Sync and notifications are paused — consent needed',
+  'Внешнее на паузе — нужно согласие': 'Online features paused — consent needed',
   'На паузе, пока нет согласия на внешнее: Настройки → Что уходит с телефона':
     'Paused until you agree to online features: Settings → What leaves your phone',
   'Ассистенту нужно согласие. Настройки → Что уходит с телефона': 'The assistant needs your consent. Settings → What leaves your phone',

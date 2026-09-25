@@ -99,7 +99,7 @@ function ConsentPausedBanner() {
   if (consent || !on?.length) return null;
   const list = on.map((k) => t(EXTERNAL_LABELS[k]).toLowerCase()).join(', ');
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/12 px-4 py-3.5">
+    <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3.5">
       <GPause size={ICON.header} className="mt-0.5 shrink-0 text-warning" />
       <div className="min-w-0">
         <p className="text-sm font-semibold">{t('Внешнее на паузе')}</p>

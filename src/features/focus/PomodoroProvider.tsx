@@ -4,6 +4,7 @@ import { db } from '../../db/db';
 import type { Task } from '../../db/types';
 import { todayKey } from '../../lib/dates';
 import { schedulePush, cancelPush } from '../../lib/push';
+import { useConsent } from '../../lib/consent';
 import { TimeCtx, Ctx, type Phase, type PomodoroCtx } from './pomodoro';
 import { t } from '../../lib/i18n';
 import { ensureAudio, playAlarm, type AlarmType } from './alarms';
@@ -209,6 +210,16 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   const [s, setS] = useState<Persisted>(load);
   const sRef = useRef(s);
   sRef.current = s;
+
+  // Круг, начатый на паузе без согласия, пуша о конце не получил: schedulePush
+  // молчал. «Принимаю» — ровно тот момент, когда его надо поставить. Только
+  // на переходе, а не при каждом запуске: иначе каждый старт слал бы /cancel.
+  const consent = useConsent();
+  const hadConsent = useRef(consent);
+  useEffect(() => {
+    if (consent && !hadConsent.current) syncPhasePush(sRef.current);
+    hadConsent.current = consent;
+  }, [consent]);
 
   const persist = useCallback((next: Persisted) => {
     const prev = sRef.current;

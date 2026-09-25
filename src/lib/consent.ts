@@ -81,6 +81,10 @@ export function setConsentFlag(v: boolean): void {
  *  окно, ответ приходит, когда человек нажмёт «Принимаю» или откажется. */
 export function askConsent(reason: ConsentReason): Promise<boolean> {
   if (consented) return Promise.resolve(true);
+  // Окно уже открыто по просьбе — вторую не копим. Иначе второй Enter в поле
+  // ассистента под окном (на маке фокус остаётся там) поставил бы второе
+  // ожидание, и «Принимаю» отправило бы вопрос дважды — два платных запроса.
+  if (open) return Promise.resolve(false);
   return new Promise((resolve) => {
     waiters.push(resolve);
     open = { reason };

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Eye, Mic, Smartphone } from 'lucide-react';
 import { db } from '../../db/db';
@@ -109,6 +109,15 @@ export function ConsentGate() {
   const consent = useConsent();
   const on = useExternalOn(settings);
   const [details, setDetails] = useState(false);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  // Фокус — в окно: иначе он остаётся в поле под ним (ассистент на маке), и
+  // Enter снова жал бы «Отправить»; читалка экрана начинает с заголовка.
+  // Смена вида (коротко ⇄ подробно) — тоже сюда.
+  const shown = Boolean(request) || (!!settings && !settings.consentAt && !settings.consentAskedAt && !consent);
+  const ready = shown && on !== undefined; // окно рисуется, когда список включённого прочитан
+  useEffect(() => {
+    if (ready) titleRef.current?.focus();
+  }, [ready, details]);
 
   const auto =
     !!settings &&
@@ -140,7 +149,12 @@ export function ConsentGate() {
       className="fixed inset-0 z-[84] flex flex-col bg-bg"
     >
       <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-[calc(env(safe-area-inset-top)+16px)] pb-4">
+      {/* key: смена вида — новый контейнер прокрутки, с начала, а не с того
+          места, куда пролистали краткий вид. */}
+      <div
+        key={details ? 'details' : 'short'}
+        className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-[calc(env(safe-area-inset-top)+16px)] pb-4"
+      >
         {details ? (
           <>
             <button
@@ -151,7 +165,7 @@ export function ConsentGate() {
               <GChevronLeft size={ICON.accent} strokeWidth={STROKE_STRONG} />
               {t('Коротко')}
             </button>
-            <h2 id="consent-title" className="mt-2 text-lg font-bold tracking-tight">
+            <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="mt-2 text-lg font-bold tracking-tight outline-none">
               {t('Что уходит с телефона')}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -180,7 +194,7 @@ export function ConsentGate() {
               <div className="flex size-14 items-center justify-center rounded-2xl tile-accent text-accent">
                 {reason ? REASON_ICON[reason] : <GPhoneOut size={ICON.accent} />}
               </div>
-              <h2 id="consent-title" className="text-lg font-bold tracking-tight">
+              <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="text-lg font-bold tracking-tight outline-none">
                 {reason && !review ? t(REASON_TITLES[reason]) : t('Что уходит с телефона')}
               </h2>
               {reason && !review && (
@@ -190,7 +204,7 @@ export function ConsentGate() {
               )}
             </div>
             {pausing && (
-              <div className="mb-5 rounded-2xl border border-warning/30 bg-warning/12 px-4 py-3.5">
+              <div className="mb-5 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3.5">
                 <p className="text-sm font-semibold">{t('Сейчас у вас включено')}</p>
                 <div className="my-2 flex flex-wrap gap-1.5">
                   {on.map((k) => (

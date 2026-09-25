@@ -154,12 +154,31 @@ describe('без согласия внешнее в сеть не ходит', (
     await push.cancelReminder('fam-1', true); // общая задача — и без подписки не уходит
     await push.ensurePushRegistered();
     expect(calls).toEqual([]);
-    expect(pendingReminderRetries()).toEqual(['r1']);
+    // Снятие тоже не теряется: после «Принимаю» напоминание выполненной на
+    // паузе задачи уйдёт с сервера, а не придёт через неделю.
+    expect(pendingReminderRetries()).toEqual(['r1', 'fam-1']);
     expect(push.pushEnabled()).toBe(false);
 
     setConsentFlag(true);
     await push.retryPendingReminders(async () => [task]);
     expect(calls.some((u) => u.endsWith('/schedule'))).toBe(true);
+    expect(calls.some((u) => u.endsWith('/cancel'))).toBe(true);
+    expect(pendingReminderRetries()).toEqual([]);
+  });
+});
+
+describe('окно по просьбе', () => {
+  it('вторая просьба при открытом окне не копится: «Принимаю» не повторит действие дважды', async () => {
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} });
+    const c = await import('./consent');
+    c.setConsentFlag(false);
+    const first = c.askConsent('ai');
+    expect(await c.askConsent('ai')).toBe(false); // второй Enter под окном
+    await c.answerConsent(true).catch(() => {}); // запись в базу здесь не важна
+    expect(await first).toBe(true);
+    expect(c.hasConsent()).toBe(true);
+    expect(await c.askConsent('sync')).toBe(true); // дальше — без окна
+    vi.unstubAllGlobals();
   });
 });
 
