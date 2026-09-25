@@ -64,7 +64,10 @@ test.describe('переезд на новый телефон', () => {
 
     await a.getByPlaceholder('Вставьте содержимое файла').fill(key);
     await a.getByRole('button', { name: 'Проверить' }).click();
-    await expect(a.getByText('Ключ сохранён и проверен')).toBeVisible();
+    // Строка в шите, а не тост с тем же текстом: тост приходит мгновением позже
+    // (после записи в базу), и getByText, успевший увидеть оба, падал на
+    // строгом режиме — так встал деплой 24.09 (36052775595).
+    await expect(a.getByRole('paragraph').filter({ hasText: 'Ключ сохранён и проверен' })).toBeVisible();
 
     // Заводим запись и отправляем её на сервер.
     await a.evaluate(async () => {

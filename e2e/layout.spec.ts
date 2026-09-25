@@ -112,10 +112,12 @@ for (const route of ['./', './tasks', './notes', './more/finance']) {
       const N = nav.getBoundingClientRect();
       const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
       // Строки задач — прокручиваемое содержимое, а не управление: строка,
-      // попавшая на сгиб ленты, — норма списка, а не обрезанная кнопка.
+      // попавшая на сгиб ленты, — норма списка, а не обрезанная кнопка. Вместе
+      // со строкой — и её «Выполнить»: попадёт ли кружок на сгиб, решают
+      // метрики шрифтов машины (в облачном контейнере — да, в CI — нет).
       const controls = () =>
         [...document.querySelectorAll('button, a, input, select, [role="button"], [role="tab"]')].filter(
-          (el) => !el.closest('nav') && el !== fab && !el.matches('[data-task-id]'),
+          (el) => !el.closest('nav') && el !== fab && !el.closest('[data-task-id]'),
         );
 
       // (3) нулевая прокрутка: ни один элемент не обрезан нижним краем ленты
