@@ -4,7 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import { db, ensureSettings } from './db/db'
 import { resolveLang, setLang } from './lib/i18n'
-import { ensurePushRegistered } from './lib/push'
+import { setConsentFlag, watchConsent } from './lib/consent'
 import { ensurePersistentStorage } from './lib/storage'
 import { StartupError } from './components/StartupError'
 
@@ -12,11 +12,6 @@ import { StartupError } from './components/StartupError'
 // Результат читает экран настроек: отказ означает, что Safari сотрёт всё
 // после недели без визитов, и человек должен об этом узнать заранее.
 void ensurePersistentStorage()
-
-// Само-восстановление push-подписки: если уведомления уже разрешены, тихо
-// до-регистрируем устройство в списке рассылки об обновлениях (на случай, если
-// включали на старой версии — иначе пуш «вышло обновление» не доходит).
-void ensurePushRegistered()
 
 // Язык обязан встать ДО первого рендера: строки читаются в момент рендера,
 // и «мигание» русского перед английским — это дефект, а не мелочь. Чтение
@@ -27,6 +22,10 @@ void (async () => {
     await ensureSettings()
     const s = await db.settings.get('app')
     setLang(resolveLang(s?.language))
+    // Согласие на внешнее — тоже до первого рендера: раннеры синка и семьи,
+    // «Фокус» и погода решают, идти ли в сеть, на первом же кадре.
+    setConsentFlag(Boolean(s?.consentAt))
+    void watchConsent()
     root.render(
       <StrictMode>
         <App />

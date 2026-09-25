@@ -21,11 +21,14 @@ import { CallButton } from './CallButton';
 import { ManageGroupsSheet } from './ManageGroupsSheet';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { useConsent } from '../../lib/consent';
+import { ConsentPause } from '../onboarding/ConsentGate';
 
 const ACTIVE_KEY = 'life-hub-active-family';
 
 export function FamilyPage() {
   const configs = useLiveQuery(() => listFamilyConfigs(), []);
+  const consent = useConsent();
   const [sp, setSp] = useSearchParams();
   const [addMode, setAddMode] = useState<null | 'choose' | 'create' | 'join'>(null);
   const [manageOpen, setManageOpen] = useState(false);
@@ -50,6 +53,29 @@ export function FamilyPage() {
         <div />
       </Screen>
     );
+
+  // Без согласия на внешнее семья на паузе целиком (задача 34, артборд «Семья
+  // на паузе»): чат, задачи, звонки, участники и вход в группу — всё ходит на
+  // сервер. Одна кнопка — то же окно; группа, ключи и переписка на месте.
+  if (!consent) {
+    return (
+      <Screen title={t('Семья')} backTo="/home">
+        {configs.length > 0 ? (
+          <ConsentPause
+            reason="family"
+            title={t('Семья на паузе')}
+            text={t('Чат, общие задачи и звонки выходят в сеть — для них нужно ваше согласие. Группа и переписка остаются на телефоне.')}
+          />
+        ) : (
+          <ConsentPause
+            reason="family"
+            title={t('Семье нужно согласие')}
+            text={t('Чат, общие задачи и звонки выходят в сеть. Согласие одно — на всё внешнее сразу.')}
+          />
+        )}
+      </Screen>
+    );
+  }
 
   if (configs.length === 0) {
     return (

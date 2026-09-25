@@ -10,6 +10,7 @@ import { plural } from './plural';
 import { clearReminderRetry, pendingReminderRetries, queueReminderRetry } from './reminderQueue';
 
 import { WORKER_URL } from './workerUrl';
+import { askConsent, hasConsent } from './consent';
 // Публичный VAPID-ключ (пара к секрету воркера). Безопасно держать в коде.
 const VAPID_PUBLIC =
   'BCi0yalmrjjC4elVs1vwAzGASoESrlpDA5ImcuB-u6kOVQf00Zc-GIK79WIBe7sQp5Y3_IBD96l8JEpccCj9Ws8';
@@ -52,12 +53,26 @@ export function isIOS(): boolean {
 }
 
 export function pushEnabled(): boolean {
+  return pushSupported() && Notification.permission === 'granted' && !!storedSub();
+}
+
+/** Уведомления включали, но согласия на внешнее нет (задача 34): подписка
+ *  цела, телефон просто ничего не ставит и не регистрирует. Уже лежащее на
+ *  сервере приходит — так решил Влад 25.09: пуш приведёт к «Принимаю». */
+export function pushPaused(): boolean {
   return (
-    pushSupported() && Notification.permission === 'granted' && !!localStorage.getItem(SUB_KEY)
+    pushSupported() &&
+    Notification.permission === 'granted' &&
+    !!localStorage.getItem(SUB_KEY) &&
+    !hasConsent()
   );
 }
 
+/** Подписка для запросов на сервер. Без согласия её нет — на этом стоят все
+ *  двери: постановка и снятие напоминаний, «Фокус», повтор очереди, семейная
+ *  регистрация пушей. */
 function storedSub(): unknown | null {
+  if (!hasConsent()) return null;
   const raw = localStorage.getItem(SUB_KEY);
   return raw ? (JSON.parse(raw) as unknown) : null;
 }
@@ -70,6 +85,9 @@ export function getPushSubscription(): unknown | null {
 /** Запрос разрешения + подписка. Возвращает причину отказа для UI. */
 export async function enablePush(): Promise<{ ok: boolean; reason?: string }> {
   if (!pushSupported()) return { ok: false, reason: 'unsupported' };
+  // Без согласия — сначала окно. С согласием путь прежний, без лишнего await:
+  // запрос разрешения iOS показывает только в жесте.
+  if (!hasConsent() && !(await askConsent('push'))) return { ok: false, reason: 'consent' };
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') return { ok: false, reason: 'denied' };
   try {
@@ -95,7 +113,7 @@ export async function enablePush(): Promise<{ ok: boolean; reason?: string }> {
  *  чтобы НЕ зависеть от ручного «перевключить уведомления» после деплоя: тот,
  *  кто хоть раз включил уведомления, остаётся в списке рассылки сам собой. */
 export async function ensurePushRegistered(): Promise<void> {
-  if (!pushSupported() || Notification.permission !== 'granted') return;
+  if (!hasConsent() || !pushSupported() || Notification.permission !== 'granted') return;
   try {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
@@ -191,7 +209,12 @@ async function postSchedule(
 
 /** Ставит/обновляет напоминание задачи на Worker (или снимает, если не годится). */
 export async function scheduleReminder(t: ReminderTask): Promise<void> {
-  if (!storedSub()) return; // пуши не включены — нечего ставить
+  if (!storedSub()) {
+    // На паузе без согласия — в очередь повтора: после «Принимаю» SyncRunner
+    // поставит то, что человек успел завести или передвинуть.
+    if (!hasConsent() && localStorage.getItem(SUB_KEY)) queueReminderRetry(t.id);
+    return; // пуши не включены — нечего ставить
+  }
   const fireAt = reminderFireAt(t);
   if (fireAt == null || fireAt < Date.now()) {
     await cancelReminder(t.id);
@@ -228,6 +251,14 @@ export async function scheduleReminder(t: ReminderTask): Promise<void> {
  *  когда связь вернётся, раз задача уже не ждёт напоминания. */
 export async function cancelReminder(taskId: string, elsewhere = false): Promise<void> {
   clearReminderRetry(taskId);
+  // Без согласия снятие не уходит (цена паузы, названная Владу: напомнит о
+  // сделанном на паузе), но и не теряется: id — в очередь, и после
+  // «Принимаю» повтор снимет напоминание задачи, которой больше нет. Иначе
+  // выполненная на паузе задача напомнила бы о себе и через неделю.
+  if (!hasConsent()) {
+    if (elsewhere || localStorage.getItem(SUB_KEY)) queueReminderRetry(taskId);
+    return;
+  }
   if (!elsewhere && !storedSub()) return;
   try {
     const res = await fetch(`${WORKER_URL}/cancel`, {
@@ -283,8 +314,11 @@ export async function schedulePush(
   }
 }
 
-/** Снять пуш по произвольному id. */
+/** Снять пуш по произвольному id. Без согласия — ничего и без очереди:
+ *  «Фокус» сам переставит свой пуш после «Принимаю» (PomodoroProvider), а
+ *  отложенное снятие спорило бы с этой постановкой. */
 export async function cancelPush(id: string): Promise<void> {
+  if (!hasConsent()) return;
   return cancelReminder(id);
 }
 
@@ -298,7 +332,10 @@ export async function retryPendingReminders(
   load: (ids: string[]) => Promise<ReminderTask[]>,
 ): Promise<number> {
   const ids = pendingReminderRetries();
-  if (!ids.length) return 0;
+  // Пока нет согласия, очередь ждёт «Принимаю» целиком: ни снятий, ни
+  // постановок (storedSub без согласия пуст — иначе живые задачи ушли бы из
+  // очереди как «без подписки»).
+  if (!ids.length || !hasConsent()) return 0;
   const tasks = await load(ids);
   const known = new Set(tasks.map((t) => t.id));
   // Задачи, которые напоминания больше не ждут (удалили, выполнили, пока не

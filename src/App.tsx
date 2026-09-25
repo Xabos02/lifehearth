@@ -55,6 +55,7 @@ import { GenderGate } from './features/onboarding/GenderGate';
 import { OnboardingOverlay } from './features/onboarding/OnboardingOverlay';
 import { SectionsPriorityGate } from './features/onboarding/SectionsPriorityGate';
 import { ReinstallNotice } from './features/onboarding/ReinstallNotice';
+import { ConsentGate } from './features/onboarding/ConsentGate';
 import { WhatsNew } from './features/onboarding/WhatsNew';
 
 /** Маршруты раздела «Женские дни» существуют только в женском профиле. Прямой
@@ -272,6 +273,14 @@ export default function App() {
           <SectionsPriorityGate />
           {/* Одноразовое окно о смене имени/значка — только «старым» пользователям. */}
           <ReinstallNotice />
+          {/* Окно «Что уходит с телефона» (задача 34): одно согласие на всё
+              внешнее. Само — после тура и расстановки разделов у нового
+              человека и один раз после обновления у остальных; потом — по
+              попытке включить внешнее. z-84: выше шитов и «Что нового» (у
+              обновившегося они открываются в одном кадре — сначала ответ про
+              согласие, под ним уже ждёт список изменений), ниже окна о
+              переустановке (85) и выбора пола (90). */}
+          <ConsentGate />
           {/* Что изменилось в этом обновлении. Обновление ставится тихо, и без
               этого окна человек не узнаёт ни что версия сменилась, ни чем. */}
           <WhatsNew />

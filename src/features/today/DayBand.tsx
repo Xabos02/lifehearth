@@ -28,6 +28,7 @@ import {
 import { getWeather, weatherLabel, type Weather } from '../../lib/weather';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
+import { useConsent } from '../../lib/consent';
 
 // Готовый элемент, а не тип компонента: динамический <Icon/> в рендере ловит
 // eslint-правило react-hooks/static-components.
@@ -124,6 +125,11 @@ export function DayBand({
   onToggleHabits: () => void;
 }) {
   const [w, setW] = useState<Weather | null | 'loading'>('loading');
+  // Погода — внешнее (Open-Meteo видит место до ~11 км и IP), выключателя у
+  // неё нет: без согласия ячейки просто нет, после «Принимаю» она появляется
+  // сама — эффект зависит от согласия.
+  const consent = useConsent();
+  const wv = consent ? w : null;
   const { hidden } = useNavLayout();
   const today = todayKey();
   const logs = useLiveQuery(() => db.energyLogs.toArray(), []);
@@ -131,6 +137,7 @@ export function DayBand({
   const { planned, doneCount, allDone } = useTodayHabits();
 
   useEffect(() => {
+    if (!consent) return;
     let live = true;
     void getWeather().then((res) => {
       if (live) setW(res);
@@ -138,11 +145,11 @@ export function DayBand({
     return () => {
       live = false;
     };
-  }, []);
+  }, [consent]);
 
   const showEnergy = wantEnergy && !hidden.includes('energy') && energy != null;
   const showHabits = wantHabits && !hidden.includes('habits') && allDone;
-  const weather = w !== 'loading' && w ? w : null;
+  const weather = wv !== 'loading' && wv ? wv : null;
 
   // На троих ячейках каждой достаётся треть экрана, и полные значения там
   // обрезаются многоточием — а обрезанное значение хуже краткого: «4 — Хорош…»
@@ -154,7 +161,7 @@ export function DayBand({
   if (!weather && !showEnergy && !showHabits) {
     // Пока погода едет, держим место под неё — иначе лента дёргается, когда
     // ответ приходит (та же причина, что у прежней заглушки виджета).
-    return w === 'loading' ? <section className="card mb-4 h-[60px] animate-pulse" aria-hidden /> : null;
+    return wv === 'loading' ? <section className="card mb-4 h-[60px] animate-pulse" aria-hidden /> : null;
   }
 
   // ОДНА ЯЧЕЙКА — ОДНА СТРОКА. Пока силы не отмечены и привычки не закрыты, в

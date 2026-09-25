@@ -243,7 +243,13 @@ async function overlapsOn(page: Page, rootSel = '#root'): Promise<string[]> {
         const rb = hitRect(b);
         const dx = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
         const dy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
-        if (dx > 0 && dy > 0) {
+        // Не «> 0», а от полупикселя. Кружки цвета стоят с шагом ровно 44 —
+        // зоны соседей касаются краями. Пока шторка выезжает, её сдвиг
+        // дробный, браузер отдаёт координаты с точностью float32, и край
+        // одного ряда оказывается на 0,00003px ниже края другого: тест видел
+        // «налезают на 44×0px» (деплой 1.39.0 25.09). Пальцу такой зазор не
+        // заметен, в отчёте он и печатался как 0.
+        if (dx >= 0.5 && dy >= 0.5) {
           const name = (el: Element) =>
             (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24);
           bad.push(`«${name(a)}» и «${name(b)}» налезают на ${Math.round(dx)}×${Math.round(dy)}px`);
@@ -433,6 +439,33 @@ test('шторки спорта, семейная задача, экран пр�
   // Только сам экран: он лежит поверх «Главной», и её строки под ним с
   // кнопкой «Готово» формально пересекаются, но пальцу недоступны.
   await check('экран приоритета', 'div[class*="z-[82]"]');
+
+  // Окно согласия (задача 34): коротко, подробно, у обновившегося — две
+  // кнопки друг под другом; настройки и семья на паузе.
+  await openApp(page, '/', { consentAt: null });
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    await db.sync.put({
+      id: 'config', accountId: 'acc', authToken: 'tok', key: await generateKey(), enabled: true,
+      lastPullAt: '', lastPushAt: '', lastSyncedAt: '',
+    } as never);
+  });
+  await page.goto('/');
+  const consent = page.getByRole('dialog', { name: 'Что уходит с телефона' });
+  await expect(consent.getByText('Сейчас у вас включено')).toBeVisible();
+  await check('окно согласия', 'div[class*="z-[84]"]');
+  await consent.getByRole('button', { name: 'Подробно, по каждой функции' }).click();
+  await check('окно согласия, подробно', 'div[class*="z-[84]"]');
+  await consent.getByRole('button', { name: 'Коротко' }).click();
+  await consent.getByRole('button', { name: 'Не принимать — поставить на паузу' }).click();
+  await expect(consent).toBeHidden();
+  await page.goto('/more/settings');
+  await expect(page.getByText('Внешнее на паузе')).toBeVisible();
+  await check('настройки на паузе');
+  await page.goto('/more/family');
+  await expect(page.getByRole('button', { name: 'Прочитать и принять' })).toBeVisible();
+  await check('семья на паузе');
 
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
 });

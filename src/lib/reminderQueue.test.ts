@@ -112,6 +112,31 @@ describe('повтор постановки', () => {
     expect(pendingReminderRetries()).toEqual([]);
   });
 
+  it('пока нет согласия, повтор не трогает очередь — ни снятий, ни «без подписки»', async () => {
+    // Без согласия storedSub пуст; раньше живые задачи ушли бы из очереди как
+    // «без подписки», и после «Принимаю» ставить было бы нечего.
+    const calls: string[] = [];
+    globalThis.fetch = ((url: RequestInfo | URL) => {
+      calls.push(String(url));
+      return Promise.resolve(new Response('{"ok":true}', { status: 200 }));
+    }) as typeof fetch;
+    localStorage.setItem('life-hub-push-sub', JSON.stringify({ endpoint: 'https://push/x' }));
+    const { retryPendingReminders } = await import('./push');
+    const { setConsentFlag } = await import('./consent');
+    setConsentFlag(false);
+    try {
+      queueReminderRetry('живая');
+      queueReminderRetry('исчезла');
+      await retryPendingReminders(async () => [
+        { id: 'живая', title: 'Позвонить', dueDate: '2099-01-01', dueTime: '14:30', remindBefore: 15 },
+      ]);
+      expect(calls).toEqual([]);
+      expect(pendingReminderRetries().sort()).toEqual(['живая', 'исчезла'].sort());
+    } finally {
+      setConsentFlag(true);
+    }
+  });
+
   it('отмена без сети встаёт в очередь, а не теряется', async () => {
     globalThis.fetch = (() => Promise.reject(new Error('офлайн'))) as typeof fetch;
     const { cancelReminder } = await import('./push');

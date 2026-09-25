@@ -41,6 +41,7 @@ import { getSyncConfig, patchSyncConfig, saveSyncConfig, clearSyncConfig } from 
 // (lib/ai/aiClient.ts) и ломать его импорт незачем.
 export { WORKER_URL } from './workerUrl';
 import { WORKER_URL } from './workerUrl';
+import { hasConsent } from './consent';
 const PUSH_CHUNK = 200;
 // Потолок пачки по объёму — по той же причине, что и на приёме: двести кусков
 // вложений в одном теле запроса это сто мегабайт, которые не уйдут никогда.
@@ -709,7 +710,12 @@ export async function runSync(opts: RunSyncOptions = {}): Promise<{
   lastError = null;
   try {
     const first = await getSyncConfig();
-    if (!first || !first.enabled) return null;
+    // Без согласия на внешнее — пауза (задача 34). Конфиг не трогаем: снять
+    // enabled значило бы показать «Включить синхронизацию», и новый аккаунт
+    // встал бы рядом со старым, ключ которого у человека сохранён. Эта строка
+    // закрывает все пути обмена: раннер, дебаунс после правок, уход в фон,
+    // сигнал сокета, кнопки настроек.
+    if (!first || !first.enabled || !hasConsent()) return null;
     const total = { pulled: 0, pushed: 0, skipped: 0, oversized: 0 };
     let c: SyncConfig | undefined = await ensureDeviceId(first);
     for (let round = 0; round < MAX_ROUNDS && c; round++) {

@@ -3,6 +3,7 @@ import { isIOS, useSpeechInput } from '../../hooks/useSpeechInput';
 import { t } from '../../lib/i18n';
 import { useToast } from './toastContext';
 import { IconButton } from './IconButton';
+import { askConsent, hasConsent } from '../../lib/consent';
 
 interface Props {
   /** получает распознанный текст — обычно дописывает в поле */
@@ -41,11 +42,19 @@ export function MicButton({ onText, className = '' }: Props) {
     return null;
   }
 
+  // Речь распознаёт сервис браузера (Chrome — Google, Safari — Apple): это
+  // внешнее, и без согласия тап открывает окно. Ветка iOS выше в сеть не
+  // ходит — там только подсказка про диктовку клавиатуры.
+  const listen = () => {
+    if (hasConsent()) start();
+    else void askConsent('voice').then((ok) => ok && start());
+  };
+
   return (
     <IconButton
       icon={Mic}
       label={listening ? t('Остановить') : t('Голосовой ввод')}
-      onClick={listening ? stop : start}
+      onClick={listening ? stop : listen}
       tone={listening ? 'danger' : 'muted'}
       className={`transition-transform active:scale-90 ${
         listening ? 'animate-pulse bg-danger/20' : ''

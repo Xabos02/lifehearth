@@ -9,6 +9,7 @@ import { WORKER_URL } from '../sync';
 import { t } from '../i18n';
 import { feedStream, newStreamState } from './openaiStream';
 import { getSyncConfig } from '../syncState';
+import { hasConsent } from '../consent';
 
 export interface AiUsage {
   in: number;
@@ -45,6 +46,7 @@ export type WireMessage =
 export type AiChatMessage = WireMessage;
 
 export type AiErrorCode =
+  | 'no_consent' // нет согласия на внешнее (задача 34) — сеть не трогаем
   | 'no_account' // синхронизация не настроена — нечем авторизоваться
   | 'unauthorized' // воркер не признал аккаунт
   | 'forbidden' // аккаунт не в списке разрешённых
@@ -69,6 +71,8 @@ export class AiError extends Error {
 export function aiErrorText(e: unknown): string {
   if (e instanceof AiError) {
     switch (e.code) {
+      case 'no_consent':
+        return t('Ассистенту нужно согласие. Настройки → Что уходит с телефона');
       case 'no_account':
         return t('Включите синхронизацию в Настройках — она нужна для авторизации.');
       case 'unauthorized':
@@ -101,6 +105,10 @@ export async function requestChat(params: {
   /** Живой стрим: дельты текста по мере генерации. Заглушка отвечает разом. */
   onDelta?: (text: string) => void;
 }): Promise<AiReply> {
+  // Страховка под окном: и живая модель, и эхо отвечают на нашем сервере, то
+  // есть вопрос уходит с телефона в обоих случаях. Проверка — раньше конфига
+  // синка: иначе новый человек увидел бы «Включите синхронизацию».
+  if (!hasConsent()) throw new AiError('no_consent', 'нет согласия');
   const c = await getSyncConfig();
   if (!c) throw new AiError('no_account', 'синхронизация не настроена');
 

@@ -7,7 +7,8 @@ import {
 } from '../../components/ui/glyphs';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
-import { pushEnabled } from '../../lib/push';
+import { pushEnabled, pushPaused } from '../../lib/push';
+import { useConsent } from '../../lib/consent';
 import { HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
@@ -43,9 +44,16 @@ export function ProtectDataCard() {
   // синхронизации нет, то есть когда она нужнее всего.
   const syncCfg = useLiveQuery(() => db.sync.get('config').then((c) => c ?? null), []);
   const [dismissed, setDismissed] = useState(hiddenThisLaunch);
-  // pushEnabled() синхронный; для карточки достаточно значения на монтировании.
-  const [pushOn] = useState(() => pushEnabled());
-  const syncOn = Boolean(syncCfg?.enabled);
+  // pushEnabled() синхронный и дешёвый — считаем на каждом рендере: после
+  // «Принимаю» (useConsent ниже перерисует карточку) строка обязана сразу
+  // перестать говорить, что напоминания не придут.
+  const pushOn = pushEnabled();
+  // Без согласия на внешнее (задача 34) включённое стоит на паузе — и строка
+  // говорит именно это, а не «данные только на устройстве»: синк у человека
+  // включён, просто ждёт ответа.
+  const consent = useConsent();
+  const paused = !consent && (Boolean(syncCfg?.enabled) || pushPaused());
+  const syncOn = Boolean(syncCfg?.enabled) && consent;
 
   if (dismissed) return null;
   if (syncCfg === undefined) return null; // ещё грузится — не мигаем
@@ -55,9 +63,11 @@ export function ProtectDataCard() {
   // («зашифрованная копия», «даже при закрытом приложении») переехало на
   // страницу настроек — в строке для него нет места, а на экране «Сегодня»
   // ему не место и подавно.
-  const text = !syncOn
-    ? t('Нет синхронизации и облачной копии')
-    : t('Напоминания не придут при закрытом приложении');
+  const text = paused
+    ? t('Внешнее на паузе — нужно согласие')
+    : !syncOn
+      ? t('Нет синхронизации и облачной копии')
+      : t('Напоминания не придут при закрытом приложении');
 
   return (
     <section className="mb-5">

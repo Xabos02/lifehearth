@@ -9,6 +9,7 @@ import { getSyncConfig } from './syncState';
 import type { SyncConfig } from '../db/types';
 
 import { WORKER_URL } from './workerUrl';
+import { hasConsent } from './consent';
 
 // Порог чанка по plaintext-байтам. D1: значение одной колонки ≤ 2 МБ, а
 // base64url-шифротекст раздувает объём ~на треть — держим консервативно.
@@ -89,7 +90,7 @@ function counts(f: BackupFile): Record<string, number> {
  *  осознанное «да, всё равно заменить». */
 export async function pushAccountSnapshot(force = false): Promise<number> {
   const c = await getSyncConfig();
-  if (!c?.enabled) return 0;
+  if (!c?.enabled || !hasConsent()) return 0;
   const snapshot = await exportBackup();
 
   const nowCounts = counts(snapshot);
@@ -182,7 +183,7 @@ async function fetchRemote(c: SyncConfig): Promise<{ file: BackupFile | null; up
 /** Скачать и расшифровать облачную копию. null — копии нет / синк выключен. */
 export async function pullAccountSnapshot(): Promise<BackupFile | null> {
   const c = await getSyncConfig();
-  if (!c?.enabled) return null;
+  if (!c?.enabled || !hasConsent()) return null;
   return (await fetchRemote(c)).file;
 }
 
@@ -195,6 +196,9 @@ export async function pullAccountSnapshot(): Promise<BackupFile | null> {
 export async function cloudBackupDate(): Promise<CloudDate> {
   const c = await getSyncConfig();
   if (!c?.enabled) return { state: 'none' };
+  // На паузе без согласия сервер не спрашиваем — и «копии нет» не говорим:
+  // это толкало бы затереть настоящую копию снимком телефона.
+  if (!hasConsent()) return { state: 'unknown' };
   try {
     // МАНИФЕСТ, а не вся копия. Раньше ради одной даты качались мегабайты
     // шифротекста, и на мобильном интернете это регулярно падало — а падение

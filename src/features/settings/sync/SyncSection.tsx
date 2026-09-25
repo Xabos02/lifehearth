@@ -15,6 +15,7 @@ import { createSyncAccount, disableSync, requestFullResync, runSync } from '../.
 import { PairingSheet } from './PairingSheet';
 import { RecoveryKeySheet } from './RecoveryKeySheet';
 import { t } from '../../../lib/i18n';
+import { askConsent, useConsent } from '../../../lib/consent';
 import { ICON } from '../../../components/ui/icons';
 import {
   GCopy as Copy,
@@ -53,9 +54,15 @@ export function SyncSection() {
     [],
   );
   const [busy, setBusy] = useState(false);
+  // Обмен ходит на наш сервер — без согласия на внешнее (задача 34) он на
+  // паузе, а каждая кнопка ниже, которая идёт в сеть, сначала открывает окно.
+  const consent = useConsent();
+  const openSheet = (mode: 'show' | 'connect') =>
+    void askConsent('sync').then((ok) => ok && setSheet(mode));
 
   async function handleCreate() {
     if (busy) return;
+    if (!(await askConsent('sync'))) return;
     setBusy(true);
     try {
       await createSyncAccount();
@@ -72,6 +79,7 @@ export function SyncSection() {
 
   async function handleSyncNow() {
     if (busy) return;
+    if (!(await askConsent('sync'))) return;
     setBusy(true);
     try {
       const r = await runSync();
@@ -98,6 +106,7 @@ export function SyncSection() {
    */
   async function handleResync() {
     if (busy) return;
+    if (!(await askConsent('sync'))) return;
     if (
       !window.confirm(
         t('Перечитать всё заново? Приложение заново отправит и получит все записи. Ничего не потеряется — это займёт больше времени, чем обычный обмен.'),
@@ -153,9 +162,17 @@ export function SyncSection() {
         {config ? (
           <>
             <p className="flex items-center gap-2 text-sm">
-              <ShieldCheck size={ICON.base} className="shrink-0 text-success" />
+              <ShieldCheck size={ICON.base} className={`shrink-0 ${consent ? 'text-success' : 'text-warning'}`} />
               <span>
-                <span className="font-medium text-success">{t('Включена')}</span> · {t('E2E-шифрование')}
+                {consent ? (
+                  <>
+                    <span className="font-medium text-success">{t('Включена')}</span> · {t('E2E-шифрование')}
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium text-warning">{t('На паузе')}</span> · {t('нет согласия на внешнее')}
+                  </>
+                )}
                 <br />
                 <span className="text-muted">{t('Последняя: {when}', { when: formatSyncedAt(config.lastSyncedAt) })}</span>
                 {!!oversized && (
@@ -217,7 +234,7 @@ export function SyncSection() {
             <Button
               variant="secondary"
               className="w-full inline-flex items-center justify-center gap-2"
-              onClick={() => setSheet('show')}
+              onClick={() => openSheet('show')}
             >
               <QrCode size={ICON.base} />
               {t('Показать QR для другого устройства')}
@@ -225,13 +242,15 @@ export function SyncSection() {
             <Button
               variant="secondary"
               className="w-full inline-flex items-center justify-center gap-2"
-              onClick={() => setSheet('connect')}
+              onClick={() => openSheet('connect')}
             >
               <Smartphone size={ICON.base} className="shrink-0" />
               {t('У меня уже есть данные — подключить по ключу')}
             </Button>
+            {/* min-h-11: зоны 26 и 30px нашёл сценарий пауз в touch.spec — прежний
+                обход настроек шёл без синка и этих кнопок не видел. */}
             <button
-              className="w-full text-sm text-muted active:opacity-60"
+              className="min-h-11 w-full text-sm text-muted active:opacity-60"
               disabled={busy}
               onClick={() => void handleResync()}
             >
@@ -258,7 +277,7 @@ export function SyncSection() {
               {t('Этот ID должен совпадать на всех ваших устройствах: разный ID — разные аккаунты, и данные между ними не ходят. Хранить ID не нужно — он лежит внутри ключа восстановления.')}
             </p>
             <button
-              className="w-full pt-1 text-sm text-danger active:opacity-60"
+              className="min-h-11 w-full text-sm text-danger active:opacity-60"
               onClick={() => void handleDisable()}
             >
               {t('Отключить синхронизацию')}
@@ -275,7 +294,7 @@ export function SyncSection() {
             <Button
               variant="secondary"
               className="w-full inline-flex items-center justify-center gap-2"
-              onClick={() => setSheet('connect')}
+              onClick={() => openSheet('connect')}
             >
               <Smartphone size={ICON.base} className="shrink-0" />
               {t('У меня уже есть данные — подключить по ключу')}

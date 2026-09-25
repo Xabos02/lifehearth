@@ -28,6 +28,7 @@ import { ensurePersistentStorage, formatBytes, type StorageState } from '../../l
 import { TABLE_RU } from './tableNames';
 import { ButtonRow, Row, Section } from './SettingsSection';
 import { Switch } from '../../components/ui/Switch';
+import { useConsent } from '../../lib/consent';
 
 /** Состояние локального хранилища. Показываем ровно тогда, когда есть что
  *  сказать: браузер отказал в постоянном хранении — значит данные могут быть
@@ -80,7 +81,11 @@ export function BackupPage() {
   const exportingRef = useRef(false);
   const cloudRef = useRef(false);
   const syncCfg = useLiveQuery(() => db.sync.get('config'), []);
-  const syncOn = Boolean(syncCfg?.enabled);
+  // Синк включён, но согласия на внешнее нет — облачная копия на паузе
+  // (задача 34): не «недоступна» и не «включите синхронизацию» — она включена.
+  const consent = useConsent();
+  const syncOn = Boolean(syncCfg?.enabled) && consent;
+  const paused = Boolean(syncCfg?.enabled) && !consent;
   // undefined — ещё спрашиваем сервер; дальше три РАЗНЫХ состояния: копия
   // есть, копии нет, проверить не удалось. Третье прежде выглядело как второе,
   // и сбой связи читался как «копии нет» — приглашение нажать «Создать» и
@@ -252,7 +257,9 @@ export function BackupPage() {
           footnote={
             syncOn
               ? t('Зашифрована вашим ключом: на сервере только шифротекст. Переживает потерю или замену телефона.')
-              : t('Доступна при включённой синхронизации — ею идёт авторизация.')
+              : paused
+                ? t('На паузе, пока нет согласия на внешнее: Настройки → Что уходит с телефона')
+                : t('Доступна при включённой синхронизации — ею идёт авторизация.')
           }
         >
           <div className="card">
@@ -263,6 +270,8 @@ export function BackupPage() {
                   onChange={(on) => void updateSettings({ autoBackup: on ? 'cloud' : 'off' })}
                   label={t('Автоматическая копия')}
                 />
+              ) : paused ? (
+                <span className="shrink-0 text-sm font-medium text-warning">{t('На паузе')}</span>
               ) : (
                 <span className="shrink-0 text-sm text-muted">{t('Недоступна')}</span>
               )}

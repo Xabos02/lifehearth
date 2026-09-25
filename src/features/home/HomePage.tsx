@@ -20,6 +20,7 @@ import { ageFrom, yearsLabel } from '../../lib/profile';
 import { HOME_VISIBLE_STEP, SECTION_BY_ID } from '../../lib/sections';
 import { getLang, t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { useConsent } from '../../lib/consent';
 
 interface MenuCardProps {
   to: string;
@@ -136,9 +137,13 @@ function DataStatusCard() {
     const s = await db.settings.get('app');
     return { last: s?.lastBackupAt ?? null, due: await isBackupDue() };
   }, []);
+  // Синк включён, но без согласия на внешнее стоит на паузе (задача 34) —
+  // «Данные синхронизируются» было бы неправдой.
+  const consent = useConsent();
   if (syncCfg === undefined || status === undefined) return null;
 
-  const syncOn = Boolean(syncCfg?.enabled);
+  const syncOn = Boolean(syncCfg?.enabled) && consent;
+  const paused = Boolean(syncCfg?.enabled) && !consent;
   const { last, due } = status;
 
   return (
@@ -154,7 +159,9 @@ function DataStatusCard() {
         {syncOn ? <Cloud size={ICON.header} /> : <CloudOff size={ICON.header} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-semibold">{syncOn ? t('Данные синхронизируются') : t('Не синхронизируется')}</p>
+        <p className="font-semibold">
+          {syncOn ? t('Данные синхронизируются') : paused ? t('Синхронизация на паузе') : t('Не синхронизируется')}
+        </p>
         {/* Без truncate по той же причине, что и в MenuCard: «Копию ещё не
             делали» на 320px не влезает в 158px и обрывалось на «не дел…» —
             ровно то предупреждение, которое обязано читаться целиком. */}

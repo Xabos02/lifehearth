@@ -20,6 +20,7 @@ import { test as base, expect, type Page } from '@playwright/test';
 // локальный из .env.development. По этой маске тесты и глушат сеть, и ставят
 // свои подставные ответы — маска одна, чтобы они не разъехались.
 export const WORKER_MATCH = /(workers\.dev|127\.0\.0\.1:8787)/;
+export const OPEN_METEO_MATCH = /api\.open-meteo\.com/;
 
 export interface SeedSettings {
   [key: string]: unknown;
@@ -61,6 +62,10 @@ export async function openApp(page: Page, path = '', extraSettings: SeedSettings
         // en-US, и «как в системе» дал бы английский интерфейс — все тексты
         // существующих тестов перестали бы находиться. EN-тесты переопределяют.
         language: 'ru',
+        // Согласие на внешнее (задача 34) дано: без него окно «Что уходит с
+        // телефона» перекрыло бы экран, а синк, семья, ИИ и напоминания стояли
+        // бы на паузе. Тесты самого окна передают { consentAt: null }.
+        consentAt: new Date().toISOString(),
         ...extra,
       });
     },
@@ -124,6 +129,9 @@ export const test = base.extend({
   context: async ({ context }, run) => {
     await context.route(WORKER_MATCH, (route) => route.abort('failed'));
     await context.routeWebSocket(WORKER_MATCH, (ws) => ws.close());
+    // Погода — сторонний сервис: каждый тест, открывавший «Сегодня», ходил в
+    // настоящий Open-Meteo. Тест, которому нужна погода, ставит свой ответ.
+    await context.route(OPEN_METEO_MATCH, (route) => route.abort('failed'));
     await run(context);
   },
 });

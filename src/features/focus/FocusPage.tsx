@@ -36,7 +36,8 @@ import { SoundPickerSheet } from './SoundPickerSheet';
 import { FocusFullscreen } from './FocusFullscreen';
 import { FOCUS_VARS } from './focusVars';
 import { Switch } from '../../components/ui/Switch';
-import { enablePush, isStandalone, pushEnabled, pushSupported } from '../../lib/push';
+import { enablePush, isStandalone, pushEnabled, pushPaused, pushSupported } from '../../lib/push';
+import { useConsent } from '../../lib/consent';
 import { useToast } from '../../components/ui/toastContext';
 
 const PHASE_LABEL: Record<Phase, string> = {
@@ -285,7 +286,13 @@ export function FocusPage() {
   const p = usePomodoro();
   const toast = useToast();
   // pushEnabled() синхронный; включение из баннера ниже обновляет состояние само.
-  const [pushOn, setPushOn] = useState(() => pushEnabled());
+  // С согласием в зависимостях рендера: «Принимаю» в другом месте возвращает
+  // уведомления, и баннер «выключены» не должен висеть до ухода с экрана.
+  // На паузе баннер не показываем вовсе — уведомления не выключены, а ждут
+  // согласия (плашка в настройках).
+  useConsent();
+  const [pushOnLocal, setPushOn] = useState(false);
+  const pushOn = pushOnLocal || pushEnabled() || pushPaused();
 
   async function enableFocusPush() {
     if (!pushSupported()) {
@@ -297,6 +304,8 @@ export function FocusPage() {
       return;
     }
     const res = await enablePush();
+    // Окно согласия закрыли без «Принимаю» — это ответ, а не сбой.
+    if (res.reason === 'consent') return;
     if (!res.ok) {
       toast(res.reason === 'denied' ? t('Разрешение не выдано. Включите в настройках устройства.') : t('Не удалось включить уведомления. Проверьте разрешения в настройках устройства'));
       return;

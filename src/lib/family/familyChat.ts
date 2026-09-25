@@ -29,6 +29,7 @@ import {
 import { reconnectDelay } from './reconnectDelay';
 
 import { WORKER_WS_URL as WS_URL } from '../workerUrl';
+import { hasConsent } from '../consent';
 const PING_MS = 25_000;
 // Сколько символов dataURL безопасно уходит одним WS-фреймом. Лимит фрейма —
 // 1 МиБ, а полезная нагрузка раздувается шифрованием и JSON примерно в 1,33
@@ -482,6 +483,10 @@ class FamilyEngine {
   }
 
   async connect() {
+    // Без согласия на внешнее (задача 34) — ни сокета, ни повторов. Единая
+    // дверь движка: раннер, отправка из чата, звонок, создание и вход в группу.
+    // Группа, ключи и очередь исходящих на месте — уйдут после «Принимаю».
+    if (!hasConsent()) return;
     this.wantConnected = true;
     // Guard выставляем СИНХРОННО (до любого await): иначе два почти
     // одновременных connect() (visibilitychange+focus при возврате в PWA) оба

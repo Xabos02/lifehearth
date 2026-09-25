@@ -3,6 +3,7 @@
 // localStorage, чтобы не дёргать сеть и не переспрашивать координаты.
 
 import { t } from './i18n';
+import { hasConsent, OPEN_METEO_URL } from './consent';
 
 const MOSCOW = { lat: 55.75, lon: 37.62 };
 const CACHE_KEY = 'life-hub-weather';
@@ -92,12 +93,14 @@ function readCache(): Weather | null {
  *  Если сеть пропала, а кэш устарел — возвращаем устаревший кэш:
  *  вчерашняя температура полезнее внезапно исчезнувшего виджета. */
 export async function getWeather(): Promise<Weather | null> {
+  // Страховка под DayBand: без согласия ни геопозиции, ни запроса (задача 34).
+  if (!hasConsent()) return null;
   const cached = readCache();
   if (cached && Date.now() - cached.fetchedAt < TTL_MS) return cached;
   try {
     const { lat, lon } = await getCoords();
     const url =
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `${OPEN_METEO_URL}?latitude=${lat}&longitude=${lon}` +
       `&current=temperature_2m,weather_code,is_day,apparent_temperature` +
       `&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`;
     // Таймаут: без него на «мёртвой» сети запрос висит бесконечно, а виджет

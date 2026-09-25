@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { listFamilyConfigs } from '../lib/family/familyState';
 import { connectAllFamilies, disconnectAllFamilies, subscribeIncoming } from '../lib/family/familyChat';
 import { armSoundUnlock, playMessageSound } from '../lib/sounds';
+import { useConsent } from '../lib/consent';
 
 /** Держит семейные WebSocket-соединения живыми (по одному на группу), пока
  *  приложение открыто и есть хотя бы одна включённая группа. Переподключается
@@ -27,12 +28,18 @@ export function FamilyRunner() {
       .join(',');
   }, []);
 
+  // Без согласия — пауза: не подключаемся. disconnectAllFamilies здесь нельзя
+  // — он чистит реестр движков, и подписки звонков и статуса остались бы на
+  // старых экземплярах до перезагрузки.
+  const consent = useConsent();
+
   useEffect(() => {
     if (sig === undefined) return; // ещё грузится
     if (!sig) {
       disconnectAllFamilies();
       return;
     }
+    if (!consent) return;
     const wake = () => {
       if (document.visibilityState === 'visible') void connectAllFamilies();
     };
@@ -45,6 +52,6 @@ export function FamilyRunner() {
       window.removeEventListener('online', wake);
       window.removeEventListener('focus', wake);
     };
-  }, [sig]);
+  }, [sig, consent]);
   return null;
 }
