@@ -184,6 +184,7 @@ test('окно согласия и пауза: контраст не ниже AA
   await both('окно, подробно');
   await dialog.getByRole('button', { name: 'Коротко' }).click();
   await dialog.getByRole('button', { name: 'Не принимать — поставить на паузу' }).click();
+  await expect(dialog).toBeHidden();
   await page.goto('/more/settings');
   await expect(page.getByText('Внешнее на паузе')).toBeVisible();
   await both('настройки на паузе');

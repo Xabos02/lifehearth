@@ -453,6 +453,7 @@ test('шторки спорта, семейная задача, экран пр�
   await check('окно согласия, подробно', 'div[class*="z-[84]"]');
   await consent.getByRole('button', { name: 'Коротко' }).click();
   await consent.getByRole('button', { name: 'Не принимать — поставить на паузу' }).click();
+  await expect(consent).toBeHidden();
   await page.goto('/more/settings');
   await expect(page.getByText('Внешнее на паузе')).toBeVisible();
   await check('настройки на паузе');

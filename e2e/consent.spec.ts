@@ -159,14 +159,21 @@ test('обновившийся: «Не сейчас» нет, отказ — п�
 }) => {
   await page.addInitScript(SPY);
   await page.route(OPEN_METEO_MATCH, (r) => r.fulfill({ json: WEATHER }));
+  // Уведомления у обновившегося разрешены: без этого «На паузе» у них не
+  // проверить — pushPaused() требует выданного разрешения. grantPermissions
+  // здесь не действует (headless-Chromium на 127.0.0.1 отвечает 'denied'),
+  // поэтому разрешение подставляется до скриптов приложения.
+  await page.addInitScript(() =>
+    Object.defineProperty(Notification, 'permission', { get: () => 'granted' }),
+  );
   const external = watchNet(page, baseURL);
-  await openApp(page, '/', { consentAt: null, aiEnabled: true });
+  await openApp(page, '/', { consentAt: null, aiEnabled: true, autoBackup: 'cloud', autoBackupEvery: 'daily' });
   await seedUpdater(page);
   await page.goto('/');
 
   const dialog = page.getByRole('dialog', { name: 'Что уходит с телефона' });
   await expect(dialog.getByText('Сейчас у вас включено')).toBeVisible();
-  for (const chip of ['Синхронизация', 'Семья', 'Ассистент']) {
+  for (const chip of ['Синхронизация', 'Семья', 'Уведомления', 'Ассистент']) {
     await expect(dialog.getByText(chip, { exact: true })).toBeVisible();
   }
   // Случайно смахнуть нельзя: отказ назван тем, что он делает.
@@ -179,7 +186,9 @@ test('обновившийся: «Не сейчас» нет, отказ — п�
   await expect(page.getByText('Семья на паузе')).toBeVisible();
   await page.goto('/more/settings');
   await expect(page.getByText('Внешнее на паузе')).toBeVisible();
-  await expect(page.getByText('На паузе', { exact: true }).first()).toBeVisible();
+  // Уведомления и синк — «На паузе», а не «Включены» и не «Включить».
+  await expect(page.getByText('На паузе', { exact: true })).toHaveCount(2);
+  await expect(page.getByText('Включены', { exact: true })).toHaveCount(0);
   // Возврат в приложение — тот путь, которым синк и семья поднимаются сами.
   await page.evaluate(() => {
     document.dispatchEvent(new Event('visibilitychange'));
@@ -195,13 +204,17 @@ test('обновившийся: «Не сейчас» нет, отказ — п�
   expect(
     await page.evaluate(async () => {
       const { db } = await import('/src/db/db.ts');
+      const s = await db.settings.get('app');
       return {
         sync: (await db.sync.get('config'))?.enabled,
         family: (await db.family.get('f1'))?.enabled,
         queue: localStorage.getItem('life-hub-reminder-retry'),
+        // Пауза — не «копия сделана»: отказ сервера не записан как успех.
+        backupAt: s?.lastCloudBackupAt ?? null,
+        autoBackup: s?.autoBackup,
       };
     }),
-  ).toEqual({ sync: true, family: true, queue: '["r1"]' });
+  ).toEqual({ sync: true, family: true, queue: '["r1"]', backupAt: null, autoBackup: 'cloud' });
 
   await page.getByRole('button', { name: 'Прочитать и принять' }).click();
   await dialog.getByRole('button', { name: 'Принимаю' }).click();
@@ -212,6 +225,7 @@ test('обновившийся: «Не сейчас» нет, отказ — п�
   await expect.poll(() => external.some((u) => u.includes('/sync/pull'))).toBe(true);
   await expect.poll(() => external.some((u) => u.includes('/family/'))).toBe(true);
   await expect.poll(() => external.some((u) => u.endsWith('/schedule'))).toBe(true);
+  await expect.poll(() => external.some((u) => u.includes('/backup/'))).toBe(true);
   await page.goto('/');
   await expect(page.getByLabel('Сегодня коротко')).toContainText('17');
 

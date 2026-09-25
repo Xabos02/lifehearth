@@ -11,6 +11,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// answerConsent пишет ответ через updateSettings, а за тем модулем тянется
+// cycleRepo: холодный импорт ~4 с из 5 с тайм-аута. Запись в базу здесь не
+// проверяется — подменяем.
+vi.mock('../hooks/useSettings', () => ({ updateSettings: async () => {} }));
+
 const SRC = new URL('..', import.meta.url).pathname;
 const ROOT = new URL('../..', import.meta.url).pathname;
 
@@ -143,6 +148,31 @@ describe('без согласия внешнее в сеть не ходит', (
     await db.sync.clear();
   });
 
+  it('уведомления: на паузе — «На паузе», а не «Включены»; подписка не регистрируется', async () => {
+    // В Node нет ни service worker, ни Notification: без подстановки
+    // pushSupported() ложно, и функции выходили бы раньше проверки согласия.
+    const sub = { endpoint: 'https://push.example/x' };
+    vi.stubGlobal('navigator', {
+      serviceWorker: { ready: Promise.resolve({ pushManager: { getSubscription: async () => sub } }) },
+    });
+    vi.stubGlobal('window', { PushManager: {}, Notification: {}, matchMedia: () => ({ matches: false }) });
+    vi.stubGlobal('Notification', { permission: 'granted' });
+    const { setConsentFlag } = await import('./consent');
+    const push = await import('./push');
+    store.set('life-hub-push-sub', JSON.stringify(sub));
+    setConsentFlag(false);
+    expect(push.pushEnabled()).toBe(false);
+    expect(push.pushPaused()).toBe(true);
+    await push.ensurePushRegistered();
+    expect(calls).toEqual([]);
+
+    setConsentFlag(true);
+    expect(push.pushEnabled()).toBe(true);
+    expect(push.pushPaused()).toBe(false);
+    await push.ensurePushRegistered();
+    expect(calls.some((u) => u.endsWith('/push-register'))).toBe(true);
+  });
+
   it('напоминания: не ставятся и не снимаются, а копятся до «Принимаю»', async () => {
     const { setConsentFlag } = await import('./consent');
     const push = await import('./push');
@@ -168,8 +198,11 @@ describe('без согласия внешнее в сеть не ходит', (
 });
 
 describe('окно по просьбе', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('вторая просьба при открытом окне не копится: «Принимаю» не повторит действие дважды', async () => {
-    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} });
     const c = await import('./consent');
     c.setConsentFlag(false);
     const first = c.askConsent('ai');
@@ -178,7 +211,6 @@ describe('окно по просьбе', () => {
     expect(await first).toBe(true);
     expect(c.hasConsent()).toBe(true);
     expect(await c.askConsent('sync')).toBe(true); // дальше — без окна
-    vi.unstubAllGlobals();
   });
 });
 
