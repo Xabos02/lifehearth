@@ -258,6 +258,14 @@ describe('правка плана', () => {
     expect(p.current).toBeCloseTo(5.4, 5);
   });
 
+  it('первая оценка в плане без оценок не заменяет ручную цель и ручной прогресс', () => {
+    // Книга 340 стр., три главы без оценок, первая закрыта, степпером — 163.
+    // Главе дали оценку 120: было 120 из 120 — книга «прочитана», 163 потеряны.
+    const before = parts([0, true], [0, false], [0, false]);
+    const after = parts([120, true], [0, false], [0, false]);
+    expect(editedPlan(item(340, 163), before, after)).toEqual({ target: 340, current: 163 });
+  });
+
   it('план стёрт — материал не трогается', () => {
     expect(editedPlan(item(340, 40), parts([0, true]), [])).toBeNull();
   });
