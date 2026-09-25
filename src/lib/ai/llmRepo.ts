@@ -31,7 +31,7 @@ export async function getChat(id: string): Promise<LlmChat | undefined> {
   return c && !c.deletedAt ? c : undefined;
 }
 
-export async function createChat(model: string = DEFAULT_MODEL): Promise<LlmChat> {
+export async function createChat(model: string = DEFAULT_MODEL, dataTools = false): Promise<LlmChat> {
   const ts = now();
   const chat: LlmChat = {
     id: uid(),
@@ -42,6 +42,7 @@ export async function createChat(model: string = DEFAULT_MODEL): Promise<LlmChat
     model,
     systemPrompt: '',
     lastMessageAt: null,
+    dataTools,
   };
   await db.llmChats.add(chat);
   return chat;

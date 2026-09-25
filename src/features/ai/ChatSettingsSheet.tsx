@@ -101,7 +101,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
             <div className="min-w-0">
               <p className="font-medium">{t('Доступ к данным')}</p>
               <p className="text-xs text-muted">
-                {t('Модель читает задачи, заметки, финансы и другие разделы, кроме «Женских дней».')}
+                {t('Когда включён, модель читает задачи, заметки, финансы, привычки, цели, обучение и энергию.')}
               </p>
             </div>
           </div>

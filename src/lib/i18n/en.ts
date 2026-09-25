@@ -648,8 +648,8 @@ export const EN: Record<string, string> = {
   'Сводка по циклам за период — для показа или печати на приёме.':
     'A summary of your cycles for a period — to show or print at an appointment.',
   'Синхронизация между устройствами': 'Sync across devices',
-  'Пока недоступна. Записи раздела не уходят на сервер и не передаются между устройствами.':
-    "Not available yet. This section's entries don't go to a server or sync between devices.",
+  'Пока недоступна: записи раздела не передаются между устройствами. В облачную копию они попадают зашифрованными, если включено «Включать в резервную копию».':
+    "Not available yet: this section's entries don't sync between devices. They go into the cloud backup encrypted if “Include in backup” is on.",
   'Включать в резервную копию': 'Include in backup',
   'Раздел не синхронизируется, поэтому копия — единственное, что спасёт историю при потере телефона. Если выключить, записи в копию не попадут и восстановить их будет неоткуда.':
     "This section doesn't sync, so a backup is the only thing that will save your history if you lose your phone. Turn it off, and entries won't make it into the backup — with no way to recover them.",
@@ -826,7 +826,7 @@ export const EN: Record<string, string> = {
   'Заполнить профиль': 'Fill in your profile',
   'Имя, фото, рост и вес': 'Name, photo, height and weight',
   'Данные синхронизируются': 'Data is syncing',
-  'Только на этом устройстве': 'On this device only',
+  'Не синхронизируется': 'Not synced',
   'Копия: {date}': 'Backup: {date}',
   'Резервную копию ещё не делали': 'No backup made yet',
   'Разделы': 'Sections',
@@ -1271,8 +1271,8 @@ export const EN: Record<string, string> = {
   'Вес, кг': 'Weight, kg',
   'Определяет набор разделов: «Женские дни» есть только в женском профиле. При смене пола записи раздела не удаляются — он просто скрывается, а задачи, которые он поставил сам, уходят в «Корзину», если вы их не меняли.':
     "Determines which sections are available: Cycle only exists in a female profile. Switching gender doesn't delete the section's entries — it just hides it, and the tasks it created move to Trash unless you changed them.",
-  'Эти данные хранятся на устройстве и в вашей резервной копии. Вес ещё записывается замером в «Здоровье» — с синхронизацией он зашифрованным попадает на ваши устройства.':
-    'This data is kept on your device and in your backup. Weight is also logged as a Health measurement — with sync on, it reaches your other devices encrypted.',
+  'Эти данные хранятся на устройстве и в вашей резервной копии. Вес ещё записывается замером в «Здоровье» — с синхронизацией он зашифрованным идёт через наш сервер на ваши устройства; сервер видит дни замеров.':
+    'This data is kept on your device and in your backup. Weight is also logged as a Health measurement — with sync on, it travels encrypted through our server to your devices; the server sees the days you log it.',
   'Срок: {date}': 'Due: {date}',
   'Цель не найдена': 'Goal not found',
   'К списку целей': 'Back to goals',
@@ -1458,7 +1458,7 @@ export const EN: Record<string, string> = {
   'Не удалось сохранить заметку. Текст на экране цел — попробуйте ещё раз':
     'Could not save the note. The text on screen is intact — try again',
   'Последняя попытка не удалась: {when}': 'Last attempt failed: {when}',
-  'Данные только на этом устройстве': 'Data lives only on this device',
+  'Нет синхронизации и облачной копии': 'No sync or cloud backup',
   'Напоминания не придут при закрытом приложении':
     'Reminders will not arrive while the app is closed',
   'Порядок подпроектов обновлён': 'Subproject order updated',
@@ -1802,8 +1802,8 @@ export const EN: Record<string, string> = {
   'Инструкция для модели': 'Instructions for the model',
   'Например: отвечай кратко, в два-три предложения': 'For example: answer briefly, in two or three sentences',
   'Действует на все ответы в этом чате.': 'Applies to every reply in this chat.',
-  'Модель читает задачи, заметки, финансы и другие разделы, кроме «Женских дней».':
-    'The model reads tasks, notes, finance and other sections, except Cycle.',
+  'Когда включён, модель читает задачи, заметки, финансы, привычки, цели, обучение и энергию.':
+    'When on, the model reads tasks, notes, finance, habits, goals, learning and energy.',
   'Включён': 'On',
   'Выключен': 'Off',
   'Экспорт в markdown': 'Export as markdown',
@@ -1821,8 +1821,10 @@ export const EN: Record<string, string> = {
   'Точная стоимость каждого ответа видна под ним и в шапке чата.':
     'The exact cost of each reply is shown under it and in the chat header.',
   'Спросите о своём': 'Ask about your own data',
-  'С «Данными» ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.':
-    'With Data on, the assistant reads your tasks, notes, finance and habits — and answers with facts.',
+  'Ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.':
+    'The assistant reads your tasks, notes, finance and habits — and answers with facts.',
+  'Включите «Данные» под полем ввода — и ассистент ответит по вашим задачам, заметкам, финансам и привычкам.':
+    'Turn on “Data” below the input — and the assistant will answer from your tasks, notes, finance and habits.',
   'Разбери мои расходы за месяц': 'Break down my spending for the month',
   'Что у меня по задачам на этой неделе?': 'What are my tasks for this week?',
   'Собери план на завтра из моих задач': 'Build a plan for tomorrow from my tasks',

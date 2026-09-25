@@ -101,8 +101,11 @@ describe('runAgent', () => {
   });
 
   it('dataTools=false — один запрос без tools, даже если модель просит вызов', async () => {
-    const request = vi.fn(async (p: { tools?: unknown[] }) => {
+    const request = vi.fn(async (p: { tools?: unknown[]; systemPrompt?: string }) => {
       expect(p.tools).toBeUndefined();
+      // Модель знает, что данных нет и где их включить, — а не отвечает
+      // «не вижу» без объяснения и не выдаёт прошлые ответы за сегодняшние.
+      expect(p.systemPrompt).toContain('включить «Данные» под полем ввода');
       return textReply('обычный ответ');
     });
     const reply = await runAgent({

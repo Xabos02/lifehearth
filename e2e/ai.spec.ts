@@ -283,7 +283,7 @@ test('доступ к данным по умолчанию выключен: з�
   await expect(page.getByRole('button', { name: 'Доступ к данным' })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('пустой чат: подсказка отправляется одним тапом', async ({ page }) => {
+test('пустой чат: подсказки — только с «Данными», отправляются одним тапом', async ({ page }) => {
   const bodies: string[] = [];
   await page.route('**/ai/chat', (route) => {
     bodies.push(route.request().postData() ?? '');
@@ -294,6 +294,12 @@ test('пустой чат: подсказка отправляется одни�
   });
   await openApp(page, '/more/ai');
   await seedSyncAccount(page);
+
+  // Подсказки — вопросы о своих записях: без «Данных» их нет, строка говорит,
+  // где включить (иначе тап отправлял платный вопрос, на который нечем ответить).
+  await expect(page.getByRole('button', { name: 'Разбери мои расходы за месяц' })).toHaveCount(0);
+  await expect(page.getByText('Включите «Данные» под полем ввода', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Доступ к данным' }).click();
 
   await page.getByRole('button', { name: 'Разбери мои расходы за месяц' }).click();
   await expect(page.getByText('Разобрал.')).toBeVisible();
