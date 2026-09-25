@@ -10,11 +10,6 @@ describe('splitDataUrl + assembleFile — круговой путь', () => {
     expect(assembleFile(chunks, parts.length)).toBe(original);
   });
 
-  it('собранное не data: — не файл: внешний адрес или javascript: не принимаются', () => {
-    expect(assembleFile([{ idx: 0, data: 'https://evil.example/a' }], 1)).toBeUndefined();
-    expect(assembleFile([{ idx: 0, data: 'javascript:' }, { idx: 1, data: 'alert(1)' }], 2)).toBeUndefined();
-  });
-
   it('короткая строка (меньше одного чанка) даёт один кусок', () => {
     const original = 'data:text/plain;base64,YWJj';
     const parts = splitDataUrl(original);

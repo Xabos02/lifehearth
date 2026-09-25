@@ -89,6 +89,16 @@ function inlineOnly(v: unknown, re: RegExp): string | null {
   return typeof v === 'string' && re.test(v) ? v : null;
 }
 
+/** Файл чата из кусков — только data:. Куски шлёт любой держатель ключа
+ *  группы, а файл уходит в <audio src> (длинное голосовое) и в ссылку
+ *  скачивания: внешний адрес загрузился бы сам, javascript: исполнился бы в
+ *  приложении. Отдельно от assembleFile: её зовут и свои вложения заметок и
+ *  задач, у которых куски не обязаны быть data:. */
+export function assembleChatFile(chunks: { idx: number; data: string }[], total: number): string | undefined {
+  const out = assembleFile(chunks, total);
+  return out !== undefined && /^data:/i.test(out) ? out : undefined;
+}
+
 /** Цвет участника или общей задачи — только hex, как его ставит приложение.
  *  Он уходит в style.background, а 'url(https://…)' — законное значение
  *  background: трекинг-пиксель от любого, у кого есть ключ группы. */
@@ -422,7 +432,7 @@ class FamilyEngine {
       .equals(this.familyId)
       .filter((m) => m.fileChunk?.fileId === fileId)
       .toArray();
-    const assembled = assembleFile(
+    const assembled = assembleChatFile(
       chunkRows.map((r) => ({ idx: r.fileChunk!.idx, data: r.fileChunk!.data })),
       manifest.file.chunksTotal,
     );
