@@ -313,7 +313,7 @@ function Chart({
           ? t('Срок прошёл')
           : sched.onTrack
             ? t('Идёшь по графику')
-            : t('Отставание {n} {unit}', {
+            : t('Отставание {n}\u00A0{unit}', {
                 n: formatNum(debt),
                 unit: unitLabel(item.progressUnit, debt),
               })}

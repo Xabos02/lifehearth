@@ -69,7 +69,7 @@ function progressLabel(item: LearningItem): string {
     case 'lessons':
       return t('уроков {a} из {b}', { a: formatNum(item.progressCurrent), b: formatNum(item.progressTarget) });
     case 'hours':
-      return t('{a} из {b} ч', { a: formatNum(item.progressCurrent), b: formatNum(item.progressTarget) });
+      return t('{a} из {b}\u00A0ч', { a: formatNum(item.progressCurrent), b: formatNum(item.progressTarget) });
     case 'percent':
       return `${item.progressCurrent}%`;
   }
@@ -146,7 +146,7 @@ function LearningCard({
               ? t('Срок прошёл')
               : sched.onTrack
                 ? t('Идёшь по графику')
-                : t('Отстаёшь на {n} {unit}', {
+                : t('Отстаёшь на {n}\u00A0{unit}', {
                     n: formatNum(debt),
                     unit: unitLabel(item.progressUnit, debt),
                   })}
@@ -159,7 +159,7 @@ function LearningCard({
         )}
         <span className="ml-auto text-xs text-muted">
           {sched && !sched.done
-            ? t('{n} {unit} в неделю', {
+            ? t('{n}\u00A0{unit} в неделю', {
                 n: formatNum(perWeek),
                 unit: unitLabel(item.progressUnit, perWeek),
               })
