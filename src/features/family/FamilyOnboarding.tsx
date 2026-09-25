@@ -170,19 +170,9 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
         return;
       }
       if (parsed.kind === 'v2') {
-        // Старый код без слова (формат v:2) — принимаем как есть, чтобы
-        // сохранённые до обновления приглашения продолжали работать.
-        setBusy(true);
-        setError('');
-        void joinFamily(parsed.code, name)
-          .then((id) => {
-            onClose();
-            onReady?.(id);
-          })
-          .catch(() => {
-            setError(t('Не удалось войти. Проверьте код.'));
-            setBusy(false);
-          });
+        // Старый код без слова (v:2) с ключом группы внутри — не принимается
+        // с 25.09 (familyLifecycle.joinFamily): новый живёт сутки.
+        setError(t('Срок действия приглашения истёк — попросите новое'));
         return;
       }
       // Код прочитан — теперь нужно кодовое слово. Раньше вход происходил

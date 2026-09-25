@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import {
   InviteDamagedError,
@@ -189,5 +190,17 @@ describe('код, вставленный из мессенджера', () => {
       familyName: 'n',
     });
     expect(v2.startsWith('eyJ2Ijoy')).toBe(true); // btoa('{"v":2')
+  });
+});
+
+describe('старое приглашение v:2 не впускает', () => {
+  it('ключ открытым текстом и без срока — вход отклонён, группа не заводится', async () => {
+    // Такой код лежит в истории мессенджера годами: раньше любой нашедший
+    // входил в семью и читал всю переписку (с 25.09 — отказ).
+    const { joinFamily } = await import('./family/familyLifecycle');
+    const { db } = await import('../db/db');
+    const code = encodeFamilyPairing({ v: 2, familyId: 'fam-old', familyToken: 'tok', key: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', familyName: 'Семья' });
+    await expect(joinFamily(code, 'Влад', '')).rejects.toThrow();
+    expect(await db.family.get('fam-old')).toBeUndefined();
   });
 });

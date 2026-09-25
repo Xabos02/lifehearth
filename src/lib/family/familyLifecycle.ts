@@ -8,7 +8,6 @@ import {
   importKeyRaw,
   newAccountId,
   randomToken,
-  decodeFamilyPairing,
   generateInviteWord,
   openInvite,
   peekInvite,
@@ -58,12 +57,12 @@ export async function createFamily(familyName: string, displayName: string): Pro
 export async function joinFamily(
   code: string,
   displayName: string,
-  word?: string,
+  word: string,
 ): Promise<string> {
-  // Новый формат (v:3) требует кодового слова; старые коды (v:2) принимаем
-  // как есть — люди могли сохранить приглашение до обновления, и ломать им
-  // вход ради чистоты формата нельзя.
-  const p = word !== undefined ? await openInvite(code, word) : decodeFamilyPairing(code);
+  // Только v:3 — со словом и сроком в сутки. Старый код (v:2) несёт ключ
+  // группы открытым текстом и не истекает: лежит в истории мессенджера, и
+  // любой нашедший входил в семью. С 25.09 (задача 33) не принимается.
+  const p = await openInvite(code, word);
   const existing = await getFamilyConfig(p.familyId);
   if (existing) {
     connectFamily(p.familyId);
