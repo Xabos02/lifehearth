@@ -33,6 +33,7 @@ import {
   type PairingData,
 } from './crypto';
 import { t } from './i18n';
+import { reconcileIncomingReminder } from './push';
 import { getSyncConfig, patchSyncConfig, saveSyncConfig, clearSyncConfig } from './syncState';
 
 // Адрес живёт в lib/workerUrl.ts — одна точка на всё приложение. Отсюда он
@@ -368,6 +369,9 @@ async function pullPage(
     }
   }
 
+  // Задачи, пришедшие с другого устройства, — их напоминание сводится после
+  // транзакции: внутри неё сетевой запрос оборвал бы транзакцию Dexie.
+  const taskChanges: { before: Row | undefined; after: Row }[] = [];
   if (decoded.length) {
     const tables = [...new Set(decoded.map((d) => d.r.table))].map((name) => db.table(name));
     // Сбой ХРАНИЛИЩА пропускать нельзя: там не применится ничего, и сдвинутый
@@ -384,8 +388,12 @@ async function pullPage(
         await table.put(obj);
         remoteApplied.set(`${r.table}:${r.id}`, r.updatedAt);
         applied++;
+        if (r.table === 'tasks') taskChanges.push({ before: local, after: obj });
       }
     });
+  }
+  for (const { before, after } of taskChanges) {
+    void reconcileIncomingReminder(before as never, after as never).catch(() => {});
   }
 
   // Сервер без нового курсора (ещё не обновился) nextAfter не отдаёт — тогда

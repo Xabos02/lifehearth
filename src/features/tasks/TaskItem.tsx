@@ -182,7 +182,7 @@ export const TaskItem = memo(function TaskItem({
 
   const handleDelete = () => {
     if (window.confirm(t('Удалить задачу?'))) {
-      void cancelReminder(task.id);
+      void cancelReminder(task.id, task.remindBefore != null);
       void remove(db.tasks, task.id);
     } else setDx(0);
   };

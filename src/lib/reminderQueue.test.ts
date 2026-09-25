@@ -94,17 +94,29 @@ describe('повтор постановки', () => {
     expect(pendingReminderRetries()).toEqual([]);
   });
 
-  it('исчезнувшую задачу снимает с очереди, а не хранит вечно', async () => {
-    localStorage.setItem('life-hub-push-sub', JSON.stringify({ endpoint: 'https://push/x' }));
-    globalThis.fetch = (() =>
-      Promise.resolve(new Response('{"ok":true}', { status: 200 }))) as typeof fetch;
+  it('задачу, которая напоминания больше не ждёт, снимает на сервере и из очереди', async () => {
+    // Удалили или выполнили без сети — отмена могла не дойти. Работает и на
+    // устройстве без своей подписки: напоминание ставил другой телефон.
+    const calls: string[] = [];
+    globalThis.fetch = ((url: RequestInfo | URL) => {
+      calls.push(new URL(String(url)).pathname);
+      return Promise.resolve(new Response('{"ok":true}', { status: 200 }));
+    }) as typeof fetch;
 
     const { retryPendingReminders } = await import('./push');
     queueReminderRetry('исчезла');
 
-    await retryPendingReminders(async () => []); // задачи с таким id больше нет
+    await retryPendingReminders(async () => []); // живой задачи с таким id нет
 
+    expect(calls).toEqual(['/cancel']);
     expect(pendingReminderRetries()).toEqual([]);
+  });
+
+  it('отмена без сети встаёт в очередь, а не теряется', async () => {
+    globalThis.fetch = (() => Promise.reject(new Error('офлайн'))) as typeof fetch;
+    const { cancelReminder } = await import('./push');
+    await cancelReminder('t1', true);
+    expect(pendingReminderRetries()).toEqual(['t1']);
   });
 
   it('если сети всё ещё нет — задача остаётся в очереди', async () => {
@@ -212,5 +224,55 @@ describe('снятие напоминания общей задачи', () => {
     expect(calls).toEqual([]);
     await cancelReminder('t1', true);
     expect(calls.map((u) => new URL(u).pathname)).toEqual(['/cancel']);
+  });
+});
+
+describe('задача пришла синхронизацией с другого устройства', () => {
+  const base = { id: 't1', title: 'Позвонить в банк', dueDate: '2099-01-01', dueTime: '14:30', remindBefore: 15 };
+  let calls: string[];
+  beforeEach(() => {
+    store.clear();
+    vi.resetModules();
+    calls = [];
+    globalThis.fetch = ((url: RequestInfo | URL) => {
+      calls.push(new URL(String(url)).pathname);
+      return Promise.resolve(new Response('{"ok":true}', { status: 200 }));
+    }) as typeof fetch;
+  });
+  const withSub = () => localStorage.setItem('life-hub-push-sub', JSON.stringify({ endpoint: 'https://push/x' }));
+
+  it('выполнили на маке без уведомлений — телефон снимает напоминание', async () => {
+    withSub();
+    const { reconcileIncomingReminder } = await import('./push');
+    await reconcileIncomingReminder(base, { ...base, completedAt: '2026-09-25T10:00:00.000Z' });
+    expect(calls).toEqual(['/cancel']);
+  });
+
+  it('перенесли время — телефон ставит напоминание заново, на новое время', async () => {
+    withSub();
+    const { reconcileIncomingReminder } = await import('./push');
+    await reconcileIncomingReminder(base, { ...base, dueTime: '16:00' });
+    expect(calls).toEqual(['/schedule']);
+  });
+
+  it('правка без отношения к напоминанию (заметки) — на сервер не ходит', async () => {
+    withSub();
+    const { reconcileIncomingReminder } = await import('./push');
+    await reconcileIncomingReminder(base, { ...base });
+    expect(calls).toEqual([]);
+  });
+
+  it('задача без напоминания — на сервер не ходит', async () => {
+    withSub();
+    const { reconcileIncomingReminder } = await import('./push');
+    const plain = { ...base, remindBefore: null };
+    await reconcileIncomingReminder(plain, { ...plain, completedAt: '2026-09-25T10:00:00.000Z' });
+    expect(calls).toEqual([]);
+  });
+
+  it('устройство без уведомлений ничего не сводит', async () => {
+    const { reconcileIncomingReminder } = await import('./push');
+    await reconcileIncomingReminder(base, { ...base, completedAt: '2026-09-25T10:00:00.000Z' });
+    expect(calls).toEqual([]);
   });
 });

@@ -24,7 +24,7 @@ export async function toggleTask(task: Task): Promise<string | null> {
       // Только нетронутый: правленный повтор (updatedAt ушёл от createdAt) — уже
       // чья-то работа, её не стираем.
       if (spawned && !spawned.deletedAt && !spawned.completedAt && spawned.recurrence && spawned.updatedAt === spawned.createdAt) {
-        void cancelReminder(spawned.id);
+        void cancelReminder(spawned.id, spawned.remindBefore != null);
         await remove(db.tasks, spawned.id);
       }
     }
@@ -32,7 +32,7 @@ export async function toggleTask(task: Task): Promise<string | null> {
   }
 
   await update(db.tasks, task.id, { completedAt: now() });
-  void cancelReminder(task.id); // выполнена — напоминание не нужно
+  void cancelReminder(task.id, task.remindBefore != null); // выполнена — напоминание не нужно
 
   if (task.recurrence) {
     const nextDue = nextOccurrence(task.recurrence, task.dueDate);
@@ -95,7 +95,7 @@ export async function freezeTasks(tasks: Task[]): Promise<void> {
   for (const t of tasks) {
     if (t.frozenAt || t.completedAt) continue;
     await update(db.tasks, t.id, { frozenAt: ts });
-    void cancelReminder(t.id);
+    void cancelReminder(t.id, t.remindBefore != null);
   }
 }
 

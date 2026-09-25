@@ -354,7 +354,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
   const handleDelete = async () => {
     if (!task) return;
     if (!window.confirm(t('Удалить задачу?'))) return;
-    void cancelReminder(task.id);
+    void cancelReminder(task.id, task.remindBefore != null);
     await remove(db.tasks, task.id);
     onClose();
   };

@@ -879,3 +879,31 @@ describe('полное перечитывание', () => {
     expect(urls[urls.length - 1]).toContain('after=0');
   });
 });
+
+describe('напоминание задачи, пришедшей с другого устройства', () => {
+  it('задачу выполнили на устройстве без уведомлений — этот телефон снимает её напоминание', async () => {
+    // Мак без пушей закрыл задачу; напоминание стоит на подписке этого
+    // телефона — раньше оно приходило о сделанном деле.
+    const store = new Map([['life-hub-push-sub', JSON.stringify({ endpoint: 'https://push.example/1' })]]);
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: () => {}, removeItem: () => {} });
+    const key = await seedSync();
+    const older = '2026-09-25T10:00:00.000Z';
+    const newer = '2026-09-25T11:00:00.000Z';
+    const task = { id: 't1', title: 'Позвонить в банк', dueDate: '2099-01-01', dueTime: '14:30', remindBefore: 15, deletedAt: null };
+    await db.tasks.put({ ...task, completedAt: null, updatedAt: older } as never);
+    const ct = await encryptJSON(key, { ...task, completedAt: newer, updatedAt: newer });
+    const cancels: string[] = [];
+    mockFetch((url, init) => {
+      if (url.includes('/sync/pull'))
+        return jsonRes({ records: [{ table: 'tasks', id: 't1', updatedAt: newer, deletedAt: null, ciphertext: ct }], hasMore: false, nextAfter: 3 });
+      if (url.includes('/cancel')) cancels.push(String(init?.body));
+      return jsonRes({ ok: true });
+    });
+    try {
+      await runSync();
+      await vi.waitFor(() => expect(cancels).toEqual([JSON.stringify({ taskId: 't1' })]));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

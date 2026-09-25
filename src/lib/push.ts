@@ -217,24 +217,55 @@ export async function scheduleReminder(t: ReminderTask): Promise<void> {
   }
 }
 
-/** shared — задача общая (семья): напоминание могло поставить устройство
- *  другого участника, и снимать его надо, даже если у этого устройства своей
- *  подписки нет. Раньше отметка «выполнена» с такого телефона до сервера не
- *  доходила, и автор получал напоминание о сделанном деле. Личная задача без
- *  подписки на сервер не ходит: приложение без уведомлений не шлёт запрос на
- *  каждую отметку. */
-export async function cancelReminder(taskId: string, shared = false): Promise<void> {
+/** elsewhere — напоминание могло поставить ДРУГОЕ устройство: у задачи оно
+ *  было (remindBefore), а ставит его тот телефон, что тронул задачу последним,
+ *  или телефон другого участника семьи. Тогда снимать надо и с устройства без
+ *  своей подписки: раньше мак без уведомлений закрывал задачу, а напоминание
+ *  айфона о сделанном деле приходило. Задача без напоминания на сервер не
+ *  ходит: иначе сервер узнавал бы время каждой отметки.
+ *
+ *  Не дошло (нет сети) — в очередь повтора: retryPendingReminders снимет,
+ *  когда связь вернётся, раз задача уже не ждёт напоминания. */
+export async function cancelReminder(taskId: string, elsewhere = false): Promise<void> {
   clearReminderRetry(taskId);
-  if (!shared && !storedSub()) return;
+  if (!elsewhere && !storedSub()) return;
   try {
-    await fetch(`${WORKER_URL}/cancel`, {
+    const res = await fetch(`${WORKER_URL}/cancel`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ taskId }),
     });
+    if (!res.ok) throw new Error(`cancel ${res.status}`);
   } catch {
-    /* офлайн */
+    queueReminderRetry(taskId);
   }
+}
+
+type SyncedTask = ReminderTask & Partial<Pick<Task, 'completedAt' | 'deletedAt' | 'frozenAt'>>;
+
+/** Задача пришла синхронизацией с другого устройства — свести её напоминание.
+ *
+ *  Напоминание на сервере одно на задачу и стоит на подписке того телефона,
+ *  который его поставил. Правку с устройства без уведомлений (мак) сервер
+ *  раньше не видел: задачу закрыли — напоминание о сделанном приходило;
+ *  перенесли — приходило в старое время. Телефон с уведомлениями, получив
+ *  правку, сам снимает напоминание или ставит заново — на себя. Без своей
+ *  подписки здесь делать нечего. */
+export async function reconcileIncomingReminder(before: SyncedTask | undefined, after: SyncedTask): Promise<void> {
+  if (!storedSub()) return;
+  const wants = (x: SyncedTask | undefined) =>
+    !!x && x.remindBefore != null && !!x.dueDate && !x.completedAt && !x.deletedAt && !x.frozenAt;
+  if (!wants(after)) {
+    if (wants(before)) await cancelReminder(after.id, true);
+    return;
+  }
+  const same =
+    wants(before) &&
+    before!.title === after.title &&
+    before!.dueDate === after.dueDate &&
+    (before!.dueTime ?? null) === (after.dueTime ?? null) &&
+    before!.remindBefore === after.remindBefore;
+  if (!same) await scheduleReminder(after);
 }
 
 /** Поставить пуш по произвольному id на абсолютное время (не задача — напр. помодоро). */
@@ -267,12 +298,18 @@ export async function retryPendingReminders(
   load: (ids: string[]) => Promise<ReminderTask[]>,
 ): Promise<number> {
   const ids = pendingReminderRetries();
-  if (!ids.length || !storedSub()) return 0;
+  if (!ids.length) return 0;
   const tasks = await load(ids);
   const known = new Set(tasks.map((t) => t.id));
-  // Задачи, которых больше нет (удалили, пока ждали сети), снимаем с очереди —
-  // иначе она копилась бы вечно.
-  for (const id of ids) if (!known.has(id)) clearReminderRetry(id);
+  // Задачи, которые напоминания больше не ждут (удалили, выполнили, пока не
+  // было сети), — снять и на сервере: отмена могла не дойти. Удалось — сама
+  // уходит из очереди; нет — останется до следующего раза.
+  for (const id of ids) if (!known.has(id)) await cancelReminder(id, true);
+  // Без своей подписки ставить нечего — живые задачи из очереди убираем.
+  if (!storedSub()) {
+    for (const t of tasks) clearReminderRetry(t.id);
+    return 0;
+  }
   let done = 0;
   for (const t of tasks) {
     await scheduleReminder(t);
