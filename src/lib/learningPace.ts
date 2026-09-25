@@ -187,8 +187,11 @@ export function planProgress(
 /** Цель и прогресс после правки плана; null — плана не осталось, материал не
  *  трогаем.
  *
- *  Цель — сумма оценок нового плана (иначе доля считалась бы от числа,
- *  когда-то введённого руками), без оценок — прежняя, у процентов — 100.
+ *  Цель — сумма оценок нового плана, но только пока она из плана и выведена:
+ *  первый план с оценками её задаёт, правка оценок двигает. Цель, поправленная
+ *  руками после плана (курс 350 ч, в план внесена часть), правка плана не
+ *  трогает — раньше переименование главы возвращало её к сумме оценок.
+ *  Без оценок — прежняя, у процентов — 100.
  *
  *  Прогресс план ведёт, только пока он из плана и выведен — совпадает с тем,
  *  что давали отметки до правки: тогда он следует за новыми оценками. Прогресс,
@@ -202,7 +205,9 @@ export function editedPlan(
   after: readonly PlanPart[],
 ): { target: number; current: number } | null {
   const sum = after.reduce((s, p) => s + p.estimate, 0);
-  const next = planProgress(item.progressUnit, sum > 0 ? sum : item.progressTarget, after);
+  const sumBefore = before.reduce((s, p) => s + p.estimate, 0);
+  const targetFromPlan = sumBefore === 0 || Math.abs(item.progressTarget - sumBefore) < 1e-6;
+  const next = planProgress(item.progressUnit, sum > 0 && targetFromPlan ? sum : item.progressTarget, after);
   if (!next) return null;
   const prev = planProgress(item.progressUnit, item.progressTarget, before);
   // С допуском: сумма дробных оценок зависит от порядка, в котором её сложили.

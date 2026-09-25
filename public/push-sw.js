@@ -8,6 +8,56 @@
 function appBase() {
   return new URL(self.registration.scope).pathname;
 }
+// Текст напоминания приходит шифротекстом (src/lib/reminderSeal.ts): сервер
+// хранит его до срока и видеть не должен. Ключ — в базе устройства, общей у
+// страницы и сервис-воркера; тем же форматом, что encryptJSON:
+// 'e2e1:' + base64url(iv(12) ‖ шифротекст).
+const SEALED_PREFIX = 'e2e1:';
+function b64urlToBytes(s) {
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4);
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function reminderKey() {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('lifehearth-push-key', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('keys');
+    req.onerror = () => resolve(null);
+    req.onsuccess = () => {
+      const db = req.result;
+      try {
+        const get = db.transaction('keys').objectStore('keys').get('reminders');
+        get.onsuccess = () => {
+          db.close();
+          resolve(get.result || null);
+        };
+        get.onerror = () => {
+          db.close();
+          resolve(null);
+        };
+      } catch (e) {
+        db.close();
+        resolve(null);
+      }
+    };
+  });
+}
+// null — не вышло (ключа нет: переустановка, другое устройство, чистка
+// данных сайта). Тогда уведомление нейтральное — открытым текст не бывает.
+async function unseal(text) {
+  try {
+    const key = await reminderKey();
+    if (!key) return null;
+    const all = b64urlToBytes(text.slice(SEALED_PREFIX.length));
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, key, all.slice(12));
+    return JSON.parse(new TextDecoder().decode(plain));
+  } catch (e) {
+    return null;
+  }
+}
+
 // Уведомления, пришедшие до правки, так и лежат в центре уведомлений со
 // старым адресом внутри — переводим его на нынешнюю базу при тапе.
 function toAppUrl(url) {
@@ -20,22 +70,34 @@ self.addEventListener('push', (event) => {
   } catch (e) {
     data = {};
   }
-  const title = data.title || 'Напоминание';
+  let title = data.title || 'Напоминание';
+  let body = data.body || '';
   // Звонок: renotify перезванивает одной карточкой на каждый пуш серии
   // «дозвона», requireInteraction держит её на экране до ответа (Android;
   // iOS оба флага игнорирует — там серия сама складывается в баннеры со звуком).
   const isCall = !!data.call;
   const tag = data.taskId || data.tag || undefined;
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: data.body || '',
-      icon: appBase() + 'icons/icon-192.png',
-      badge: appBase() + 'icons/icon-192.png',
-      tag: tag,
-      renotify: isCall && !!tag, // renotify без tag — TypeError, уведомление не показалось бы вовсе
-      requireInteraction: isCall,
-      data: { url: data.family ? appBase() + 'more/family' + (data.familyId ? '?g=' + data.familyId : '') : appBase() },
-    }),
+    (async () => {
+      if (body.startsWith(SEALED_PREFIX)) {
+        const open = await unseal(body);
+        if (open) {
+          title = open.t || title;
+          body = open.b || '';
+        } else {
+          body = 'Откройте приложение, чтобы увидеть, о чём оно';
+        }
+      }
+      await self.registration.showNotification(title, {
+        body: body,
+        icon: appBase() + 'icons/icon-192.png',
+        badge: appBase() + 'icons/icon-192.png',
+        tag: tag,
+        renotify: isCall && !!tag, // renotify без tag — TypeError, уведомление не показалось бы вовсе
+        requireInteraction: isCall,
+        data: { url: data.family ? appBase() + 'more/family' + (data.familyId ? '?g=' + data.familyId : '') : appBase() },
+      });
+    })(),
   );
 });
 

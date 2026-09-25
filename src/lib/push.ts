@@ -1,6 +1,7 @@
 // Клиент Web Push: запрос разрешения, подписка, постановка/снятие напоминаний
 // на Worker. Реальные пуши приходят только в установленном PWA на iOS 16.4+.
 
+import { sealReminderText } from './reminderSeal';
 import type { Task } from '../db/types';
 // Алиас: в этом файле t — общепринятое имя задачи в параметрах.
 import { getLang, t as tr } from './i18n';
@@ -169,6 +170,18 @@ function bodyFor(t: ReminderTask): string {
     : tr('Через {left}', { left });
 }
 
+/** Единственная дверь в /schedule. Текст — только шифротекстом (reminderSeal.ts):
+ *  сервер хранит его до срока и видеть не должен. Не вышло зашифровать — уходит
+ *  пустым, и уведомление придёт нейтральным «Напоминание», но не открытым. */
+async function postSchedule(id: string, fireAt: number, title: string, body: string): Promise<Response> {
+  const sealed = await sealReminderText(title, body).catch(() => '');
+  return fetch(`${WORKER_URL}/schedule`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ taskId: id, fireAt, title: '', body: sealed, subscription: storedSub() }),
+  });
+}
+
 /** Ставит/обновляет напоминание задачи на Worker (или снимает, если не годится). */
 export async function scheduleReminder(t: ReminderTask): Promise<void> {
   if (!storedSub()) return; // пуши не включены — нечего ставить
@@ -180,11 +193,7 @@ export async function scheduleReminder(t: ReminderTask): Promise<void> {
   // Тон уведомлений: без эмодзи, коротко и по делу (title — название задачи).
   const body = bodyFor(t);
   try {
-    const res = await fetch(`${WORKER_URL}/schedule`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taskId: t.id, fireAt, title: t.title, body, subscription: storedSub() }),
-    });
+    const res = await postSchedule(t.id, fireAt, t.title, body);
     // Проверяем ответ, а не только отсутствие исключения: сервер мог ответить
     // отказом, и тогда напоминания тоже нет.
     if (!res.ok) throw new Error(`schedule ${res.status}`);
@@ -227,11 +236,7 @@ export async function schedulePush(
 ): Promise<void> {
   if (!storedSub() || fireAt <= Date.now()) return;
   try {
-    await fetch(`${WORKER_URL}/schedule`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taskId: id, fireAt, title, body, subscription: storedSub() }),
-    });
+    await postSchedule(id, fireAt, title, body);
   } catch {
     /* офлайн */
   }

@@ -151,7 +151,13 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
               muted={!d.inMonth}
               future={d.key > today}
               count={sessionCount(byDay.get(d.key) ?? [], d.key, d.key)}
-              onSelect={onSelect}
+              // Серый день соседнего месяца листает сетку на свой месяц — как в
+              // «Календаре»: иначе выбранный день висел серым на краю, а
+              // сводка под сеткой была уже про другой месяц.
+              onSelect={(key) => {
+                if (!d.inMonth) setAnchor(key);
+                onSelect(key);
+              }}
               square
             />
           ))}

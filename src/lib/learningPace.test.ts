@@ -249,6 +249,15 @@ describe('правка плана', () => {
     expect(p.current).toBe(6);
   });
 
+  it('цель, поправленная руками после плана, правка плана не трогает', () => {
+    // Курс 350 ч, в план внесены три дисциплины на 16,7 ч; цель поправлена
+    // руками. Переименование части раньше возвращало цель к 16,7.
+    const plan = parts([5.4, true], [7.1, false], [4.2, false]);
+    const p = editedPlan(item(350, 5.4, 'hours'), plan, plan)!;
+    expect(p.target).toBe(350);
+    expect(p.current).toBeCloseTo(5.4, 5);
+  });
+
   it('план стёрт — материал не трогается', () => {
     expect(editedPlan(item(340, 40), parts([0, true]), [])).toBeNull();
   });

@@ -98,6 +98,15 @@ describe('напоминание семейной задачи', () => {
     expect(scheduleReminder).not.toHaveBeenCalled();
   });
 
+  it('«Выкл» у напоминания снимает его на сервере, срок остаётся', async () => {
+    // Напоминание выключили, срок оставили: у задачи без «за сколько»
+    // напоминания нет, и репозиторий обязан его снять, а не переставить.
+    await db.familyTasks.put(task('a'));
+    await updateFamilyTask(F, 'a', { remindBefore: null });
+    expect(cancelReminder).toHaveBeenCalledWith('a', true);
+    expect(scheduleReminder).not.toHaveBeenCalled();
+  });
+
   it('правка цвета, приоритета или исполнителя напоминание не трогает', async () => {
     await db.familyTasks.put(task('a'));
     await updateFamilyTask(F, 'a', { color: '#10b981', priority: 3, assigneeId: 'p1', notes: 'хлеб' });

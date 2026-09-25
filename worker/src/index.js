@@ -7,6 +7,7 @@
 // Cron (раз в минуту): шлёт пуши, у которых наступило время.
 
 import { buildPushRequest } from './webpush.js';
+import { SCRUB_PLAIN_REMINDERS_SQL, storableReminderText } from './reminderText.js';
 export { FamilyRoom } from './familyRoom.js';
 export { SyncHub } from './syncHub.js';
 
@@ -246,10 +247,12 @@ export default {
         if (!taskId || typeof fireAt !== 'number' || !subscription?.endpoint) {
           return json({ error: 'bad request' }, 400, origin);
         }
+        // Только шифротекст — открытый текст не хранится (reminderText.js).
+        const text = storableReminderText(title, body);
         await env.DB.prepare(
           'INSERT OR REPLACE INTO reminders (task_id, fire_at, title, body, subscription) VALUES (?, ?, ?, ?, ?)',
         )
-          .bind(taskId, fireAt, title || '', body || '', JSON.stringify(subscription))
+          .bind(taskId, fireAt, text.title, text.body, JSON.stringify(subscription))
           .run();
         return json({ ok: true }, 200, origin);
       }
@@ -905,6 +908,8 @@ async function sendDue(env) {
     privateKey: env.VAPID_PRIVATE,
     subject: env.VAPID_SUBJECT || 'mailto:noreply@life-hub.app',
   };
+  // Открытый текст, оставшийся с прежних версий, — стереть (reminderText.js).
+  await env.DB.prepare(SCRUB_PLAIN_REMINDERS_SQL).run();
   // Запас 30с (cron раз в минуту). Один SELECT по индексу fire_at вместо
   // KV list — D1-чтения практически безлимитны на free-тарифе.
   const due = await env.DB.prepare('SELECT task_id, fire_at, title, body, subscription FROM reminders WHERE fire_at <= ?')

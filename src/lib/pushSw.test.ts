@@ -6,6 +6,7 @@
 // этом файле остались старыми — тап по уведомлению открывал страницу о
 // переезде. Тест держит, что адрес берётся из области действия SW.
 
+import 'fake-indexeddb/auto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -69,5 +70,55 @@ describe('push-sw: адреса из области действия SW', () => 
     expect(posted).toEqual([{ type: 'open-url', url: '/lifehearth/' }]);
     expect(focus).toHaveBeenCalled();
     expect(sw.openWindow).not.toHaveBeenCalled();
+  });
+});
+
+// Текст напоминания на сервере — только шифротекстом (reminderSeal.ts), а
+// расшифровывает его этот же файл SW ключом из базы устройства. Сторож на всю
+// цепочку: что уходит в /schedule и что человек видит на экране.
+describe('push-sw: текст напоминания сервер не видит', () => {
+  const SCOPE = 'https://xabos02.github.io/lifehearth/';
+
+  it('в /schedule уходит шифротекст, а не название задачи', async () => {
+    const sent: { title: string; body: string }[] = [];
+    const store = new Map([['life-hub-push-sub', JSON.stringify({ endpoint: 'https://push.example/1' })]]);
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: () => {}, removeItem: () => {} });
+    vi.stubGlobal('fetch', async (_u: string, init: RequestInit) => {
+      sent.push(JSON.parse(String(init.body)));
+      return new Response('{}', { status: 200 });
+    });
+    const { schedulePush } = await import('./push');
+    await schedulePush('t1', Date.now() + 60_000, 'Забрать анализы у Иванова', 'Через 30 мин · 09:00');
+    vi.unstubAllGlobals();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].title).toBe('');
+    expect(sent[0].body.startsWith('e2e1:')).toBe(true);
+    expect(JSON.stringify(sent[0])).not.toContain('Иванова');
+  });
+
+  it('свой телефон показывает настоящий текст', async () => {
+    const { sealReminderText } = await import('./reminderSeal');
+    const sealed = await sealReminderText('Оплатить интернет', 'Через 30 мин · 09:00');
+    const sw = bootSw(SCOPE);
+    await sw.fire('push', pushOf({ title: 'Напоминание', body: sealed, taskId: 't1' }));
+    expect(sw.shown[0].title).toBe('Оплатить интернет');
+    expect((sw.shown[0].opts as unknown as { body: string }).body).toBe('Через 30 мин · 09:00');
+  });
+
+  it('без своего ключа — нейтральное уведомление, открытым текст не бывает', async () => {
+    const { sealReminderText, forgetReminderKeyForTests } = await import('./reminderSeal');
+    const sealed = await sealReminderText('Оплатить интернет', 'Через 30 мин · 09:00');
+    // Переустановка или другой телефон: ключа, которым запечатано, больше нет.
+    forgetReminderKeyForTests();
+    await new Promise<void>((resolve) => {
+      const r = indexedDB.deleteDatabase('lifehearth-push-key');
+      r.onsuccess = r.onerror = () => resolve();
+    });
+    const sw = bootSw(SCOPE);
+    await sw.fire('push', pushOf({ title: 'Напоминание', body: sealed, taskId: 't1' }));
+    expect(sw.shown[0].title).toBe('Напоминание');
+    const body = (sw.shown[0].opts as unknown as { body: string }).body;
+    expect(body).not.toContain('e2e1:');
+    expect(body).not.toContain('интернет');
   });
 });
