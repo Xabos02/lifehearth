@@ -43,6 +43,18 @@ describe('провод сообщений чата: payload ↔ строка', (
     expect(got.text).toBe('Мама присоединилась');
   });
 
+  it('картинка и голос — только встроенные data:, внешний адрес не принимается', () => {
+    // Иначе телефон получателя сам запросил бы чужой URL при показе чата.
+    const p = { ...wire(msgPayload(row({ text: '' }))), image: 'https://evil.example/px', audio: 'https://evil.example/a' };
+    const got = msgRowFromWire('f1', meta, p, null);
+    expect(got.image).toBeNull();
+    expect(got.audio).toBeNull();
+    const ok = { ...p, image: 'data:image/jpeg;base64,AAA', audio: 'data:audio/mp4;base64,AAA' };
+    const kept = msgRowFromWire('f1', meta, ok, null);
+    expect(kept.image).toBe('data:image/jpeg;base64,AAA');
+    expect(kept.audio).toBe('data:audio/mp4;base64,AAA');
+  });
+
   it('незнакомое поле будущей версии отбрасывается белым списком', () => {
     const future = { ...wire(msgPayload(row({ text: 'hi' }))), futureField: { anything: 1 } };
     const got = msgRowFromWire('f1', meta, future, null);

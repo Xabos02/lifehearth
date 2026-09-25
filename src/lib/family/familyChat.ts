@@ -84,6 +84,10 @@ export function msgPayload(m: FamilyMessage): object {
  *  отбрасывается (поэтому у типизированных сообщений text всегда заполнен).
  *  localFileData — своё собранное содержимое файла: put() заменяет строку
  *  целиком, и echo собственного манифеста иначе стёрло бы его в гонке с ack. */
+function inlineOnly(v: unknown, re: RegExp): string | null {
+  return typeof v === 'string' && re.test(v) ? v : null;
+}
+
 export function msgRowFromWire(
   familyId: string,
   it: { itemId: string; seq: number; senderMemberId: string | null; createdAt: string },
@@ -97,8 +101,11 @@ export function msgRowFromWire(
     senderMemberId: it.senderMemberId ?? '',
     createdAt: it.createdAt,
     text: String(p.text ?? ''),
-    image: (p.image as string | null) ?? null,
-    audio: (p.audio as string | null) ?? null,
+    // Только встроенные data: — так их шлёт приложение. Адрес снаружи
+    // (https://…) телефон получателя запросил бы сам при показе: трекинг-
+    // пиксель с отметкой о прочтении от любого, у кого есть ключ группы.
+    image: inlineOnly(p.image, /^data:image\//i),
+    audio: inlineOnly(p.audio, /^data:audio\//i),
     audioDur: typeof p.audioDur === 'number' ? p.audioDur : undefined,
     system: Boolean(p.system),
     sys: (p.sys as FamilyMessage['sys']) ?? null,

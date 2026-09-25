@@ -19,10 +19,17 @@ export interface Weather {
   fetchedAt: number;
 }
 
+/** Координаты с точностью ~11 км (один знак). Погоде этого хватает, а точные
+ *  до метров координаты у сторонней службы — это адрес дома и работы по
+ *  часам. Округляются и сохранённые прежними версиями. */
+function coarse(c: { lat: number; lon: number }): { lat: number; lon: number } {
+  return { lat: Math.round(c.lat * 10) / 10, lon: Math.round(c.lon * 10) / 10 };
+}
+
 function readSavedCoords(): { lat: number; lon: number } | null {
   try {
     const raw = localStorage.getItem(COORDS_KEY);
-    return raw ? (JSON.parse(raw) as { lat: number; lon: number }) : null;
+    return raw ? coarse(JSON.parse(raw) as { lat: number; lon: number }) : null;
   } catch {
     return null;
   }
@@ -39,17 +46,26 @@ function readSavedCoords(): { lat: number; lon: number } | null {
 async function getCoords(): Promise<{ lat: number; lon: number }> {
   const saved = readSavedCoords();
   if (!navigator.geolocation) return saved ?? MOSCOW;
-  let granted = false;
+  let state = 'prompt';
   try {
-    granted = (await navigator.permissions.query({ name: 'geolocation' })).state === 'granted';
+    state = (await navigator.permissions.query({ name: 'geolocation' })).state;
   } catch {
     // permissions API нет (старые WebKit) — считаем «не выдано» и не спрашиваем.
   }
-  if (!granted) return saved ?? MOSCOW;
+  // Запрет, выставленный человеком, — и последние координаты больше не уходят.
+  if (state === 'denied') {
+    try {
+      localStorage.removeItem(COORDS_KEY);
+    } catch {
+      /* приватный режим */
+    }
+    return MOSCOW;
+  }
+  if (state !== 'granted') return saved ?? MOSCOW;
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (p) => {
-        const c = { lat: p.coords.latitude, lon: p.coords.longitude };
+        const c = coarse({ lat: p.coords.latitude, lon: p.coords.longitude });
         try {
           localStorage.setItem(COORDS_KEY, JSON.stringify(c));
         } catch {
@@ -90,7 +106,7 @@ export async function getWeather(): Promise<Weather | null> {
     const timer = setTimeout(() => ctrl.abort(), 7000);
     let r: Response;
     try {
-      r = await fetch(url, { signal: ctrl.signal });
+      r = await fetch(url, { signal: ctrl.signal, referrerPolicy: 'no-referrer' });
     } finally {
       clearTimeout(timer);
     }

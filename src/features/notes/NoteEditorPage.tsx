@@ -236,7 +236,9 @@ export function NoteEditorPage() {
         // один раз пересохранится в новом формате, а не сломается при правке.
         const looksHtml = /<\/?[a-z][^>]*>/i.test(raw);
         if (looksHtml || !raw) {
-          editorRef.current.innerHTML = raw;
+          // Санитайз и на входе в DOM: innerHTML исполняет <img onerror> и
+          // грузит внешние src из подложенного файла копии или старой версии.
+          editorRef.current.innerHTML = sanitizeNoteHtml(raw);
         } else {
           editorRef.current.innerHTML = sanitizeNoteHtml(marked.parse(raw, { async: false }) as string);
           dirtyRef.current = true;
@@ -277,7 +279,7 @@ export function NoteEditorPage() {
       setRemoteChanged(true);
       return;
     }
-    el.innerHTML = liveNote.content || '';
+    el.innerHTML = sanitizeNoteHtml(liveNote.content || '');
     knownAtRef.current = liveNote.updatedAt;
     setEditedAt(liveNote.updatedAt);
     setPinned(liveNote.pinned);
