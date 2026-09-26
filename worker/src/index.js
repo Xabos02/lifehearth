@@ -3,6 +3,7 @@
 //   /health                  — проверка живости
 //   /schedule, /cancel       — напоминания (push), KV REMINDERS
 //   /sync/push, /sync/pull   — синхронизация записей, D1 (только шифротекст)
+//   /sync/rename             — перенос открытых id под непрозрачные (задача 35)
 //   /sync/ticket, /sync/ws   — живой сигнал «есть чужие правки» (SyncHub)
 // Cron (раз в минуту): шлёт пуши, у которых наступило время.
 
@@ -56,6 +57,42 @@ async function authAccount(request, env) {
 }
 
 const PULL_LIMIT = 500;
+
+// Непрозрачные id на проводе (задача 35, TASKS.md). У этих четырёх таблиц id
+// выведен из содержимого — 'health:ferritin:2026-09-25', хеш снимка, id семьи —
+// и сервер видел, какие анализы человек сдаёт и когда. Клиент с 1.41.0 шлёт
+// их под новыми именами с id = HMAC ключом аккаунта; новые имена — чтобы
+// бандл 1.40 пропускал такие записи до расшифровки (у него незнакомая таблица
+// — мимо), а не искал локальную строку по чужому id и не затирал свежую.
+// Открытые строки, оставшиеся с прежних версий, переносит этот сервер по
+// парам «открытый id → непрозрачный», которые считает клиент: ключа у сервера
+// нет, а удалять вслепую — значит терять правки устройств, не успевших
+// обновиться. Белый список: остальные таблицы перенос не трогает.
+const PLAIN_TO_OPAQUE = new Map([
+  ['metrics', 'metrics2'],
+  ['metricLogs', 'metricLogs2'],
+  ['taskPhotos', 'taskPhotos2'],
+  ['familyShare', 'familyShare2'],
+]);
+const PLAIN_IN = "table_name IN ('metrics', 'metricLogs', 'taskPhotos', 'familyShare')";
+const WIRE_ID = /^[A-Za-z0-9_-]{22}$/;
+const RENAME_MAX = 100;
+// Перенос с слиянием: двойник под непрозрачным id (его уже прислало новое
+// устройство) остаётся, если он свежее или равен; иначе на его место встаёт
+// открытая версия. seq — больший из двух: номер не уменьшается и не
+// повторяется, следующий push получит MAX+1. Все прочие устройства открытую
+// строку уже видели (её seq позади их курсоров) и применили по id из
+// шифротекста, поэтому новый номер не нужен.
+const RENAME_MOVE_SQL = `INSERT INTO records (account_id, table_name, id, updated_at, deleted_at, ciphertext, seq, device_id)
+  SELECT account_id, ?, ?, updated_at, deleted_at, ciphertext, seq, device_id FROM records
+  WHERE account_id = ? AND table_name = ? AND id = ?
+  ON CONFLICT(account_id, table_name, id) DO UPDATE SET
+    seq = MAX(records.seq, excluded.seq),
+    updated_at = CASE WHEN excluded.updated_at > records.updated_at THEN excluded.updated_at ELSE records.updated_at END,
+    deleted_at = CASE WHEN excluded.updated_at > records.updated_at THEN excluded.deleted_at ELSE records.deleted_at END,
+    ciphertext = CASE WHEN excluded.updated_at > records.updated_at THEN excluded.ciphertext ELSE records.ciphertext END,
+    device_id = CASE WHEN excluded.updated_at > records.updated_at THEN excluded.device_id ELSE records.device_id END`;
+const RENAME_DROP_SQL = 'DELETE FROM records WHERE account_id = ? AND table_name = ? AND id = ?';
 // Потолок страницы по объёму. Строки бывают очень разные: обычная задача —
 // сотни байт, а кусок вложения заметки — больше полумегабайта после шифрования.
 // Пятьсот таких кусков в одном ответе — это сотни мегабайт, которые не
@@ -520,7 +557,17 @@ export default {
             deletedAt: r.d,
             ciphertext: r.c,
           }));
-          return json({ records: out, hasMore, nextAfter }, 200, origin);
+          // На последней странице — есть ли ещё открытые id (задача 35):
+          // клиент 1.41+ тогда попросит список и перенесёт. 1.40 поле не читает.
+          // ponytail: проверка на каждом опросе; убрать вместе с /sync/rename,
+          // когда открытых строк нет неделями.
+          const plain = hasMore
+            ? null
+            : await env.DB.prepare(`SELECT 1 FROM records WHERE account_id = ? AND ${PLAIN_IN} LIMIT 1`)
+                .bind(accountId)
+                .first()
+                .catch(() => null);
+          return json({ records: out, hasMore, nextAfter, ...(plain ? { plainIds: true } : {}) }, 200, origin);
         }
 
         // Прежний курсор по времени правки — для приложений, которые ещё не
@@ -560,6 +607,33 @@ export default {
         const last = out.length ? out[out.length - 1] : null;
         const nextSince = last ? `${last.updatedAt}|${last.id}` : sinceRaw;
         return json({ records: out, hasMore, nextSince }, 200, origin);
+      }
+
+      // === Перенос открытых id под непрозрачные (задача 35) ===
+      // Тело: {rename: [{table, id, to}]} — пары, которые клиент посчитал
+      // сам (HMAC ключом аккаунта). Ответ: {ok, ids} — до 100 открытых строк,
+      // которые ещё остались; пустой список — переносить нечего.
+      if (url.pathname === '/sync/rename' && request.method === 'POST') {
+        const accountId = await authAccount(request, env);
+        if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
+        const body = await request.json().catch(() => null);
+        const pairs = Array.isArray(body?.rename) ? body.rename.slice(0, RENAME_MAX) : [];
+        await ensureRecordsSchema(env);
+        const batch = [];
+        for (const r of pairs) {
+          const opaque = r && typeof r.table === 'string' ? PLAIN_TO_OPAQUE.get(r.table) : undefined;
+          if (!opaque || typeof r.id !== 'string' || typeof r.to !== 'string' || !WIRE_ID.test(r.to)) continue;
+          batch.push(env.DB.prepare(RENAME_MOVE_SQL).bind(opaque, r.to, accountId, r.table, r.id));
+          batch.push(env.DB.prepare(RENAME_DROP_SQL).bind(accountId, r.table, r.id));
+        }
+        // Одной транзакцией: перенос и удаление открытой строки — вместе или никак.
+        if (batch.length) await env.DB.batch(batch);
+        const left = await env.DB.prepare(
+          `SELECT table_name AS tbl, id FROM records WHERE account_id = ? AND ${PLAIN_IN} LIMIT ${RENAME_MAX}`,
+        )
+          .bind(accountId)
+          .all();
+        return json({ ok: true, ids: (left.results || []).map((x) => ({ table: x.tbl, id: x.id })) }, 200, origin);
       }
 
       // === Живой сигнал о чужих правках: тикет и сокет к SyncHub ===

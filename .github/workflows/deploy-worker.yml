@@ -30,6 +30,12 @@ jobs:
           node-version: 22
       - run: npm ci
         working-directory: worker
+      # Тесты воркера — до выката: с задачи 35 он переносит и удаляет записи
+      # синка (/sync/rename), и ошибка там — потерянные данные, а раньше
+      # воркер уезжал в прод без единой проверки.
+      # vitest стоит в корне (у воркера своего нет) — оттуда и гоняем.
+      - run: npm ci
+      - run: npx vitest run worker
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
