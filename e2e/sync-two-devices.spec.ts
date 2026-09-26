@@ -550,3 +550,45 @@ test.describe('обмен между двумя устройствами', () =>
     await ctxB.close();
   });
 });
+
+test('вес за один день с двух устройств — одна запись под непрозрачным id, у обоих — последний', async ({ browser }) => {
+  // Задача 35: на сервер уходит не 'health:weight:2026-09-25', а HMAC ключом
+  // аккаунта. Он обязан совпасть на обоих устройствах — иначе замер за день
+  // с телефона и с мака разошёлся бы на две записи.
+  const server = makeServer();
+  const rawKey = randomRawKey();
+  const ctxA = await browser.newContext();
+  const ctxB = await browser.newContext();
+  const mac = await device(ctxA, server, rawKey);
+  const phone = await device(ctxB, server, rawKey);
+  const logWeight = (page: Page, kg: number) =>
+    page.evaluate(async (kg) => {
+      const { logMeasure } = await import('/src/features/health/measures.ts');
+      await logMeasure('weight', '2026-09-25', kg);
+    }, kg);
+  const weightOf = (page: Page) =>
+    page.evaluate(async () => {
+      const { db } = await import('/src/db/db.ts');
+      return (await db.metricLogs.get('health:weight:2026-09-25'))?.value;
+    });
+
+  await logWeight(mac, 81);
+  await sync(mac);
+  await logWeight(phone, 82); // позже — и должна победить
+  await sync(phone);
+  await sync(mac);
+
+  const onServer = [...server.rows.values()];
+  const logs = onServer.filter((r) => r.table === 'metricLogs2');
+  expect(logs, 'замер за день — одна запись на сервере').toHaveLength(1);
+  expect(onServer.filter((r) => r.table === 'metrics2')).toHaveLength(1);
+  for (const r of onServer) {
+    expect(r.table, 'открытые таблицы на сервере').not.toMatch(/^(metrics|metricLogs)$/);
+    expect(r.id).not.toMatch(/health|2026-09-25/);
+  }
+  expect(await weightOf(mac)).toBe(82);
+  expect(await weightOf(phone)).toBe(82);
+
+  await ctxA.close();
+  await ctxB.close();
+});

@@ -1,7 +1,8 @@
 // E2E-крипто для облачной синхронизации (Фаза 0).
 // Содержимое записей шифруется НА устройстве (AES-256-GCM) перед отправкой;
 // ключ никогда не уходит на сервер. На сервере лежит только шифротекст +
-// открытые служебные поля (id/updatedAt/deletedAt) для дельта-синка.
+// открытые служебные поля (id/updatedAt/deletedAt) для дельта-синка. У
+// таблиц, где id выведен из содержимого, id на проводе — HMAC (wireId).
 // Чистый WebCrypto, без зависимостей — работает и в браузере, и в Node 20+.
 
 // === base64url (без паддинга) ↔ байты; одинаково в браузере и Node ===
@@ -43,10 +44,52 @@ export function importKeyRaw(b64: string): Promise<CryptoKey> {
   ]);
 }
 
+// === Непрозрачный id записи на проводе (задача 35) ===
+// У части таблиц id выведен из содержимого ('health:ferritin:2026-09-25'), и
+// сервер по нему видел, какие анализы и когда. На провод идёт HMAC-SHA256 от
+// «таблица/id» ключом, выведенным из ключа аккаунта: одинаковый на всех
+// устройствах аккаунта (замер веса за день с двух телефонов — одна запись),
+// а без ключа ни обратить, ни сверить с догадкой нельзя.
+//
+// Ключ id выводится тем же HMAC (HMAC(ключ аккаунта, метка) — PRF, как шаг
+// expand у HKDF), а не через HKDF: HMAC-SHA256 в WebCrypto есть везде, где
+// работает приложение, HKDF в Safari не проверен (облако без WebKit).
+// Отдельный ключ, а не сам ключ аккаунта: ключ шифрования не должен служить
+// ещё и ключом подписи.
+const wireKeys = new WeakMap<CryptoKey, Promise<CryptoKey>>();
+const HMAC = { name: 'HMAC', hash: 'SHA-256' } as const;
+
+export function wireIdKey(accountKey: CryptoKey): Promise<CryptoKey> {
+  let k = wireKeys.get(accountKey);
+  if (!k) {
+    k = (async () => {
+      const raw = await crypto.subtle.exportKey('raw', accountKey);
+      const base = await crypto.subtle.importKey('raw', raw, HMAC, false, ['sign']);
+      const derived = await crypto.subtle.sign('HMAC', base, new TextEncoder().encode('lifehearth/wire-id/2'));
+      return crypto.subtle.importKey('raw', derived, HMAC, false, ['sign']);
+    })();
+    wireKeys.set(accountKey, k);
+  }
+  return k;
+}
+
+/** 16 байт HMAC в base64url — 22 символа [A-Za-z0-9_-]. */
+export async function wireId(k: CryptoKey, table: string, id: string): Promise<string> {
+  const sig = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(`${table}/${id}`));
+  return bytesToB64url(new Uint8Array(sig).slice(0, 16));
+}
+
 // === Шифрование полезной нагрузки записи ===
 // Формат шифротекста: base64url( iv(12 байт) ‖ ciphertext ).
-export async function encryptJSON(key: CryptoKey, obj: unknown): Promise<string> {
-  const data = new TextEncoder().encode(JSON.stringify(obj));
+//
+// padTo > 1 — JSON дополняется пробелами до кратного padTo байт (JSON.parse
+// хвостовые пробелы пропускает): у замеров здоровья длина записи иначе
+// выдаёт, какой это анализ (гемоглобин длиннее веса). padTo = 1 — побайтно
+// прежний формат.
+export async function encryptJSON(key: CryptoKey, obj: unknown, padTo = 1): Promise<string> {
+  const json = new TextEncoder().encode(JSON.stringify(obj));
+  const data = padTo > 1 ? new Uint8Array(Math.ceil(json.length / padTo) * padTo).fill(0x20) : json;
+  if (data !== json) data.set(json);
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
   const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
   const ctBytes = new Uint8Array(ct);

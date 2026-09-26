@@ -30,6 +30,8 @@ import {
   importBoxPrivate,
   sealFor,
   openFrom,
+  wireId,
+  wireIdKey,
   type PairingData,
 } from './crypto';
 import { t } from './i18n';
@@ -96,6 +98,29 @@ const SYNCED_TABLES = [
 ] as const;
 type SyncedTable = (typeof SYNCED_TABLES)[number];
 const isSynced = (t: string): t is SyncedTable => (SYNCED_TABLES as readonly string[]).includes(t);
+
+// Непрозрачные id на проводе (задача 35). У этих таблиц id выведен из
+// содержимого — 'health:ferritin:2026-09-25', хеш снимка, id семьи, — и сервер
+// видел, какие анализы и когда. Они едут под НОВЫМИ именами с id = HMAC
+// (crypto.ts, wireId). Новые имена — не для красоты: бандл 1.40 незнакомую
+// таблицу пропускает до расшифровки, а знакомую с чужим id искал бы по нему
+// локально (table.get(r.id)), не находил бы — и затирал более свежую строку.
+// Локальные id не меняются; принятая запись пишется по id из шифротекста.
+// Открытые строки прежних версий переносит сервер (renamePlain, /sync/rename).
+const WIRE = new Map<string, string>([
+  ['metrics', 'metrics2'],
+  ['metricLogs', 'metricLogs2'],
+  ['taskPhotos', 'taskPhotos2'],
+  ['familyShare', 'familyShare2'],
+]);
+const FROM_WIRE = new Map([...WIRE].map(([local, wire]) => [wire, local]));
+/** Выравнивание шифротекста непрозрачных таблиц: длина замера иначе выдаёт анализ. */
+const WIRE_PAD = 512;
+/** Таблица и id на провод: непрозрачные для WIRE, остальные как есть. */
+async function wireOf(k: CryptoKey, table: string, id: string): Promise<{ table: string; id: string }> {
+  const opaque = WIRE.get(table);
+  return opaque ? { table: opaque, id: await wireId(k, table, id) } : { table, id };
+}
 
 interface RemoteRecord {
   table: string;
@@ -248,14 +273,15 @@ async function resolveUniqueConflicts(table: Table<Row>, obj: Row): Promise<bool
   return true;
 }
 
-/** Применить одну входящую запись. true — если что-то записано локально. */
-async function applyRecord(c: SyncConfig, r: RemoteRecord): Promise<boolean> {
+/** Применить входящее семейное подключение. true — если что-то записано.
+ *  (Остальные таблицы пишутся пачкой в pullPage.) */
+async function applyFamilyShare(c: SyncConfig, ciphertext: string): Promise<boolean> {
   // Семейное подключение с другого МОЕГО устройства: восстанавливаем конфиг
   // (ключ/токен зашифрованы аккаунтным ключом). Курсоры чтения — свои,
   // с нуля: бэкфилл комнаты доберёт историю. FamilyRunner увидит новую
   // группу через liveQuery и сам поднимет соединение.
-  if (r.table === 'familyShare') {
-    const p = await decryptJSON<FamilySharePayload>(c.key, r.ciphertext);
+  {
+    const p = await decryptJSON<FamilySharePayload>(c.key, ciphertext);
     const local = await db.family.get(p.familyId);
     const key = await importKeyRaw(p.keyRaw);
     if (!local) {
@@ -299,22 +325,12 @@ async function applyRecord(c: SyncConfig, r: RemoteRecord): Promise<boolean> {
     }
     return false;
   }
-  if (!isSynced(r.table)) return false; // незнакомая таблица — пропускаем
-  const table = db.table<Row>(r.table);
-  const local = await table.get(r.id);
-  if (!shouldApply(local?.updatedAt, r.updatedAt)) return false;
-  const obj = await decryptJSON<Row>(c.key, r.ciphertext);
-  if (!(await resolveUniqueConflicts(table, obj))) return false;
-  // Пишем НАПРЯМУЮ (минуя repo) — сохраняем серверный updatedAt, иначе синк
-  // зациклится (repo проставил бы новый updatedAt → бесконечный пинг-понг).
-  await table.put(obj);
-  return true;
 }
 
 async function pullPage(
   c: SyncConfig,
   after: number,
-): Promise<{ applied: number; skipped: number; nextAfter: number; hasMore: boolean }> {
+): Promise<{ applied: number; skipped: number; nextAfter: number; hasMore: boolean; plainIds: boolean }> {
   const device = c.deviceId ? `&device=${encodeURIComponent(c.deviceId)}` : '';
   // Прежний курсор по времени едет рядом с новым — для сервера, который ещё
   // не обновился (или откатился): он читает только since. Без него такой
@@ -329,6 +345,7 @@ async function pullPage(
     hasMore: boolean;
     nextAfter?: number;
     nextSince?: string;
+    plainIds?: boolean;
   };
   let applied = 0;
   let skipped = 0;
@@ -343,13 +360,15 @@ async function pullPage(
   // Транзакция Dexie не переживает ожидания не-Dexie операций, а расшифровка
   // как раз такая. Поэтому сначала разбираем всю страницу, потом пишем пачкой —
   // тот же приём, что в семейном чате (family/familyChat.ts, applyBatch).
-  const decoded: { r: RemoteRecord; obj: Row }[] = [];
+  const decoded: { name: SyncedTable; obj: Row }[] = [];
   for (const r of data.records) {
+    // Непрозрачная таблица (*2, задача 35) — это та же локальная таблица.
+    const name = FROM_WIRE.get(r.table) ?? r.table;
     // Записи семейных подключений применяются особо (импорт ключей — тоже
     // ожидание не-Dexie), поэтому идут прежним путём, по одной.
-    if (r.table === 'familyShare') {
+    if (name === 'familyShare') {
       try {
-        if (await applyRecord(c, r)) applied++;
+        if (await applyFamilyShare(c, r.ciphertext)) applied++;
       } catch (e) {
         if (!isPoisonRecord(e)) throw e;
         skipped++;
@@ -357,12 +376,12 @@ async function pullPage(
       }
       continue;
     }
-    if (!isSynced(r.table)) continue; // незнакомая таблица — пропускаем
+    if (!isSynced(name)) continue; // незнакомая таблица — пропускаем
     // Сбой на ОДНОЙ «ядовитой» записи (битый шифротекст, не-JSON внутри) не
     // должен ронять весь цикл: иначе курсор lastPullSeq не сдвинется и синк
     // встанет навсегда — перестанут приходить и задачи, и заметки, и семья.
     try {
-      decoded.push({ r, obj: await decryptJSON<Row>(c.key, r.ciphertext) });
+      decoded.push({ name, obj: await decryptJSON<Row>(c.key, r.ciphertext) });
     } catch (e) {
       if (!isPoisonRecord(e)) throw e;
       skipped++;
@@ -374,22 +393,26 @@ async function pullPage(
   // транзакции: внутри неё сетевой запрос оборвал бы транзакцию Dexie.
   const taskChanges: { before: Row | undefined; after: Row }[] = [];
   if (decoded.length) {
-    const tables = [...new Set(decoded.map((d) => d.r.table))].map((name) => db.table(name));
+    const tables = [...new Set(decoded.map((d) => d.name))].map((name) => db.table(name));
     // Сбой ХРАНИЛИЩА пропускать нельзя: там не применится ничего, и сдвинутый
     // курсор увёл бы за собой записи, которые не записаны. Поэтому ошибка
     // транзакции летит наружу, как и раньше.
     await db.transaction('rw', tables, async () => {
-      for (const { r, obj } of decoded) {
-        const table = db.table<Row>(r.table);
-        const local = await table.get(r.id);
-        if (!shouldApply(local?.updatedAt, r.updatedAt)) continue;
+      for (const { name, obj } of decoded) {
+        const table = db.table<Row>(name);
+        // По id из ШИФРОТЕКСТА, а не с провода: у непрозрачных таблиц на
+        // проводе HMAC, и поиск по нему не нашёл бы локальную строку — тогда
+        // «новейший побеждает» не сработал бы, и входящая затёрла бы свежую.
+        const local = await table.get(obj.id);
+        if (!shouldApply(local?.updatedAt, obj.updatedAt)) continue;
         if (!(await resolveUniqueConflicts(table, obj))) continue;
         // Пишем НАПРЯМУЮ (минуя repo) — сохраняем серверный updatedAt, иначе
         // синк зациклится (repo проставил бы новый updatedAt).
         await table.put(obj);
-        remoteApplied.set(`${r.table}:${r.id}`, r.updatedAt);
+        // Эхо — по ЛОКАЛЬНЫМ имени и id: push проверяет по ним же.
+        remoteApplied.set(`${name}:${obj.id}`, obj.updatedAt);
         applied++;
-        if (r.table === 'tasks') taskChanges.push({ before: local, after: obj });
+        if (name === 'tasks') taskChanges.push({ before: local, after: obj });
       }
     });
   }
@@ -404,10 +427,10 @@ async function pullPage(
   if (legacy && typeof data.nextSince === 'string') {
     await patchSyncConfig({ lastPullAt: data.nextSince }, c.accountId);
     c.lastPullAt = data.nextSince;
-    return { applied, skipped, nextAfter: after, hasMore: Boolean(data.hasMore) };
+    return { applied, skipped, nextAfter: after, hasMore: Boolean(data.hasMore), plainIds: false };
   }
   const nextAfter = legacy ? after : (data.nextAfter as number);
-  return { applied, skipped, nextAfter, hasMore: data.hasMore && nextAfter > after };
+  return { applied, skipped, nextAfter, hasMore: data.hasMore && nextAfter > after, plainIds: data.plainIds === true };
 }
 
 /** Курсор pull двигается вперёд, а сервер отдаёт только то, что за ним.
@@ -476,14 +499,19 @@ export function cursorFromFuture(cursor: string, now: number): boolean {
  *
  *  Номер ставит сервер в момент прихода: что пришло позже, то и читается
  *  позже, часы устройств ни при чём. */
-async function pull(c: SyncConfig): Promise<{ applied: number; skipped: number }> {
+async function pull(c: SyncConfig): Promise<{ applied: number; skipped: number; plainIds: boolean }> {
   let applied = 0;
   let skipped = 0;
-  let after = await rewindIfTablesGrew(c);
+  let plainIds = false;
+  // min с opaquePullSeq: бандл 1.40 во второй вкладке двигает общий
+  // lastPullSeq, пропуская непрозрачные таблицы как незнакомые, — этот
+  // отрезок перечитываем. Поля нет (первый круг 1.41) — с нуля, один раз.
+  let after = Math.min(await rewindIfTablesGrew(c), c.opaquePullSeq ?? 0);
   for (;;) {
     const page = await pullPage(c, after);
     applied += page.applied;
     skipped += page.skipped;
+    plainIds ||= page.plainIds;
     after = page.nextAfter;
     // Курсор двигаем ПОСТРАНИЧНО, а не после всего цикла. Иначе обрыв на
     // середине (закрыли вкладку, пропала сеть) стирает весь прогресс, и
@@ -493,10 +521,10 @@ async function pull(c: SyncConfig): Promise<{ applied: number; skipped: number }
     //
     // Безопасно по той же причине, что и сам ре-pull: запись применяется,
     // только если свежее локальной, так что повтор ничего не портит.
-    await patchSyncConfig({ lastPullSeq: after }, c.accountId);
+    await patchSyncConfig({ lastPullSeq: after, opaquePullSeq: after }, c.accountId);
     if (!page.hasMore) break;
   }
-  return { applied, skipped };
+  return { applied, skipped, plainIds };
 }
 
 // === PUSH ===
@@ -528,14 +556,21 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
   // (фильтр там строго больше cutoff). Нижняя граница включающая — она лишь
   // переотправит одну пограничную запись, что безвредно: на сервере стоит
   // ON CONFLICT ... WHERE excluded.updated_at > records.updated_at.
+  const k = await wireIdKey(c.key);
+  // Один раз вся история замеров уходит под непрозрачными id с выравниванием
+  // (задача 35): открытые строки сервер перенесёт и сам, но с прежней длиной,
+  // а по длине видно, какой это анализ. Десятки килобайт, единожды. Снимки
+  // (taskPhotos) не переотправляются: в их длине ничего нет, а весят они много.
+  const resend = !c.healthResent;
   const fresh: { name: string; row: Row }[] = [];
   for (const name of SYNCED_TABLES) {
+    const lo = resend && (name === 'metrics' || name === 'metricLogs') ? '' : from;
     // between(lower, upper, includeLower, includeUpper) — то же полуоткрытое
     // окно, что и раньше, только границы теперь считает база.
     const rows = await db
       .table<Row>(name)
       .where('updatedAt')
-      .between(from, cutoff, true, false)
+      .between(lo, cutoff, true, false)
       .toArray();
     for (const row of rows) {
       // Эхо: запись, только что ПРИНЯТАЯ с сервера, по метке времени попадает
@@ -544,7 +579,7 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
       // по сотням килобайт, — чтобы сервер её отверг как не более свежую.
       // Та же строка с той же меткой = та, что пришла; правленная получает
       // новую метку и едет как положено.
-      if (remoteApplied.get(`${name}:${row.id}`) === row.updatedAt) continue;
+      if (lo === from && remoteApplied.get(`${name}:${row.id}`) === row.updatedAt) continue;
       fresh.push({ name, row });
     }
   }
@@ -552,11 +587,10 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
   // не блокирует main-thread при правке задачи с большим набором изменений.
   const out: RemoteRecord[] = await Promise.all(
     fresh.map(async ({ name, row }) => ({
-      table: name,
-      id: row.id,
+      ...(await wireOf(k, name, row.id)),
       updatedAt: row.updatedAt,
       deletedAt: row.deletedAt ?? null,
-      ciphertext: await encryptJSON(c.key, row),
+      ciphertext: await encryptJSON(c.key, row, WIRE.has(name) ? WIRE_PAD : 1),
     })),
   );
   // Семейные подключения — на другие МОИ устройства (ключ семьи внутри
@@ -589,11 +623,10 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
       ownerMemberId: f.ownerMemberId,
     };
     out.push({
-      table: 'familyShare',
-      id: f.familyId,
+      ...(await wireOf(k, 'familyShare', f.familyId)),
       updatedAt: f.updatedAt!,
       deletedAt: null,
-      ciphertext: await encryptJSON(c.key, payload),
+      ciphertext: await encryptJSON(c.key, payload, WIRE_PAD),
     });
   }
   // Отсев неподъёмных. Считаем по шифротексту — именно он ложится в колонку.
@@ -619,12 +652,41 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
     });
     if (!res.ok) throw new Error(`push ${res.status}`);
   }
-  await patchSyncConfig({ lastPushAt: cutoff }, c.accountId);
+  await patchSyncConfig({ lastPushAt: cutoff, ...(resend ? { healthResent: true } : {}) }, c.accountId);
   // Принятое до этой отсечки в окно отправки больше не попадёт — забываем.
   for (const [key, at] of remoteApplied) if (at < cutoff) remoteApplied.delete(key);
   return { pushed: sendable.length, oversized };
 }
 
+
+/** Перенести на сервере открытые id прежних версий под непрозрачные (задача 35).
+ *
+ *  Ключа у сервера нет, поэтому пары «открытый id → HMAC» считает клиент, а
+ *  переносит сервер — атомарно, со слиянием по «новейший побеждает»: вслепую
+ *  удалять открытые строки нельзя, среди них правки устройств на 1.40, ещё не
+ *  дошедшие сюда. Первый запрос — с пустым списком: сервер отвечает, что
+ *  осталось. Не бросает: не вышло — перенесём на следующем круге (сервер
+ *  повторит plainIds). ponytail: до 20 × 100 строк за круг, остаток — на
+ *  следующем; убрать вместе с /sync/rename, когда открытых нет неделями. */
+async function renamePlain(c: SyncConfig): Promise<void> {
+  const k = await wireIdKey(c.key);
+  let rename: { table: string; id: string; to: string }[] = [];
+  for (let i = 0; i < 20; i++) {
+    const res = await fetch(`${WORKER_URL}/sync/rename`, {
+      method: 'POST',
+      headers: authHeaders(c),
+      body: JSON.stringify({ rename }),
+    }).catch(() => null);
+    if (!res?.ok) return;
+    const { ids } = (await res.json().catch(() => ({}))) as { ids?: unknown };
+    const todo = (Array.isArray(ids) ? ids : []).filter(
+      (x): x is { table: string; id: string } =>
+        !!x && typeof x.table === 'string' && WIRE.has(x.table) && typeof x.id === 'string',
+    );
+    if (!todo.length) return;
+    rename = await Promise.all(todo.map(async (x) => ({ ...x, to: await wireId(k, x.table, x.id) })));
+  }
+}
 
 // === Оркестрация ===
 let running = false;
@@ -647,6 +709,7 @@ let resetPending = false;
 /** Курсоры сброшены, имя устройства новое — сервер отдаст всё как чужое. */
 const FULL_RESET = (): Partial<SyncConfig> => ({
   lastPullSeq: 0,
+  opaquePullSeq: 0,
   lastPullAt: '',
   lastPushAt: '',
   deviceId: randomToken(12),
@@ -726,23 +789,29 @@ export async function runSync(opts: RunSyncOptions = {}): Promise<{
         if (!c?.enabled) break;
         knownDeviceId = c.deviceId ?? '';
       }
+      let plainIds = false;
       if (opts.pushFirst && round === 0) {
         const sent = await push(c);
         total.pushed += sent.pushed;
         total.oversized = sent.oversized;
         const after = await getSyncConfig(); // курсор push обновился
-        const { applied: pulled, skipped } = after ? await pull(after) : { applied: 0, skipped: 0 };
-        total.pulled += pulled;
-        total.skipped += skipped;
+        const got = after ? await pull(after) : { applied: 0, skipped: 0, plainIds: false };
+        total.pulled += got.applied;
+        total.skipped += got.skipped;
+        plainIds = got.plainIds;
       } else {
-        const { applied: pulled, skipped } = await pull(c);
+        const got = await pull(c);
         const fresh = await getSyncConfig(); // курсор pull обновился
         const sent = fresh ? await push(fresh) : { pushed: 0, oversized: 0 };
-        total.pulled += pulled;
-        total.skipped += skipped;
+        total.pulled += got.applied;
+        total.skipped += got.skipped;
         total.pushed += sent.pushed;
         total.oversized = sent.oversized;
+        plainIds = got.plainIds;
       }
+      // Перенос — ПОСЛЕ приёма и отправки: всё открытое, что сервер отдал,
+      // уже применено здесь, а своя история ушла под непрозрачными id.
+      if (plainIds) await renamePlain(c).catch(() => {});
       if (!rerunRequested) break;
       rerunRequested = false;
       c = await getSyncConfig();

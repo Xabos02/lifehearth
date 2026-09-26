@@ -18,7 +18,7 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { db } = await import('../db/db');
-const { generateKey, encryptJSON } = await import('./crypto');
+const { generateKey, encryptJSON, decryptJSON, exportKeyRaw, importKeyRaw, wireId, wireIdKey } = await import('./crypto');
 const { getSyncConfig, patchSyncConfig } = await import('./syncState');
 const { runSync, batchByBytes } = await import('./sync');
 const { liveQuery } = await import('dexie');
@@ -386,7 +386,7 @@ describe('семейные подключения уезжают на други
     // нет, да и групп единицы), поэтому отбор окна для них написан отдельно —
     // и однажды уже отвалился при правке соседнего кода: осталась ссылка на
     // удалённую функцию, то есть отправка падала бы целиком.
-    await seedSync();
+    const accountKey = await seedSync();
     await patchSyncConfig({ lastPushAt: '2026-01-01T00:00:00.000Z' });
     const key = await generateKey();
     const base = {
@@ -403,8 +403,9 @@ describe('семейные подключения уезжают на други
     mockQuietNetwork(sent);
     await runSync();
 
-    const shares = sent.filter((r) => r.table === 'familyShare');
-    expect(shares.map((r) => r.id)).toEqual(['new']);
+    // Под непрозрачным именем и id (задача 35): id семьи сервер не видит.
+    const shares = sent.filter((r) => r.table === 'familyShare2');
+    expect(shares.map((r) => r.id)).toEqual([await wireId(await wireIdKey(accountKey), 'familyShare', 'new')]);
   });
 });
 
@@ -622,7 +623,7 @@ describe('курсор приёма — порядок прихода на се�
     // честно перечитает всё с нуля, и after=40 не дойдёт до сервера.
     mockQuietNetwork();
     await runSync();
-    await patchSyncConfig({ lastPullSeq: 40 });
+    await patchSyncConfig({ lastPullSeq: 40, opaquePullSeq: 40 });
     const ct = await encryptJSON(key, {
       id: 'late',
       title: 'Ночная задача',
@@ -686,7 +687,7 @@ describe('курсор приёма — порядок прихода на се�
     await seedSync();
     mockQuietNetwork();
     await runSync(); // knownTables
-    await patchSyncConfig({ lastPullSeq: 5, lastPullAt: '2026-09-18T01:00:00.000Z|a' });
+    await patchSyncConfig({ lastPullSeq: 5, opaquePullSeq: 5, lastPullAt: '2026-09-18T01:00:00.000Z|a' });
     const urls: string[] = [];
     let pulls = 0;
     mockFetch((url) => {
@@ -905,5 +906,143 @@ describe('напоминание задачи, пришедшей с друго�
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('непрозрачные id на проводе (задача 35)', () => {
+  const T0 = '2026-09-25T09:00:00.000Z';
+  const T1 = '2026-09-25T10:00:00.000Z';
+  const T2 = '2026-09-25T11:00:00.000Z';
+  const log = (value: number, updatedAt: string) => ({
+    id: 'health:weight:2026-09-25', metricId: 'health:weight', date: '2026-09-25', value,
+    createdAt: T0, updatedAt, deletedAt: null,
+  });
+  type Sent = { table: string; id: string; updatedAt: string; ciphertext: string };
+  /** Сеть: заданные ответы pull, сбор отправленного и вызовов /sync/rename. */
+  function net(pulls: unknown[], renameReplies: unknown[] = []) {
+    const sent: Sent[] = [];
+    const renames: unknown[] = [];
+    const urls: string[] = [];
+    mockFetch((url, init) => {
+      if (url.includes('/sync/pull')) {
+        urls.push(url);
+        return jsonRes(pulls.shift() ?? { records: [], hasMore: false, nextAfter: 0 });
+      }
+      if (url.includes('/sync/push')) {
+        sent.push(...(JSON.parse(String(init?.body)) as { records: Sent[] }).records);
+        return jsonRes({ ok: true });
+      }
+      if (url.includes('/sync/rename')) {
+        renames.push(JSON.parse(String(init?.body)).rename);
+        const next = renameReplies.shift();
+        return next === 404 ? new Response('', { status: 404 }) : jsonRes(next ?? { ok: true, ids: [] });
+      }
+      return jsonRes({ ok: true });
+    });
+    return { sent, renames, urls };
+  }
+
+  it('замеры, снимки и семья уходят под *2 с HMAC и выравниванием; задачи — как были', async () => {
+    const key = await seedSync();
+    const now = new Date().toISOString();
+    await db.metrics.put({ id: 'health:hemoglobin', name: 'Гемоглобин', createdAt: now, updatedAt: now, deletedAt: null } as never);
+    await db.metricLogs.put(log(81.5, now) as never);
+    await db.taskPhotos.put({ id: `${'a'.repeat(64)}_0`, taskId: 't1', createdAt: now, updatedAt: now, deletedAt: null } as never);
+    await db.tasks.put({ id: 't1', title: 'Сдать анализы', createdAt: now, updatedAt: now, deletedAt: null } as never);
+    const { sent } = net([]);
+    await runSync();
+
+    expect(sent.map((r) => r.table).sort()).toEqual(['metricLogs2', 'metrics2', 'taskPhotos2', 'tasks']);
+    const k = await wireIdKey(key);
+    // Тот же ключ, импортированный заново (второе устройство), даёт тот же id.
+    const k2 = await wireIdKey(await importKeyRaw(await exportKeyRaw(key)));
+    const logOut = sent.find((r) => r.table === 'metricLogs2')!;
+    expect(logOut.id).toBe(await wireId(k, 'metricLogs', 'health:weight:2026-09-25'));
+    expect(logOut.id).toBe(await wireId(k2, 'metricLogs', 'health:weight:2026-09-25'));
+    for (const r of sent.filter((x) => x.table !== 'tasks')) {
+      expect(r.id).toMatch(/^[A-Za-z0-9_-]{22}$/);
+      expect(r.id).not.toMatch(/health|2026|aaaa/);
+      // base64url → байты: iv 12 + тег 16, остальное — выровненный JSON.
+      const bytes = Buffer.from(r.ciphertext, 'base64url').length;
+      expect((bytes - 28) % 512).toBe(0);
+    }
+    expect((await decryptJSON<{ id: string }>(key, logOut.ciphertext)).id).toBe('health:weight:2026-09-25');
+    expect(sent.find((r) => r.table === 'tasks')?.id).toBe('t1');
+  });
+
+  it('«новейший побеждает» — по id из шифротекста: входящая старее не затирает, свежее — применяется без эха', async () => {
+    const key = await seedSync();
+    const k = await wireIdKey(key);
+    await db.metricLogs.put(log(80.1, T1) as never);
+    const wid = await wireId(k, 'metricLogs', 'health:weight:2026-09-25');
+    const older = { table: 'metricLogs2', id: wid, updatedAt: T0, deletedAt: null, ciphertext: await encryptJSON(key, log(80.5, T0), 512) };
+    const { sent } = net([{ records: [older], hasMore: false, nextAfter: 3 }]);
+    await patchSyncConfig({ lastPushAt: T0 });
+    await runSync();
+    expect((await db.metricLogs.get('health:weight:2026-09-25'))?.value).toBe(80.1);
+    expect(sent.filter((r) => r.table === 'metricLogs2').map((r) => r.id)).toContain(wid);
+
+    const newer = { ...older, updatedAt: T2, ciphertext: await encryptJSON(key, log(80.9, T2), 512) };
+    const again = net([{ records: [newer], hasMore: false, nextAfter: 4 }]);
+    await runSync();
+    expect((await db.metricLogs.get('health:weight:2026-09-25'))?.value).toBe(80.9);
+    expect(again.sent.filter((r) => r.table === 'metricLogs2')).toEqual([]); // эхо не уехало
+  });
+
+  it('открытые id прежних версий: применяются, обратно не уезжают, сервер переносит по посчитанным парам', async () => {
+    const key = await seedSync();
+    await patchSyncConfig({ healthResent: true, lastPushAt: T0 });
+    const k = await wireIdKey(key);
+    const plain = { table: 'metricLogs', id: 'health:weight:2026-09-25', updatedAt: T1, deletedAt: null, ciphertext: await encryptJSON(key, log(79.9, T1)) };
+    const { sent, renames } = net(
+      [{ records: [plain], hasMore: false, nextAfter: 5, plainIds: true }],
+      [
+        { ok: true, ids: [{ table: 'metricLogs', id: 'health:weight:2026-09-25' }, { table: 'tasks', id: 't1' }] },
+        { ok: true, ids: [] },
+      ],
+    );
+    const r = await runSync();
+    expect(r).not.toBeNull();
+    expect((await db.metricLogs.get('health:weight:2026-09-25'))?.value).toBe(79.9);
+    expect(sent).toEqual([]); // принятое — не эхом
+    expect(renames).toEqual([
+      [],
+      [{ table: 'metricLogs', id: 'health:weight:2026-09-25', to: await wireId(k, 'metricLogs', 'health:weight:2026-09-25') }],
+    ]);
+  });
+
+  it('сервер без /sync/rename (404) — обмен успешен, открытые остаются до следующего раза', async () => {
+    await seedSync();
+    net([{ records: [], hasMore: false, nextAfter: 1, plainIds: true }], [404]);
+    expect(await runSync()).not.toBeNull();
+  });
+
+  it('курсор: первый круг 1.41 читает с нуля; отрезок, пройденный 1.40 во второй вкладке, перечитывается', async () => {
+    await seedSync();
+    const first = net([]);
+    await runSync(); // knownTables
+    await patchSyncConfig({ lastPullSeq: 50, opaquePullSeq: undefined });
+    const a = net([{ records: [], hasMore: false, nextAfter: 60 }]);
+    await runSync();
+    expect(a.urls[0]).toContain('after=0');
+    expect((await getSyncConfig())?.opaquePullSeq).toBe(60);
+    await patchSyncConfig({ lastPullSeq: 90 }); // старая вкладка ушла вперёд, пропуская *2
+    const b = net([{ records: [], hasMore: false, nextAfter: 95 }]);
+    await runSync();
+    expect(b.urls[0]).toContain('after=60');
+    expect(first.urls.length).toBeGreaterThan(0);
+  });
+
+  it('история замеров уходит под *2 один раз, даже старее курсора отправки', async () => {
+    await seedSync();
+    await db.metricLogs.put(log(81, '2026-01-01T00:00:00.000Z') as never);
+    await patchSyncConfig({ lastPushAt: T0 });
+    const a = net([]);
+    await runSync();
+    expect(a.sent.map((r) => r.table)).toEqual(['metricLogs2']);
+    expect((await getSyncConfig())?.healthResent).toBe(true);
+    const b = net([]);
+    await runSync();
+    expect(b.sent).toEqual([]);
   });
 });
