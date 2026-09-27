@@ -581,7 +581,9 @@ test('вес за один день с двух устройств — одна 
   const onServer = [...server.rows.values()];
   const logs = onServer.filter((r) => r.table === 'metricLogs2');
   expect(logs, 'замер за день — одна запись на сервере').toHaveLength(1);
-  expect(onServer.filter((r) => r.table === 'metrics2')).toHaveLength(1);
+  // Все семь видов замеров заводятся разом: строка, созданная в миг первого
+  // замера своего вида, выдала бы по времени, какой это анализ.
+  expect(onServer.filter((r) => r.table === 'metrics2')).toHaveLength(7);
   for (const r of onServer) {
     expect(r.table, 'открытые таблицы на сервере').not.toMatch(/^(metrics|metricLogs)$/);
     expect(r.id).not.toMatch(/health|2026-09-25/);
