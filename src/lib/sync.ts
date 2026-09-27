@@ -128,6 +128,8 @@ interface RemoteRecord {
   updatedAt: string;
   deletedAt: string | null;
   ciphertext: string;
+  /** Номер прихода на сервер; нет — сервер старше этого поля. */
+  seq?: number;
 }
 
 type Row = Record<string, unknown> & { id: string; updatedAt: string; deletedAt: string | null };
@@ -275,7 +277,7 @@ async function resolveUniqueConflicts(table: Table<Row>, obj: Row): Promise<bool
 
 /** Применить входящее семейное подключение. true — если что-то записано.
  *  (Остальные таблицы пишутся пачкой в pullPage.) */
-async function applyFamilyShare(c: SyncConfig, ciphertext: string): Promise<boolean> {
+async function applyFamilyShare(c: SyncConfig, ciphertext: string, seen: boolean): Promise<boolean> {
   // Семейное подключение с другого МОЕГО устройства: восстанавливаем конфиг
   // (ключ/токен зашифрованы аккаунтным ключом). Курсоры чтения — свои,
   // с нуля: бэкфилл комнаты доберёт историю. FamilyRunner увидит новую
@@ -285,10 +287,16 @@ async function applyFamilyShare(c: SyncConfig, ciphertext: string): Promise<bool
     const local = await db.family.get(p.familyId);
     const key = await importKeyRaw(p.keyRaw);
     if (!local) {
-      // Вышли из группы на этом устройстве — её запись с сервера не
-      // возвращает её назад. Конфиг — свежий, не снимок начала цикла: выход
-      // мог случиться посреди обмена.
-      if ((await getSyncConfig())?.leftFamilies?.includes(p.familyId)) return false;
+      // Выход стирает группу только здесь, её запись на сервере остаётся, и
+      // чтение с нуля (обновление, «Перечитать всё») завело бы её назад.
+      // Есть пометка о выходе — заводим, только если в группу вступили после
+      // него (с другого своего устройства). Пометки нет (выход до 1.41) —
+      // не заводим то, что это устройство уже получало: раз группы нет,
+      // из неё вышли. Цена: группа, в которую вступили на обновлённом
+      // устройстве, пока это было на 1.40, сама не придёт — только по
+      // приглашению.
+      const leftAt = (await db.settings.get('app'))?.leftFamilies?.[p.familyId];
+      if (leftAt ? p.joinedAt <= leftAt : seen) return false;
       await db.family.put({
         id: p.familyId,
         familyId: p.familyId,
@@ -365,6 +373,10 @@ async function pullPage(
   // как раз такая. Поэтому сначала разбираем всю страницу, потом пишем пачкой —
   // тот же приём, что в семейном чате (family/familyChat.ts, applyBatch).
   const decoded: { name: SyncedTable; obj: Row }[] = [];
+  // До этого номера устройство уже читало (c — снимок до перемотки). Первый
+  // круг 1.41 — по курсору 1.40: непрозрачные записи он пропускал, но
+  // семейные тогда шли открыто.
+  const seenSeq = c.opaquePullSeq ?? c.lastPullSeq ?? 0;
   for (const r of data.records) {
     // Непрозрачная таблица (*2, задача 35) — это та же локальная таблица.
     const name = FROM_WIRE.get(r.table) ?? r.table;
@@ -372,7 +384,7 @@ async function pullPage(
     // ожидание не-Dexie), поэтому идут прежним путём, по одной.
     if (name === 'familyShare') {
       try {
-        if (await applyFamilyShare(c, r.ciphertext)) applied++;
+        if (await applyFamilyShare(c, r.ciphertext, (r.seq ?? Infinity) <= seenSeq)) applied++;
       } catch (e) {
         if (!isPoisonRecord(e)) throw e;
         skipped++;

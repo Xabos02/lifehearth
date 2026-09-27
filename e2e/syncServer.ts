@@ -63,6 +63,7 @@ export function makeServer(opts: { accountExists?: boolean } = {}) {
             updatedAt: r.updatedAt,
             deletedAt: r.deletedAt,
             ciphertext: r.ciphertext,
+            seq: r.seq,
           })),
           hasMore: false,
           nextAfter: last ? last.seq : after,

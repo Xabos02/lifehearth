@@ -4,7 +4,6 @@
 
 import { db } from '../../db/db';
 import type { FamilyConfig } from '../../db/types';
-import { getSyncConfig, patchSyncConfig } from '../syncState';
 
 export async function getFamilyConfig(familyId: string): Promise<FamilyConfig | undefined> {
   return db.family.get(familyId);
@@ -41,15 +40,15 @@ export async function patchFamilyConfig(familyId: string, p: Partial<Omit<Family
 /** Выход из одной группы: убираем её конфиг и её локальные данные (на
  *  сервере остаются). Другие группы не трогаем. */
 export async function clearFamily(familyId: string): Promise<void> {
-  await db.transaction('rw', db.family, db.familyMembers, db.familyTasks, db.familyMessages, async () => {
+  await db.transaction('rw', [db.family, db.familyMembers, db.familyTasks, db.familyMessages, db.settings], async () => {
     await db.family.delete(familyId);
+    // Без пометки синк при чтении с нуля завёл бы группу обратно.
+    const s = await db.settings.get('app');
+    if (s) await db.settings.put({ ...s, leftFamilies: { ...s.leftFamilies, [familyId]: new Date().toISOString() } });
     await db.familyMembers.where('familyId').equals(familyId).delete();
     await db.familyTasks.where('familyId').equals(familyId).delete();
     await db.familyMessages.where('familyId').equals(familyId).delete();
   });
-  // Без этой пометки синк при чтении с нуля завёл бы группу обратно.
-  const left = (await getSyncConfig())?.leftFamilies ?? [];
-  if (!left.includes(familyId)) await patchSyncConfig({ leftFamilies: [...left, familyId] });
 }
 
 /** Есть ли хотя бы одна включённая группа. */

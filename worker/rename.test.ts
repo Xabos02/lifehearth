@@ -2,6 +2,7 @@
 // plainIds в /sync/pull. На настоящем SQLite (node:sqlite) со схемой из
 // migrations — проверяется именно SQL сервера, а не мок: это первое место,
 // где воркер удаляет записи синка, и ошибка здесь — потерянные данные.
+import 'fake-indexeddb/auto';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
@@ -65,7 +66,7 @@ function server() {
     db.prepare('SELECT table_name t, id, deleted_at d, device_id dev FROM records WHERE account_id = ? ORDER BY t, id').all(account) as Row[];
   const pushDel = (table: string, id: string, updatedAt: string, device: string) =>
     call('/sync/push', { records: [{ table, id, updatedAt, deletedAt: updatedAt, ciphertext: 'tomb' }], device });
-  return { call, push, rows, full, pushDel };
+  return { call, push, rows, full, pushDel, env };
 }
 
 const TO = 'abhLFfdnWe1YklNS0RudOg'; // 22 символа base64url, как HMAC на проводе
@@ -175,5 +176,39 @@ describe('флаг plainIds в /sync/pull', () => {
     const s = server();
     await s.push('tasks', 't1', '2026-09-25T10:00:00.000Z', 'task');
     expect((await s.call('/sync/pull?after=0')).data.plainIds).toBeUndefined();
+  });
+});
+
+describe('клиент 1.41 против настоящего воркера', () => {
+  it('замер с устройства 1.40 переезжает под HMAC с выравниванием, второе устройство 1.41 его получает', async () => {
+    // Клиент и сервер по отдельности проверены выше и в sync.test.ts на
+    // подставных ответах; здесь — их стык: разойдись поля запроса или ответа
+    // /sync/rename, оба набора остались бы зелёными, а перенос не шёл бы.
+    const { db } = await import('../src/db/db');
+    const { generateKey, encryptJSON, wireId, wireIdKey } = await import('../src/lib/crypto');
+    const { runSync } = await import('../src/lib/sync');
+    const s = server();
+    const key = await generateKey();
+    const id = 'health:weight:2026-09-25';
+    const log = { id, metricId: 'health:weight', date: '2026-09-25', value: 80, createdAt: '2026-09-25T10:00:00.000Z', updatedAt: '2026-09-25T10:00:00.000Z', deletedAt: null };
+    await s.push('metricLogs', id, log.updatedAt, await encryptJSON(key, log), 'dev-old', 'acc-1');
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+      worker.fetch(new Request(String(input).replace(/^https?:\/\/[^/]+/, 'https://w.test'), init), s.env, { waitUntil() {} })) as typeof fetch;
+    const device = async () => {
+      await Promise.all(db.tables.map((t) => t.clear()));
+      await db.sync.put({ id: 'config', accountId: 'acc-1', authToken: 'tok-acc-1', key, enabled: true, lastPullAt: '', lastPushAt: '', lastSyncedAt: '' } as never);
+      await runSync();
+      return (await db.metricLogs.get(id))?.value;
+    };
+    try {
+      expect(await device()).toBe(80);
+      const rows = s.rows('acc-1');
+      expect(rows.map((r) => `${r.t}/${r.id}`)).toEqual([`metricLogs2/${await wireId(await wireIdKey(key), 'metricLogs', id)}`]);
+      expect((Buffer.from(String(rows[0].c), 'base64url').length - 28) % 512).toBe(0);
+      expect(await device()).toBe(80); // второе устройство, с нуля
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 });

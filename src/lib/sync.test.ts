@@ -410,33 +410,57 @@ describe('семейные подключения уезжают на други
 });
 
 describe('выход из группы переживает чтение с нуля', () => {
-  it('покинутая группа не возвращается с сервера, новая — приходит', async () => {
-    // Выход стирает группу только на этом устройстве, её запись на сервере
-    // остаётся. Обновление 1.41 перечитывает сервер с нуля — и без пометки о
-    // выходе заводило группу назад.
-    const accountKey = await seedSync();
-    const { clearFamily } = await import('./family/familyState');
-    const share = async (familyId: string) => ({
-      seq: familyId === 'gone' ? 1 : 2,
-      table: 'familyShare2',
-      id: familyId,
-      updatedAt: '2026-09-01T00:00:00.000Z',
-      deletedAt: null,
-      ciphertext: await encryptJSON(accountKey, {
-        familyId, familyToken: 'tok', keyRaw: await exportKeyRaw(await generateKey()), familyName: 'Наши',
-        selfMemberId: 'me', joinedAt: '2026-01-01T00:00:00.000Z', enabled: true, updatedAt: '2026-09-01T00:00:00.000Z',
-      }),
-    });
-    const records = [await share('gone'), await share('kept')];
-    await db.family.put({ id: 'gone', familyId: 'gone' } as never);
-    await clearFamily('gone');
+  // Выход стирает группу только на этом устройстве, её запись на сервере
+  // остаётся. Обновление 1.41 перечитывает сервер с нуля — и без защиты
+  // заводило покинутую группу назад: звонки из неё снова звонили.
+  const share = async (key: CryptoKey, familyId: string, seq: number, joinedAt = '2026-01-01T00:00:00.000Z') => ({
+    seq,
+    table: 'familyShare2',
+    id: familyId,
+    updatedAt: '2026-09-01T00:00:00.000Z',
+    deletedAt: null,
+    ciphertext: await encryptJSON(key, {
+      familyId, familyToken: 'tok', keyRaw: await exportKeyRaw(await generateKey()), familyName: 'Наши',
+      selfMemberId: 'me', joinedAt, enabled: true, updatedAt: '2026-09-01T00:00:00.000Z',
+    }),
+  });
+  async function pullOnce(records: unknown[]) {
     mockFetch((url) => {
-      if (url.includes('/sync/pull')) return jsonRes({ records, hasMore: false, nextAfter: 2 });
-      if (url.includes('/sync/push')) return jsonRes({ ok: true });
-      throw new Error(`неожиданный запрос: ${url}`);
+      if (url.includes('/sync/pull')) return jsonRes({ records, hasMore: false, nextAfter: 9 });
+      return jsonRes({ ok: true, ids: [] });
     });
     await runSync();
-    expect((await db.family.toArray()).map((f) => f.id)).toEqual(['kept']);
+    return (await db.family.toArray()).map((f) => f.id).sort();
+  }
+  const settings = () => db.settings.put({ id: 'app', theme: 'dark', weekStart: 1, lastBackupAt: null, schemaVersion: 1, updatedAt: '' } as never);
+
+  it('вышли на этом устройстве — не возвращается; вступили заново с другого — приходит', async () => {
+    const key = await seedSync();
+    await settings();
+    const { clearFamily } = await import('./family/familyState');
+    await db.family.put({ id: 'gone', familyId: 'gone' } as never);
+    await db.family.put({ id: 'back', familyId: 'back' } as never);
+    await clearFamily('gone');
+    await clearFamily('back');
+    const later = new Date(Date.now() + 60_000).toISOString();
+    expect(await pullOnce([await share(key, 'gone', 1), await share(key, 'back', 2, later), await share(key, 'kept', 3)]))
+      .toEqual(['back', 'kept']);
+  });
+
+  it('вышли до 1.41 (пометки нет) — уже полученная запись группу не заводит, новая заводит', async () => {
+    const key = await seedSync();
+    await settings();
+    await patchSyncConfig({ lastPullSeq: 5 }); // курсор 1.40, opaquePullSeq ещё нет
+    expect(await pullOnce([await share(key, 'left-long-ago', 3), await share(key, 'fresh', 7)])).toEqual(['fresh']);
+  });
+
+  it('запись, которую проскочила вкладка 1.40, группу заводит', async () => {
+    // 1.40 двигает lastPullSeq, пропуская *2 как незнакомые: виденное — по
+    // курсору 1.41, иначе новая группа с другого устройства не пришла бы.
+    const key = await seedSync();
+    await settings();
+    await patchSyncConfig({ opaquePullSeq: 60, lastPullSeq: 90 });
+    expect(await pullOnce([await share(key, 'joined-elsewhere', 70)])).toEqual(['joined-elsewhere']);
   });
 });
 
