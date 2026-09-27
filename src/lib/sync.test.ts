@@ -990,6 +990,10 @@ describe('непрозрачные id на проводе (задача 35)', ()
     const logOut = sent.find((r) => r.table === 'metricLogs2')!;
     expect(logOut.id).toBe(await wireId(k, 'metricLogs', 'health:weight:2026-09-25'));
     expect(logOut.id).toBe(await wireId(k2, 'metricLogs', 'health:weight:2026-09-25'));
+    // Эталон, посчитанный вне приложения (Python hmac): смена метки, обрезки
+    // или вывода ключа разделила бы одну запись на два id между версиями.
+    const fixed = await wireIdKey(await importKeyRaw('AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8'));
+    expect(await wireId(fixed, 'metricLogs', 'health:weight:2026-09-25')).toBe('uYaEefmKqKNQUxRfcSY_Bg');
     for (const r of sent.filter((x) => x.table !== 'tasks')) {
       expect(r.id).toMatch(/^[A-Za-z0-9_-]{22}$/);
       expect(r.id).not.toMatch(/health|2026|aaaa/);
@@ -1075,5 +1079,18 @@ describe('непрозрачные id на проводе (задача 35)', ()
     const b = net([]);
     await runSync();
     expect(b.sent).toEqual([]);
+  });
+
+  it('замер с устройства на 1.40, принятый в том же круге, тоже уходит под *2', async () => {
+    // Иначе отсечка эха пропустила бы его, флаг переотправки встал бы, и
+    // перенос оставил бы на сервере невыровненную длину навсегда.
+    const key = await seedSync();
+    const pulled = log(80, T1);
+    const { sent } = net([{
+      records: [{ seq: 1, table: 'metricLogs', id: pulled.id, updatedAt: T1, deletedAt: null, ciphertext: await encryptJSON(key, pulled) }],
+      hasMore: false, nextAfter: 1,
+    }]);
+    await runSync();
+    expect(sent.map((r) => r.table)).toEqual(['metricLogs2']);
   });
 });

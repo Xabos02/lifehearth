@@ -124,6 +124,18 @@ describe('перенос открытых id (/sync/rename)', () => {
     expect(s.rows('acc-B').map((x) => `${x.t}/${x.id}`)).toEqual(['metricLogs/h:w']);
   });
 
+  it('перенос в одном аккаунте не трогает тот же id в чужом', async () => {
+    // Здесь SQL переноса и удаления действительно выполняется — в тесте выше
+    // все пары отсеиваются до него.
+    const s = server();
+    await s.push('metricLogs', 'h:w', '2026-09-25T10:00:00.000Z', 'mine');
+    await s.push('metricLogs', 'h:w', '2026-09-25T10:00:00.000Z', 'theirs', 'dev-b', 'acc-B');
+    await s.push('metricLogs2', TO, '2026-09-25T09:00:00.000Z', 'their-twin', 'dev-b', 'acc-B');
+    await s.call('/sync/rename', { rename: [{ table: 'metricLogs', id: 'h:w', to: TO }] });
+    expect(s.rows().map((x) => `${x.t}/${x.c}`)).toEqual(['metricLogs2/mine']);
+    expect(s.rows('acc-B').map((x) => `${x.t}/${x.c}`)).toEqual(['metricLogs/theirs', 'metricLogs2/their-twin']);
+  });
+
   it('двойник новее — остаётся и его автор: устройство-автор открытой строки получит двойника', async () => {
     // Иначе перенос приписал бы строку автору открытой, и фильтр «свои не
     // отдаём» навсегда спрятал бы от него более свежую версию.
