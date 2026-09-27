@@ -409,6 +409,37 @@ describe('семейные подключения уезжают на други
   });
 });
 
+describe('выход из группы переживает чтение с нуля', () => {
+  it('покинутая группа не возвращается с сервера, новая — приходит', async () => {
+    // Выход стирает группу только на этом устройстве, её запись на сервере
+    // остаётся. Обновление 1.41 перечитывает сервер с нуля — и без пометки о
+    // выходе заводило группу назад.
+    const accountKey = await seedSync();
+    const { clearFamily } = await import('./family/familyState');
+    const share = async (familyId: string) => ({
+      seq: familyId === 'gone' ? 1 : 2,
+      table: 'familyShare2',
+      id: familyId,
+      updatedAt: '2026-09-01T00:00:00.000Z',
+      deletedAt: null,
+      ciphertext: await encryptJSON(accountKey, {
+        familyId, familyToken: 'tok', keyRaw: await exportKeyRaw(await generateKey()), familyName: 'Наши',
+        selfMemberId: 'me', joinedAt: '2026-01-01T00:00:00.000Z', enabled: true, updatedAt: '2026-09-01T00:00:00.000Z',
+      }),
+    });
+    const records = [await share('gone'), await share('kept')];
+    await db.family.put({ id: 'gone', familyId: 'gone' } as never);
+    await clearFamily('gone');
+    mockFetch((url) => {
+      if (url.includes('/sync/pull')) return jsonRes({ records, hasMore: false, nextAfter: 2 });
+      if (url.includes('/sync/push')) return jsonRes({ ok: true });
+      throw new Error(`неожиданный запрос: ${url}`);
+    });
+    await runSync();
+    expect((await db.family.toArray()).map((f) => f.id)).toEqual(['kept']);
+  });
+});
+
 describe('пачки отправки ограничены объёмом, а не только числом записей', () => {
   it('тяжёлые записи едут порознь — иначе тело запроса вырастает до сотен мегабайт', () => {
     // Строки бывают очень разные: обычная задача — сотни байт, кусок вложения

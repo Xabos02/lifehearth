@@ -4,6 +4,7 @@
 
 import { db } from '../../db/db';
 import type { FamilyConfig } from '../../db/types';
+import { getSyncConfig, patchSyncConfig } from '../syncState';
 
 export async function getFamilyConfig(familyId: string): Promise<FamilyConfig | undefined> {
   return db.family.get(familyId);
@@ -46,6 +47,9 @@ export async function clearFamily(familyId: string): Promise<void> {
     await db.familyTasks.where('familyId').equals(familyId).delete();
     await db.familyMessages.where('familyId').equals(familyId).delete();
   });
+  // Без этой пометки синк при чтении с нуля завёл бы группу обратно.
+  const left = (await getSyncConfig())?.leftFamilies ?? [];
+  if (!left.includes(familyId)) await patchSyncConfig({ leftFamilies: [...left, familyId] });
 }
 
 /** Есть ли хотя бы одна включённая группа. */

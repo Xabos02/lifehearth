@@ -285,6 +285,10 @@ async function applyFamilyShare(c: SyncConfig, ciphertext: string): Promise<bool
     const local = await db.family.get(p.familyId);
     const key = await importKeyRaw(p.keyRaw);
     if (!local) {
+      // Вышли из группы на этом устройстве — её запись с сервера не
+      // возвращает её назад. Конфиг — свежий, не снимок начала цикла: выход
+      // мог случиться посреди обмена.
+      if ((await getSyncConfig())?.leftFamilies?.includes(p.familyId)) return false;
       await db.family.put({
         id: p.familyId,
         familyId: p.familyId,
