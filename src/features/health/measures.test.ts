@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import 'fake-indexeddb/auto';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { MetricLog } from '../../db/types';
-import { formatMeasure, measureDef, measureTrend } from './measures';
+import { MEASURES, formatMeasure, logMeasure, measureDef, measureTrend } from './measures';
+import { db } from '../../db/db';
 
 function log(date: string, value: number, deletedAt: string | null = null, updatedAt = date): MetricLog {
   return { id: date + value, createdAt: date, updatedAt, deletedAt, metricId: 'health:weight', date, value };
@@ -55,5 +57,27 @@ describe('тренд замера', () => {
   it('формат: запятая и знаки по определению', () => {
     expect(formatMeasure(78.44, measureDef('weight'))).toBe('78,4');
     expect(formatMeasure(58, measureDef('pulse'))).toBe('58');
+  });
+});
+
+// Замеры и сервер (задача 35): id на проводе непрозрачные, но время правки
+// видно. Замер не должен по времени связываться со строкой своего вида.
+describe('замер не выдаёт по времени, какой это анализ', () => {
+  beforeEach(async () => {
+    await Promise.all(db.tables.map((t) => t.clear()));
+  });
+
+  it('первый замер заводит все виды разом — по времени создания вид не отличить', async () => {
+    await logMeasure('ferritin', '2026-09-25', 42);
+    const metrics = await db.metrics.toArray();
+    expect(metrics.map((m) => m.id).sort()).toEqual(MEASURES.map((m) => m.id).sort());
+  });
+
+  it('следующие замеры строку вида не трогают', async () => {
+    await logMeasure('ferritin', '2026-09-25', 42);
+    const before = (await db.metrics.get('health:ferritin'))!.updatedAt;
+    await new Promise((r) => setTimeout(r, 5));
+    await logMeasure('ferritin', '2026-09-26', 45);
+    expect((await db.metrics.get('health:ferritin'))!.updatedAt).toBe(before);
   });
 });

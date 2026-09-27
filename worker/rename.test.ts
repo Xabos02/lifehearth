@@ -61,7 +61,11 @@ function server() {
     call('/sync/push', { records: [{ table, id, updatedAt, deletedAt: null, ciphertext }], device }, account);
   const rows = (account = 'acc-A') =>
     db.prepare('SELECT table_name t, id, updated_at u, ciphertext c, seq FROM records WHERE account_id = ? ORDER BY t, id').all(account) as Row[];
-  return { call, push, rows };
+  const full = (account = 'acc-A') =>
+    db.prepare('SELECT table_name t, id, deleted_at d, device_id dev FROM records WHERE account_id = ? ORDER BY t, id').all(account) as Row[];
+  const pushDel = (table: string, id: string, updatedAt: string, device: string) =>
+    call('/sync/push', { records: [{ table, id, updatedAt, deletedAt: updatedAt, ciphertext: 'tomb' }], device });
+  return { call, push, rows, full, pushDel };
 }
 
 const TO = 'abhLFfdnWe1YklNS0RudOg'; // 22 символа base64url, как HMAC на проводе
@@ -118,6 +122,26 @@ describe('перенос открытых id (/sync/rename)', () => {
     expect(r.data).toEqual({ ok: true, ids: [{ table: 'metricLogs', id: 'h:w' }] });
     expect(s.rows().map((x) => `${x.t}/${x.id}`)).toEqual(['metricLogs/h:w', 'tasks/t1']);
     expect(s.rows('acc-B').map((x) => `${x.t}/${x.id}`)).toEqual(['metricLogs/h:w']);
+  });
+
+  it('двойник новее — остаётся и его автор: устройство-автор открытой строки получит двойника', async () => {
+    // Иначе перенос приписал бы строку автору открытой, и фильтр «свои не
+    // отдаём» навсегда спрятал бы от него более свежую версию.
+    const s = server();
+    await s.push('metricLogs2', TO, '2026-09-25T11:00:00.000Z', 'twin-11', 'dev-new');
+    await s.push('metricLogs', 'h:w', '2026-09-25T10:00:00.000Z', 'open-10', 'dev-old');
+    await s.call('/sync/rename', { rename: [{ table: 'metricLogs', id: 'h:w', to: TO }] });
+    expect(s.full()).toEqual([{ t: 'metricLogs2', id: TO, d: null, dev: 'dev-new' }]);
+    const got = await s.call('/sync/pull?after=0&device=dev-old');
+    expect((got.data.records as Row[]).map((r) => r.ciphertext)).toEqual(['twin-11']);
+  });
+
+  it('надгробие новее живого двойника — удаление переносится, а не воскресает', async () => {
+    const s = server();
+    await s.push('metricLogs2', TO, '2026-09-25T09:00:00.000Z', 'twin-09', 'dev-new');
+    await s.pushDel('metricLogs', 'h:w', '2026-09-25T10:00:00.000Z', 'dev-old');
+    await s.call('/sync/rename', { rename: [{ table: 'metricLogs', id: 'h:w', to: TO }] });
+    expect(s.full()).toEqual([{ t: 'metricLogs2', id: TO, d: '2026-09-25T10:00:00.000Z', dev: 'dev-old' }]);
   });
 
   it('без токена — 401', async () => {

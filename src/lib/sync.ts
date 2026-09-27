@@ -564,7 +564,8 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
   const resend = !c.healthResent;
   const fresh: { name: string; row: Row }[] = [];
   for (const name of SYNCED_TABLES) {
-    const lo = resend && (name === 'metrics' || name === 'metricLogs') ? '' : from;
+    const resendAll = resend && (name === 'metrics' || name === 'metricLogs');
+    const lo = resendAll ? '' : from;
     // between(lower, upper, includeLower, includeUpper) — то же полуоткрытое
     // окно, что и раньше, только границы теперь считает база.
     const rows = await db
@@ -579,7 +580,10 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
       // по сотням килобайт, — чтобы сервер её отверг как не более свежую.
       // Та же строка с той же меткой = та, что пришла; правленная получает
       // новую метку и едет как положено.
-      if (lo === from && remoteApplied.get(`${name}:${row.id}`) === row.updatedAt) continue;
+      // При переотправке истории эхо не отсекаем: принятое в этом же круге
+      // тоже должно уйти выровненным (иначе при пустом lastPushAt — новое
+      // устройство, «Перечитать всё» — оно осталось бы с прежней длиной).
+      if (!resendAll && remoteApplied.get(`${name}:${row.id}`) === row.updatedAt) continue;
       fresh.push({ name, row });
     }
   }

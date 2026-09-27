@@ -53,14 +53,21 @@ async function ensureMetric(def: MeasureDef): Promise<string> {
     await update(db.metrics, def.id, { deletedAt: null } as never);
     return def.id;
   }
-  await createWithId(db.metrics, def.id, {
-    title: def.title,
-    unit: def.unit,
-    currentValue: 0,
-    targetValue: null,
-    color: def.color,
-    sortOrder: MEASURES.indexOf(def),
-  });
+  // Все недостающие виды — разом, а не только этот: строка метрики,
+  // созданная в миг первого замера своего вида, по совпадению времени
+  // выдала бы серверу, какой это анализ (id на проводе непрозрачные, время
+  // правки — нет; задача 35).
+  for (const d of MEASURES) {
+    if (await db.metrics.get(d.id)) continue;
+    await createWithId(db.metrics, d.id, {
+      title: d.title,
+      unit: d.unit,
+      currentValue: 0,
+      targetValue: null,
+      color: d.color,
+      sortOrder: MEASURES.indexOf(d),
+    });
+  }
   return def.id;
 }
 
@@ -86,7 +93,9 @@ export async function logMeasure(key: MeasureKey, date: string, value: number): 
   const same = await db.metricLogs.get(id);
   if (same) await update(db.metricLogs, id, { value: v, deletedAt: null } as never);
   else await createWithId(db.metricLogs, id, { metricId, date, value: v });
-  await update(db.metrics, metricId, { currentValue: v });
+  // Строку метрики на замер не трогаем: её currentValue никто не читает, а
+  // правка в ту же миллисекунду, что и замер, связывала бы на сервере замер
+  // с его видом (задача 35).
   // Вес — ещё и в профиле: его читают «Главная» и ИМТ. Один источник правды
   // — дневник; профиль догоняет, если замер не старше последнего.
   if (key === 'weight') {
