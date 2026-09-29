@@ -42,7 +42,7 @@ export function EnergyTodayLine({ collapsed = false }: { collapsed?: boolean }) 
 
   return (
     <section className="mb-5">
-      <h2 className="mb-2 flex items-center justify-between px-1 text-sm font-semibold text-muted">
+      <h2 className="mb-2 flex items-center justify-between px-1 lh-section">
         <span>{t('Энергия')}</span>
         <span className="text-xs font-normal">
           {current ? t(ENERGY_LABEL[current]) : t('не отмечено')}

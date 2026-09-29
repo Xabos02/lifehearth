@@ -46,7 +46,7 @@ type PriorityStr = '0' | '1' | '2' | '3';
 // Стили Input для авто-grow textarea названия (#7) — компонент Textarea не
 // прокидывает ref, поэтому используем нативный textarea с теми же классами.
 const inputBase =
-  'w-full rounded-xl bg-surface-2 border border-hairline px-3.5 py-3 text-text placeholder:text-muted outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent/25';
+  'w-full rounded-lh-btn bg-lh-surface-2 border border-lh-border px-3.5 py-3 text-lh-text-primary placeholder:text-lh-text-secondary outline-none transition-[border-color,box-shadow] focus:border-lh-accent focus:ring-2 focus:ring-lh-accent/25';
 
 const PRIORITY_OPTIONS: { value: PriorityStr; label: string }[] = [
   { value: '0', label: 'Нет' },
@@ -522,12 +522,12 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               у правого края прямо под ним микрофон с зоной касания 44, и
               зоны двух кнопок налезали друг на друга на 9px. */}
           <div className="mb-1.5 flex items-center gap-1">
-            <span className="text-sm font-medium text-muted">{t('Название')}</span>
+            <span className="text-sm font-medium text-lh-text-secondary">{t('Название')}</span>
             <button
               type="button"
               aria-label={t('Скопировать название')}
               onClick={() => copyText(title)}
-              className={`p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+              className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <Copy size={ICON.inline} />
             </button>
@@ -556,12 +556,12 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
         <div>
           <div className="mb-1.5 flex items-center gap-1">
-            <span className="text-sm font-medium text-muted">{t('Заметки')}</span>
+            <span className="text-sm font-medium text-lh-text-secondary">{t('Заметки')}</span>
             <button
               type="button"
               aria-label={t('Скопировать заметки')}
               onClick={() => copyText(notes)}
-              className={`p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+              className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <Copy size={ICON.inline} />
             </button>
@@ -609,7 +609,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         </div>
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Фото')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('Фото')}</span>
           {/* gap-4: крестик сидит на углу миниатюры и выходит за неё на 6px,
               зона касания 44 — ещё на 10px дальше. При зазоре 8px она
               ложилась на соседнюю миниатюру, 16px убирают перекрытие. */}
@@ -620,14 +620,14 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                   <img
                     src={src}
                     alt=""
-                    className="size-20 rounded-xl border border-hairline object-cover"
+                    className="size-20 rounded-xl border border-lh-border object-cover"
                   />
                 </button>
                 <button
                   type="button"
                   aria-label={t('Удалить фото')}
                   onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
-                  className={`absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full border border-border bg-elevated text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
+                  className={`absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full border border-lh-border-strong bg-lh-surface-2 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
                 >
                   <X size={ICON.inline} />
                 </button>
@@ -637,7 +637,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               type="button"
               aria-label={t('Добавить фото')}
               onClick={() => photoInputRef.current?.click()}
-              className="flex size-20 items-center justify-center rounded-xl border border-dashed border-border text-muted active:opacity-60"
+              className="flex size-20 items-center justify-center rounded-xl border border-dashed border-lh-border-strong text-lh-text-secondary active:opacity-60"
             >
               <ImagePlus size={ICON.header} />
             </button>
@@ -656,7 +656,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         </div>
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Файлы')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('Файлы')}</span>
           {/* Записанные — общей карточкой с заметками: тап скачивает, крестик
               удаляет. Только что прикреплённые — отдельным списком, они ещё не
               в базе и уйдут туда при сохранении. */}
@@ -665,18 +665,18 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
             <div className="mt-2 space-y-2" data-testid="task-pending-files">
               {pendingFiles.map((f, i) => (
                 <div key={i} className="card flex items-center gap-3 p-3">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
                     <Paperclip size={ICON.header} />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-base font-medium">{f.name}</span>
-                    <span className="block text-xs text-muted">{formatFileSize(f.size)} · {t('добавится при сохранении')}</span>
+                    <span className="block text-xs text-lh-text-secondary">{formatFileSize(f.size)} · {t('добавится при сохранении')}</span>
                   </span>
                   <button
                     type="button"
                     aria-label={t('Убрать файл')}
                     onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
-                    className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+                    className={`p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
                   >
                     <X size={ICON.inline} />
                   </button>
@@ -687,7 +687,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-sm font-medium text-muted active:opacity-60"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-lh-btn border border-dashed border-lh-border-strong py-3 text-sm font-medium text-lh-text-secondary active:opacity-60"
           >
             <Paperclip size={ICON.action} />
             {t('Прикрепить файл')}
@@ -715,11 +715,11 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-sm font-medium text-muted">{t('Проект')}</span>
+            <span className="text-sm font-medium text-lh-text-secondary">{t('Проект')}</span>
             {!showNewProject && (
               <button
                 type="button"
-                className={`text-sm font-medium text-accent ${HIT_SLOP_44}`}
+                className={`text-sm font-medium text-lh-accent ${HIT_SLOP_44}`}
                 onClick={() => setShowNewProject(true)}
               >
                 {t('+ Новый')}
@@ -727,7 +727,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
             )}
           </div>
           {showNewProject ? (
-            <div className="flex flex-col gap-3 rounded-2xl border border-hairline bg-surface p-3">
+            <div className="flex flex-col gap-3 rounded-lh-card border border-lh-border bg-lh-surface p-3">
               <div className="flex items-center gap-2">
                 <Input
                   value={newProjectEmoji}
@@ -822,7 +822,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         <div className="flex items-center justify-between gap-3 py-1">
           <span className="min-w-0">
             <span className="block text-sm font-medium">{t('Временная')}</span>
-            <span className="block text-xs leading-snug text-muted">
+            <span className="block text-xs leading-snug text-lh-text-secondary">
               {t('Соберётся отдельной группой внизу проекта')}
             </span>
           </span>
@@ -910,7 +910,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                       // поле не показывало «Выкл» при живом значении в state.
                       if (remindBefore != null && !REMIND_PRESETS_ALLDAY.includes(remindBefore)) setRemindBefore(null);
                     }}
-                    className="shrink-0 rounded-xl border border-border px-3.5 py-3 text-sm text-muted active:opacity-60"
+                    className="shrink-0 rounded-lh-btn border border-lh-border-strong px-3.5 py-3 text-sm text-lh-text-secondary active:opacity-60"
                   >
                     {t('Убрать')}
                   </button>
@@ -959,7 +959,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 <option value="0">{dueTime ? t('Вовремя') : t('В день задачи')}</option>
               </Select>
               {!dueTime && remindBefore != null && (
-                <p className="mt-1.5 text-xs leading-snug text-muted">
+                <p className="mt-1.5 text-xs leading-snug text-lh-text-secondary">
                   {t('У задачи без времени напоминание приходит утром, в {time}', {
                     time: ALLDAY_REMIND_TIME,
                   })}
@@ -1025,7 +1025,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         )}
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Чеклист')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('Чеклист')}</span>
           {/* min-h-11: строка 32px ставила чекбоксы и крестики соседних
               пунктов в 32px друг от друга — зоны касания 44 налезали. */}
           {checklist.map((item) => (
@@ -1039,12 +1039,12 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                   )
                 }
               />
-              <span className={`flex-1 text-sm ${item.done ? 'text-muted line-through' : ''}`}>
+              <span className={`flex-1 text-sm ${item.done ? 'text-lh-text-secondary line-through' : ''}`}>
                 {item.text}
               </span>
               <button
                 aria-label={t('Удалить пункт')}
-                className={`shrink-0 p-1 text-muted ${HIT_SLOP_44}`}
+                className={`shrink-0 p-1 text-lh-text-secondary ${HIT_SLOP_44}`}
                 onClick={() => setChecklist((arr) => arr.filter((i) => i.id !== item.id))}
               >
                 <X size={ICON.action} />

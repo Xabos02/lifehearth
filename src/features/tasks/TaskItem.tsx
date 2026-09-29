@@ -25,7 +25,7 @@ import {
 const PRIORITY_BAR: Record<number, string> = {
   3: 'bg-danger',
   2: 'bg-warning',
-  1: 'bg-muted',
+  1: 'bg-lh-text-tertiary',
   0: 'bg-transparent',
 };
 
@@ -284,7 +284,7 @@ export const TaskItem = memo(function TaskItem({
           <button
             type="button"
             onClick={handleTomorrow}
-            className="flex w-[76px] items-center justify-center bg-surface-2 text-sm font-medium text-accent"
+            className="flex w-[76px] items-center justify-center bg-lh-surface-2 text-sm font-medium text-lh-accent"
           >
             {t('Завтра')}
           </button>
@@ -317,7 +317,7 @@ export const TaskItem = memo(function TaskItem({
         // gap-3, а не gap-2.5: зона касания чекбокса выходит за него на 11px,
         // и при зазоре 10px ложилась на миниатюру фото в строке (1px — но
         // сторож перекрытий считает честно).
-        className={`relative flex touch-pan-y items-start gap-3 bg-surface px-4 py-2.5 ${
+        className={`relative flex touch-pan-y items-start gap-3 bg-lh-surface px-4 py-2.5 ${
           draggable ? 'select-none [-webkit-user-select:none] [-webkit-touch-callout:none]' : ''
         } ${isDragSource ? 'scale-[0.97] opacity-40' : ''}`}
         style={{
@@ -339,12 +339,12 @@ export const TaskItem = memo(function TaskItem({
               дефисом, а не прыгают целиком на новую строку, оставляя дыры. */}
           <p
             lang="ru"
-            className={`break-words text-pretty hyphens-auto font-medium ${done ? 'text-muted line-through' : ''}`}
+            className={`break-words text-pretty hyphens-auto font-medium ${done ? 'text-lh-text-secondary line-through' : ''}`}
           >
             {task.title}
           </p>
           {task.notes && (
-            <p className="mt-1 whitespace-pre-line break-words border-l-2 border-hairline pl-2 font-mono text-xs leading-relaxed text-text/65">
+            <p className="mt-1 whitespace-pre-line break-words border-l-2 border-lh-border pl-2 font-mono text-xs leading-relaxed text-lh-text-primary/65">
               {task.notes}
             </p>
           )}
@@ -365,7 +365,7 @@ export const TaskItem = memo(function TaskItem({
                     if (drag.current.longPressed || drag.current.moved) return;
                     setViewerAt(i);
                   }}
-                  className="size-12 shrink-0 overflow-hidden rounded-lg border border-hairline active:opacity-70"
+                  className="size-12 shrink-0 overflow-hidden rounded-lg border border-lh-border active:opacity-70"
                 >
                   <img src={src} alt="" className="size-full object-cover" />
                 </button>
@@ -379,7 +379,7 @@ export const TaskItem = memo(function TaskItem({
                     if (drag.current.longPressed || drag.current.moved) return;
                     setViewerAt(4);
                   }}
-                  className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-xs text-muted active:opacity-70"
+                  className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-lh-surface-2 text-xs text-lh-text-secondary active:opacity-70"
                 >
                   +{task.photos.length - 4}
                 </button>
@@ -387,7 +387,7 @@ export const TaskItem = memo(function TaskItem({
             </div>
           )}
           {hasMeta && (
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-lh-text-secondary">
               {frozen && (
                 <span className="flex items-center gap-0.5 text-frost">
                   <Snowflake size={ICON.inline} />
@@ -448,7 +448,7 @@ export const TaskItem = memo(function TaskItem({
               {task.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-surface-2 px-1.5 py-0.5 text-2xs text-muted"
+                  className="rounded-full bg-lh-surface-2 px-1.5 py-0.5 text-2xs text-lh-text-secondary"
                 >
                   #{tag}
                 </span>

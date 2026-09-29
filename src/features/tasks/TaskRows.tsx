@@ -51,7 +51,7 @@ export function ProjectFolderIcon({ project, size = 18 }: { project: Project; si
 /** Тонкая линия-индикатор вставки задачи между строками. */
 export function TaskDropLine() {
   return (
-    <div className="my-1.5 h-1 rounded-full bg-accent" aria-hidden />
+    <div className="my-1.5 h-1 rounded-full bg-lh-accent" aria-hidden />
   );
 }
 
@@ -80,14 +80,14 @@ export function TaskCard({
 }) {
   return (
     <div
-      className={`card divide-y divide-hairline px-4 ${muted ? 'opacity-60' : ''}`}
+      className={`card divide-y divide-lh-border px-4 ${muted ? 'opacity-60' : ''}`}
     >
       {tasks.map((task, i) => (
         <Fragment key={task.id}>
           {dividerAt === i && (
             // Подпись, а не вторая карточка: разрыв на два блока сломал бы
             // счёт зазора вставки при переносе, а глазу хватает и строки.
-            <p className="px-0 pt-3 pb-1 text-2xs font-semibold tracking-wide text-muted uppercase">
+            <p className="lh-section px-0 pt-3 pb-1">
               {t('Временные')}
             </p>
           )}
@@ -126,7 +126,7 @@ export function CompletedSubsection({
       <button
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-center gap-1.5 px-1 py-2.5 text-left text-sm text-muted active:opacity-60"
+        className="flex w-full items-center gap-1.5 px-1 py-2.5 text-left text-sm text-lh-text-secondary active:opacity-60"
       >
         <ChevronRight
           size={ICON.inline}
@@ -172,11 +172,11 @@ export function FrozenSection({
         <button onClick={onToggle} aria-expanded={!collapsed} className="flex flex-1 items-center gap-1.5 py-2.5 text-left">
           <ChevronDown
             size={ICON.base}
-            className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
+            className={`shrink-0 text-lh-text-secondary transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
           <Snowflake size={ICON.action} className="shrink-0 text-frost" />
-          <h2 className="text-lg font-bold tracking-tight">{t('Заморожено')}</h2>
-          <span className="text-sm text-muted">{tasks.length}</span>
+          <h2 className="text-lg font-light tracking-tight">{t('Заморожено')}</h2>
+          <span className="text-sm text-lh-text-secondary">{tasks.length}</span>
         </button>
         <button
           onClick={() => void unfreezeAll().then(() => toast(t('Все задачи разморожены')))}
@@ -186,14 +186,14 @@ export function FrozenSection({
         </button>
       </div>
       {!collapsed && (
-        <div className="card divide-y divide-hairline px-4">
+        <div className="card divide-y divide-lh-border px-4">
           {tasks.map((task) => {
             const project = task.projectId ? projectById.get(task.projectId) : null;
             return (
               <div key={task.id} className="flex items-center gap-3 py-3">
                 <button onClick={() => onEdit(task)} className="min-w-0 flex-1 text-left active:opacity-70">
                   <p lang="ru" className="break-words text-pretty hyphens-auto font-medium">{task.title}</p>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-lh-text-secondary">
                     {task.dueDate && (
                       <span>
                         {formatDueDate(task.dueDate)}
@@ -234,8 +234,8 @@ export function FrozenSection({
 export function DropLine() {
   return (
     <div className="mx-1 mb-4 flex items-center gap-2" aria-hidden>
-      <span className="size-3 shrink-0 rounded-full bg-accent" />
-      <span className="h-1.5 flex-1 rounded-full bg-accent" />
+      <span className="size-3 shrink-0 rounded-full bg-lh-accent" />
+      <span className="h-1.5 flex-1 rounded-full bg-lh-accent" />
     </div>
   );
 }
@@ -246,7 +246,7 @@ export function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; 
       <button
         onClick={onClick}
         aria-label={t('Добавить задачу')}
-        className="flex items-center gap-1.5 px-1 py-3 text-sm font-medium text-accent active:opacity-60"
+        className="flex items-center gap-1.5 px-1 py-3 text-sm font-medium text-lh-accent active:opacity-60"
       >
         <Plus size={ICON.inline} /> {t('Задача')}
       </button>
@@ -254,7 +254,7 @@ export function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; 
         <button
           onClick={onAddSubproject}
           aria-label={t('Добавить подпроект')}
-          className="flex items-center gap-1.5 px-1 py-3 text-sm font-medium text-muted active:opacity-60"
+          className="flex items-center gap-1.5 px-1 py-3 text-sm font-medium text-lh-text-secondary active:opacity-60"
         >
           <FolderPlus size={ICON.inline} /> {t('Подпроект')}
         </button>

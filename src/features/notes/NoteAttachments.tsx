@@ -53,12 +53,12 @@ export function NoteAttachments({
               disabled={!ready}
               aria-label={t('Скачать {name}', { name: f.name })}
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
                 <Icon size={ICON.header} />
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-base font-medium">{f.name}</span>
-                <span className="block text-xs text-muted">
+                <span className="block text-xs text-lh-text-secondary">
                   {/* Чанки ещё едут синком с другого устройства — честное
                       «получение», а не карточка, притворяющаяся готовой. */}
                   {/* t(kind): fileKindLabel отдаёт русскую подпись-ключ — по ней
@@ -70,7 +70,7 @@ export function NoteAttachments({
             <button
               type="button"
               aria-label={t('Удалить {name}', { name: f.name })}
-              className={`shrink-0 rounded-lg p-2 text-muted active:bg-surface-2 ${HIT_SLOP_44}`}
+              className={`shrink-0 rounded-lg p-2 text-lh-text-secondary active:bg-lh-surface-2 ${HIT_SLOP_44}`}
               onClick={() => onDelete(f.fileId)}
             >
               <GClose size={ICON.action} />

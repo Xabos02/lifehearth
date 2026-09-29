@@ -45,10 +45,10 @@ export function RemindersBlock() {
   return (
     <section className="mb-5">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-muted">{t('Напоминания')}</h2>
+        <h2 className="lh-section">{t('Напоминания')}</h2>
         <button
           onClick={() => setSectionSheet('new')}
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent active:opacity-70"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-lh-accent active:opacity-70"
         >
           <Plus size={ICON.action} /> {t('раздел')}
         </button>
@@ -61,7 +61,7 @@ export function RemindersBlock() {
         // два одинаковых действия подряд, из которых второе стоит в семь раз
         // дороже места. Осталась одна строка — про что этот раздел.
         loaded && (
-          <p className="px-1 text-xs leading-snug text-muted">
+          <p className="px-1 text-xs leading-snug text-lh-text-secondary">
             {t('Например, «Работа» или «Дом» — важное всегда под рукой.')}
           </p>
         )
@@ -120,12 +120,12 @@ function ReminderSectionCard({
         <button onClick={onToggle} className="flex flex-1 items-center gap-2 px-4 py-3 text-left active:opacity-80">
           <ChevronDown
             size={ICON.base}
-            className={`shrink-0 text-muted transition-transform ${section.collapsed ? '-rotate-90' : ''}`}
+            className={`shrink-0 text-lh-text-secondary transition-transform ${section.collapsed ? '-rotate-90' : ''}`}
           />
           <span className="min-w-0 flex-1 truncate font-semibold">{section.title}</span>
-          <span className="shrink-0 text-xs text-muted">{items.length}</span>
+          <span className="shrink-0 text-xs text-lh-text-secondary">{items.length}</span>
         </button>
-        <button onClick={onEditSection} aria-label={t('Изменить раздел')} className={`px-3.5 py-3 text-muted active:opacity-60 ${HIT_SLOP_44}`}>
+        <button onClick={onEditSection} aria-label={t('Изменить раздел')} className={`px-3.5 py-3 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}>
           <Pencil size={ICON.inline} />
         </button>
       </div>
@@ -136,15 +136,15 @@ function ReminderSectionCard({
             <button
               key={it.id}
               onClick={() => onEditItem(it)}
-              className="block w-full rounded-xl border-l-[3px] border-accent bg-surface-2 px-3.5 py-2.5 text-left active:opacity-80"
+              className="block w-full rounded-xl border-l-[3px] border-lh-accent bg-lh-surface-2 px-3.5 py-2.5 text-left active:opacity-80"
             >
-              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-text">{it.text}</p>
+              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-lh-text-primary">{it.text}</p>
             </button>
           ))}
           <button
             onClick={onAddItem}
             aria-label={t('Добавить напоминание')}
-            className={`inline-flex items-center justify-center px-1 pt-0.5 text-accent active:opacity-70 ${HIT_SLOP_44}`}
+            className={`inline-flex items-center justify-center px-1 pt-0.5 text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
           >
             <Plus size={ICON.base} />
           </button>

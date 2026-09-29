@@ -45,13 +45,13 @@ export function Hint({
   if (!visible) return null;
   return (
     <div
-      className={`animate-fade-in rounded-2xl border border-accent/20 bg-accent/[0.07] px-3.5 py-3 text-xs leading-snug ${className}`}
+      className={`animate-fade-in rounded-lh-card border border-lh-accent-border bg-lh-surface px-3.5 py-3 text-xs leading-snug ${className}`}
     >
       <div className="flex items-center gap-2">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-lh-accent-dim text-lh-accent">
           <Lightbulb size={ICON.inline} />
         </span>
-        <span className="min-w-0 flex-1 font-semibold tracking-tight text-text">
+        <span className="min-w-0 flex-1 font-semibold tracking-tight text-lh-text-primary">
           {title ?? t('Подсказка')}
         </span>
         <button
@@ -65,7 +65,7 @@ export function Hint({
           // карточки подсказки нет overflow:hidden и запас до её края ~1.4px,
           // так что зона не срезается. Соседи в строке — только текст, у них
           // тап перехватывать нечего.
-          className={`-m-1 shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+          className={`-m-1 shrink-0 p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
         >
           <X size={ICON.inline} />
         </button>
@@ -76,18 +76,18 @@ export function Hint({
             const Icon = it.icon;
             return (
               <li key={i} className="flex items-start gap-2.5">
-                <Icon size={ICON.inline} className="mt-0.5 shrink-0 text-accent/80" />
-                <span className="min-w-0 flex-1 text-text/85">{it.text}</span>
+                <Icon size={ICON.inline} className="mt-0.5 shrink-0 text-lh-accent/80" />
+                <span className="min-w-0 flex-1 text-lh-text-primary/85">{it.text}</span>
               </li>
             );
           })}
         </ul>
       )}
-      {children && <div className="mt-1.5 pl-8 text-text/85">{children}</div>}
+      {children && <div className="mt-1.5 pl-8 text-lh-text-primary/85">{children}</div>}
 
       {asking && (
-        <div className="mt-3 border-t border-accent/15 pt-2.5">
-          <p className="text-xs text-muted">{t('Скрыть подсказку')}:</p>
+        <div className="mt-3 border-t border-lh-border pt-2.5">
+          <p className="text-xs text-lh-text-secondary">{t('Скрыть подсказку')}:</p>
           {/* Столбиком на узких экранах: два варианта в ряд на 320px дают по
               123px, а «Только до перезагрузки» требует заметно больше — текст
               обрезался бы ровно там, где различие между вариантами. */}
@@ -95,14 +95,14 @@ export function Hint({
             <button
               type="button"
               onClick={() => dismiss('forever')}
-              className="min-h-11 flex-1 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-medium text-accent active:opacity-70"
+              className="min-h-11 flex-1 rounded-lh-btn border border-lh-accent-border bg-lh-accent-dim px-3 py-2 text-xs font-medium text-lh-accent active:opacity-70"
             >
               {t('Больше не показывать')}
             </button>
             <button
               type="button"
               onClick={() => dismiss('session')}
-              className="min-h-11 flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2 text-xs text-muted active:opacity-70"
+              className="min-h-11 flex-1 rounded-lh-btn border border-lh-border bg-lh-surface-2 px-3 py-2 text-xs text-lh-text-secondary active:opacity-70"
             >
               {t('Только сейчас')}
             </button>

@@ -72,14 +72,14 @@ export function ProtectDataCard() {
   return (
     <section className="mb-5">
       <div className="card flex items-center gap-2.5 p-3">
-        <ShieldCheck size={ICON.base} className="shrink-0 text-accent" />
+        <ShieldCheck size={ICON.base} className="shrink-0 text-lh-accent" />
         {/* Две строки, а не truncate: на ширине телефона под текст остаётся
             ~140px, и «Данные только на этом устройстве» обрезалось до
             «Данные только н…» — строка переставала что-либо сообщать. */}
         <p className="min-w-0 flex-1 line-clamp-2 text-sm leading-snug">{text}</p>
         <Link
           to="/more/settings"
-          className="flex min-h-11 shrink-0 items-center gap-0.5 pl-1 text-sm font-semibold text-accent active:opacity-70"
+          className="flex min-h-11 shrink-0 items-center gap-0.5 pl-1 text-sm font-semibold text-lh-accent active:opacity-70"
         >
           {t('Настроить')}
           <ChevronRight size={ICON.action} />
@@ -91,7 +91,7 @@ export function ProtectDataCard() {
             hiddenThisLaunch = true;
             setDismissed(true);
           }}
-          className={`relative flex size-7 shrink-0 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
+          className={`relative flex size-7 shrink-0 items-center justify-center rounded-full text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
         >
           <X size={ICON.action} />
         </button>

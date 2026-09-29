@@ -33,8 +33,8 @@ interface MenuCardProps {
 
 function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: MenuCardProps) {
   return (
-    <Link to={to} className="flex items-stretch gap-3 pl-4 active:bg-surface-2">
-      <div className="relative my-3 flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+    <Link to={to} className="flex items-stretch gap-3 pl-4 active:bg-lh-surface-2">
+      <div className="relative my-3 flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
         <Icon size={ICON.header} />
         {badge && (
           <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-warning" />
@@ -43,7 +43,7 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
       {/* Разделитель живёт ЗДЕСЬ, а не на всей строке: линия во всю ширину
           режет строку под знаком, а начатая от текстовой колонки читается как
           в системных списках. Первой строке границу снимает родитель. */}
-      <div className="flex min-w-0 flex-1 items-center gap-3 border-t border-hairline py-3 pr-4">
+      <div className="flex min-w-0 flex-1 items-center gap-3 border-t border-lh-border py-3 pr-4">
         {/* min-w-0 обязателен: иначе длинная подпись не даёт колонке сжаться и
             выдавливает стрелку за край карточки. */}
         <div className="min-w-0 flex-1">
@@ -55,14 +55,14 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
         {subtitle && (
           <p
             className={`line-clamp-2 text-sm leading-snug ${
-              subtitleWarning ? 'text-warning' : 'text-muted'
+              subtitleWarning ? 'text-warning' : 'text-lh-text-secondary'
             }`}
           >
             {subtitle}
           </p>
         )}
         </div>
-        <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
+        <ChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
       </div>
     </Link>
   );
@@ -102,7 +102,7 @@ function ProfileCard() {
           height={56}
         />
       ) : (
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-surface-2 text-muted">
+        <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-lh-text-secondary">
           <User size={ICON.accent} />
         </div>
       )}
@@ -110,11 +110,11 @@ function ProfileCard() {
         <p className={`text-lg font-semibold ${p?.name?.trim() ? 'truncate' : 'leading-tight'}`}>
           {p?.name?.trim() || (hasAny ? t('Без имени') : t('Заполнить профиль'))}
         </p>
-        <p className="text-sm leading-snug text-muted">
+        <p className="text-sm leading-snug text-lh-text-secondary">
           {facts.length > 0 ? facts.join(' · ') : t('Имя, фото, рост и вес')}
         </p>
       </div>
-      <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
+      <ChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
     </Link>
   );
 }
@@ -165,11 +165,11 @@ function DataStatusCard() {
         {/* Без truncate по той же причине, что и в MenuCard: «Копию ещё не
             делали» на 320px не влезает в 158px и обрывалось на «не дел…» —
             ровно то предупреждение, которое обязано читаться целиком. */}
-        <p className={`text-sm leading-snug ${due ? 'text-warning' : 'text-muted'}`}>
+        <p className={`text-sm leading-snug ${due ? 'text-warning' : 'text-lh-text-secondary'}`}>
           {last ? t('Копия: {date}', { date: formatRu(last.slice(0, 10), 'd MMMM') }) : t('Резервную копию ещё не делали')}
         </p>
       </div>
-      <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
+      <ChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
     </Link>
   );
 }
@@ -208,7 +208,7 @@ export function HomePage() {
 
         {sections.length > 0 && (
           <section>
-            <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Разделы')}</h2>
+            <h2 className="lh-section mb-2 px-1">{t('Разделы')}</h2>
             {/* Один контейнер вместо десяти карточек: у каждой была своя
                 рамка и своя тень, а высоты в одном ряду расходились на 20px
                 (82 / 95 / 103) — список читался как набор плиток, а не как
@@ -228,7 +228,7 @@ export function HomePage() {
               <button
                 type="button"
                 onClick={() => setVisibleCount((c) => c + HOME_VISIBLE_STEP)}
-                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 text-sm font-semibold text-muted active:opacity-70"
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lh-btn border border-dashed border-lh-border-strong py-3 text-sm font-semibold text-lh-text-secondary active:opacity-70"
               >
                 {t('Показать ещё {n}', { n: Math.min(HOME_VISIBLE_STEP, sections.length - visibleCount) })}
                 <ChevronDown size={ICON.action} />

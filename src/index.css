@@ -490,6 +490,18 @@ body {
     text-transform: uppercase;
     color: var(--lh-text-secondary);
   }
+  /* Заголовок секции внутри экрана («Задачи на сегодня», «Проекты»): мелкий
+     капс со свободным трекингом, вторичный цвет — секция подписана, но не
+     спорит с ультралёгким заголовком экрана. Вторичный, а не третичный, как
+     на макете: подпись значимая, третичные 25% не проходят §1.2. */
+  .lh-section {
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.35;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--lh-text-secondary);
+  }
   .lh-caption {
     font-size: 11px;
     font-weight: 300;
@@ -788,6 +800,19 @@ select {
     color-mix(in oklab, var(--app-accent) 8%, var(--app-surface))
   );
   border: 1px solid color-mix(in oklab, var(--app-accent) 24%, transparent);
+  box-shadow: var(--shadow-tile);
+}
+/* Та же плитка на токенах LifeHearth — для переведённых экранов. Отдельный
+   класс, а не правка .tile-accent: непереведённые экраны ставят на плитку
+   синий text-accent, и золотая подложка под синим знаком была бы хуже обоих.
+   Стопы непрозрачные по той же причине, что выше (замер контраста). */
+.tile-lh {
+  background-image: linear-gradient(
+    150deg,
+    color-mix(in oklab, var(--lh-accent) 16%, var(--lh-surface)),
+    color-mix(in oklab, var(--lh-accent) 6%, var(--lh-surface))
+  );
+  border: 1px solid var(--lh-accent-border);
   box-shadow: var(--shadow-tile);
 }
 

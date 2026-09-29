@@ -169,17 +169,17 @@ export function ProfilePage() {
           {p?.avatar ? (
             <img src={p.avatar} alt="" className="size-[72px] rounded-full object-cover" width={72} height={72} />
           ) : (
-            <span className="flex size-[72px] items-center justify-center rounded-full bg-surface-2 text-muted">
+            <span className="flex size-[72px] items-center justify-center rounded-full bg-lh-surface-2 text-lh-text-secondary">
               <User size={ICON.display} />
             </span>
           )}
-          <span className="absolute -right-0.5 -bottom-0.5 flex size-7 items-center justify-center rounded-full bg-accent-fill text-white ring-[3px] ring-surface">
+          <span className="absolute -right-0.5 -bottom-0.5 flex size-7 items-center justify-center rounded-full bg-lh-accent text-lh-bg ring-[3px] ring-lh-surface">
             <Camera size={ICON.inline} />
           </span>
         </button>
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg font-semibold">{form.name.trim() || t('Без имени')}</p>
-          {summary && <p className="truncate text-sm text-muted">{summary}</p>}
+          {summary && <p className="truncate text-sm text-lh-text-secondary">{summary}</p>}
         </div>
         {p?.avatar && (
           <button
@@ -187,7 +187,7 @@ export function ProfilePage() {
             disabled={busy}
             aria-label={t('Удалить фото')}
             onClick={() => void updateSettings({ profile: { ...p, avatar: null } })}
-            className={`shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+            className={`shrink-0 p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
           >
             <Trash2 size={ICON.action} />
           </button>
@@ -226,7 +226,7 @@ export function ProfilePage() {
                 оставляем (системный календарь удобнее самодельного), но
                 подписываем по-человечески и добавляем главное — сколько лет. */}
             {form.birthDate && ageFrom(form.birthDate) != null && (
-              <p className="mt-1.5 px-1 text-sm text-muted">
+              <p className="mt-1.5 px-1 text-sm text-lh-text-secondary">
                 {formatRu(form.birthDate, 'd MMMM yyyy')} · {yearsLabel(ageFrom(form.birthDate)!)}
               </p>
             )}
@@ -260,8 +260,8 @@ export function ProfilePage() {
               чем заставлять считать самому. Никаких советов: число, категория
               ВОЗ одним словом, и всё. */}
           {bmi && (
-            <div className="flex items-center gap-2 border-t border-hairline pt-3">
-              <span className="flex-1 text-sm text-muted">{t('Индекс массы тела')}</span>
+            <div className="flex items-center gap-2 border-t border-lh-border pt-3">
+              <span className="flex-1 text-sm text-lh-text-secondary">{t('Индекс массы тела')}</span>
               <span className="font-semibold tabular-nums">
                 {bmi.value.toFixed(1).replace('.', getLang() === 'en' ? '.' : ',')}
               </span>
@@ -286,7 +286,7 @@ export function ProfilePage() {
               onChange={(v) => void updateSettings({ gender: v })}
             />
           </Field>
-          <p className="text-xs leading-snug text-muted">
+          <p className="text-xs leading-snug text-lh-text-secondary">
             {t(
               'Определяет набор разделов: «Женские дни» есть только в женском профиле. При смене пола записи раздела не удаляются — он просто скрывается, а задачи, которые он поставил сам, уходят в «Корзину», если вы их не меняли.',
             )}
@@ -309,7 +309,7 @@ export function ProfilePage() {
             устройстве. Человек, заполняющий рост и вес, вправе знать, куда они
             попадут, до того как их напишет. Вес ещё и замер «Здоровья»
             (logMeasure), а замеры синхронизируются — было «никуда больше». */}
-        <p className="px-1 text-xs leading-snug text-muted">
+        <p className="px-1 text-xs leading-snug text-lh-text-secondary">
           {t(
             'Эти данные хранятся на устройстве и в вашей резервной копии. Вес ещё записывается замером в «Здоровье» — с синхронизацией он зашифрованным идёт через наш сервер на ваши устройства; сервер видит дни замеров.',
           )}
