@@ -13,13 +13,18 @@
  * unicode-range держит их независимыми, так что кириллический файл не грузится
  * ради латинского интерфейса и наоборот.
  *
- * -apple-system остаётся в стеке ПОСЛЕ Inter как запасной. */
+ * -apple-system остаётся в стеке ПОСЛЕ Inter как запасной.
+ *
+ * Диапазон font-weight 100–900, а не 400–700: сами файлы — вариативный Inter с
+ * осью wght 100–900 (проверено по таблице fvar). Узкий диапазон в @font-face
+ * заставлял браузер прижимать 200/300 дизайн-системы LifeHearth к 400, и
+ * ультралёгкие заголовки выходили обычными. */
 
 /* cyrillic */
 @font-face {
   font-family: 'Inter';
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 100 900;
   font-display: swap;
   src: url('/fonts/inter-cyrillic.woff2') format('woff2');
   unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
@@ -29,7 +34,7 @@
 @font-face {
   font-family: 'Inter';
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 100 900;
   font-display: swap;
   src: url('/fonts/inter-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
@@ -76,6 +81,29 @@
   --color-frost-fill: var(--app-frost-fill);
   /* Глиф на светлой заливке (успех, предупреждение, мороз). */
   --color-on-light: var(--app-on-light);
+
+  /* Дизайн-система LifeHearth (чёрный + золото). Отдельное пространство имён
+     lh-*, а не перезапись --app-*: экраны переводятся на неё по одному, и
+     старые утилиты (bg-surface, text-accent) до перевода работают как были.
+     Утилиты: bg-lh-bg, bg-lh-surface, text-lh-accent, border-lh-border,
+     rounded-lh-card и т.д. Значения — в :root ниже. */
+  --color-lh-bg: var(--lh-bg);
+  --color-lh-surface: var(--lh-surface);
+  --color-lh-surface-2: var(--lh-surface-2);
+  --color-lh-accent: var(--lh-accent);
+  --color-lh-accent-dim: var(--lh-accent-dim);
+  --color-lh-accent-border: var(--lh-accent-border);
+  --color-lh-text: var(--lh-text-primary);
+  --color-lh-text-primary: var(--lh-text-primary);
+  --color-lh-text-secondary: var(--lh-text-secondary);
+  --color-lh-text-tertiary: var(--lh-text-tertiary);
+  --color-lh-border: var(--lh-border);
+  --color-lh-border-strong: var(--lh-border-strong);
+  --color-lh-ai: var(--lh-ai-accent);
+  --radius-lh-card: var(--lh-radius-card);
+  --radius-lh-btn: var(--lh-radius-btn);
+  --radius-lh-sm: var(--lh-radius-sm);
+  --font-weight-ultralight: 200;
 
   /* ШКАЛА КЕГЛЕЙ — восемь ступеней вместо двадцати четырёх.
      Разъехалось не от небрежности, а оттого что шкалы не было: где не хватало
@@ -200,6 +228,27 @@
      переопределять её в каждой палитре не нужно. */
   --shadow-tile: 0 8px 20px -14px color-mix(in oklab, var(--app-accent) 55%, transparent);
   --shadow-focus: 0 10px 30px -8px oklch(0.66 0.205 38 / 0.5);
+
+  /* ── Дизайн-система LifeHearth: чёрный + золото ──
+     Источник — канва на 29 экранов. Текст идёт ступенями прозрачности одного
+     тёплого белого (0.45 / 0.25), линии — 0.08 / 0.15 того же белого, золото
+     — единственный акцент интерфейса; индиго --lh-ai-accent живёт только в
+     разделе ИИ. */
+  --lh-bg: #08080f;
+  --lh-surface: #111118;
+  --lh-surface-2: #1a1a24;
+  --lh-accent: #c9a84c;
+  --lh-accent-dim: rgba(201, 168, 76, 0.15);
+  --lh-accent-border: rgba(201, 168, 76, 0.3);
+  --lh-text-primary: #f0eee8;
+  --lh-text-secondary: rgba(240, 238, 232, 0.45);
+  --lh-text-tertiary: rgba(240, 238, 232, 0.25);
+  --lh-border: rgba(240, 238, 232, 0.08);
+  --lh-border-strong: rgba(240, 238, 232, 0.15);
+  --lh-radius-card: 20px;
+  --lh-radius-btn: 14px;
+  --lh-radius-sm: 10px;
+  --lh-ai-accent: #8b7cf6;
   color-scheme: dark;
 }
 
@@ -251,6 +300,20 @@
   --shadow-accent: 0 10px 30px -10px oklch(0.58 0.17 266 / 0.45);
   --shadow-tile: 0 6px 16px -12px color-mix(in oklab, var(--app-accent) 40%, transparent);
   --shadow-focus: 0 10px 30px -10px oklch(0.62 0.205 35 / 0.45);
+  /* Светлой версии чёрно-золотой системы пока нет на канве. Чтобы светлая
+     тема не стала тёмной из-за body и lh-утилит, lh-токены здесь смотрят на
+     существующую светлую палитру; золото затемнено до текста на белом. */
+  --lh-bg: var(--app-bg);
+  --lh-surface: var(--app-surface);
+  --lh-surface-2: var(--app-surface-2);
+  --lh-accent: #8a6d1f;
+  --lh-accent-dim: rgba(138, 109, 31, 0.12);
+  --lh-accent-border: rgba(138, 109, 31, 0.3);
+  --lh-text-primary: var(--app-text);
+  --lh-text-secondary: var(--app-muted);
+  --lh-text-tertiary: oklch(0.26 0.022 284 / 0.45);
+  --lh-border: var(--app-hairline);
+  --lh-border-strong: oklch(0 0 0 / 0.14);
   color-scheme: light;
 }
 
@@ -309,12 +372,14 @@ body,
 
 body {
   margin: 0;
-  /* Цвет таб-бара, а не страницы: body виден только в зонах safe-area, если
-     fixed-каркас не дотянулся до краёв в standalone-PWA. Низ экрана (home-
-     indicator) тогда сливается с таб-баром (bg-elevated), без «чёрной полосы»
-     между панелью и краем телефона. Сам экран перекрыт непрозрачным каркасом. */
-  background-color: var(--app-elevated);
-  color: var(--app-text);
+  /* Фон и текст — токены дизайн-системы LifeHearth. body виден только в зонах
+     safe-area, если fixed-каркас не дотянулся до краёв в standalone-PWA; сам
+     экран перекрыт непрозрачным каркасом. ВНИМАНИЕ: таб-бар пока на
+     bg-elevated, и до его перевода на lh-палитру (следующий PR) полоса под
+     home-indicator может отличаться от панели по тону. html/#root оставлены
+     на --app-elevated, чтобы совпадать с manifest background_color. */
+  background-color: var(--lh-bg);
+  color: var(--lh-text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
@@ -395,6 +460,42 @@ body {
 
 :root.light .card {
   box-shadow: var(--shadow-card);
+}
+
+/* ── Типографика дизайн-системы LifeHearth ──
+   В @layer components: утилиты Tailwind (text-lh-accent, font-medium и т.п.)
+   перебивают их без !important. Кегли в px — корень 17px (см. §2.2
+   PROTOCOL.md). Ультралёгкий заголовок работает, потому что @font-face выше
+   объявляет полную ось wght 100–900. */
+@layer components {
+  .lh-heading {
+    font-size: 28px;
+    font-weight: 200;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+    color: var(--lh-text-primary);
+  }
+  .lh-body {
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--lh-text-primary);
+  }
+  .lh-label {
+    font-size: 12px;
+    font-weight: 300;
+    line-height: 1.3;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--lh-text-secondary);
+  }
+  .lh-caption {
+    font-size: 11px;
+    font-weight: 300;
+    line-height: 1.35;
+    letter-spacing: 0.02em;
+    color: var(--lh-text-tertiary);
+  }
 }
 
 button,
