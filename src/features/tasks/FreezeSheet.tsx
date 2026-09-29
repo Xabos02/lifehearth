@@ -25,7 +25,7 @@ type Row =
 
 /** Иконка папки — как в разделе задач: стандартная 📁 → папка в цвете проекта. */
 function GroupIcon({ project, size = 15 }: { project: Project | null; size?: number }) {
-  if (!project) return <Folder size={size} aria-hidden className="text-muted" />;
+  if (!project) return <Folder size={size} aria-hidden className="text-lh-text-secondary" />;
   const emoji = project.emoji?.trim();
   if (emoji && emoji !== '📁')
     return <span style={{ fontSize: size - 1 }} className="leading-none">{emoji}</span>;
@@ -132,7 +132,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
       return (
         <div
           key={`h-${row.key}`}
-          className={`flex items-center gap-1.5 bg-surface-2/60 px-3 py-2 ${
+          className={`flex items-center gap-1.5 bg-lh-surface-2/60 px-3 py-2 ${
             row.depth ? ['', 'pl-8', 'pl-14', 'pl-20'][Math.min(row.depth, 3)] : ''
           }`}
         >
@@ -140,7 +140,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
           <span className={`truncate font-semibold ${row.depth ? 'text-xs' : 'text-sm'}`}>
             {row.project ? row.project.name : t('Без проекта')}
           </span>
-          <span className="text-xs text-muted">{row.count}</span>
+          <span className="text-xs text-lh-text-secondary">{row.count}</span>
         </div>
       );
     }
@@ -156,7 +156,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
       >
         <span
           className={`flex size-5 shrink-0 items-center justify-center rounded-[6px] border transition-colors ${
-            on ? 'border-frost-fill bg-frost-fill text-on-light' : 'border-border'
+            on ? 'border-frost-fill bg-frost-fill text-on-light' : 'border-lh-border-strong'
           }`}
         >
           {on && <Check size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
@@ -165,7 +165,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
           <span lang="ru" className="block break-words text-pretty hyphens-auto font-medium">
             {task.title}
           </span>
-          <span className="block truncate text-xs text-muted">
+          <span className="block truncate text-xs text-lh-text-secondary">
             {task.dueDate
               ? task.startDate
                 ? formatDueRange(task.startDate, task.dueDate)
@@ -180,13 +180,13 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
   return (
     <Sheet open={open} onClose={onClose} title={t('Заморозить задачи')}>
       <div className="space-y-3">
-        <p className="text-sm text-muted">
+        <p className="text-sm text-lh-text-secondary">
           {t(
             'Выберите задачи, чтобы поставить их на паузу. Они исчезнут из списка и статистики и перестанут напоминать — «как будто для них остановилось время». Разморозить можно в любой момент.',
           )}
         </p>
         {candidateIds.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">
+          <p className="py-6 text-center text-sm text-lh-text-secondary">
             {t('Нет активных задач для заморозки.')}
           </p>
         ) : (
@@ -198,7 +198,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
           // hidden — scrollHeight больше clientHeight, а scrollTop не
           // двигается: список молча не прокручивается дальше первого экрана.
           <div className="card">
-            <div className="max-h-[50dvh] divide-y divide-hairline overflow-y-auto">
+            <div className="max-h-[50dvh] divide-y divide-lh-border overflow-y-auto">
               {rows.map(renderRow)}
             </div>
           </div>

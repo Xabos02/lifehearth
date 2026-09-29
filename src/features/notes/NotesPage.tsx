@@ -94,14 +94,14 @@ function FolderRow({
         {folder.emoji}
       </span>
       <span className="min-w-0 flex-1 truncate font-medium">{folder.name}</span>
-      <span className="shrink-0 text-xs tabular-nums text-muted">{count}</span>
+      <span className="shrink-0 text-xs tabular-nums text-lh-text-secondary">{count}</span>
     </button>
   );
 }
 
 /** Линия «встанет сюда» между строками папок. */
 function FolderDropLine() {
-  return <div className="mx-4 my-0.5 h-0.5 rounded-full bg-accent" aria-hidden />;
+  return <div className="mx-4 my-0.5 h-0.5 rounded-full bg-lh-accent" aria-hidden />;
 }
 
 function NoteRow({
@@ -191,7 +191,7 @@ function NoteRow({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl shadow-[var(--shadow-card)]">
+    <div className="relative overflow-hidden rounded-lh-card shadow-[var(--shadow-card)]">
       {/* Кнопку рендерим ТОЛЬКО при свайпе. В покое (dx=0) её нет в DOM —
           значит ничему просвечивать в скруглённых углах карточки (на iOS
           overflow:hidden не клипает строку с transform, и красный угол торчал
@@ -200,7 +200,7 @@ function NoteRow({
         <button
           type="button"
           onClick={onDelete}
-          className="absolute inset-y-0 right-0 flex w-[88px] items-center justify-center rounded-r-[1.15rem] bg-danger-fill text-sm font-medium text-white"
+          className="absolute inset-y-0 right-0 flex w-[88px] items-center justify-center rounded-r-lh-card bg-danger-fill text-sm font-medium text-white"
         >
           {t('Удалить')}
         </button>
@@ -215,7 +215,7 @@ function NoteRow({
         role={selecting ? 'checkbox' : undefined}
         aria-checked={selecting ? selected : undefined}
         className={`card relative flex touch-pan-y items-start gap-2 p-4 select-none [-webkit-touch-callout:none] [-webkit-user-select:none] ${
-          selecting && selected ? 'ring-1 ring-accent/45' : ''
+          selecting && selected ? 'ring-1 ring-lh-accent/45' : ''
         }`}
         style={{
           // transform только во время свайпа: translateX(0px) в покое сам по
@@ -233,16 +233,16 @@ function NoteRow({
           <span
             aria-hidden
             className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${
-              selected ? 'bg-accent-fill text-white' : 'border-2 border-muted/70'
+              selected ? 'bg-lh-accent text-lh-bg' : 'border-2 border-lh-border-strong'
             }`}
           >
             {selected && <Check size={ICON.inline} strokeWidth={STROKE_STRONG} />}
           </span>
         )}
-        {note.pinned && <Pin size={ICON.inline} className="mt-1 shrink-0 text-accent" fill="currentColor" />}
+        {note.pinned && <Pin size={ICON.inline} className="mt-1 shrink-0 text-lh-accent" fill="currentColor" />}
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 break-words font-semibold">{title}</p>
-          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted">
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-lh-text-secondary">
             <span className="shrink-0">{formatRu(toKey(new Date(note.updatedAt)))}</span>
             {/* У списка задач важно не начало текста, а сколько осталось —
                 ради этого в него и заглядывают из общего списка. */}
@@ -453,14 +453,14 @@ export function NotesPage() {
     <>
       {pinned.length > 0 && (
         <div className="mb-4">
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Закреплённые')}</h2>
+          <h2 className="lh-section mb-2 px-1">{t('Закреплённые')}</h2>
           {renderList(pinned)}
         </div>
       )}
       {rest.length > 0 && (
         <div className="mb-4">
           {!q && (pinned.length > 0 || levelFolders.length > 0) && (
-            <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">
+            <h2 className="lh-section mb-2 px-1">
               {!current && levelFolders.length > 0 ? t('Вне папок') : t('Заметки')}
             </h2>
           )}
@@ -515,7 +515,7 @@ export function NotesPage() {
       moving.kind === 'folder' ? folderMoveTargets(folders, moving.folder.id) : flattenTree(folders);
     return (
       <Screen title={t('Куда перенести?')} onBack={() => setMoving(null)}>
-        <p className="mb-3 px-1 text-sm leading-snug text-muted">
+        <p className="mb-3 px-1 text-sm leading-snug text-lh-text-secondary">
           {moving.kind === 'note'
             ? t('Заметка «{title}» — выберите папку.', {
                 title: moving.note.title || t('Без названия'),
@@ -524,16 +524,16 @@ export function NotesPage() {
               ? t('{n} — выберите папку.', { n: tPlur(moving.ids.length, ['заметка', 'заметки', 'заметок']) })
               : t('Папка «{name}» — выберите, куда её вложить.', { name: moving.folder.name })}
         </p>
-        <div className="card divide-y divide-hairline">
+        <div className="card divide-y divide-lh-border">
           <button
             onClick={() => void moveTo(null)}
             className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
           >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-lg">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lg">
               📄
             </span>
             <span className="min-w-0 flex-1 font-medium">{t('Все заметки')}</span>
-            {movingParent === null && <Check size={ICON.base} className="shrink-0 text-accent" />}
+            {movingParent === null && <Check size={ICON.base} className="shrink-0 text-lh-accent" />}
           </button>
           {/* Всё дерево одним списком: вложенность показана отступом, как в
               «Куда перенести?» Apple Notes, — переносить можно на любой
@@ -552,13 +552,13 @@ export function NotesPage() {
                 {f.emoji}
               </span>
               <span className="min-w-0 flex-1 truncate font-medium">{f.name}</span>
-              {movingParent === f.id && <Check size={ICON.base} className="shrink-0 text-accent" />}
+              {movingParent === f.id && <Check size={ICON.base} className="shrink-0 text-lh-accent" />}
             </button>
           ))}
         </div>
         <button
           onClick={() => setMoving(null)}
-          className="mt-4 w-full py-2 text-sm text-muted active:opacity-60"
+          className="mt-4 w-full py-2 text-sm text-lh-text-secondary active:opacity-60"
         >
           {t('Отмена')}
         </button>
@@ -587,11 +587,11 @@ export function NotesPage() {
                   selected.size === filtered.length ? new Set() : new Set(filtered.map((n) => n.id)),
                 )
               }
-              className={`text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
+              className={`text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
             >
               {selected.size === filtered.length && filtered.length > 0 ? t('Снять выбор') : t('Выбрать все')}
             </button>
-            <button onClick={exitSelect} className={`text-sm font-semibold text-accent active:opacity-60 ${HIT_SLOP_44}`}>
+            <button onClick={exitSelect} className={`text-sm font-semibold text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}>
               {t('Готово')}
             </button>
           </div>
@@ -604,7 +604,7 @@ export function NotesPage() {
             {filtered.length > 0 && !q && (
               <button
                 onClick={() => setSelecting(true)}
-                className={`pr-1 text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
+                className={`pr-1 text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
                 {t('Выбрать')}
               </button>
@@ -614,14 +614,14 @@ export function NotesPage() {
             <button
               onClick={() => setFolderSheet('new')}
               aria-label={current ? t('Новая вложенная папка') : t('Новая папка')}
-              className={`p-1 text-accent active:opacity-60 ${HIT_SLOP_44}`}
+              className={`p-1 text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
             >
               <FolderPlus size={ICON.header} />
             </button>
             {current && (
               <button
                 onClick={() => setFolderSheet(current)}
-                className={`pl-1 text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
+                className={`pl-1 text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
                 {t('Изменить')}
               </button>
@@ -633,7 +633,7 @@ export function NotesPage() {
       {current && (
         <button
           onClick={() => setOpenFolder(current.parentId ?? null)}
-          className="mb-3 -ml-1 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent active:opacity-60"
+          className="mb-3 -ml-1 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-lh-accent active:opacity-60"
         >
           {/* Назад — на уровень выше, а не всегда в корень: внутри вложенной
               папки «Все заметки» перепрыгивал бы родителя. */}
@@ -646,7 +646,7 @@ export function NotesPage() {
       {/* Папки текущего уровня — и только когда не ищут: во время поиска нужен
           результат по всем заметкам, а не разбивка по хранилищам. */}
       {!q && levelFolders.length > 0 && (
-        <div className="card mb-4 divide-y divide-hairline">
+        <div className="card mb-4 divide-y divide-lh-border">
           {levelFolders.map((f, i) => (
             <Fragment key={f.id}>
               {reorderFolder && folderInsertIndex === i && <FolderDropLine />}
@@ -708,12 +708,12 @@ export function NotesPage() {
           // Ровно над таб-баром: у кнопки «+» клиренс 80px от низа (таб-бар и
           // 4px воздуха), панель встаёт на те же 76 без воздуха — вплотную.
           style={{ bottom: 'calc(env(safe-area-inset-bottom) + 76px)' }}
-          className="fixed inset-x-0 z-30 mx-auto flex max-w-lg gap-2.5 border-t border-hairline bg-elevated px-4 py-3"
+          className="fixed inset-x-0 z-30 mx-auto flex max-w-lg gap-2.5 border-t border-lh-border bg-lh-surface-2 px-4 py-3"
         >
           <button
             disabled={selected.size === 0}
             onClick={() => setMoving({ kind: 'notes', ids: [...selected] })}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-surface-2 py-3 text-base font-semibold disabled:opacity-40 active:opacity-80"
+            className="flex flex-1 items-center justify-center gap-2 rounded-lh-btn bg-lh-surface-2 py-3 text-base font-semibold disabled:opacity-40 active:opacity-80"
           >
             <FolderInput size={ICON.base} />
             {t('Переместить ({n})', { n: selected.size })}
@@ -721,7 +721,7 @@ export function NotesPage() {
           <button
             disabled={selected.size === 0}
             onClick={() => void deleteSelected()}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-surface-2 py-3 text-base font-semibold text-danger disabled:opacity-40 active:opacity-80"
+            className="flex flex-1 items-center justify-center gap-2 rounded-lh-btn bg-lh-surface-2 py-3 text-base font-semibold text-danger disabled:opacity-40 active:opacity-80"
           >
             <Trash2 size={ICON.base} />
             {t('Удалить ({n})', { n: selected.size })}

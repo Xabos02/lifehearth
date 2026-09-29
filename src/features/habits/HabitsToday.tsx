@@ -63,7 +63,7 @@ export function HabitsToday({ collapsed = false }: { collapsed?: boolean }) {
 
   return (
     <section className="mb-5">
-      <h2 className="mb-2 flex items-center justify-between px-1 text-sm font-semibold text-muted">
+      <h2 className="mb-2 flex items-center justify-between px-1 lh-section">
         <span>{t('Привычки')}</span>
         <span className="text-xs font-normal">
           {doneCount}/{planned.length}

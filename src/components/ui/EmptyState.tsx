@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
-import { ICON, STROKE_STRONG } from './icons';
+/** Тоньше базового STROKE: на 40px знак пустоты должен шептать, а не звать. */
+const STROKE_THIN = 1.25;
 
 interface Props {
   icon: LucideIcon;
@@ -13,12 +14,12 @@ interface Props {
  *  (App.tsx, --fab-strip), и накрыть подсказку кнопке нечем. */
 export function EmptyState({ icon: Icon, title, hint }: Props) {
   return (
-    <div className="flex flex-col items-center gap-3 pt-14 pb-8 text-center">
-      <div className="card flex size-16 items-center justify-center text-lh-accent">
-        <Icon size={ICON.display} strokeWidth={STROKE_STRONG} />
-      </div>
-      <p className="text-base font-semibold text-lh-text-primary">{title}</p>
-      {hint && <p className="max-w-64 text-sm leading-relaxed text-lh-text-secondary">{hint}</p>}
+    <div className="flex flex-col items-center pt-14 pb-8 text-center">
+      {/* Знак без плитки и тонким штрихом — как на макетах: пустота тихая,
+          золото остаётся за действием, а не за отсутствием данных. */}
+      <Icon size={40} strokeWidth={STROKE_THIN} className="text-lh-text-secondary" aria-hidden />
+      <p className="mt-5 text-[15px] text-lh-text-secondary">{title}</p>
+      {hint && <p className="mt-2 max-w-64 text-[13px] leading-relaxed text-lh-text-secondary">{hint}</p>}
     </div>
   );
 }

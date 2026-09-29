@@ -92,10 +92,10 @@ function ToolBtn({
       onClick={onClick}
       className={`flex size-11 items-center justify-center rounded-xl transition-colors ${
         active
-          ? 'bg-accent/15 text-accent'
+          ? 'bg-lh-accent-dim text-lh-accent'
           : bare
-            ? 'text-text active:bg-surface-2'
-            : 'bg-surface-2 text-text active:bg-elevated'
+            ? 'text-lh-text-primary active:bg-lh-surface-2'
+            : 'bg-lh-surface-2 text-lh-text-primary active:bg-lh-surface-2'
       } ${className}`}
     >
       {children}
@@ -699,7 +699,7 @@ export function NoteEditorPage() {
           <IconButton icon={Trash2} label={t('Удалить')} onClick={() => void handleDelete()} tone="danger" />
           <button
             onClick={() => void handleDone()}
-            className={`pl-1 pr-1 font-semibold text-accent active:opacity-60 ${HIT_SLOP_44}`}
+            className={`pl-1 pr-1 font-semibold text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
           >
             {t('Готово')}
           </button>
@@ -709,7 +709,7 @@ export function NoteEditorPage() {
       {/* Дата изменения по центру над текстом — фирменная строка Apple Notes:
           тихий факт вместо интерфейса, живёт прямо в листе заметки. */}
       {editedAt && (
-        <p className="mb-2 text-center text-xs text-muted">
+        <p className="mb-2 text-center text-xs text-lh-text-secondary">
           {format(
             new Date(editedAt),
             getLang() === 'ru' ? "d MMMM yyyy 'г'., HH:mm" : 'MMMM d, yyyy · HH:mm',
@@ -836,7 +836,7 @@ export function NoteEditorPage() {
           layout-вьюпорте) — поднимаем панель на её высоту через translateY. */}
       <div
         ref={toolbarRef}
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface p-2 pb-[calc(env(safe-area-inset-bottom)+8px)]"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-lh-border bg-lh-surface p-2 pb-[calc(env(safe-area-inset-bottom)+8px)]"
         style={{ position: 'fixed', transform: keyboardInset > 0 ? `translateY(-${keyboardInset}px)` : undefined }}
       >
         {/* Панель «Aa»: стили абзаца показаны собственной типографикой —
@@ -844,7 +844,7 @@ export function NoteEditorPage() {
             подпись не нуждается в расшифровке. */}
         {formatOpen && (
           <div className="animate-fade-in mx-auto mb-2 w-full max-w-lg space-y-2" data-testid="format-panel">
-            <div className="flex gap-1 rounded-2xl bg-surface-2 p-1">
+            <div className="flex gap-1 rounded-lh-btn bg-lh-surface-2 p-1">
               <button
                 type="button"
                 aria-label={t('Подзаголовок')}
@@ -852,7 +852,7 @@ export function NoteEditorPage() {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => exec('formatBlock', 'h2')}
                 className={`min-h-11 flex-1 rounded-xl text-base font-bold transition-colors ${
-                  active.h2 ? 'bg-accent/15 text-accent' : 'text-text active:bg-elevated'
+                  active.h2 ? 'bg-lh-accent-dim text-lh-accent' : 'text-lh-text-primary active:bg-lh-surface-2'
                 }`}
               >
                 {t('Заголовок')}
@@ -864,7 +864,7 @@ export function NoteEditorPage() {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => exec('formatBlock', 'div')}
                 className={`min-h-11 flex-1 rounded-xl text-sm transition-colors ${
-                  !active.h2 && !active.quote ? 'bg-accent/15 text-accent' : 'text-text active:bg-elevated'
+                  !active.h2 && !active.quote ? 'bg-lh-accent-dim text-lh-accent' : 'text-lh-text-primary active:bg-lh-surface-2'
                 }`}
               >
                 {t('Обычный')}
@@ -876,7 +876,7 @@ export function NoteEditorPage() {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => exec('formatBlock', 'blockquote')}
                 className={`min-h-11 flex-1 rounded-xl text-sm italic transition-colors ${
-                  active.quote ? 'bg-accent/15 text-accent' : 'text-text active:bg-elevated'
+                  active.quote ? 'bg-lh-accent-dim text-lh-accent' : 'text-lh-text-primary active:bg-lh-surface-2'
                 }`}
               >
                 {t('Цитата')}
@@ -892,7 +892,7 @@ export function NoteEditorPage() {
               <ToolBtn onClick={() => exec('strikeThrough')} label={t('Зачёркнутый')} active={active.strike} className="flex-1">
                 <GStrike size={ICON.header} strokeWidth={STROKE_STRONG} />
               </ToolBtn>
-              <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-hairline" />
+              <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-lh-border" />
               <ToolBtn onClick={() => exec('insertUnorderedList')} label={t('Маркированный список')} active={active.ul} className="flex-1">
                 <List size={ICON.header} strokeWidth={STROKE_STRONG} />
               </ToolBtn>
@@ -948,7 +948,7 @@ export function NoteEditorPage() {
           </ToolBtn>
         </div>
         <span
-          className={`pointer-events-none absolute right-3 -top-6 text-xs font-medium text-muted transition-opacity ${
+          className={`pointer-events-none absolute right-3 -top-6 text-xs font-medium text-lh-text-secondary transition-opacity ${
             saved ? 'opacity-100' : 'opacity-0'
           }`}
         >

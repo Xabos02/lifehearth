@@ -40,7 +40,7 @@ function TaskList({
   muted?: boolean;
 }) {
   return (
-    <div className={`card divide-y divide-hairline px-4 ${muted ? 'opacity-60' : ''}`}>
+    <div className={`card divide-y divide-lh-border px-4 ${muted ? 'opacity-60' : ''}`}>
       {tasks.map((t) => (
         <TaskItem
           key={t.id}
@@ -133,7 +133,7 @@ export function TodayPage() {
 
       {overdue.length > 0 && (
         <section className="mb-5">
-          <h2 className="mb-2 text-sm font-semibold text-warning">{t('Просрочено')}</h2>
+          <h2 className="lh-section mb-2 text-warning">{t('Просрочено')}</h2>
           <TaskList tasks={overdue} projectById={projectById} onEdit={openEdit} />
         </section>
       )}
@@ -143,7 +143,7 @@ export function TodayPage() {
       ) : (
         (todayOpen.length > 0 || todayDone.length > 0) && (
           <section className="mb-5">
-            <h2 className="mb-2 text-sm font-semibold text-muted">{t('Задачи на сегодня')}</h2>
+            <h2 className="lh-section mb-2">{t('Задачи на сегодня')}</h2>
             {todayOpen.length > 0 && (
               <TaskList tasks={todayOpen} projectById={projectById} onEdit={openEdit} />
             )}

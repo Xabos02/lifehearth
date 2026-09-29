@@ -75,18 +75,18 @@ function Cell({
 }) {
   const inner = (
     <>
-      <span className={`flex items-center gap-1.5 text-muted ${tight ? 'text-2xs' : 'text-xs'}`}>
+      <span className={`flex items-center gap-1.5 text-lh-text-secondary ${tight ? 'text-2xs' : 'text-xs'}`}>
         {icon}
         <span className="truncate">{label}</span>
       </span>
       <span className="mt-0.5 block truncate text-base font-semibold">{value}</span>
-      {extra && <span className="mt-0.5 block truncate text-2xs text-muted">{extra}</span>}
+      {extra && <span className="mt-0.5 block truncate text-2xs text-lh-text-secondary">{extra}</span>}
     </>
   );
   // min-h-11: ячейка — зона касания, а не просто текст.
   const cls = `min-w-0 px-3 py-2 text-left min-h-11 ${wide ? 'flex-[1.25]' : 'flex-1'}`;
   return onClick ? (
-    <button type="button" onClick={onClick} aria-label={ariaLabel} className={`${cls} active:bg-surface-2`}>
+    <button type="button" onClick={onClick} aria-label={ariaLabel} className={`${cls} active:bg-lh-surface-2`}>
       {inner}
     </button>
   ) : (
@@ -173,14 +173,14 @@ export function DayBand({
   if (weather && !showEnergy && !showHabits) {
     return (
       <section className="card mb-4 flex items-center gap-3 px-3.5 py-2.5" aria-label={t('Сегодня коротко')}>
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
           {weatherIcon(weather.code, weather.isDay)}
         </span>
         <span className="flex min-w-0 flex-1 items-baseline gap-2">
           <span className="text-2xl leading-none font-bold tracking-tight">{weather.tempC}°</span>
-          <span className="truncate text-sm text-muted">{weatherLabel(weather.code)}</span>
+          <span className="truncate text-sm text-lh-text-secondary">{weatherLabel(weather.code)}</span>
         </span>
-        <span className="shrink-0 text-right text-xs text-muted">
+        <span className="shrink-0 text-right text-xs text-lh-text-secondary">
           <span className="block">{t('ощущается {feels}°', { feels: weather.feelsC })}</span>
           <span className="block tabular-nums">
             {t('↑{max}° ↓{min}°', { max: weather.maxC, min: weather.minC })}
@@ -191,7 +191,7 @@ export function DayBand({
   }
 
   return (
-    <section className="card mb-4 flex items-stretch divide-x divide-hairline" aria-label={t('Сегодня коротко')}>
+    <section className="card mb-4 flex items-stretch divide-x divide-lh-border" aria-label={t('Сегодня коротко')}>
       {weather && (
         <Cell
           icon={weatherIcon(weather.code, weather.isDay)}

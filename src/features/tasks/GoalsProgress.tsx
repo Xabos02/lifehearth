@@ -43,7 +43,7 @@ function Ring({ value, color }: { value: number; color: string }) {
         cy={RING / 2}
         r={r}
         fill="none"
-        stroke="var(--app-surface-2)"
+        stroke="var(--lh-surface-2)"
         strokeWidth={STROKE}
       />
       {/* Поворот на -90°, чтобы дуга росла от 12 часов, а не от 3: снизу вверх
@@ -134,7 +134,7 @@ export function GoalsProgress() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-base font-semibold">{goal.title}</p>
                   <p
-                    className={`truncate text-xs ${reached ? 'text-success' : 'text-muted'}`}
+                    className={`truncate text-xs ${reached ? 'text-success' : 'text-lh-text-secondary'}`}
                   >
                     {remainingLabel(goal, linked, value)}
                   </p>

@@ -104,7 +104,7 @@ export function FolderSheet({
         </Field>
 
         <div>
-          <p className="mb-2 px-1 text-sm font-semibold text-muted">{t('Значок')}</p>
+          <p className="mb-2 px-1 text-sm font-semibold text-lh-text-secondary">{t('Значок')}</p>
           <div className="grid grid-cols-6 gap-2">
             {EMOJIS.map((e) => (
               <button
@@ -114,7 +114,7 @@ export function FolderSheet({
                 aria-pressed={emoji === e}
                 onClick={() => setEmoji(e)}
                 className={`flex h-11 items-center justify-center rounded-xl text-lg transition-colors ${
-                  emoji === e ? 'bg-accent-fill text-white' : 'bg-surface-2'
+                  emoji === e ? 'bg-lh-accent text-lh-bg' : 'bg-lh-surface-2'
                 }`}
               >
                 {e}
@@ -124,7 +124,7 @@ export function FolderSheet({
         </div>
 
         <div>
-          <p className="mb-2 px-1 text-sm font-semibold text-muted">{t('Цвет')}</p>
+          <p className="mb-2 px-1 text-sm font-semibold text-lh-text-secondary">{t('Цвет')}</p>
           <div className="flex flex-wrap gap-2">
             {PRESET_COLORS.map((c) => (
               <button
@@ -134,7 +134,7 @@ export function FolderSheet({
                 aria-pressed={color === c}
                 onClick={() => setColor(c)}
                 className={`size-11 rounded-full transition-transform ${
-                  color === c ? 'scale-110 ring-2 ring-text ring-offset-2 ring-offset-surface' : ''
+                  color === c ? 'scale-110 ring-2 ring-lh-text-primary ring-offset-2 ring-offset-surface' : ''
                 }`}
                 style={{ background: c }}
               />
@@ -148,7 +148,7 @@ export function FolderSheet({
         {folder && onMove && (
           <button
             onClick={() => onMove(folder)}
-            className="w-full py-2 text-sm font-medium text-accent active:opacity-60"
+            className="w-full py-2 text-sm font-medium text-lh-accent active:opacity-60"
           >
             {t('Переместить папку')}
           </button>

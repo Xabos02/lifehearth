@@ -112,13 +112,13 @@ export function QuickAddBar({
             disabled={!canSend}
             aria-label={t('Добавить задачу')}
             className={`shrink-0 rounded-full p-2 transition-transform active:scale-90 ${HIT_SLOP_44} ${
-              canSend ? 'text-accent' : 'text-muted opacity-40'
+              canSend ? 'text-lh-accent' : 'text-lh-text-secondary opacity-40'
             }`}
           >
             <Send size={ICON.header} />
           </button>
         </div>
-        {hint && <p className="px-1 pt-0.5 pb-1 text-xs text-accent">{hint}</p>}
+        {hint && <p className="px-1 pt-0.5 pb-1 text-xs text-lh-accent">{hint}</p>}
       </div>
       <Hint
         id={QUICK_ADD_HINT}

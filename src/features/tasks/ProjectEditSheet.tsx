@@ -121,9 +121,9 @@ function ProjectEditForm({
         </Field>
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Внутри проекта')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('Внутри проекта')}</span>
           {tooTall ? (
-            <p className="rounded-xl bg-surface-2 px-3.5 py-3 text-sm text-muted">
+            <p className="rounded-xl bg-lh-surface-2 px-3.5 py-3 text-sm text-lh-text-secondary">
               {t('Внутри уже три уровня подпроектов — глубже не поместится. Можно оставить наверху.')}
             </p>
           ) : (
@@ -141,7 +141,7 @@ function ProjectEditForm({
         </div>
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Цвет')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('Цвет')}</span>
           <div className="flex flex-wrap gap-2.5">
             {PRESET_COLORS.map((c) => (
               <button
@@ -149,7 +149,7 @@ function ProjectEditForm({
                 aria-label={t('Цвет {c}', { c })}
                 onClick={() => setColor(c)}
                 className={`size-9 rounded-full border-2 transition-colors ${
-                  color === c ? 'border-text' : 'border-transparent'
+                  color === c ? 'border-lh-text-primary' : 'border-transparent'
                 }`}
                 style={{ background: c }}
               />
@@ -157,7 +157,7 @@ function ProjectEditForm({
           </div>
           {/* Живой предпросмотр: так папка будет выглядеть в списке задач.
               Цветная папка показывается вместо стандартного 📁; своё эмодзи — как есть. */}
-          <div className="mt-3 flex items-center gap-1.5 rounded-xl bg-surface-2 px-3 py-2.5">
+          <div className="mt-3 flex items-center gap-1.5 rounded-xl bg-lh-surface-2 px-3 py-2.5">
             {emoji.trim() && emoji.trim() !== '📁' ? (
               <span className="text-base leading-none">{emoji.trim()}</span>
             ) : (
@@ -171,7 +171,7 @@ function ProjectEditForm({
               ширину, и в английском («this is how it'll look in the list»)
               название резалось многоточием — предпросмотр «как в списке»
               показывал не то, что список. */}
-          <p className="mt-1.5 px-1 text-xs text-muted">{t('так будет в списке')}</p>
+          <p className="mt-1.5 px-1 text-xs text-lh-text-secondary">{t('так будет в списке')}</p>
         </div>
 
         <div className="mt-1 flex gap-2">

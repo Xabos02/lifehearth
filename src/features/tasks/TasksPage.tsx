@@ -120,8 +120,8 @@ function SubSection({
       //
       // Не «чинить» ни ту, ни другую половину: тест e2e/subproject-rail.spec.ts
       // держит и загибы слева, и прямые углы справа.
-      className={`mt-3 ml-1.5 rounded-l-2xl border-l-2 border-hairline pl-3 transition-[background-color,opacity] ${
-        highlight ? 'border-accent bg-accent/10 ring-2 ring-accent' : ''
+      className={`mt-3 ml-1.5 rounded-l-2xl border-l-2 border-lh-border pl-3 transition-[background-color,opacity] ${
+        highlight ? 'border-lh-accent bg-lh-accent-dim ring-2 ring-lh-accent' : ''
       } ${isReorderSource ? 'opacity-40' : ''}`}
     >
       {/* gap-3 по той же причине, что и у проекта: зона карандаша вылезает
@@ -138,7 +138,7 @@ function SubSection({
         >
           <ChevronDown
             size={ICON.action}
-            className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
+            className={`shrink-0 text-lh-text-secondary transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
           <span className="flex shrink-0 items-center">
             <ProjectFolderIcon project={project} size={ICON.action} />
@@ -148,7 +148,7 @@ function SubSection({
               читалась как чуть более жирная задача, а не как контейнер. Кегль
               трогать нельзя: этот заголовок ещё и ручка переноса, его высоту
               специально поднимали до нормы зоны касания. */}
-          <h3 className="truncate text-sm font-semibold tracking-wide text-muted uppercase">
+          <h3 className="truncate text-sm font-medium tracking-[0.05em] text-lh-text-secondary uppercase">
             {project.name}
           </h3>
           <span
@@ -163,7 +163,7 @@ function SubSection({
             <button
               onClick={onAdd}
               aria-label={t('Добавить задачу в подпроект')}
-              className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+              className={`p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <Plus size={ICON.inline} />
             </button>
@@ -171,7 +171,7 @@ function SubSection({
           <button
             onClick={onEdit}
             aria-label={t('Редактировать подпроект')}
-            className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+            className={`p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
           >
             <Pencil size={ICON.inline} />
           </button>
@@ -232,8 +232,8 @@ function Section({
     <section
       ref={dropRef}
       data-drop-key={dropKey}
-      className={`mb-12 rounded-2xl transition-[background-color,opacity] ${
-        highlight ? 'bg-accent/10 ring-2 ring-accent' : ''
+      className={`mb-12 rounded-lh-card transition-[background-color,opacity] ${
+        highlight ? 'bg-lh-accent-dim ring-2 ring-lh-accent' : ''
       } ${isReorderSource ? 'opacity-40' : ''}`}
     >
       {/* gap-3 (12.75px). Восьми не хватило: зона касания карандаша вылезает
@@ -251,10 +251,10 @@ function Section({
         >
           <ChevronDown
             size={ICON.base}
-            className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
+            className={`shrink-0 text-lh-text-secondary transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
           {icon && <span className="flex shrink-0 items-center">{icon}</span>}
-          <h2 className="text-lg font-bold tracking-tight">{title}</h2>
+          <h2 className="text-lg font-light tracking-tight">{title}</h2>
           <span
             className="project-count text-sm"
             style={color ? ({ '--project-color': color } as CSSProperties) : undefined}
@@ -276,7 +276,7 @@ function Section({
               <button
                 onClick={onAdd}
                 aria-label={t('Добавить задачу в проект')}
-                className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+                className={`p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
               >
                 <Plus size={ICON.inline} />
               </button>
@@ -289,7 +289,7 @@ function Section({
                 // потеряет плотность. Добираем до минимума 44x44 невидимой зоной —
                 // у section нет overflow:hidden, а до правого края колонки 21px,
                 // так что зона не срезается ни рамкой, ни overflow-x у #app-scroll.
-                className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+                className={`p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
               >
                 <Pencil size={ICON.inline} />
               </button>
@@ -1297,7 +1297,7 @@ export function TasksPage() {
               через форму задачи. Владелец спрашивал про это отдельно. */}
           <button
             onClick={() => openProject(null)}
-            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-muted active:opacity-70"
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lh-btn border border-dashed border-lh-border-strong py-3 text-sm font-medium text-lh-text-secondary active:opacity-70"
           >
             <FolderPlus size={ICON.action} /> {t('Новый проект')}
           </button>
@@ -1429,7 +1429,7 @@ export function TasksPage() {
 
           <button
             onClick={() => openProject(null)}
-            className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-muted active:opacity-70"
+            className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lh-btn border border-dashed border-lh-border-strong py-3 text-sm font-medium text-lh-text-secondary active:opacity-70"
           >
             <FolderPlus size={ICON.action} /> {t('Новый проект')}
           </button>
@@ -1510,7 +1510,7 @@ export function TasksPage() {
           }}
           className="pointer-events-none fixed top-0 left-0 z-[70] will-change-transform"
         >
-          <div className="max-w-[70vw] -translate-y-1/2 translate-x-3 truncate rounded-xl border border-border bg-elevated px-3 py-2 text-sm font-medium opacity-90 shadow-lg shadow-black/30">
+          <div className="max-w-[70vw] -translate-y-1/2 translate-x-3 truncate rounded-xl border border-lh-border-strong bg-lh-surface-2 px-3 py-2 text-sm font-medium opacity-90 shadow-lg shadow-black/30">
             {draggingTask.title}
           </div>
         </div>
@@ -1523,7 +1523,7 @@ export function TasksPage() {
           }}
           className="pointer-events-none fixed top-0 left-0 z-[70] will-change-transform"
         >
-          <div className="max-w-[78vw] -translate-y-1/2 translate-x-3 rounded-xl border border-accent bg-elevated px-3 py-2 opacity-95 shadow-lg shadow-black/30">
+          <div className="max-w-[78vw] -translate-y-1/2 translate-x-3 rounded-xl border border-lh-accent bg-lh-surface-2 px-3 py-2 opacity-95 shadow-lg shadow-black/30">
           <span className="block truncate text-sm font-semibold">
             {draggingProject.emoji} {draggingProject.name}
           </span>
@@ -1533,7 +1533,7 @@ export function TasksPage() {
               постфактум. Строка есть всегда, даже когда ничего не меняется, —
               «останется на месте» тоже ответ, и молчание вместо него читалось
               бы как «подсказка сломалась». */}
-          <span className="block truncate text-xs font-medium text-accent">
+          <span className="block truncate text-xs font-medium text-lh-accent">
             {dropHint}
           </span>
           </div>
