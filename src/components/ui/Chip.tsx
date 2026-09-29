@@ -18,8 +18,8 @@ export function Chip({ active = false, onClick, children }: Props) {
             // акцентной подложке упирается в 3.3:1 и выше не поднимается —
             // фон подтягивается к цвету текста, сколько его ни ослабляй.
             // Заодно выбранный фильтр теперь видно с одного взгляда.
-            'border-accent-fill bg-accent-fill text-white'
-          : 'border-border bg-surface text-muted'
+            'border-lh-accent bg-lh-accent text-lh-bg'
+          : 'border-lh-border bg-lh-surface text-lh-text-secondary'
       }`}
     >
       {children}

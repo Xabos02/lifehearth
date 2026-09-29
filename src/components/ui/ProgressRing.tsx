@@ -12,7 +12,7 @@ export function ProgressRing({
   value,
   size = 56,
   strokeWidth = 5,
-  color = 'var(--app-accent)',
+  color = 'var(--lh-accent)',
   label,
 }: Props) {
   const r = (size - strokeWidth) / 2;
@@ -33,7 +33,7 @@ export function ProgressRing({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="var(--app-surface-2)"
+          stroke="var(--lh-surface-2)"
           strokeWidth={strokeWidth}
         />
         <circle
@@ -50,7 +50,7 @@ export function ProgressRing({
           className="transition-[stroke-dashoffset] duration-500 ease-out"
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">
+      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-lh-text-primary">
         {label ?? `${Math.round(clamped)}%`}
       </span>
     </div>

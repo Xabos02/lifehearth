@@ -186,7 +186,7 @@ export function Sheet({ open, onClose, title, children }: Props) {
         // минимальную ширину), и вся форма уезжала пальцем вбок. Владелец
         // (20.09): «это окно должно быть мёртвым и никуда не двигаться
         // вправо-влево, не плавать».
-        className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto overflow-x-hidden overscroll-none rounded-t-[1.6rem] border-t border-hairline bg-elevated pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
+        className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto overflow-x-hidden overscroll-none rounded-t-[1.6rem] border-t border-lh-border-strong bg-lh-surface pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
         style={{
           // Панель поднимается ровно на высоту клавиатуры, а её потолок на ту
           // же величину опускается — иначе поднятая панель упёрлась бы в
@@ -205,11 +205,11 @@ export function Sheet({ open, onClose, title, children }: Props) {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="sticky top-0 z-10 cursor-grab touch-none bg-elevated px-4 pt-2.5 pb-2 active:cursor-grabbing"
+          className="sticky top-0 z-10 cursor-grab touch-none bg-lh-surface px-4 pt-2.5 pb-2 active:cursor-grabbing"
         >
-          <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-muted/40" />
+          <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-lh-border-strong" />
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">{title}</h2>
+            <h2 className="text-lg font-semibold text-lh-text-primary">{title}</h2>
             {/* Крестик остаётся мелким (30px): визуально он служебный и
                 раздувать его незачем. А вот зону касания псевдоэлемент
                 добирает до 44×44 — палец мимо служебной кнопки промахивается
@@ -219,7 +219,7 @@ export function Sheet({ open, onClose, title, children }: Props) {
               onClick={onClose}
               onPointerDown={(e) => e.stopPropagation()}
               aria-label={t('Закрыть')}
-              className={`rounded-full bg-surface-2 p-1.5 text-muted transition-transform active:scale-90 ${HIT_SLOP_44}`}
+              className={`rounded-full bg-lh-surface-2 p-1.5 text-lh-text-secondary transition-transform active:scale-90 ${HIT_SLOP_44}`}
             >
               <X size={ICON.base} />
             </button>

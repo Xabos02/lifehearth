@@ -16,7 +16,7 @@ import { ICON, STROKE_STRONG } from './icons';
 import { HIT_SLOP_44_POSITIONED } from './hitSlop';
 
 const base =
-  'w-full rounded-xl bg-surface-2 border border-hairline px-3.5 py-3 text-text placeholder:text-muted outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent/25';
+  'w-full rounded-lh-btn bg-lh-surface-2 border border-lh-border px-3.5 py-3 text-lh-text-primary placeholder:text-lh-text-secondary outline-none transition-[border-color,box-shadow] focus:border-lh-accent-border focus:ring-2 focus:ring-lh-accent-dim';
 
 /** Круглый крестик в начале поля — стирает весь набранный текст одним тапом.
  *  Абсолютное позиционирование: родитель должен быть relative; вертикаль
@@ -36,7 +36,7 @@ export function ClearFieldButton({
       onPointerDown={(e) => e.preventDefault()}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`absolute left-2 z-10 flex size-6 items-center justify-center rounded-full bg-muted/20 text-muted transition-transform active:scale-90 ${HIT_SLOP_44_POSITIONED} ${className}`}
+      className={`absolute left-2 z-10 flex size-6 items-center justify-center rounded-full bg-lh-border-strong text-lh-text-secondary transition-transform active:scale-90 ${HIT_SLOP_44_POSITIONED} ${className}`}
     >
       <X size={ICON.inline} strokeWidth={STROKE_STRONG} />
     </button>
@@ -86,7 +86,7 @@ export function Input({
         <ClearFieldButton onClick={onClear} className="top-1/2 -translate-y-1/2" />
       )}
       {isEmptyDate && (
-        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted group-focus-within:hidden">
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-lh-text-secondary group-focus-within:hidden">
           {props.placeholder || t('Не задан')}
         </span>
       )}
@@ -107,7 +107,7 @@ export function Textarea({
  *  250px, и с text-sm самый длинный вариант («Классический», 100.6px) вместе с
  *  подписью строки туда физически не влезает — при text-xs влезает с запасом. */
 const compactBase =
-  'rounded-lg border border-hairline bg-surface-2 py-1.5 pl-2 text-xs text-text outline-none transition-[border-color] focus:border-accent';
+  'rounded-lh-sm border border-lh-border bg-lh-surface-2 py-1.5 pl-2 text-xs text-lh-text-primary outline-none transition-[border-color] focus:border-lh-accent-border';
 
 /** Выпадающий список в едином со всеми полями виде: та же тонкая граница и
  *  фокус-кольцо, что у Input, плюс своя стрелка (нативную убирает
@@ -143,7 +143,7 @@ export function Select({
       </select>
       <ChevronDown
         size={compact ? 14 : 18}
-        className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted ${compact ? 'right-1.5' : 'right-3'}`}
+        className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-lh-text-secondary ${compact ? 'right-1.5' : 'right-3'}`}
       />
     </div>
   );
@@ -207,7 +207,7 @@ export function SearchField({
     <div className={`relative ${className}`}>
       <Search
         size={ICON.base}
-        className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted"
+        className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-lh-text-secondary"
       />
       <input
         autoFocus={autoFocus}
@@ -224,7 +224,7 @@ export function SearchField({
           onPointerDown={(e) => e.preventDefault()}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onChange('')}
-          className={`absolute top-1/2 right-2.5 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-muted/20 text-muted transition-transform active:scale-90 ${HIT_SLOP_44_POSITIONED}`}
+          className={`absolute top-1/2 right-2.5 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-lh-border-strong text-lh-text-secondary transition-transform active:scale-90 ${HIT_SLOP_44_POSITIONED}`}
         >
           <X size={ICON.inline} strokeWidth={STROKE_STRONG} />
         </button>
@@ -257,7 +257,7 @@ export function Field({
         if (first && first.tagName === 'BUTTON') e.preventDefault();
       }}
     >
-      <span className="mb-1.5 block text-sm font-medium text-muted">{label}</span>
+      <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{label}</span>
       {children}
     </label>
   );

@@ -35,9 +35,10 @@ import { STROKE_HEAVY } from './icons';
  *  спокойная серая рамка; выполненный — заливка цветом проекта/акцента
  *  и белая галочка. Лаконичнее прежнего крупного цветного кольца. */
 export function TaskCheck({ checked, onChange, color, size = 22 }: Props) {
-  const c = color || 'var(--app-accent)';
-  // На светлой заливке (белый, янтарный…) белая галочка не видна — ставим тёмную.
-  const checkColor = color && isLightColor(color) ? ON_COLOR_DARK : '#fff';
+  const c = color || 'var(--lh-accent)';
+  // На светлой заливке (белый, янтарный, золото по умолчанию) белая галочка
+  // не видна — ставим тёмную.
+  const checkColor = !color || isLightColor(color) ? ON_COLOR_DARK : '#fff';
   return (
     <button
       onClick={(e) => {
