@@ -227,7 +227,7 @@ export function Fab({ onClick, label }: Props) {
       onClick={handleClick}
       aria-label={label ?? t('Добавить')}
       style={{
-        background: 'var(--app-accent-fill)',
+        background: 'var(--lh-accent)',
         touchAction: 'none', // касание кнопки не скроллит страницу — тащим её саму
         ...(pos
           ? {
@@ -248,7 +248,7 @@ export function Fab({ onClick, label }: Props) {
       // полоски таймера. active:scale-90 — только вне переноса (в переносе
       // кнопка приподнята scale-105). motion-reduce:transition-none — при
       // «уменьшить движение» кнопка просто переключается, без проезда.
-      className={`fixed z-40 flex size-14 select-none items-center justify-center rounded-full text-white shadow-[var(--shadow-accent)] [-webkit-touch-callout:none] [-webkit-user-select:none] [-webkit-tap-highlight-color:transparent] ${
+      className={`fixed z-40 flex size-14 select-none items-center justify-center rounded-full text-lh-bg shadow-[0_4px_20px_rgba(201,168,76,0.35)] [-webkit-touch-callout:none] [-webkit-user-select:none] [-webkit-tap-highlight-color:transparent] ${
         dragging ? 'scale-105 shadow-2xl' : 'active:scale-90'
       } ${
         dragging ? '' : 'transition-[transform,bottom,top] duration-200 motion-reduce:transition-none'

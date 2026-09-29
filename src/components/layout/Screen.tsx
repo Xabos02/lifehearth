@@ -70,7 +70,7 @@ function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void
   // -ml-1 повторяет отступ IconButton: без него подписанная стрелка стояла бы
   // на 4px правее обычной, и шапка прыгала бы при переходе между экранами.
   const cls =
-    'relative -ml-1 flex min-h-11 shrink-0 items-center gap-0.5 pr-1 text-accent active:opacity-60';
+    'relative -ml-1 flex min-h-11 shrink-0 items-center gap-0.5 pr-1 text-lh-accent active:opacity-60';
   const inner = (
     <>
       <ChevronLeft size={ICON.accent} strokeWidth={STROKE_STRONG} className="shrink-0" />
@@ -123,7 +123,7 @@ export function Screen({
       {/* Широкие экраны (Mac/Windows/iPad): контент — центральная колонка
           max-w-lg, той же ширины, что таб-бар. На телефоне ничего не меняет. */}
       <header
-        className={`sticky top-0 z-30 shrink-0 border-b border-hairline bg-bg px-4 ${
+        className={`sticky top-0 z-30 shrink-0 border-b border-lh-border bg-lh-bg px-4 ${
           compact
             ? 'pt-[calc(env(safe-area-inset-top)+8px)] pb-2'
             : 'pt-[calc(env(safe-area-inset-top)+12px)] pb-3'
@@ -144,9 +144,9 @@ export function Screen({
                 ширина минус px-4 и стрелка «Назад». line-clamp-2 оставляет
                 многоточие только для действительно длинных названий, break-words
                 страхует от неразрывно длинного слова (у шапки overflow скрыт).
-                Размер: 27px — задумка автора, держим его от 360px и выше (все
-                актуальные телефоны); 7.5vw ужимает только совсем узкие экраны
-                (320px → 24px), где две строки уже не спасают. */}
+                Стиль — .lh-heading дизайн-системы (28px, вес 200, трекинг
+                -0.5px) от 360px и выше; 7.5vw ужимает только совсем узкие
+                экраны (320px → 24px), где две строки уже не спасают. */}
             {/* Пустой заголовок — законный случай: у редактора заметки его
                 роль играет первая строка самого текста, и дублировать её
                 словом «Заметка» незачем. Рендерить пустой h1 нельзя — он
@@ -155,15 +155,15 @@ export function Screen({
               <h1
                 className={
                   compact
-                    ? 'truncate text-base leading-tight font-semibold tracking-tight'
-                    : 'line-clamp-2 text-2xl leading-[1.15] font-bold tracking-tight break-words'
+                    ? 'truncate text-base leading-tight font-semibold tracking-tight text-lh-text-primary'
+                    : 'lh-heading line-clamp-2 break-words max-[359px]:text-[7.5vw]'
                 }
               >
                 {title}
               </h1>
             )}
             {subtitle && (
-              <p className={`font-medium text-muted ${compact ? 'truncate text-2xs leading-tight' : 'text-sm'}`}>
+              <p className={`font-medium text-lh-text-secondary ${compact ? 'truncate text-2xs leading-tight' : 'text-sm'}`}>
                 {subtitle}
               </p>
             )}

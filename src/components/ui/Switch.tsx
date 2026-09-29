@@ -38,7 +38,7 @@ export function Switch({
     >
       <span
         className={`flex h-[26px] w-11 items-center rounded-full p-[3px] transition-colors duration-200 motion-reduce:transition-none ${
-          checked ? 'bg-accent-fill' : 'bg-surface-2'
+          checked ? 'bg-lh-accent' : 'bg-lh-border-strong'
         }`}
       >
         <span

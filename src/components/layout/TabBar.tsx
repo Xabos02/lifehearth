@@ -23,7 +23,7 @@ export function TabBar() {
   if (pathname === '/more/family' && new URLSearchParams(search).get('t') == null) return null;
 
   return (
-    <nav className="z-30 shrink-0 border-t border-hairline bg-elevated pb-[clamp(6px,env(safe-area-inset-bottom),8px)]">
+    <nav className="z-30 shrink-0 border-t border-lh-border bg-lh-surface pb-[clamp(6px,env(safe-area-inset-bottom),8px)]">
       <div className="mx-auto flex max-w-lg px-1">
         {bottom.map(({ id, to, label, icon: Icon, end }) => {
           // Бейджи привязаны к разделу, куда бы он ни встал: непрочитанное у
@@ -56,7 +56,7 @@ export function TabBar() {
                     // узком экране она сжимается вместо того, чтобы задавать
                     // неусыхаемый min-content и выталкивать ряд за край.
                     className={`flex h-9 w-full max-w-16 items-center justify-center rounded-2xl transition-colors duration-200 ${
-                      isActive ? 'text-accent' : 'text-muted'
+                      isActive ? 'text-lh-accent' : 'text-lh-text-secondary'
                     }`}
                   >
                     <span className="relative shrink-0">
@@ -70,7 +70,7 @@ export function TabBar() {
                         strokeWidth={isActive ? STROKE_STRONG : STROKE}
                       />
                       {showBadge && (
-                        <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-elevated" />
+                        <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-lh-surface" />
                       )}
                     </span>
                   </span>
@@ -81,7 +81,7 @@ export function TabBar() {
                     // целиком. max-w-full + truncate — страховка на случай
                     // более длинной метки, чтобы она распирала не ряд, а себя.
                     className={`max-w-full truncate text-2xs font-semibold transition-colors max-[380px]:tracking-[-0.01em] max-[340px]:tracking-tight ${
-                      isActive ? 'text-accent' : 'text-muted'
+                      isActive ? 'text-lh-accent' : 'text-lh-text-secondary'
                     }`}
                   >
                     {t(label)}

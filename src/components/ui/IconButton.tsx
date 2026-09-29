@@ -6,10 +6,10 @@ import { ICON, STROKE } from './icons';
 type Tone = 'accent' | 'muted' | 'danger' | 'text' | 'frost';
 
 const TONE: Record<Tone, string> = {
-  accent: 'text-accent',
-  muted: 'text-muted',
+  accent: 'text-lh-accent',
+  muted: 'text-lh-text-secondary',
   danger: 'text-danger',
-  text: 'text-text',
+  text: 'text-lh-text-primary',
   frost: 'text-frost',
 };
 

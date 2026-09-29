@@ -14,11 +14,11 @@ interface Props {
 export function EmptyState({ icon: Icon, title, hint }: Props) {
   return (
     <div className="flex flex-col items-center gap-3 pt-14 pb-8 text-center">
-      <div className="card flex size-16 items-center justify-center text-muted">
+      <div className="card flex size-16 items-center justify-center text-lh-accent">
         <Icon size={ICON.display} strokeWidth={STROKE_STRONG} />
       </div>
-      <p className="text-base font-semibold">{title}</p>
-      {hint && <p className="max-w-64 text-sm leading-relaxed text-muted">{hint}</p>}
+      <p className="text-base font-semibold text-lh-text-primary">{title}</p>
+      {hint && <p className="max-w-64 text-sm leading-relaxed text-lh-text-secondary">{hint}</p>}
     </div>
   );
 }

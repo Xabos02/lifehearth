@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 export function StatCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="card p-4">
-      <h2 className="mb-2 px-1 text-sm font-semibold text-muted">{title}</h2>
+      <h2 className="mb-2 px-1 text-xs font-medium tracking-wider text-lh-text-secondary uppercase">{title}</h2>
       {children}
     </section>
   );
