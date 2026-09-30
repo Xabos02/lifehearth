@@ -291,7 +291,7 @@ function Chart({
           y1={y(0)}
           x2={x(total)}
           y2={y(item.progressTarget)}
-          stroke="var(--app-muted)"
+          stroke="var(--lh-text-secondary)"
           strokeWidth="1.7"
           strokeDasharray="4 4"
         />

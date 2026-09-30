@@ -39,7 +39,7 @@ export function SportTodayLine() {
   if (!rows || advice === 'start') return null;
 
   const done = advice === 'done' && last;
-  const color = last ? resolveKind(last).color : 'var(--app-accent)';
+  const color = last ? resolveKind(last).color : 'var(--lh-accent)';
 
   return (
     <section className="mb-5" data-testid="sport-today">

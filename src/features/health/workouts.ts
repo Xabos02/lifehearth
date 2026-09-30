@@ -21,7 +21,7 @@ export interface WorkoutKind {
 export const PACE_TYPES: ReadonlySet<WorkoutType> = new Set(['run', 'walk']);
 
 export const WORKOUT_KINDS: WorkoutKind[] = [
-  { value: 'run', label: 'Бег', color: 'var(--app-accent)', hasDistance: true, defaultMinutes: 30 },
+  { value: 'run', label: 'Бег', color: 'var(--lh-accent)', hasDistance: true, defaultMinutes: 30 },
   { value: 'strength', label: 'Силовая', color: 'var(--focus-accent)', hasDistance: false, defaultMinutes: 45 },
   // Бокс — свой оранжевый, а не токен светлого конца фокуса: тот в светлой
   // теме на белой карточке давал 2,6:1, и точка тонула.
@@ -32,7 +32,7 @@ export const WORKOUT_KINDS: WorkoutKind[] = [
   { value: 'bike', label: 'Вело', color: 'var(--app-warning)', hasDistance: true, defaultMinutes: 45 },
   // Плавание — бирюза, чтобы не совпадать с голубым ходьбы.
   { value: 'swim', label: 'Плавание', color: 'oklch(0.68 0.13 195)', hasDistance: true, defaultMinutes: 40 },
-  { value: 'other', label: 'Другое', color: 'var(--app-muted)', hasDistance: false, defaultMinutes: 30 },
+  { value: 'other', label: 'Другое', color: 'var(--lh-text-secondary)', hasDistance: false, defaultMinutes: 30 },
 ];
 
 export function workoutKind(type: WorkoutType): WorkoutKind {
@@ -63,7 +63,7 @@ export function resolveKind(w: { type: WorkoutType; customLabel?: string | null;
     return {
       value: 'custom',
       label: w.customLabel,
-      color: w.customColor ?? 'var(--app-muted)',
+      color: w.customColor ?? 'var(--lh-text-secondary)',
       hasDistance: false,
       defaultMinutes: 30,
     };

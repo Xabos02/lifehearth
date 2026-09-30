@@ -39,11 +39,11 @@ export default defineConfig(({ command }) => ({
         // над шапкой в standalone на iOS) — он должен совпадать с ВЕРХОМ
         // приложения, а верх это bg. Раньше здесь стоял цвет таб-бара, и
         // сверху получалась полоса на два тона светлее шапки.
-        theme_color: '#0e0e15',
+        theme_color: '#08080F',
         // background_color — заставка до первого кадра, и она обязана
         // совпадать с заливкой html/body (см. index.css: --app-elevated),
         // иначе при запуске мигает полоса под таб-баром.
-        background_color: '#1d1d27',
+        background_color: '#08080F',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },

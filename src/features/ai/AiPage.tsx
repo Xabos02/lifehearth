@@ -319,7 +319,7 @@ function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string
       <div
         aria-hidden
         className="mb-4 grid size-16 place-items-center rounded-[1.25rem] text-white shadow-[var(--shadow-accent)]"
-        style={{ background: 'linear-gradient(150deg, var(--app-accent), var(--app-accent-2))' }}
+        style={{ background: 'linear-gradient(150deg, var(--lh-accent), var(--app-accent-2))' }}
       >
         <GSparkle size={ICON.display} />
       </div>
