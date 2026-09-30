@@ -106,7 +106,7 @@ export function CyclePage() {
           <button
             type="button"
             onClick={() => setPickedDate(todayKey())}
-            className="shrink-0 rounded-lg px-2 py-2.5 text-sm font-medium text-accent active:opacity-60"
+            className="shrink-0 rounded-lg px-2 py-2.5 text-sm font-medium text-lh-accent active:opacity-60"
           >
             {t('Отметить')}
           </button>
@@ -143,30 +143,30 @@ export function CyclePage() {
                 оценку как факт. */}
             <div className="card p-4">
               <div className="flex items-baseline justify-between gap-3">
-                <p className="min-w-0 text-sm font-medium text-muted">
+                <p className="min-w-0 text-sm font-medium text-lh-text-secondary">
                   {currentDay !== undefined ? t('День цикла') : t('Цикл')}
                 </p>
                 {stats.n > 0 && stats.averageLength !== undefined && (
-                  <p className="shrink-0 text-xs text-muted">
+                  <p className="shrink-0 text-xs text-lh-text-secondary">
                     {t('в среднем {v}', { v: formatDays(stats.averageLength) })}
                   </p>
                 )}
               </div>
-              <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums">
+              <p className="mt-1 text-3xl font-extralight tracking-tight tabular-nums">
                 {currentDay ?? '—'}
               </p>
 
               {forecast && (
-                <div className="mt-3 rounded-xl bg-surface-2 p-3">
-                  <p className="text-xs text-muted">{t('Следующая менструация')}</p>
+                <div className="mt-3 rounded-xl bg-lh-surface-2 p-3">
+                  <p className="text-xs text-lh-text-secondary">{t('Следующая менструация')}</p>
                   <p className="mt-0.5 font-semibold">{forecast.title}</p>
                   {forecast.note && (
-                    <p className="mt-1 text-xs leading-snug text-muted">{forecast.note}</p>
+                    <p className="mt-1 text-xs leading-snug text-lh-text-secondary">{forecast.note}</p>
                   )}
                   {prediction.daysPastPrediction > 0 && (
                     // Сознательно не «задержка»: это слово подразумевает вывод,
                     // который приложение делать не вправе.
-                    <p className="mt-1.5 text-xs leading-snug text-muted">
+                    <p className="mt-1.5 text-xs leading-snug text-lh-text-secondary">
                       {t('Прошло на {n} больше ожидаемого. У циклов бывает разброс — это само по себе ни о чём не говорит.', {
                         n: tPlur(prediction.daysPastPrediction, ['день', 'дня', 'дней']),
                       })}
@@ -185,22 +185,22 @@ export function CyclePage() {
 
             {anomalies.length > 0 && (
               <section>
-                <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
+                <h2 className="mb-1.5 flex items-center gap-1.5 px-1 lh-section">
                   <Info size={ICON.inline} className="shrink-0" />
                   {t('Стоит обратить внимание')}
                 </h2>
-                <div className="card divide-y divide-hairline px-4">
+                <div className="card divide-y divide-lh-border px-4">
                   {anomalies.map((a) => (
                     <div key={a.kind} className="py-3">
                       <p className="font-medium">{a.title}</p>
-                      <p className="mt-0.5 text-sm leading-snug text-muted">{a.detail}</p>
+                      <p className="mt-0.5 text-sm leading-snug text-lh-text-secondary">{a.detail}</p>
                     </div>
                   ))}
                 </div>
                 {/* Оговорка обязательна и стоит рядом с наблюдениями, а не в
                     настройках: приложение считает по введённым отметкам и не
                     ставит диагнозов. */}
-                <p className="mt-2 px-1 text-xs leading-snug text-muted">
+                <p className="mt-2 px-1 text-xs leading-snug text-lh-text-secondary">
                   {t(
                     'Это наблюдения по вашим отметкам, а не диагноз. Приложение ничего не измеряет — только считает то, что ты отметила.',
                   )}
@@ -214,8 +214,8 @@ export function CyclePage() {
                 выпавший цикл помечен «не учитывается». */}
             {data.cycles.some((c) => c.lengthDays !== undefined && c.excluded === 0) && (
               <section>
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Статистика')}</h2>
-                <div className="card divide-y divide-hairline px-4">
+                <h2 className="mb-1.5 px-1 lh-section">{t('Статистика')}</h2>
+                <div className="card divide-y divide-lh-border px-4">
                   <Row label={t('Циклов учтено')} value={String(stats.n)} />
                   {stats.medianLength !== undefined && (
                     <Row label={t('Обычная длина')} value={formatDays(stats.medianLength)} />
@@ -266,7 +266,7 @@ export function CyclePage() {
                 {data.accuracy.n >= 3 &&
                   data.accuracy.bias !== undefined &&
                   Math.abs(data.accuracy.bias) >= 1 && (
-                    <p className="mt-2 px-1 text-xs leading-snug text-muted">
+                    <p className="mt-2 px-1 text-xs leading-snug text-lh-text-secondary">
                       {t(
                         data.accuracy.bias > 0
                           ? 'Прогноз в среднем на {bias} раньше факта.'
@@ -280,7 +280,7 @@ export function CyclePage() {
                     самой точностью, а не в настройках: цифра может быть
                     неприятной, и смягчать её нельзя, можно только объяснить. */}
                 {data.accuracy.n >= 3 && (
-                  <p className="mt-1 px-1 text-xs leading-snug text-muted">
+                  <p className="mt-1 px-1 text-xs leading-snug text-lh-text-secondary">
                     {t(
                       'Точность прогноза считается по вашим циклам: обещанный диапазон против факта. Разброс — биологический, а не ошибка программы.',
                     )}
@@ -293,7 +293,7 @@ export function CyclePage() {
                     показывать нечего. */}
                 <Link
                   to="/more/cycle/year"
-                  className={`mt-3 inline-block px-1 py-2 text-sm font-medium text-accent ${HIT_SLOP_44}`}
+                  className={`mt-3 inline-block px-1 py-2 text-sm font-medium text-lh-accent ${HIT_SLOP_44}`}
                 >
                   {t('Обзор за год →')}
                 </Link>
@@ -341,7 +341,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-3">
       {/* Пол ширины подписи: без него длинное значение ужимает её до буквы. */}
-      <span className="min-w-[6rem] flex-1 text-sm text-muted">{label}</span>
+      <span className="min-w-[6rem] flex-1 text-sm text-lh-text-secondary">{label}</span>
       <span className="shrink-0 font-semibold tabular-nums">{value}</span>
     </div>
   );

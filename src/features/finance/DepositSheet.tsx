@@ -72,12 +72,12 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
 
   return (
     <div className="space-y-4 pb-2">
-      <div className="rounded-2xl bg-surface-2 p-4 text-center">
-        <p className="text-sm text-muted">{t('Накоплено')}</p>
-        <p className="text-2xl font-bold tabular-nums" style={{ color: goal.color }}>
+      <div className="rounded-2xl bg-lh-surface-2 p-4 text-center">
+        <p className="text-sm text-lh-text-secondary">{t('Накоплено')}</p>
+        <p className="text-2xl font-extralight tabular-nums" style={{ color: goal.color }}>
           {formatRub(saved)}
         </p>
-        <p className="text-sm text-muted">{t('из')} {formatRub(goal.targetAmount)}</p>
+        <p className="text-sm text-lh-text-secondary">{t('из')} {formatRub(goal.targetAmount)}</p>
       </div>
 
       <Field label={t('Тип')}>
@@ -120,8 +120,8 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
 
       {deposits.length > 0 && (
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">{t('История')}</span>
-          <div className="card divide-y divide-hairline px-4">
+          <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('История')}</span>
+          <div className="card divide-y divide-lh-border px-4">
             {deposits.map((d) => (
               <div key={d.id} className="flex items-center gap-3 py-2.5">
                 <div className="min-w-0 flex-1">
@@ -130,7 +130,7 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
                   >
                     {d.amount < 0 ? '−' : '+'} {formatRub(Math.abs(d.amount))}
                   </p>
-                  <p className="truncate text-xs text-muted">
+                  <p className="truncate text-xs text-lh-text-secondary">
                     {formatRu(d.date)}
                     {d.note ? ` · ${d.note}` : ''}
                   </p>
@@ -143,7 +143,7 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
                     if (window.confirm('Удалить эту запись?')) void remove(db.savingsDeposits, d.id);
                   }}
                   aria-label="Удалить запись"
-                  className={`p-1.5 text-muted active:text-danger ${HIT_SLOP_44}`}
+                  className={`p-1.5 text-lh-text-secondary active:text-danger ${HIT_SLOP_44}`}
                 >
                   <Trash2 size={ICON.action} />
                 </button>

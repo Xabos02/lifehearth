@@ -92,7 +92,7 @@ export function LearningItemPage() {
           type="button"
           onClick={() => setEditOpen(true)}
           aria-label={t('Изменить материал')}
-          className="flex size-11 items-center justify-center text-muted active:opacity-60"
+          className="flex size-11 items-center justify-center text-lh-text-secondary active:opacity-60"
         >
           <Pencil size={ICON.header} />
         </button>
@@ -107,7 +107,7 @@ export function LearningItemPage() {
             perWeekForecast={perWeekForecast}
           />
         ) : (
-          <p className="card p-4 text-sm text-muted">
+          <p className="card p-4 text-sm text-lh-text-secondary">
             {t('У материала нет срока. Поставьте его в карточке — появится график и темп.')}
           </p>
         )}
@@ -121,8 +121,8 @@ export function LearningItemPage() {
 
         <section>
           <div className="mb-2 flex items-baseline gap-2 px-1">
-            <h2 className="text-sm font-semibold text-muted">{t('План')}</h2>
-            <span className="ml-auto text-xs tabular-nums text-muted">
+            <h2 className="lh-section">{t('План')}</h2>
+            <span className="ml-auto text-xs tabular-nums text-lh-text-secondary">
               {liveParts.length > 0
                 ? t('{a} из {b}', { a: done.length, b: liveParts.length })
                 : t('пусто')}
@@ -131,14 +131,14 @@ export function LearningItemPage() {
           {liveParts.length > 0 ? (
             <PlanList parts={liveParts} unit={item.progressUnit} />
           ) : (
-            <p className="card p-4 text-sm text-muted">
+            <p className="card p-4 text-sm text-lh-text-secondary">
               {t('Разбейте материал на части — главы, темы, дисциплины. Прогресс пойдёт по ним.')}
             </p>
           )}
           <button
             type="button"
             onClick={() => setPartsOpen(true)}
-            className="mt-2 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-surface-2 text-sm font-semibold text-text active:opacity-70"
+            className="mt-2 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-lh-surface-2 text-sm font-semibold text-lh-text-primary active:opacity-70"
           >
             <Plus size={ICON.action} />
             {liveParts.length > 0 ? t('Изменить план') : t('Составить план')}
@@ -181,7 +181,7 @@ function Summary({
   const perWeek = Math.round(sched.perWeek * 10) / 10;
 
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-hairline bg-hairline">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-lh-border bg-lh-border">
       <Tile
         k={t('осталось')}
         v={formatNum(remaining)}
@@ -235,13 +235,13 @@ function Tile({
   warn?: boolean;
 }) {
   return (
-    <div className="bg-surface p-3.5">
-      <p className="text-2xs font-semibold uppercase tracking-wide text-muted">{k}</p>
-      <p className={`mt-1 text-2xl font-bold tabular-nums ${warn ? 'text-warning' : ''}`}>
+    <div className="bg-lh-surface p-3.5">
+      <p className="lh-section">{k}</p>
+      <p className={`mt-1 text-2xl font-extralight tabular-nums ${warn ? 'text-warning' : ''}`}>
         {v}
-        {u && <span className="ml-1 text-sm font-medium text-muted">{u}</span>}
+        {u && <span className="ml-1 text-sm font-medium text-lh-text-secondary">{u}</span>}
       </p>
-      <p className={`mt-0.5 text-xs ${warn ? 'text-warning' : 'text-muted'}`}>{n}</p>
+      <p className={`mt-0.5 text-xs ${warn ? 'text-warning' : 'text-lh-text-secondary'}`}>{n}</p>
     </div>
   );
 }
@@ -270,8 +270,8 @@ function Chart({
   return (
     <div className="card p-4">
       <div className="mb-3 flex items-baseline">
-        <h2 className="text-sm font-semibold">{t('Движение по графику')}</h2>
-        <span className="ml-auto flex gap-3 text-2xs text-muted">
+        <h2 className="lh-section">{t('Движение по графику')}</h2>
+        <span className="ml-auto flex gap-3 text-2xs text-lh-text-secondary">
           <span>{t('план')}</span>
           <span className="text-success">{t('факт')}</span>
         </span>
@@ -348,8 +348,8 @@ function Sessions({ logs }: { logs: LearningLog[] }) {
   return (
     <section>
       <div className="mb-2 flex items-baseline gap-2 px-1">
-        <h2 className="text-sm font-semibold text-muted">{t('Занятия')}</h2>
-        <span className="ml-auto text-xs tabular-nums text-muted">
+        <h2 className="lh-section">{t('Занятия')}</h2>
+        <span className="ml-auto text-xs tabular-nums text-lh-text-secondary">
           {weekTotal > 0 ? t('{time} на этой неделе', { time: formatDuration(weekTotal) }) : t('пока пусто')}
         </span>
       </div>
@@ -358,26 +358,26 @@ function Sessions({ logs }: { logs: LearningLog[] }) {
           {week.map((d) => (
             <div key={d.label} className="flex flex-1 flex-col items-center gap-1.5">
               <div
-                className={`w-full rounded ${d.minutes > 0 ? 'bg-accent-fill' : 'bg-border'}`}
+                className={`w-full rounded ${d.minutes > 0 ? 'bg-lh-accent' : 'bg-lh-border-strong'}`}
                 style={{ height: `${d.minutes > 0 ? Math.max(8, (56 * d.minutes) / max) : 4}px` }}
               />
-              <span className={`text-2xs ${d.isToday ? 'font-semibold text-text' : 'text-muted'}`}>
+              <span className={`text-2xs ${d.isToday ? 'font-semibold text-lh-text-primary' : 'text-lh-text-secondary'}`}>
                 {t(d.label)}
               </span>
             </div>
           ))}
         </div>
         {recent.length > 0 && (
-          <ul className="mt-3 divide-y divide-hairline">
+          <ul className="mt-3 divide-y divide-lh-border">
             {recent.map((l) => (
               <li key={l.id} className="flex items-baseline gap-3 py-2 text-sm">
-                <span className="w-14 shrink-0 text-xs tabular-nums text-muted">
+                <span className="w-14 shrink-0 text-xs tabular-nums text-lh-text-secondary">
                   {l.date === today ? t('сегодня') : formatRu(l.date, 'd MMM')}
                 </span>
-                <span className="w-14 shrink-0 font-semibold tabular-nums text-accent">
+                <span className="w-14 shrink-0 font-semibold tabular-nums text-lh-accent">
                   {formatDuration(l.minutes ?? 0)}
                 </span>
-                <span className="truncate text-muted">{l.note}</span>
+                <span className="truncate text-lh-text-secondary">{l.note}</span>
               </li>
             ))}
           </ul>

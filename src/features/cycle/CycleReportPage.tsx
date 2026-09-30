@@ -33,7 +33,7 @@ function formatDays(v: number): string {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-3">
-      <span className="min-w-[6rem] flex-1 text-sm text-muted">{label}</span>
+      <span className="min-w-[6rem] flex-1 text-sm text-lh-text-secondary">{label}</span>
       <span className="shrink-0 font-semibold tabular-nums">{value}</span>
     </div>
   );
@@ -87,35 +87,35 @@ export function CycleReportPage() {
           {/* Дальше — само содержимое отчёта: то, что уходит на печать целиком. */}
           <div className="space-y-5">
             <div className="card p-4">
-              <p className="text-sm text-muted">
+              <p className="text-sm text-lh-text-secondary">
                 {t('Составлено {date}', { date: formatRu(report.generatedAt, 'd MMMM yyyy') })}
               </p>
               <p className="mt-0.5 font-semibold">{t('Период: {period}', { period: periodText })}</p>
             </div>
 
             <section>
-              <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Циклы периода')}</h2>
+              <h2 className="mb-1.5 px-1 lh-section">{t('Циклы периода')}</h2>
               {report.cycles.length === 0 ? (
                 <div className="card p-4">
-                  <p className="text-sm text-muted">{t('За выбранный период отметок нет.')}</p>
+                  <p className="text-sm text-lh-text-secondary">{t('За выбранный период отметок нет.')}</p>
                 </div>
               ) : (
-                <div className="card divide-y divide-hairline px-4">
+                <div className="card divide-y divide-lh-border px-4">
                   {report.cycles.map((c) => (
                     <div key={c.startDate} className="py-3">
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="font-medium">{formatRu(c.startDate, 'd MMMM yyyy')}</span>
-                        <span className="shrink-0 text-sm tabular-nums text-muted">
+                        <span className="shrink-0 text-sm tabular-nums text-lh-text-secondary">
                           {c.lengthDays !== undefined ? formatDays(c.lengthDays) : t('Текущий')}
                         </span>
                       </div>
                       {c.periodLengthDays !== undefined && (
-                        <p className="mt-0.5 text-sm text-muted">
+                        <p className="mt-0.5 text-sm text-lh-text-secondary">
                           {t('Менструация: {days}', { days: formatDays(c.periodLengthDays) })}
                         </p>
                       )}
                       {c.excluded && (
-                        <p className="mt-0.5 text-sm text-muted">
+                        <p className="mt-0.5 text-sm text-lh-text-secondary">
                           {t('Исключён из статистики{reason}', {
                             reason: c.excludeReasonLabel ? ` — ${c.excludeReasonLabel}` : '',
                           })}
@@ -129,8 +129,8 @@ export function CycleReportPage() {
 
             {report.stats.n > 0 && (
               <section>
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Статистика периода')}</h2>
-                <div className="card divide-y divide-hairline px-4">
+                <h2 className="mb-1.5 px-1 lh-section">{t('Статистика периода')}</h2>
+                <div className="card divide-y divide-lh-border px-4">
                   <Row label={t('Завершённых циклов')} value={String(report.stats.n)} />
                   {report.stats.medianLength !== undefined && (
                     <Row label={t('Медианная длина')} value={formatDays(report.stats.medianLength)} />
@@ -153,8 +153,8 @@ export function CycleReportPage() {
 
             {report.symptomFrequency.length > 0 && (
               <section>
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Симптомы')}</h2>
-                <div className="card divide-y divide-hairline px-4">
+                <h2 className="mb-1.5 px-1 lh-section">{t('Симптомы')}</h2>
+                <div className="card divide-y divide-lh-border px-4">
                   {report.symptomFrequency.map((s) => (
                     <Row key={s.key} label={s.label} value={tPlur(s.days, ['день', 'дня', 'дней'])} />
                   ))}
@@ -163,8 +163,8 @@ export function CycleReportPage() {
             )}
 
             <section>
-              <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Кровотечение по дням')}</h2>
-              <div className="card divide-y divide-hairline px-4">
+              <h2 className="mb-1.5 px-1 lh-section">{t('Кровотечение по дням')}</h2>
+              <div className="card divide-y divide-lh-border px-4">
                 {report.bleedingDays.map((b) => (
                   <Row key={b.level} label={b.label} value={tPlur(b.days, ['день', 'дня', 'дней'])} />
                 ))}
@@ -173,12 +173,12 @@ export function CycleReportPage() {
 
             {report.episodes.length > 0 && (
               <section>
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Эпизоды')}</h2>
-                <div className="card divide-y divide-hairline px-4">
+                <h2 className="mb-1.5 px-1 lh-section">{t('Эпизоды')}</h2>
+                <div className="card divide-y divide-lh-border px-4">
                   {report.episodes.map((e, i) => (
                     <div key={`${e.kind}-${e.startDate}-${i}`} className="py-3">
                       <p className="font-medium">{e.label}</p>
-                      <p className="mt-0.5 text-sm text-muted">
+                      <p className="mt-0.5 text-sm text-lh-text-secondary">
                         {formatRu(e.startDate, 'd MMMM yyyy')} —{' '}
                         {e.endDate ? formatRu(e.endDate, 'd MMMM yyyy') : t('продолжается')}
                       </p>
@@ -190,12 +190,12 @@ export function CycleReportPage() {
 
             {report.anomalies.length > 0 && (
               <section>
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Стоит обратить внимание')}</h2>
-                <div className="card divide-y divide-hairline px-4">
+                <h2 className="mb-1.5 px-1 lh-section">{t('Стоит обратить внимание')}</h2>
+                <div className="card divide-y divide-lh-border px-4">
                   {report.anomalies.map((a) => (
                     <div key={a.kind} className="py-3">
                       <p className="font-medium">{a.title}</p>
-                      <p className="mt-0.5 text-sm leading-snug text-muted">{a.detail}</p>
+                      <p className="mt-0.5 text-sm leading-snug text-lh-text-secondary">{a.detail}</p>
                     </div>
                   ))}
                 </div>
@@ -205,7 +205,7 @@ export function CycleReportPage() {
             {/* Дисклеймер — часть отчёта, печатается вместе с остальным
                 содержимым: врач должен видеть его на бумаге, а не только на
                 экране перед печатью. */}
-            <p className="px-1 text-xs leading-snug text-muted">
+            <p className="px-1 text-xs leading-snug text-lh-text-secondary">
               {t('Составлено по отметкам в приложении. Приложение ничего не измеряет и не ставит диагнозов.')}
             </p>
           </div>
@@ -215,7 +215,7 @@ export function CycleReportPage() {
               <Printer size={ICON.base} className="-mt-0.5 mr-1 inline" strokeWidth={2} />
               {t('Распечатать или сохранить в PDF')}
             </Button>
-            <p className="px-1 text-xs leading-snug text-muted">
+            <p className="px-1 text-xs leading-snug text-lh-text-secondary">
               {t('Распечатка и сохранённый файл не защищены замком раздела.')}
             </p>
           </div>

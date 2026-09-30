@@ -122,12 +122,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
       return (
         <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
           <p className="text-lg font-semibold">{t('Что-то пошло не так')}</p>
-          <p className="text-sm text-muted">
+          <p className="text-sm text-lh-text-secondary">
             {t('Перезагрузите приложение — данные сохранены на устройстве.')}
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-xl bg-accent-fill px-5 py-3 font-semibold text-white active:opacity-80"
+            className="rounded-xl bg-lh-accent px-5 py-3 font-semibold text-white active:opacity-80"
           >
             {t('Перезагрузить')}
           </button>
@@ -159,9 +159,9 @@ export default function App() {
           {/* Каркас прибит ко ВСЕМ четырём краям (inset-0) — гарантированно
               покрывает весь экран в standalone-PWA, без полосы-пустоты внизу
               (h-dvh с top-0 на iPhone до низа не доставал). Скроллится только
-              контент; таб-бар — обычный flex-элемент в самом низу. bg-bg
+              контент; таб-бар — обычный flex-элемент в самом низу. bg-lh-bg
               заливает весь каркас, включая safe-area под таб-баром. */}
-          <div id="app-frame" className="fixed inset-0 flex flex-col overflow-hidden bg-bg">
+          <div id="app-frame" className="fixed inset-0 flex flex-col overflow-hidden bg-lh-bg">
             {/* Аврора — неподвижный слой за контентом (не fixed-attachment) */}
             <div aria-hidden className="aurora pointer-events-none absolute inset-0 -z-10" />
             {/* Полоса под плавающую кнопку — ВНУТРЕННИМ отступом ленты, а не

@@ -64,7 +64,7 @@ export function CallButton({ familyId }: { familyId: string }) {
         type="button"
         aria-label={others.length === 1 ? t('Позвонить: {name}', { name: others[0].displayName }) : t('Позвонить')}
         onClick={() => (others.length === 1 ? call(others[0].id) : setPick(true))}
-        className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-fill text-white active:scale-95 ${HIT_SLOP_44}`}
+        className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-lh-accent text-lh-bg active:scale-95 ${HIT_SLOP_44}`}
       >
         <GPhone size={ICON.header} />
       </button>
@@ -93,7 +93,7 @@ function MemberRow({
     <button
       type="button"
       onClick={onCall}
-      className="flex w-full min-h-14 items-center gap-3 rounded-xl px-2 text-left active:bg-surface-2"
+      className="flex w-full min-h-14 items-center gap-3 rounded-xl px-2 text-left active:bg-lh-surface-2"
     >
       <span
         aria-hidden
@@ -107,11 +107,11 @@ function MemberRow({
         {/* «Не в сети» — не запрет, а предупреждение: звонок уйдёт пушем, и
             человек может ответить. Прятать таких из списка значило бы решать
             за него, что до него не дозвониться. */}
-        <span className={`block text-sm ${online ? 'text-success' : 'text-muted'}`}>
+        <span className={`block text-sm ${online ? 'text-success' : 'text-lh-text-secondary'}`}>
           {online ? t('В сети') : t('Не в сети')}
         </span>
       </span>
-      <GPhone size={ICON.header} className="shrink-0 text-accent" />
+      <GPhone size={ICON.header} className="shrink-0 text-lh-accent" />
     </button>
   );
 }

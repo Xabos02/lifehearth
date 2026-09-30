@@ -55,7 +55,7 @@ function EffectivenessPicker({
           onClick={() => onChange(n)}
           aria-label={t('{n} из 5', { n })}
           className={`size-6 rounded-full transition-colors ${HIT_SLOP_44} ${
-            n <= value ? 'bg-accent' : 'bg-surface-2 border border-hairline'
+            n <= value ? 'bg-lh-accent' : 'bg-lh-surface-2 border border-lh-border'
           }`}
         />
       ))}

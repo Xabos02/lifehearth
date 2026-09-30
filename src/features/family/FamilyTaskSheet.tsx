@@ -17,8 +17,8 @@ type PStr = '0' | '1' | '2' | '3';
 // Цвет полосы приоритета — тот же, что и в личных задачах (TaskItem.PRIORITY_BAR):
 // один язык цвета на всё приложение, а не отдельная палитра для семьи.
 const PRIORITIES: { value: PStr; label: string; dot: string }[] = [
-  { value: '0', label: 'Нет', dot: 'bg-border' },
-  { value: '1', label: 'Низкий', dot: 'bg-muted' },
+  { value: '0', label: 'Нет', dot: 'bg-lh-border-strong' },
+  { value: '1', label: 'Низкий', dot: 'bg-lh-text-tertiary' },
   { value: '2', label: 'Средний', dot: 'bg-warning' },
   { value: '3', label: 'Высокий', dot: 'bg-danger' },
 ];
@@ -101,7 +101,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
           <button
             type="button"
             onClick={() => setAssigneeId(null)}
-            className={`rounded-full px-3 py-1.5 text-sm ${HIT_SLOP_44} ${assigneeId === null ? 'bg-accent-fill text-white' : 'bg-surface-2 text-muted'}`}
+            className={`rounded-full px-3 py-1.5 text-sm ${HIT_SLOP_44} ${assigneeId === null ? 'bg-lh-accent text-lh-bg' : 'bg-lh-surface-2 text-lh-text-secondary'}`}
           >
             {t('Всем')}
           </button>
@@ -110,7 +110,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
               key={m.id}
               type="button"
               onClick={() => setAssigneeId(m.id)}
-              className={`rounded-full px-3 py-1.5 text-sm ${HIT_SLOP_44} ${assigneeId === m.id ? 'text-white' : 'bg-surface-2 text-muted'}`}
+              className={`rounded-full px-3 py-1.5 text-sm ${HIT_SLOP_44} ${assigneeId === m.id ? 'text-white' : 'bg-lh-surface-2 text-lh-text-secondary'}`}
               style={assigneeId === m.id ? { background: m.color } : undefined}
             >
               {m.displayName}
@@ -119,7 +119,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
         </div>
       </Field>
       <Field label={t('Приоритет')}>
-        <div className="flex rounded-xl bg-surface-2 p-1">
+        <div className="flex rounded-xl bg-lh-surface-2 p-1">
           {PRIORITIES.map((o) => (
             <button
               key={o.value}
@@ -127,7 +127,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
               aria-pressed={priority === o.value}
               onClick={() => setPriority(o.value)}
               className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-1 py-2.5 text-sm font-medium transition-all duration-200 ${
-                priority === o.value ? 'bg-bg text-text shadow-sm' : 'text-muted active:text-text'
+                priority === o.value ? 'bg-lh-bg text-lh-text-primary shadow-sm' : 'text-lh-text-secondary active:text-lh-text-primary'
               }`}
             >
               <span className={`size-2 shrink-0 rounded-full ${o.dot}`} />
@@ -145,7 +145,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
             type="button"
             aria-label={t('Без цвета')}
             onClick={() => setColor(null)}
-            className={`flex size-8 items-center justify-center rounded-full border-2 border-dashed border-border text-muted ${HIT_SLOP_44} ${color === null ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : ''}`}
+            className={`flex size-8 items-center justify-center rounded-full border-2 border-dashed border-lh-border-strong text-lh-text-secondary ${HIT_SLOP_44} ${color === null ? 'ring-2 ring-lh-accent ring-offset-2 ring-offset-bg' : ''}`}
           >
             ×
           </button>
@@ -156,7 +156,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
               aria-label={t('Цвет {c}', { c })}
               onClick={() => setColor(c)}
               style={{ background: c }}
-              className={`flex size-8 items-center justify-center rounded-full ${HIT_SLOP_44} ${color === c ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : ''}`}
+              className={`flex size-8 items-center justify-center rounded-full ${HIT_SLOP_44} ${color === c ? 'ring-2 ring-lh-accent ring-offset-2 ring-offset-bg' : ''}`}
             >
               {color === c && <Check size={ICON.inline} className={isLightColor(c) ? 'text-black' : 'text-white'} />}
             </button>
@@ -199,7 +199,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
             <option value="0">{t('В день задачи')}</option>
           </Select>
           {remindBefore != null && (
-            <p className="mt-1.5 text-xs leading-snug text-muted">
+            <p className="mt-1.5 text-xs leading-snug text-lh-text-secondary">
               {t('Напоминание приходит утром, в {time}', { time: ALLDAY_REMIND_TIME })}
             </p>
           )}

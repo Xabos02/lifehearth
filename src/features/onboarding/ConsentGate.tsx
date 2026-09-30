@@ -146,7 +146,7 @@ export function ConsentGate() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="consent-title"
-      className="fixed inset-0 z-[84] flex flex-col bg-bg"
+      className="fixed inset-0 z-[84] flex flex-col bg-lh-bg"
     >
       <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
       {/* key: смена вида — новый контейнер прокрутки, с начала, а не с того
@@ -160,19 +160,19 @@ export function ConsentGate() {
             <button
               type="button"
               onClick={() => setDetails(false)}
-              className="-ml-1 flex min-h-11 items-center gap-0.5 self-start pr-1 text-accent active:opacity-60"
+              className="-ml-1 flex min-h-11 items-center gap-0.5 self-start pr-1 text-lh-accent active:opacity-60"
             >
               <GChevronLeft size={ICON.accent} strokeWidth={STROKE_STRONG} />
               {t('Коротко')}
             </button>
-            <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="mt-2 text-lg font-bold tracking-tight">
+            <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="mt-2 text-lg font-light tracking-tight">
               {t('Что уходит с телефона')}
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
+            <p className="mt-2 text-sm leading-relaxed text-lh-text-secondary">
               {t('Всё, что вы записываете, хранится на этом телефоне и работает без интернета. Часть функций выходит в сеть. Согласие одно — на всё сразу.')}
             </p>
             <Group
-              icon={<GLock size={ICON.header} className="text-accent" />}
+              icon={<GLock size={ICON.header} className="text-lh-accent" />}
               title={t('Уходит зашифрованным')}
               subtitle={t('Ключ шифрования остаётся на ваших устройствах')}
               rows={ENCRYPTED.map((id) => ({ id, ...rows[id] }))}
@@ -183,22 +183,22 @@ export function ConsentGate() {
               subtitle={t('Открытый текст или ваш IP-адрес')}
               rows={VISIBLE.map((id) => ({ id, ...rows[id] }))}
             />
-            <p className="mt-5 text-xs leading-relaxed text-muted">
-              <span className="font-semibold text-text">{t('И без согласия.')}</span>{' '}
+            <p className="mt-5 text-xs leading-relaxed text-lh-text-secondary">
+              <span className="font-semibold text-lh-text-primary">{t('И без согласия.')}</span>{' '}
               {t('Приложение загружается и обновляется с GitHub Pages — GitHub видит IP-адрес и время. Ссылки и «Открыть на карте» открывают чужие сайты, только когда вы нажмёте; картам Apple уходит адрес места.')}
             </p>
           </>
         ) : (
           <>
             <div className="mt-6 mb-6 flex flex-col items-center gap-3 text-center">
-              <div className="flex size-14 items-center justify-center rounded-2xl tile-accent text-accent">
+              <div className="flex size-14 items-center justify-center rounded-2xl tile-accent text-lh-accent">
                 {reason ? REASON_ICON[reason] : <GPhoneOut size={ICON.accent} />}
               </div>
-              <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="text-lg font-bold tracking-tight">
+              <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="text-lg font-light tracking-tight">
                 {reason && !review ? t(REASON_TITLES[reason]) : t('Что уходит с телефона')}
               </h2>
               {reason && !review && (
-                <p className="text-sm leading-relaxed text-muted">
+                <p className="text-sm leading-relaxed text-lh-text-secondary">
                   {t('Согласие одно — на всё внешнее сразу: семья, ассистент и остальное второй раз этого окна не покажут.')}
                 </p>
               )}
@@ -208,7 +208,7 @@ export function ConsentGate() {
                 <p className="text-sm font-semibold">{t('Сейчас у вас включено')}</p>
                 <div className="my-2 flex flex-wrap gap-1.5">
                   {on.map((k) => (
-                    <span key={k} className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold">
+                    <span key={k} className="rounded-full bg-lh-surface-2 px-2.5 py-1 text-xs font-semibold">
                       {t(EXTERNAL_LABELS[k])}
                     </span>
                   ))}
@@ -221,17 +221,17 @@ export function ConsentGate() {
             <ul className="flex flex-col gap-4">
               <Point icon={<Smartphone size={ICON.header} strokeWidth={STROKE_STRONG} className="text-success" />}>
                 <span className="font-semibold">{t('Записи хранятся на телефоне')}</span>{' '}
-                <span className="text-muted">{t('и работают без интернета — задачи, заметки, цели, деньги, здоровье.')}</span>
+                <span className="text-lh-text-secondary">{t('и работают без интернета — задачи, заметки, цели, деньги, здоровье.')}</span>
               </Point>
-              <Point icon={<GLock size={ICON.header} className="text-accent" />}>
+              <Point icon={<GLock size={ICON.header} className="text-lh-accent" />}>
                 <span className="font-semibold">{t('Синхронизация, напоминания и семья')}</span>{' '}
-                <span className="text-muted">
+                <span className="text-lh-text-secondary">
                   {t('передают записи на наш сервер зашифрованными. Сервер видит служебное: когда, из какого раздела, кто в сети, название семейной группы и ваш IP-адрес. При звонке IP-адрес виден ещё серверам связи и собеседнику.')}
                 </span>
               </Point>
               <Point icon={<Eye size={ICON.header} strokeWidth={STROKE_STRONG} className="text-warning" />}>
                 <span className="font-semibold">{t('Ассистент, голосовой ввод и погода')}</span>{' '}
-                <span className="text-muted">
+                <span className="text-lh-text-secondary">
                   {t('передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Polza.ai, Anthropic, Google, Apple, Microsoft, Open-Meteo.')}
                 </span>
               </Point>
@@ -239,10 +239,10 @@ export function ConsentGate() {
             <button
               type="button"
               onClick={() => setDetails(true)}
-              className="mt-5 flex min-h-12 w-full items-center justify-between gap-2 card px-4 text-left text-sm font-semibold active:bg-surface-2"
+              className="mt-5 flex min-h-12 w-full items-center justify-between gap-2 card px-4 text-left text-sm font-semibold active:bg-lh-surface-2"
             >
               {t('Подробно, по каждой функции')}
-              <GChevronRight size={ICON.header} className="shrink-0 text-muted" />
+              <GChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
             </button>
           </>
         )}
@@ -256,7 +256,7 @@ export function ConsentGate() {
               setDetails(false);
               closeConsent();
             }}
-            className="flex w-full items-center justify-center rounded-2xl bg-accent-fill px-5 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80"
+            className="flex w-full items-center justify-center rounded-2xl bg-lh-accent px-5 py-3.5 font-semibold text-lh-bg shadow-[var(--shadow-accent)] active:opacity-80"
           >
             {t('Понятно')}
           </button>
@@ -267,19 +267,19 @@ export function ConsentGate() {
             <button
               type="button"
               onClick={() => done(true)}
-              className="flex w-full items-center justify-center rounded-2xl bg-accent-fill px-5 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80"
+              className="flex w-full items-center justify-center rounded-2xl bg-lh-accent px-5 py-3.5 font-semibold text-lh-bg shadow-[var(--shadow-accent)] active:opacity-80"
             >
               {t('Принимаю')}
             </button>
             <button
               type="button"
               onClick={() => done(false)}
-              className="flex min-h-11 w-full items-center justify-center text-sm font-medium text-accent active:opacity-60"
+              className="flex min-h-11 w-full items-center justify-center text-sm font-medium text-lh-accent active:opacity-60"
             >
               {pausing ? t('Не принимать — поставить на паузу') : t('Не сейчас')}
             </button>
             {!pausing && (
-              <p className="text-center text-xs leading-snug text-muted">
+              <p className="text-center text-xs leading-snug text-lh-text-secondary">
                 {t('Без согласия работает всё, что на телефоне, кроме семьи. Перечитать: Настройки → Что уходит с телефона')}
               </p>
             )}
@@ -316,14 +316,14 @@ function Group({
         <span className="shrink-0">{icon}</span>
         <div className="min-w-0">
           <h3 className="text-sm font-bold">{title}</h3>
-          <p className="text-xs text-muted">{subtitle}</p>
+          <p className="text-xs text-lh-text-secondary">{subtitle}</p>
         </div>
       </div>
       <div className="card">
         {rows.map((r) => (
-          <div key={r.id} data-channel={r.id} className="border-t border-hairline px-4 py-3 first:border-t-0">
+          <div key={r.id} data-channel={r.id} className="border-t border-lh-border px-4 py-3 first:border-t-0">
             <p className="text-sm font-semibold">{r.title}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-muted">{r.text}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-lh-text-secondary">{r.text}</p>
           </div>
         ))}
       </div>
@@ -336,18 +336,18 @@ function Group({
 export function ConsentPause({ reason, title, text }: { reason: ConsentReason; title: string; text: string }) {
   return (
     <div className="flex flex-col items-center gap-3 px-4 pt-14 pb-8 text-center">
-      <div className="relative flex size-20 items-center justify-center rounded-3xl tile-accent text-accent">
+      <div className="relative flex size-20 items-center justify-center rounded-3xl tile-accent text-lh-accent">
         <GFamily size={ICON.hero} />
-        <span className="absolute -right-1.5 -bottom-1.5 flex size-7 items-center justify-center rounded-full border-2 border-bg bg-surface-2 text-warning">
+        <span className="absolute -right-1.5 -bottom-1.5 flex size-7 items-center justify-center rounded-full border-2 border-bg bg-lh-surface-2 text-warning">
           <GPause size={ICON.inline} strokeWidth={STROKE_STRONG} />
         </span>
       </div>
-      <h2 className="mt-2 text-lg font-bold tracking-tight">{title}</h2>
-      <p className="max-w-sm text-sm leading-relaxed text-muted">{text}</p>
+      <h2 className="mt-2 text-lg font-light tracking-tight">{title}</h2>
+      <p className="max-w-sm text-sm leading-relaxed text-lh-text-secondary">{text}</p>
       <button
         type="button"
         onClick={() => void askConsent(reason)}
-        className="mt-2 flex items-center justify-center rounded-2xl bg-accent-fill px-6 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80"
+        className="mt-2 flex items-center justify-center rounded-2xl bg-lh-accent px-6 py-3.5 font-semibold text-lh-bg shadow-[var(--shadow-accent)] active:opacity-80"
       >
         {t('Прочитать и принять')}
       </button>

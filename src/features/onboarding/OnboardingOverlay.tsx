@@ -115,7 +115,7 @@ export function OnboardingOverlay() {
   const last = step === SLIDES.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-bg">
+    <div className="fixed inset-0 z-[80] flex flex-col bg-lh-bg">
       <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
       {/* key={step} перезапускает fade-in при смене слайда.
 
@@ -154,8 +154,8 @@ export function OnboardingOverlay() {
         ) : (
           <Art />
         )}
-        <h2 className="text-2xl font-bold tracking-tight">{t(slide.title)}</h2>
-        <p className="max-w-sm text-sm leading-relaxed text-muted">{t(slide.text)}</p>
+        <h2 className="text-2xl font-extralight tracking-tight">{t(slide.title)}</h2>
+        <p className="max-w-sm text-sm leading-relaxed text-lh-text-secondary">{t(slide.text)}</p>
       </div>
 
       <div className="relative flex items-center justify-center gap-9 pb-5">
@@ -166,7 +166,7 @@ export function OnboardingOverlay() {
             aria-label={t('Шаг {n}', { n: i + 1 })}
             onClick={() => setStep(i)}
             className={`h-2 rounded-full transition-all ${HIT_SLOP_44} ${
-              i === step ? 'w-5 bg-accent' : 'w-2 bg-muted/40'
+              i === step ? 'w-5 bg-lh-accent' : 'w-2 bg-lh-text-tertiary/40'
             }`}
           />
         ))}
@@ -181,7 +181,7 @@ export function OnboardingOverlay() {
           <button
             type="button"
             onClick={finish}
-            className="px-3 py-3 text-sm font-medium text-muted active:opacity-60"
+            className="px-3 py-3 text-sm font-medium text-lh-text-secondary active:opacity-60"
           >
             {t('Пропустить')}
           </button>
@@ -190,7 +190,7 @@ export function OnboardingOverlay() {
             type="button"
             onClick={() => setStep((s) => s - 1)}
             aria-label={t('Назад')}
-            className="flex items-center gap-1 px-3 py-3 text-sm font-medium text-muted active:opacity-60"
+            className="flex items-center gap-1 px-3 py-3 text-sm font-medium text-lh-text-secondary active:opacity-60"
           >
             <ChevronLeft size={ICON.base} />
             {t('Назад')}
@@ -199,7 +199,7 @@ export function OnboardingOverlay() {
         <button
           type="button"
           onClick={last ? finish : () => setStep((s) => s + 1)}
-          className="flex flex-1 items-center justify-center gap-1 rounded-2xl bg-accent-fill px-5 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80"
+          className="flex flex-1 items-center justify-center gap-1 rounded-2xl bg-lh-accent px-5 py-3.5 font-semibold text-lh-bg shadow-[var(--shadow-accent)] active:opacity-80"
         >
           {last ? t('Начать') : t('Далее')}
           {!last && <ChevronRight size={ICON.base} />}
@@ -217,7 +217,7 @@ export function OnboardingOverlay() {
       <button
         type="button"
         onClick={restore}
-        className={`relative px-6 pb-[calc(env(safe-area-inset-bottom)+16px)] text-sm font-medium text-accent active:opacity-60 ${
+        className={`relative px-6 pb-[calc(env(safe-area-inset-bottom)+16px)] text-sm font-medium text-lh-accent active:opacity-60 ${
           step === 0 || last ? '' : 'invisible'
         }`}
       >

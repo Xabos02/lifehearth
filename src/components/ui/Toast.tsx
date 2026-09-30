@@ -25,7 +25,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+92px)] z-[60] flex justify-center px-6"
       >
         {message && (
-          <div className="animate-fade-in rounded-full bg-surface-2 px-4 py-2.5 text-sm font-medium shadow-lg shadow-black/30 border border-border">
+          <div className="animate-fade-in rounded-full bg-lh-surface-2 px-4 py-2.5 text-sm font-medium shadow-lg shadow-black/30 border border-lh-border-strong">
             {message}
           </div>
         )}

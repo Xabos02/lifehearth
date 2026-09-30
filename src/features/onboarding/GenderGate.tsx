@@ -35,14 +35,14 @@ export function GenderGate() {
     // z-[90] — выше тура (80) и окна о переустановке (85): у обновившегося
     // пользователя без выбранного пола этот экран обязан быть первым, что он
     // видит, а не третьим в очереди одноразовых окон.
-    <div className="fixed inset-0 z-[90] flex flex-col bg-bg">
+    <div className="fixed inset-0 z-[90] flex flex-col bg-lh-bg">
       <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
       <div className="relative flex min-h-0 flex-1 animate-fade-in flex-col items-center justify-center gap-5 px-8 text-center">
-        <div className="flex size-20 items-center justify-center rounded-3xl tile-accent text-accent shadow-[var(--shadow-accent)]">
+        <div className="flex size-20 items-center justify-center rounded-3xl tile-accent text-lh-accent shadow-[var(--shadow-accent)]">
           <UserRound size={ICON.hero} strokeWidth={STROKE_STRONG} />
         </div>
-        <h2 className="text-2xl font-bold tracking-tight">{t('Ваш пол')}</h2>
-        <p className="max-w-sm text-sm leading-relaxed text-muted">
+        <h2 className="text-2xl font-extralight tracking-tight">{t('Ваш пол')}</h2>
+        <p className="max-w-sm text-sm leading-relaxed text-lh-text-secondary">
           {t('От ответа зависит набор разделов: например, «Женские дни» — календарь цикла и самочувствия — есть только в женском профиле. Изменить выбор можно потом в профиле.')}
         </p>
 
@@ -56,8 +56,8 @@ export function GenderGate() {
               onClick={() => setPicked(o.value)}
               className={`flex-1 rounded-2xl border-2 px-4 py-5 font-semibold transition-colors ${
                 picked === o.value
-                  ? 'border-accent bg-accent/15 text-accent'
-                  : 'border-border bg-surface'
+                  ? 'border-lh-accent bg-lh-accent-dim text-lh-accent'
+                  : 'border-lh-border-strong bg-lh-surface'
               }`}
             >
               {o.label}
@@ -71,7 +71,7 @@ export function GenderGate() {
           type="button"
           disabled={picked === null}
           onClick={() => picked && void updateSettings({ gender: picked })}
-          className="flex w-full items-center justify-center rounded-2xl bg-accent-fill px-5 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80 disabled:opacity-40"
+          className="flex w-full items-center justify-center rounded-2xl bg-lh-accent px-5 py-3.5 font-semibold text-lh-bg shadow-[var(--shadow-accent)] active:opacity-80 disabled:opacity-40"
         >
           {/* Ключ «Продолжить» в словаре занят таймером ('Resume') — здесь смысл
               «дальше», а не «возобновить», поэтому английская ветка явная. */}

@@ -178,7 +178,7 @@ export function ProfilePage() {
           </span>
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-lg font-semibold">{form.name.trim() || t('Без имени')}</p>
+          <p className="truncate text-lg font-light">{form.name.trim() || t('Без имени')}</p>
           {summary && <p className="truncate text-sm text-lh-text-secondary">{summary}</p>}
         </div>
         {p?.avatar && (

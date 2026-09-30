@@ -69,7 +69,7 @@ export function HabitsToday({ collapsed = false }: { collapsed?: boolean }) {
           {doneCount}/{planned.length}
         </span>
       </h2>
-      <div className="card divide-y divide-hairline px-4">
+      <div className="card divide-y divide-lh-border px-4">
         {planned.map((h) => {
           const counted = h.target != null;
           const target = h.target ?? 0;
@@ -89,11 +89,11 @@ export function HabitsToday({ collapsed = false }: { collapsed?: boolean }) {
                 {h.emoji}
               </span>
               <div className="min-w-0 flex-1">
-                <p className={`truncate ${done ? 'text-muted line-through' : 'font-medium'}`}>
+                <p className={`truncate ${done ? 'text-lh-text-secondary line-through' : 'font-medium'}`}>
                   {h.name}
                 </p>
                 {counted && (
-                  <p className="mt-0.5 text-xs text-muted">
+                  <p className="mt-0.5 text-xs text-lh-text-secondary">
                     {value}/{target}
                     {h.unit ? ` ${h.unit}` : ''}
                   </p>

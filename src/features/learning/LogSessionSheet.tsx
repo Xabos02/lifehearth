@@ -62,8 +62,8 @@ function SessionForm({ item, onClose }: { item: LearningItem; onClose: () => voi
             }}
             className={`h-11 flex-1 rounded-xl text-base font-semibold tabular-nums transition-all duration-200 ${
               total === m
-                ? 'bg-accent-fill text-white shadow-[0_2px_10px_-3px_var(--app-accent-fill)]'
-                : 'bg-surface-2 text-muted active:text-text'
+                ? 'bg-lh-accent text-lh-bg shadow-[0_2px_10px_-3px_var(--app-accent-fill)]'
+                : 'bg-lh-surface-2 text-lh-text-secondary active:text-lh-text-primary'
             }`}
           >
             {formatDuration(m)}

@@ -24,7 +24,7 @@ export function EnergyJournal({ byDate }: Props) {
 
   return (
     <section>
-      <h2 className="mb-2 flex items-center justify-between px-1 text-sm font-semibold text-muted">
+      <h2 className="mb-2 flex items-center justify-between px-1 lh-section">
         <span>{t('Последние две недели')}</span>
         <span className="text-xs font-normal">
           {t('{done} из {total}', { done: marked, total: JOURNAL_DAYS })}
@@ -46,13 +46,13 @@ export function EnergyJournal({ byDate }: Props) {
                 aria-hidden
                 className={`flex size-8 items-center justify-center rounded-full text-sm font-semibold ${
                   level
-                    ? 'bg-accent-fill text-white'
-                    : 'border border-dashed border-hairline'
-                } ${isToday ? 'ring-2 ring-accent ring-offset-2 ring-offset-surface' : ''}`}
+                    ? 'bg-lh-accent text-lh-bg'
+                    : 'border border-dashed border-lh-border'
+                } ${isToday ? 'ring-2 ring-lh-accent ring-offset-2 ring-offset-surface' : ''}`}
               >
                 {level ?? ''}
               </span>
-              <span className="text-2xs text-muted">{formatRu(date, 'd')}</span>
+              <span className="text-2xs text-lh-text-secondary">{formatRu(date, 'd')}</span>
             </button>
           );
         })}

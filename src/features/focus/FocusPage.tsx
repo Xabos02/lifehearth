@@ -129,14 +129,14 @@ function DurationStepper({
   // родителя, а не задаёт ему жёсткий min-content. flex-1 нужен только в ряду —
   // в колонке степпер и так растянут по ширине (align-items: stretch).
   return (
-    <div className="min-w-0 rounded-2xl bg-surface-2 p-3 min-[400px]:flex-1">
-      <p className="mb-2 text-center text-xs text-muted">{label}</p>
+    <div className="min-w-0 rounded-2xl bg-lh-surface-2 p-3 min-[400px]:flex-1">
+      <p className="mb-2 text-center text-xs text-lh-text-secondary">{label}</p>
       <div className="flex items-center justify-between gap-1">
         <button
           type="button"
           aria-label={t('{label}: меньше', { label })}
           onClick={() => onChange(Math.max(1, value - 1))}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-lh-border-strong text-lg text-lh-text-secondary active:scale-90"
         >
           −
         </button>
@@ -161,14 +161,14 @@ function DurationStepper({
             const n = parseInt(text, 10);
             if (!Number.isFinite(n) || n < 1) setText(String(value));
           }}
-          className="min-w-0 flex-1 rounded-lg bg-transparent text-center text-2xl font-bold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+          className="min-w-0 flex-1 rounded-lg bg-transparent text-center text-2xl font-extralight tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-lh-accent/60"
         />
         <button
           type="button"
           aria-label={t('{label}: больше', { label })}
           onClick={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90 disabled:opacity-40"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-lh-border-strong text-lg text-lh-text-secondary active:scale-90 disabled:opacity-40"
         >
           +
         </button>
@@ -196,17 +196,17 @@ function PresetForm({
   return (
     <div className="flex flex-col gap-4 pb-2">
       <div>
-        <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Название')}</p>
+        <p className="mb-2 px-1 text-sm font-medium text-lh-text-secondary">{t('Название')}</p>
         <input
           value={name}
           maxLength={24}
           onChange={(e) => setName(e.target.value)}
           placeholder={fallbackName}
-          className="w-full rounded-2xl bg-surface-2 px-4 py-3 text-base outline-none transition-[box-shadow] placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent/60"
+          className="w-full rounded-2xl bg-lh-surface-2 px-4 py-3 text-base outline-none transition-[box-shadow] placeholder:text-lh-text-secondary focus-visible:ring-2 focus-visible:ring-lh-accent/60"
         />
       </div>
       <div>
-        <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Длительность (мин)')}</p>
+        <p className="mb-2 px-1 text-sm font-medium text-lh-text-secondary">{t('Длительность (мин)')}</p>
         <div className={STEPPER_PAIR}>
           <DurationStepper label={t('Фокус')} value={work} onChange={setWork} />
           <DurationStepper label={t('Перерыв')} value={brk} onChange={setBrk} />
@@ -227,7 +227,7 @@ function PresetForm({
       {onDelete && (
         <button
           onClick={onDelete}
-          className="flex items-center justify-center gap-1.5 rounded-2xl border border-border py-3 text-center font-medium text-danger active:opacity-70"
+          className="flex items-center justify-center gap-1.5 rounded-2xl border border-lh-border-strong py-3 text-center font-medium text-danger active:opacity-70"
         >
           <Trash2 size={ICON.action} /> {t('Удалить')}
         </button>
@@ -242,10 +242,10 @@ function SoundRow({ label, value, onClick }: { label: string; value: string; onC
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-11 w-full items-center justify-between gap-3 border-b border-hairline py-2.5 text-left active:opacity-70"
+      className="flex min-h-11 w-full items-center justify-between gap-3 border-b border-lh-border py-2.5 text-left active:opacity-70"
     >
       <span>{label}</span>
-      <span className="flex items-center gap-1 text-muted">
+      <span className="flex items-center gap-1 text-lh-text-secondary">
         {value}
         <ChevronRight size={ICON.base} />
       </span>
@@ -480,13 +480,13 @@ export function FocusPage() {
             )}
           </svg>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-5xl font-bold tabular-nums tracking-tight">
+            <span className="text-5xl font-extralight tabular-nums tracking-tight">
               {formatClock(p.remainingMs)}
             </span>
             {p.taskTitle ? (
-              <span className="mt-1 max-w-[60%] truncate text-sm text-muted">{p.taskTitle}</span>
+              <span className="mt-1 max-w-[60%] truncate text-sm text-lh-text-secondary">{p.taskTitle}</span>
             ) : idleWork ? (
-              <span className="mt-1 text-xs text-muted">{t('крутите кольцо ↻')}</span>
+              <span className="mt-1 text-xs text-lh-text-secondary">{t('крутите кольцо ↻')}</span>
             ) : null}
           </div>
         </div>
@@ -495,7 +495,7 @@ export function FocusPage() {
         <button
           type="button"
           onClick={() => setFullscreen(true)}
-          className={`mt-3 flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70 ${HIT_SLOP_44}`}
+          className={`mt-3 flex items-center gap-1.5 rounded-full border border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-text-secondary active:opacity-70 ${HIT_SLOP_44}`}
         >
           <Maximize2 size={ICON.inline} /> {t('На весь экран')}
         </button>
@@ -504,7 +504,7 @@ export function FocusPage() {
           <button
             onClick={p.reset}
             aria-label={t('Сбросить')}
-            className="flex size-12 items-center justify-center rounded-full border border-border text-muted active:scale-90"
+            className="flex size-12 items-center justify-center rounded-full border border-lh-border-strong text-lh-text-secondary active:scale-90"
           >
             <RotateCcw size={ICON.header} />
           </button>
@@ -523,7 +523,7 @@ export function FocusPage() {
             onClick={p.skip}
             disabled={!p.active}
             aria-label={isWork ? t('Завершить круг') : t('Пропустить перерыв')}
-            className="flex size-12 items-center justify-center rounded-full border border-border text-muted active:scale-90 disabled:opacity-40"
+            className="flex size-12 items-center justify-center rounded-full border border-lh-border-strong text-lh-text-secondary active:scale-90 disabled:opacity-40"
           >
             <SkipForward size={ICON.header} />
           </button>
@@ -534,18 +534,18 @@ export function FocusPage() {
           onClick={() => setPickerOpen(true)}
           className="card mt-8 flex w-full items-center gap-3 px-4 py-3 active:opacity-80"
         >
-          <ListChecks size={ICON.header} className="shrink-0 text-accent" />
-          <span className={`min-w-0 flex-1 truncate text-left ${p.taskTitle ? '' : 'text-muted'}`}>
+          <ListChecks size={ICON.header} className="shrink-0 text-lh-accent" />
+          <span className={`min-w-0 flex-1 truncate text-left ${p.taskTitle ? '' : 'text-lh-text-secondary'}`}>
             {p.taskTitle || t('Выбрать задачу')}
           </span>
-          <ChevronRight size={ICON.base} className="shrink-0 text-muted" />
+          <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
         </button>
 
         {/* Звуки одной карточкой — по скринам Focus To-Do: мелодии конца
             фокуса и конца перерыва разные, у каждой громкость, шум отдельно.
             Списки открываются шитом: пятнадцать мелодий чипами не влезают. */}
         <div className="mt-6 w-full">
-          <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Звуки')}</p>
+          <p className="mb-2 px-1 text-sm font-medium text-lh-text-secondary">{t('Звуки')}</p>
           <div className="card px-4">
             <SoundRow label={t('Конец фокуса')} value={t(alarmOption(p.alarmWork).label)} onClick={() => setSoundSheet('work')} />
             <SoundRow label={t('Конец перерыва')} value={t(alarmOption(p.alarmBreak).label)} onClick={() => setSoundSheet('break')} />
@@ -553,18 +553,18 @@ export function FocusPage() {
             <div className="flex items-center justify-between gap-3 py-1.5">
               <span className="min-w-0">
                 <span className="block">{t('Предупредить за 5 минут')}</span>
-                <span className="block text-xs text-muted">{t('Уведомление до конца фокуса')}</span>
+                <span className="block text-xs text-lh-text-secondary">{t('Уведомление до конца фокуса')}</span>
               </span>
               <Switch checked={p.preNotify} onChange={p.setPreNotify} label={t('Предупредить за 5 минут')} />
             </div>
           </div>
-          <p className="mt-1.5 px-1 text-xs leading-snug text-muted">
+          <p className="mt-1.5 px-1 text-xs leading-snug text-lh-text-secondary">
             {t('Мелодии звучат, пока приложение открыто. В свёрнутом — стандартный сигнал уведомления.')}
           </p>
         </div>
 
         <div className="mt-6 w-full">
-          <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Длительность (мин)')}</p>
+          <p className="mb-2 px-1 text-sm font-medium text-lh-text-secondary">{t('Длительность (мин)')}</p>
           <div className={STEPPER_PAIR}>
             <DurationStepper label={t('Фокус')} value={p.workMin} onChange={p.setWorkMin} />
             <DurationStepper label={t('Перерыв')} value={p.breakMin} onChange={p.setBreakMin} />
@@ -576,10 +576,10 @@ export function FocusPage() {
             <DurationStepper label={t('Кругов до него')} value={p.longAfter} onChange={p.setLongAfter} unit="штук" max={8} />
           </div>
           <div className="mb-2 mt-5 flex items-center justify-between px-1">
-            <p className="text-sm font-medium text-muted">{t('Шаблоны')}</p>
+            <p className="text-sm font-medium text-lh-text-secondary">{t('Шаблоны')}</p>
             <button
               onClick={() => setManaging((v) => !v)}
-              className={`text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
+              className={`text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
             >
               {managing ? t('Готово') : t('Изменить')}
             </button>
@@ -601,7 +601,7 @@ export function FocusPage() {
             ))}
             <button
               onClick={openNewPreset}
-              className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70 ${HIT_SLOP_44}`}
+              className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-text-secondary active:opacity-70 ${HIT_SLOP_44}`}
             >
               <Plus size={ICON.inline} /> {t('Шаблон')}
             </button>
@@ -609,26 +609,26 @@ export function FocusPage() {
         </div>
 
         <div className="mt-8 flex w-full gap-3">
-          <div className="flex-1 rounded-2xl bg-surface-2 p-3 text-center">
-            <p className="text-2xl font-bold">{p.completedToday}</p>
-            <p className="text-xs text-muted">{t('кругов сегодня')}</p>
+          <div className="flex-1 rounded-2xl bg-lh-surface-2 p-3 text-center">
+            <p className="text-2xl font-extralight">{p.completedToday}</p>
+            <p className="text-xs text-lh-text-secondary">{t('кругов сегодня')}</p>
           </div>
-          <div className="flex-1 rounded-2xl bg-surface-2 p-3 text-center">
-            <p className="text-2xl font-bold">{formatFocusTime(p.focusMinToday)}</p>
-            <p className="text-xs text-muted">{t('фокуса сегодня')}</p>
+          <div className="flex-1 rounded-2xl bg-lh-surface-2 p-3 text-center">
+            <p className="text-2xl font-extralight">{formatFocusTime(p.focusMinToday)}</p>
+            <p className="text-xs text-lh-text-secondary">{t('фокуса сегодня')}</p>
           </div>
         </div>
 
         {/* Без уведомлений конец круга в свёрнутом приложении проходит молча —
             таймер это переживёт, человек нет. Тот же баннер, что в семейном чате. */}
         {!pushOn && (
-          <div className="mt-3 flex w-full items-start gap-2 rounded-xl border border-hairline bg-bg px-3 py-2.5 text-sm leading-snug">
+          <div className="mt-3 flex w-full items-start gap-2 rounded-xl border border-lh-border bg-lh-bg px-3 py-2.5 text-sm leading-snug">
             <BellOff size={ICON.base} className="mt-0.5 shrink-0 text-warning" />
-            <span className="min-w-0 flex-1 text-muted">
+            <span className="min-w-0 flex-1 text-lh-text-secondary">
               {t('Уведомления выключены — о конце круга в свёрнутом приложении не узнать.')}{' '}
               <button
                 onClick={() => void enableFocusPush()}
-                className={`font-semibold text-accent active:opacity-60 ${HIT_SLOP_44}`}
+                className={`font-semibold text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
                 {t('Включить')}
               </button>
@@ -644,7 +644,7 @@ export function FocusPage() {
               p.setTask(null, null);
               setPickerOpen(false);
             }}
-            className="border-b border-hairline py-3 text-left text-muted active:opacity-60"
+            className="border-b border-lh-border py-3 text-left text-lh-text-secondary active:opacity-60"
           >
             {t('Без задачи')}
           </button>
@@ -658,7 +658,7 @@ export function FocusPage() {
                   p.setTask(task.id, task.title);
                   setPickerOpen(false);
                 }}
-                className="border-b border-hairline py-3 text-left active:opacity-60"
+                className="border-b border-lh-border py-3 text-left active:opacity-60"
               >
                 {task.title}
               </button>

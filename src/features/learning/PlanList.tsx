@@ -26,11 +26,11 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
   }
 
   return (
-    <div className="card divide-y divide-hairline">
+    <div className="card divide-y divide-lh-border">
       {groups.map((g) => (
         <div key={g.section || '—'}>
           {g.section && (
-            <p className="px-4 pb-1 pt-3 text-xs font-semibold text-muted">{g.section}</p>
+            <p className="px-4 pb-1 pt-3 text-xs font-semibold text-lh-text-secondary">{g.section}</p>
           )}
           {g.rows.map((part) => (
             <button
@@ -44,20 +44,20 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
                 className={`flex size-[22px] shrink-0 items-center justify-center rounded-lg border-2 ${
                   part.doneAt
                     ? 'border-success bg-success text-bg'
-                    : 'border-muted text-transparent'
+                    : 'border-lh-border-strong text-transparent'
                 }`}
               >
                 <Check size={ICON.inline} strokeWidth={2.4} />
               </span>
               <span
                 className={`flex-1 truncate text-sm ${
-                  part.doneAt ? 'text-muted line-through' : 'text-text'
+                  part.doneAt ? 'text-lh-text-secondary line-through' : 'text-lh-text-primary'
                 }`}
               >
                 {part.title}
               </span>
               {part.estimate > 0 && (
-                <span className="shrink-0 text-xs tabular-nums text-muted">
+                <span className="shrink-0 text-xs tabular-nums text-lh-text-secondary">
                   {formatNum(part.estimate)}
                   {/* У процентов оценка — только вес части (planProgress),
                       «3 %» соврало бы: часть весом 3 из 8 — это 38%. */}
@@ -68,7 +68,7 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
           ))}
         </div>
       ))}
-      {parts.length === 0 && <p className="p-4 text-sm text-muted">{t('План пуст')}</p>}
+      {parts.length === 0 && <p className="p-4 text-sm text-lh-text-secondary">{t('План пуст')}</p>}
     </div>
   );
 }

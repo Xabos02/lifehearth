@@ -135,11 +135,11 @@ export function RecoveryKeySheet({ open, saved, onClose }: Props) {
   return (
     <Sheet open={open} onClose={handleClose} title={t('Ключ восстановления')}>
       <div className="space-y-4">
-        <p className="text-sm text-muted">
+        <p className="text-sm text-lh-text-secondary">
           {t('Этим ключом возвращают все записи, если телефон потерян или заменён. Второй копии нет ни у кого, включая разработчика.')}
         </p>
 
-        <div className="rounded-xl bg-surface-2 p-3">
+        <div className="rounded-xl bg-lh-surface-2 p-3">
           <p className="font-mono text-xs leading-relaxed break-all select-all">
             {code ? groupCode(code) : t('готовим…')}
           </p>
@@ -171,13 +171,13 @@ export function RecoveryKeySheet({ open, saved, onClose }: Props) {
             {t('Ключ сохранён и проверен')}
           </p>
         ) : (
-          <div className="space-y-2 border-t border-hairline pt-4">
+          <div className="space-y-2 border-t border-lh-border pt-4">
             <p className="text-sm font-medium">{t('Проверьте сохранённое')}</p>
-            <p className="text-xs text-muted">
+            <p className="text-xs text-lh-text-secondary">
               {t('Откройте сохранённый файл и вставьте сюда — целиком, как есть. Так вы узнаете, что он рабочий, пока телефон ещё при вас.')}
             </p>
             <textarea
-              className="h-24 w-full rounded-xl bg-surface-2 p-3 font-mono text-xs"
+              className="h-24 w-full rounded-xl bg-lh-surface-2 p-3 font-mono text-xs"
               value={check}
               onChange={(e) => setCheck(e.target.value)}
               placeholder={t('Вставьте содержимое файла')}

@@ -77,12 +77,12 @@ export function CycleLock({
 
   return (
     <div className="flex min-h-[60dvh] flex-col items-center justify-center gap-4 px-6 text-center">
-      <span className="flex size-14 items-center justify-center rounded-2xl bg-surface-2 text-muted">
+      <span className="flex size-14 items-center justify-center rounded-2xl bg-lh-surface-2 text-lh-text-secondary">
         <Lock size={ICON.accent} />
       </span>
       <div>
-        <p className="text-lg font-semibold">{t('Раздел закрыт')}</p>
-        <p className="mt-1 text-sm text-muted">{t('Введи код, чтобы открыть.')}</p>
+        <p className="text-lg font-light">{t('Раздел закрыт')}</p>
+        <p className="mt-1 text-sm text-lh-text-secondary">{t('Введи код, чтобы открыть.')}</p>
       </div>
 
       <div className="w-full max-w-56">

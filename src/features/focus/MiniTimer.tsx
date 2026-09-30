@@ -27,7 +27,7 @@ export function MiniTimer() {
   // невидимая зона 44 им не подходит — соседние зоны перекрылись бы (ограничение
   // в hitSlop.ts: не ближе 11px друг к другу). Поэтому растёт сама кнопка:
   // 36 + 8 зазора = шаг 44, попадание пальцем без промаха по соседу.
-  const iconBtn = 'flex size-9 shrink-0 items-center justify-center rounded-full text-muted active:opacity-60';
+  const iconBtn = 'flex size-9 shrink-0 items-center justify-center rounded-full text-lh-text-secondary active:opacity-60';
   return (
     <div
       role="button"
@@ -40,13 +40,13 @@ export function MiniTimer() {
           nav('/more/focus');
         }
       }}
-      className="z-30 flex shrink-0 cursor-pointer items-center gap-2 border-t border-hairline bg-elevated px-4 py-2 active:opacity-80"
+      className="z-30 flex shrink-0 cursor-pointer items-center gap-2 border-t border-lh-border bg-lh-surface-2 px-4 py-2 active:opacity-80"
     >
       <span className="size-2.5 shrink-0 rounded-full" style={{ background: color }} />
       <span className="shrink-0 text-sm font-semibold tabular-nums" style={{ color }}>
         {formatClock(p.remainingMs)}
       </span>
-      <span className="min-w-0 flex-1 truncate text-sm text-muted">
+      <span className="min-w-0 flex-1 truncate text-sm text-lh-text-secondary">
         {p.phase === 'work' ? p.taskTitle || t('Фокус') : p.phase === 'long' ? t('Длинный перерыв') : t('Перерыв')}
       </span>
       <button

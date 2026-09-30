@@ -40,12 +40,12 @@ export function EnergyLevelSheet({ open, onClose, date, current }: Props) {
               aria-pressed={active}
               onClick={() => void choose(n)}
               className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left active:opacity-70 ${
-                active ? 'bg-accent/10 ring-1 ring-accent' : 'bg-surface-2'
+                active ? 'bg-lh-accent-dim ring-1 ring-lh-accent' : 'bg-lh-surface-2'
               }`}
             >
               <span
                 className={`flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
-                  active ? 'bg-accent-fill text-white' : 'bg-surface text-muted'
+                  active ? 'bg-lh-accent text-lh-bg' : 'bg-lh-surface text-lh-text-secondary'
                 }`}
               >
                 {n}
@@ -58,7 +58,7 @@ export function EnergyLevelSheet({ open, onClose, date, current }: Props) {
           <button
             type="button"
             onClick={() => void clear()}
-            className="min-h-11 w-full rounded-xl px-3 py-2.5 text-sm text-muted active:opacity-70"
+            className="min-h-11 w-full rounded-xl px-3 py-2.5 text-sm text-lh-text-secondary active:opacity-70"
           >
             {t('Снять отметку')}
           </button>

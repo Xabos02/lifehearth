@@ -43,7 +43,7 @@ function StorageStatus() {
   const used = state.usage !== undefined ? formatBytes(state.usage) : null;
 
   return state.persisted ? (
-    <p className="text-sm text-muted">
+    <p className="text-sm text-lh-text-secondary">
       {t('Данные защищены от автоочистки браузером{suffix}.', {
         suffix: used ? t(', занято {used}', { used }) : '',
       })}
@@ -53,7 +53,7 @@ function StorageStatus() {
       <span className="font-semibold text-warning">
         {t('Браузер не гарантирует сохранность данных.')}
       </span>{' '}
-      <span className="text-muted">
+      <span className="text-lh-text-secondary">
         {t(
           'Если открывать приложение как обычную вкладку, Safari стирает данные сайта после недели без визитов. Установите приложение на экран «Домой» и держите копию{suffix}.',
           { suffix: used ? t(' (сейчас занято {used})', { used }) : '' },
@@ -273,7 +273,7 @@ export function BackupPage() {
               ) : paused ? (
                 <span className="shrink-0 text-sm font-medium text-warning">{t('На паузе')}</span>
               ) : (
-                <span className="shrink-0 text-sm text-muted">{t('Недоступна')}</span>
+                <span className="shrink-0 text-sm text-lh-text-secondary">{t('Недоступна')}</span>
               )}
             </Row>
             {/* Восстановление вынесено ИЗ-ПОД тумблера автозаписи: раньше и
@@ -322,7 +322,7 @@ export function BackupPage() {
                     ) : cloudDate.state === 'have' ? (
                       formatRu(cloudDate.updatedAt.slice(0, 10), 'd MMMM yyyy')
                     ) : cloudDate.state === 'unknown' ? (
-                      <span className="text-muted">{t('не удалось проверить')}</span>
+                      <span className="text-lh-text-secondary">{t('не удалось проверить')}</span>
                     ) : (
                       <span className="font-semibold text-warning">{t('ещё не создана')}</span>
                     )

@@ -41,7 +41,7 @@ export function ModelSheet({ open, value, onClose, onPick }: Props) {
             <button
               key={m.id}
               className={`flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-colors ${
-                active ? 'border-accent/50 bg-accent/10' : 'border-hairline bg-surface-2'
+                active ? 'border-lh-accent/50 bg-lh-accent-dim' : 'border-lh-border bg-lh-surface-2'
               }`}
               onClick={() => {
                 onPick(m.id);
@@ -51,15 +51,15 @@ export function ModelSheet({ open, value, onClose, onPick }: Props) {
               <div className="min-w-0 flex-1">
                 <p className="flex items-baseline gap-2 font-medium">
                   <span className="truncate">{t(m.label)}</span>
-                  <span className="shrink-0 font-mono text-[0.7rem] text-muted">{perQuestion(m)}</span>
+                  <span className="shrink-0 font-mono text-[0.7rem] text-lh-text-secondary">{perQuestion(m)}</span>
                 </p>
-                <p className="mt-0.5 text-xs text-muted">{t(MODEL_HINTS[m.id] ?? '')}</p>
+                <p className="mt-0.5 text-xs text-lh-text-secondary">{t(MODEL_HINTS[m.id] ?? '')}</p>
               </div>
-              {active && <Check size={ICON.base} className="shrink-0 text-accent" />}
+              {active && <Check size={ICON.base} className="shrink-0 text-lh-accent" />}
             </button>
           );
         })}
-        <p className="px-1 pt-1 text-xs text-muted">
+        <p className="px-1 pt-1 text-xs text-lh-text-secondary">
           {t('Точная стоимость каждого ответа видна под ним и в шапке чата.')}
         </p>
       </div>

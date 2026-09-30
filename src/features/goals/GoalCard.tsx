@@ -48,9 +48,9 @@ export function GoalCard({ goal }: { goal: Goal }) {
         <p className="line-clamp-4 break-words text-base font-semibold min-[380px]:line-clamp-3">
           {goal.title}
         </p>
-        <p className="truncate text-sm text-muted">{label}</p>
+        <p className="truncate text-sm text-lh-text-secondary">{label}</p>
         {deadline && (
-          <p className={`text-xs ${deadline.danger ? 'text-danger' : 'text-muted'}`}>
+          <p className={`text-xs ${deadline.danger ? 'text-danger' : 'text-lh-text-secondary'}`}>
             {deadline.text}
           </p>
         )}

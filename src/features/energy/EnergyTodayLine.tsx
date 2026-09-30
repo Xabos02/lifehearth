@@ -63,8 +63,8 @@ export function EnergyTodayLine({ collapsed = false }: { collapsed?: boolean }) 
               <span
                 className={`flex size-9 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
                   active
-                    ? 'bg-accent-fill text-white shadow-[0_2px_10px_-3px_var(--app-accent-fill)]'
-                    : 'bg-surface-2 text-muted'
+                    ? 'bg-lh-accent text-lh-bg shadow-[0_2px_10px_-3px_var(--app-accent-fill)]'
+                    : 'bg-lh-surface-2 text-lh-text-secondary'
                 }`}
               >
                 {n}
@@ -77,7 +77,7 @@ export function EnergyTodayLine({ collapsed = false }: { collapsed?: boolean }) 
           работать, а не настроение, иначе значения плывут от недели к неделе.
           После отметки подпись уровня уже стоит в заголовке — дубль убираем. */}
       {!current && (
-        <p className="mt-1.5 px-1 text-2xs text-muted">
+        <p className="mt-1.5 px-1 text-2xs text-lh-text-secondary">
           {t('1 — еле держусь · 3 — рабочий режим · 5 — прёт')}
         </p>
       )}

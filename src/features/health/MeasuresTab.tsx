@@ -102,7 +102,7 @@ export function MeasuresTab() {
         series={sys.series.map((p) => p.value)}
         onAdd={() => setEditing('bpSys')}
       />
-      <h2 className="px-1 pt-2 text-sm font-semibold text-muted">{t('Из анализов')}</h2>
+      <h2 className="px-1 pt-2 lh-section">{t('Из анализов')}</h2>
       {([hb, fer] as const).map((tr, i) => {
         const def = measureDef(i === 0 ? 'hemoglobin' : 'ferritin');
         return (
@@ -125,7 +125,7 @@ export function MeasuresTab() {
           />
         );
       })}
-      <p className="px-1 text-xs leading-snug text-muted">
+      <p className="px-1 text-xs leading-snug text-lh-text-secondary">
         {t('Замеры вводятся руками: Apple Health веб-приложению закрыт. Второй замер за день заменяет первый. Норм приложение не знает — их сверяйте с бланком лаборатории.')}
       </p>
 
@@ -156,17 +156,17 @@ function MeasureCard({
     <section className="card p-4" data-testid={`measure-${def.key}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-muted">{t(def.title)}</h2>
-          <p className="mt-0.5 text-2xl font-bold leading-tight tabular-nums">
+          <h2 className="lh-section">{t(def.title)}</h2>
+          <p className="mt-0.5 text-2xl font-extralight leading-tight tabular-nums">
             {value ?? '—'}
-            {value && unit ? <span className="ml-1 text-sm font-medium text-muted">{t(unit)}</span> : null}
+            {value && unit ? <span className="ml-1 text-sm font-medium text-lh-text-secondary">{t(unit)}</span> : null}
           </p>
-          <p className="mt-0.5 text-xs text-muted">{sub}</p>
+          <p className="mt-0.5 text-xs text-lh-text-secondary">{sub}</p>
         </div>
         <button
           type="button"
           onClick={onAdd}
-          className={`shrink-0 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
+          className={`shrink-0 rounded-full border border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
         >
           {t('+ замер')}
         </button>
@@ -263,7 +263,7 @@ function MeasureForm({ measure, onClose }: { measure: MeasureKey; onClose: () =>
         <button
           type="button"
           onClick={() => void del()}
-          className="flex w-full items-center justify-center rounded-2xl border border-border py-3 text-center font-medium text-danger active:opacity-70"
+          className="flex w-full items-center justify-center rounded-2xl border border-lh-border-strong py-3 text-center font-medium text-danger active:opacity-70"
         >
           {t('Удалить замер за этот день')}
         </button>

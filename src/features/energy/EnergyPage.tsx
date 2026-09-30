@@ -27,7 +27,7 @@ const EFFORT_LABEL: Record<EnergyEffort, string> = {
 const EFFORT_CLASS: Record<EnergyEffort, string> = {
   low: 'text-success',
   medium: 'text-warning',
-  high: 'text-muted',
+  high: 'text-lh-text-secondary',
 };
 
 function EffectivenessDots({ value }: { value: number }) {
@@ -36,7 +36,7 @@ function EffectivenessDots({ value }: { value: number }) {
       {[1, 2, 3, 4, 5].map((n) => (
         <span
           key={n}
-          className={`size-1.5 rounded-full ${n <= value ? 'bg-accent' : 'bg-muted/30'}`}
+          className={`size-1.5 rounded-full ${n <= value ? 'bg-lh-accent' : 'bg-lh-text-tertiary/30'}`}
         />
       ))}
     </div>
@@ -56,11 +56,11 @@ function EnergyCard({ item, onOpen }: { item: EnergyItem; onOpen: () => void }) 
         </span>
       </div>
       {item.description && (
-        <p className="mt-1 line-clamp-2 text-sm text-muted">{item.description}</p>
+        <p className="mt-1 line-clamp-2 text-sm text-lh-text-secondary">{item.description}</p>
       )}
       <div className="mt-3 flex items-center justify-between gap-3">
         {item.category ? (
-          <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-0.5 text-2xs text-muted">
+          <span className="shrink-0 rounded-full bg-lh-surface-2 px-2.5 py-0.5 text-2xs text-lh-text-secondary">
             {t(item.category)}
           </span>
         ) : (
@@ -102,9 +102,9 @@ export function EnergyPage() {
       </div>
 
       <div className="space-y-3">
-        <h2 className="px-1 text-sm font-semibold text-muted">{t('Что восстанавливает')}</h2>
+        <h2 className="lh-section px-1">{t('Что восстанавливает')}</h2>
         <div className="card p-4">
-          <p className="text-sm leading-relaxed text-muted">
+          <p className="text-sm leading-relaxed text-lh-text-secondary">
             {t('Когда ничего не хочется — выберите способ под свои силы.')}
           </p>
         </div>

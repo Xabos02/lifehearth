@@ -143,10 +143,10 @@ export function TrashPage() {
         />
       ) : (
         <div className="space-y-4">
-          <div className="card p-4 text-sm leading-relaxed text-muted">
+          <div className="card p-4 text-sm leading-relaxed text-lh-text-secondary">
             {t('Здесь удалённые записи. Их можно восстановить или удалить навсегда.')}
           </div>
-          <div className="card divide-y divide-hairline">
+          <div className="card divide-y divide-lh-border">
             {entries.map((entry) => {
               const Icon = entry.icon;
               return (
@@ -155,10 +155,10 @@ export function TrashPage() {
                   data-testid={`trash-${entry.id}`}
                   className="flex items-center gap-3 px-4 py-3"
                 >
-                  <Icon size={ICON.base} className="mt-0.5 shrink-0 self-start text-muted" />
+                  <Icon size={ICON.base} className="mt-0.5 shrink-0 self-start text-lh-text-secondary" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{entry.title || t('Без названия')}</p>
-                    <p className="text-sm text-muted">
+                    <p className="text-sm text-lh-text-secondary">
                       {t('удалено {date}', { date: formatRu(entry.deletedAt.slice(0, 10)) })}
                     </p>
                   </div>
@@ -170,7 +170,7 @@ export function TrashPage() {
                       зоны касания 44 не налезают друг на друга. */}
                   <button
                     aria-label={t('Восстановить')}
-                    className={`flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent active:opacity-70 ${HIT_SLOP_44}`}
+                    className={`flex size-9 shrink-0 items-center justify-center rounded-full bg-lh-accent-dim text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
                     onClick={() => void handleRestore(entry)}
                   >
                     <RotateCcw size={ICON.action} />

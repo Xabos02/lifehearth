@@ -265,7 +265,7 @@ export function SectionsSettingsPage() {
   if (!state) {
     return (
       <Screen title={t('Настроить разделы')} backTo="/more/settings">
-        <div className="py-10 text-center text-sm text-muted">{t('Загрузка…')}</div>
+        <div className="py-10 text-center text-sm text-lh-text-secondary">{t('Загрузка…')}</div>
       </Screen>
     );
   }
@@ -273,7 +273,7 @@ export function SectionsSettingsPage() {
   const dropLine = (index: number) =>
     dropIndex === index ? (
       <div
-        className="my-1 h-1 rounded-full bg-accent"
+        className="my-1 h-1 rounded-full bg-lh-accent"
         aria-hidden
       />
     ) : null;
@@ -309,11 +309,11 @@ export function SectionsSettingsPage() {
             списке HomePage, а не абстрактный ранг: 1 значит «первым увидите
             на „Главной“». */}
         {opts.homeIndex != null && (
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-2 text-xs font-bold text-muted">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-xs font-bold text-lh-text-secondary">
             {opts.homeIndex}
           </span>
         )}
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
           <Icon size={ICON.header} />
         </div>
         {/* Обычный shrink (был shrink-[0.05]): при сумме flex-факторов меньше 1
@@ -323,7 +323,7 @@ export function SectionsSettingsPage() {
             (min-w-0 + truncate), а бейдж остаётся целым. */}
         <div className="min-w-0 grow basis-auto">
           <p className="truncate font-semibold">{t(sec.label)}</p>
-          {sec.subtitle && <p className="truncate text-xs text-muted">{t(sec.subtitle)}</p>}
+          {sec.subtitle && <p className="truncate text-xs text-lh-text-secondary">{t(sec.subtitle)}</p>}
         </div>
         {locked ? (
           // shrink-0: бейдж короткий и осмысленный только целиком — «вс…» и тем
@@ -331,7 +331,7 @@ export function SectionsSettingsPage() {
           // 16.25px, пряча замок (12px иконка + 4.25px зазор): слово «всегда»
           // несёт смысл само, а замок здесь лишь украшение. Плюс 4.25px на
           // сжатии боковых полей — этого хватает, чтобы «Настройки» влезли.
-          <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
+          <span className="flex shrink-0 items-center gap-1 rounded-full border border-lh-border px-2 py-1 text-xs text-lh-text-secondary max-[375px]:px-1.5">
             <Lock size={ICON.inline} className="shrink-0 max-[375px]:hidden" /> <span>{t('всегда')}</span>
           </span>
         ) : (
@@ -343,7 +343,7 @@ export function SectionsSettingsPage() {
             onClick={() => toggle(id)}
             aria-label={hidden ? t('Включить раздел {name}', { name: t(sec.label) }) : t('Выключить раздел {name}', { name: t(sec.label) })}
             className={`h-6 w-11 shrink-0 rounded-full border transition-colors ${HIT_SLOP_44} ${
-              hidden ? 'border-border bg-surface-2' : 'border-transparent bg-accent'
+              hidden ? 'border-lh-border-strong bg-lh-surface-2' : 'border-transparent bg-lh-accent'
             }`}
           >
             <span
@@ -363,11 +363,11 @@ export function SectionsSettingsPage() {
   // как у обычной строки (см. row): те же зазоры, тот же неусыхаемый бейдж.
   const anchorRow = anchor && (
     <div className="flex items-center gap-3 card p-3 max-[375px]:gap-2 max-[375px]:px-2">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
         <anchor.icon size={ICON.header} />
       </div>
       <span className="min-w-0 grow basis-auto truncate font-semibold">{t(anchor.label)}</span>
-      <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
+      <span className="flex shrink-0 items-center gap-1 rounded-full border border-lh-border px-2 py-1 text-xs text-lh-text-secondary max-[375px]:px-1.5">
         <Lock size={ICON.inline} className="shrink-0 max-[375px]:hidden" /> <span>{t('всегда')}</span>
       </span>
     </div>
@@ -379,11 +379,11 @@ export function SectionsSettingsPage() {
   const dividerAt = Math.min(state.enabled.length, MAX_BOTTOM);
   const divider = (
     <div className="my-1 flex items-center gap-2 px-1" aria-hidden={false}>
-      <span className="h-px flex-1 bg-border" />
-      <span className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted">
+      <span className="h-px flex-1 bg-lh-border-strong" />
+      <span className="shrink-0 lh-section">
         {t('выше — панель · ниже — «Главная»')}
       </span>
-      <span className="h-px flex-1 bg-border" />
+      <span className="h-px flex-1 bg-lh-border-strong" />
     </div>
   );
 
@@ -394,17 +394,17 @@ export function SectionsSettingsPage() {
   const homeExpandAt = dividerAt + HOME_VISIBLE_STEP;
   const homeExpandDivider = (
     <div className="my-1 flex items-center gap-2 px-1" aria-hidden={false}>
-      <span className="h-px flex-1 border-t border-dashed border-border" />
-      <span className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted">
+      <span className="h-px flex-1 border-t border-dashed border-lh-border-strong" />
+      <span className="shrink-0 lh-section">
         {t('на «Главной» — за кнопкой «Показать ещё»')}
       </span>
-      <span className="h-px flex-1 border-t border-dashed border-border" />
+      <span className="h-px flex-1 border-t border-dashed border-lh-border-strong" />
     </div>
   );
 
   return (
     <Screen title={t('Настроить разделы')} backTo="/more/settings">
-      <p className="mb-4 px-1 text-sm leading-relaxed text-muted">
+      <p className="mb-4 px-1 text-sm leading-relaxed text-lh-text-secondary">
         {t('Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Главной») — задержите строку пальцем и перетащите. Номер у раздела — его место в списке «Главной»: первые {home} видны сразу, остальные — за кнопкой «Показать ещё».', { n: MAX_BOTTOM, home: HOME_VISIBLE_STEP })}
       </p>
 
@@ -433,7 +433,7 @@ export function SectionsSettingsPage() {
 
       {state.hidden.length > 0 && (
         <>
-          <div className="mb-1.5 px-1 text-xs font-bold uppercase tracking-wide text-muted">
+          <div className="mb-1.5 px-1 lh-section">
             {t('Выключено')}
           </div>
           <div data-zone="hidden" className="mb-6 space-y-2">
@@ -445,20 +445,20 @@ export function SectionsSettingsPage() {
       <button
         type="button"
         onClick={reset}
-        className="mb-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border py-3.5 text-sm font-semibold text-muted active:opacity-70"
+        className="mb-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-lh-border-strong py-3.5 text-sm font-semibold text-lh-text-secondary active:opacity-70"
       >
         <RotateCcw size={ICON.action} /> {t('Сбросить по умолчанию')}
       </button>
 
       {/* Превью панели */}
-      <div className="mb-2 px-1 text-xs font-bold uppercase tracking-wide text-muted">
+      <div className="mb-2 px-1 lh-section">
         {t('Как будет выглядеть панель')}
       </div>
-      <div className="flex overflow-hidden rounded-2xl border border-hairline bg-elevated">
+      <div className="flex overflow-hidden rounded-2xl border border-lh-border bg-lh-surface-2">
         {previewBottom.map((s) =>
           s ? (
             <div key={s.id} className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2.5">
-              <s.icon size={ICON.header} className="text-muted" />
+              <s.icon size={ICON.header} className="text-lh-text-secondary" />
               {/* без max-w-full подпись раздвигает колонку и превью уезжает вбок.
                   Кегль плавающий и мельче, чем в самой панели: колонка превью
                   уже настоящей вкладки (страница отъедает px-4 = 34px), на 320px
@@ -467,7 +467,7 @@ export function SectionsSettingsPage() {
                   пользователь её сюда и переносит. 2.6vw даёт 8.32px на 320px —
                   запас 2.76px, а с 393px кегль упирается в прежние 10px.
                   Боковых полей нет: 4.25px в такой колонке дороже, чем воздух. */}
-              <span className="max-w-full truncate text-2xs font-semibold text-muted">
+              <span className="max-w-full truncate text-2xs font-semibold text-lh-text-secondary">
                 {t(s.label)}
               </span>
             </div>
@@ -477,7 +477,7 @@ export function SectionsSettingsPage() {
 
       {dragId && (
         <div
-          className="pointer-events-none fixed z-[70] max-w-[60vw] -translate-y-1/2 translate-x-3 truncate rounded-xl border border-accent bg-elevated px-3 py-2 text-sm font-semibold shadow-lg shadow-black/30"
+          className="pointer-events-none fixed z-[70] max-w-[60vw] -translate-y-1/2 translate-x-3 truncate rounded-xl border border-lh-accent bg-lh-surface-2 px-3 py-2 text-sm font-semibold shadow-lg shadow-black/30"
           style={{ left: pointer.x, top: pointer.y }}
         >
           {SECTION_BY_ID.get(dragId)?.label}

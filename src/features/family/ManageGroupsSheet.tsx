@@ -100,7 +100,7 @@ export function ManageGroupsSheet({
   return (
     <Sheet open={open} onClose={onClose} title={t('Управление группами')}>
       <div className="space-y-2 pb-2">
-        <p className="px-1 text-sm text-muted">
+        <p className="px-1 text-sm text-lh-text-secondary">
           {t('Перетащите за ручку, чтобы изменить порядок. Нажмите на название — переименовать.')}
         </p>
         {order.map((id) => {
@@ -109,7 +109,7 @@ export function ManageGroupsSheet({
           return (
             <div
               key={id}
-              className={`flex items-center gap-1 rounded-xl border border-hairline bg-surface px-1 transition-shadow ${
+              className={`flex items-center gap-1 rounded-xl border border-lh-border bg-lh-surface px-1 transition-shadow ${
                 isDragging ? 'shadow-pop' : ''
               }`}
               style={{ height: ROW_H }}
@@ -119,7 +119,7 @@ export function ManageGroupsSheet({
                 onPointerDown={(e) => onHandleDown(e, id)}
                 onPointerMove={onHandleMove}
                 onPointerUp={onHandleUp}
-                className="cursor-grab touch-none p-2 text-muted active:cursor-grabbing"
+                className="cursor-grab touch-none p-2 text-lh-text-secondary active:cursor-grabbing"
               >
                 <GripVertical size={ICON.header} />
               </button>
@@ -132,7 +132,7 @@ export function ManageGroupsSheet({
                     if (e.key === 'Enter') e.currentTarget.blur();
                     if (e.key === 'Escape') setEditingId(null);
                   }}
-                  className="min-w-0 flex-1 rounded-lg border border-accent bg-surface-2 px-2.5 py-2 outline-none"
+                  className="min-w-0 flex-1 rounded-lg border border-lh-accent bg-lh-surface-2 px-2.5 py-2 outline-none"
                 />
               ) : (
                 <button
@@ -140,7 +140,7 @@ export function ManageGroupsSheet({
                   className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pr-1 text-left"
                 >
                   <span className="truncate font-medium">{name}</span>
-                  <Pencil size={ICON.inline} className="shrink-0 text-muted" />
+                  <Pencil size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
                 </button>
               )}
               <button

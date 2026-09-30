@@ -197,7 +197,7 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
             value={due}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setDue(e.target.value)}
           />
-          <p className="mt-1.5 px-1 text-xs text-muted">
+          <p className="mt-1.5 px-1 text-xs text-lh-text-secondary">
             {t(
               'Со сроком приложение считает, сколько нужно в неделю, и предупреждает, когда начинаешь отставать.',
             )}

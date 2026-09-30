@@ -45,7 +45,7 @@ export function SoundPickerSheet<K extends string>({
           сюда сам не доходит, ставим явно. */}
       <div style={FOCUS_VARS}>
         <label className="mb-2 flex items-center gap-3 px-1">
-          <span className="shrink-0 text-sm font-medium text-muted">
+          <span className="shrink-0 text-sm font-medium text-lh-text-secondary">
             {t("Громкость")}
           </span>
           <input
@@ -69,27 +69,27 @@ export function SoundPickerSheet<K extends string>({
                 role="radio"
                 aria-checked={active}
                 onClick={() => onPick(it.value)}
-                className="flex min-h-11 items-center justify-between gap-3 border-b border-hairline py-2.5 text-left last:border-b-0 active:opacity-70"
+                className="flex min-h-11 items-center justify-between gap-3 border-b border-lh-border py-2.5 text-left last:border-b-0 active:opacity-70"
               >
                 <span className="min-w-0">
                   <span
-                    className={`block ${active ? "font-semibold text-accent" : ""}`}
+                    className={`block ${active ? "font-semibold text-lh-accent" : ""}`}
                   >
                     {t(it.label)}
                   </span>
                   {it.hint && (
-                    <span className="block text-xs text-muted">{it.hint}</span>
+                    <span className="block text-xs text-lh-text-secondary">{it.hint}</span>
                   )}
                 </span>
                 {active && (
-                  <Check size={ICON.base} className="shrink-0 text-accent" />
+                  <Check size={ICON.base} className="shrink-0 text-lh-accent" />
                 )}
               </button>
             );
           })}
         </div>
         {note && (
-          <p className="mt-3 px-1 pb-1 text-xs leading-snug text-muted">
+          <p className="mt-3 px-1 pb-1 text-xs leading-snug text-lh-text-secondary">
             {note}
           </p>
         )}

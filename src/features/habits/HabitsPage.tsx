@@ -80,7 +80,7 @@ export function HabitsPage() {
     <Screen title={t('Привычки')} backTo="/home">
       <div className="space-y-3">
         <div className="card p-4">
-          <p className="text-sm leading-relaxed text-muted">
+          <p className="text-sm leading-relaxed text-lh-text-secondary">
             {t(
               'Отмечайте выполнение каждый день — серия 🔥 растёт, пока не пропустите запланированный день.',
             )}
@@ -135,19 +135,19 @@ export function HabitsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{habit.name}</p>
                   {frozen ? (
-                    <p className="mt-0.5 text-xs text-muted">
+                    <p className="mt-0.5 text-xs text-lh-text-secondary">
                       {t('Заморожена с {date}', { date: formatRu(frozenSince!) })}
                     </p>
                   ) : (
                     <>
-                      <p className="mt-0.5 text-xs text-muted">
+                      <p className="mt-0.5 text-xs text-lh-text-secondary">
                         {scheduleLabel(habit.schedule)}
                         {counted && ` · ${target}${habit.unit ? ' ' + habit.unit : ''}`}
                         {current > 0 && ` · 🔥 ${current}`}
                         {best > 1 && ` · ${t('рекорд {n}', { n: best })}`}
                       </p>
                       {frozenInCurrent > 0 && (
-                        <p className="text-xs text-muted">
+                        <p className="text-xs text-lh-text-secondary">
                           {t('в серии заморозка')}{' '}
                           {tPlur(frozenInCurrent, ['день', 'дня', 'дней'])}
                         </p>
@@ -156,7 +156,7 @@ export function HabitsPage() {
                   )}
                 </div>
                 {habit.archivedAt || frozen ? null : !plannedToday ? (
-                  <span className="shrink-0 text-2xs text-muted">{t('не сегодня')}</span>
+                  <span className="shrink-0 text-2xs text-lh-text-secondary">{t('не сегодня')}</span>
                 ) : counted ? (
                   <button
                     type="button"

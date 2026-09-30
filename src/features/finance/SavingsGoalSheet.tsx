@@ -99,7 +99,7 @@ function GoalForm({ goal, onClose }: { goal: SavingsGoal | null; onClose: () => 
         </div>
       </div>
       <div>
-        <span className="mb-1.5 block text-sm font-medium text-muted">{t('Цвет')}</span>
+        <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('Цвет')}</span>
         <div className="flex flex-wrap gap-2.5">
           {COLORS.map((c) => (
             <button

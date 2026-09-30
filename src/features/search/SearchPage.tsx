@@ -57,10 +57,10 @@ interface SectionResult {
 function Row({ icon: Icon, hit }: { icon: LucideIcon; hit: Hit }) {
   return (
     <Link to={hit.to} className="flex items-start gap-3 px-4 py-3 active:opacity-70">
-      <Icon size={ICON.base} className="mt-0.5 shrink-0 text-accent" />
+      <Icon size={ICON.base} className="mt-0.5 shrink-0 text-lh-accent" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{hit.title || t('Без названия')}</p>
-        {hit.context && <p className="truncate text-sm text-muted">{hit.context}</p>}
+        {hit.context && <p className="truncate text-sm text-lh-text-secondary">{hit.context}</p>}
       </div>
     </Link>
   );
@@ -218,16 +218,16 @@ export function SearchPage() {
         <div className="space-y-5">
           {sections.map((s) => (
             <section key={s.key}>
-              <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">
+              <h2 className="mb-1.5 px-1 lh-section">
                 {s.label} · {s.total}
               </h2>
-              <div className="card divide-y divide-hairline">
+              <div className="card divide-y divide-lh-border">
                 {s.hits.map((hit) => (
                   <Row key={hit.id} icon={s.icon} hit={hit} />
                 ))}
               </div>
               {s.total > s.hits.length && (
-                <p className="mt-1.5 px-1 text-sm text-muted">
+                <p className="mt-1.5 px-1 text-sm text-lh-text-secondary">
                   {t('и ещё {n}', { n: s.total - s.hits.length })}
                 </p>
               )}

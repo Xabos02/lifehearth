@@ -39,7 +39,7 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-muted">
+        <p className="text-sm font-medium text-lh-text-secondary">
           {period === 'month' ? t('Расходы в месяц') : t('Расходы в год')}
         </p>
         <div className="w-32 shrink-0">
@@ -53,10 +53,10 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
           />
         </div>
       </div>
-      <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums">
+      <p className="mt-1 text-3xl font-extralight tracking-tight tabular-nums">
         {wrapRub(summary.expense * mul)}
       </p>
-      <p className="mt-1 text-sm text-muted">
+      <p className="mt-1 text-sm text-lh-text-secondary">
         ≈ {period === 'month'
           ? t('{amount} в год', { amount: formatRub(summary.expense * 12) })
           : t('{amount} в месяц', { amount: formatRub(summary.expense) })}
@@ -69,15 +69,15 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
       {(summary.income > 0 || summary.balance !== 0) && (
         <div className="mt-3 flex gap-2">
           {summary.income > 0 && (
-            <div className="min-w-0 flex-1 rounded-xl bg-surface-2 px-3 py-2">
-              <p className="text-xs text-muted">{t('Доход')}</p>
+            <div className="min-w-0 flex-1 rounded-xl bg-lh-surface-2 px-3 py-2">
+              <p className="text-xs text-lh-text-secondary">{t('Доход')}</p>
               <p className="font-semibold tabular-nums text-success">
                 {wrapRub(summary.income * mul)}
               </p>
             </div>
           )}
-          <div className="min-w-0 flex-1 rounded-xl bg-surface-2 px-3 py-2">
-            <p className="text-xs text-muted">{t('Баланс')}</p>
+          <div className="min-w-0 flex-1 rounded-xl bg-lh-surface-2 px-3 py-2">
+            <p className="text-xs text-lh-text-secondary">{t('Баланс')}</p>
             <p
               className={`font-semibold tabular-nums ${balancePositive ? 'text-success' : 'text-danger'}`}
             >
@@ -94,8 +94,8 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
               <div className="flex items-baseline justify-between gap-2 text-sm">
                 {/* truncate сам даёт min-width:0, поэтому без явного пола название
                     ужимается до одной буквы, когда сумма за год становится длинной. */}
-                <span className="min-w-[5rem] truncate text-text">{t(c.category)}</span>
-                <span className="shrink-0 tabular-nums text-muted">{formatRub(c.amount * mul)}</span>
+                <span className="min-w-[5rem] truncate text-lh-text-primary">{t(c.category)}</span>
+                <span className="shrink-0 tabular-nums text-lh-text-secondary">{formatRub(c.amount * mul)}</span>
               </div>
               <div className="mt-1">
                 <ProgressBar
@@ -125,16 +125,16 @@ function ExpenseRow({ item, onOpen }: { item: ExpenseItem; onOpen: () => void })
         <p className="truncate font-semibold">{item.title}</p>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           {!isIncome && item.category && (
-            <span className="truncate rounded-full border border-border bg-surface px-2.5 py-0.5 text-xs text-muted">
+            <span className="truncate rounded-full border border-lh-border-strong bg-lh-surface px-2.5 py-0.5 text-xs text-lh-text-secondary">
               {t(item.category)}
             </span>
           )}
-          <span className="text-xs text-muted">{t(RECURRENCE_LABEL[item.recurrence])}</span>
+          <span className="text-xs text-lh-text-secondary">{t(RECURRENCE_LABEL[item.recurrence])}</span>
           {/* Бейдж переехал из строки заголовка сюда: там он был shrink-0 и съедал
               всю ширину названия. В переносимой мета-строке он с ним не конкурирует,
               а «выключенность» и так читается по opacity-50 всей строки. */}
           {!item.active && (
-            <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-2xs text-muted">
+            <span className="shrink-0 rounded-full bg-lh-surface-2 px-2 py-0.5 text-2xs text-lh-text-secondary">
               {t('не учитывается')}
             </span>
           )}
@@ -145,7 +145,7 @@ function ExpenseRow({ item, onOpen }: { item: ExpenseItem; onOpen: () => void })
           Без shrink-0: когда названию уже некуда сжиматься, сумма переносится
           на вторую строку — обрезать её нельзя, обрезанное число врёт. */}
       <span
-        className={`text-right font-semibold tabular-nums ${isIncome ? 'text-success' : 'text-muted'}`}
+        className={`text-right font-semibold tabular-nums ${isIncome ? 'text-success' : 'text-lh-text-secondary'}`}
       >
         {sign}&nbsp;{wrapRub(item.amount)}
       </span>
@@ -193,11 +193,11 @@ export function FinancePage() {
 
           {upcoming.length > 0 && (
             <section>
-              <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
+              <h2 className="mb-1.5 flex items-center gap-1.5 px-1 lh-section">
                 <CalendarClock size={ICON.inline} className="shrink-0" />
                 {t('Ближайшие списания')}
               </h2>
-              <div className="card divide-y divide-hairline px-4">
+              <div className="card divide-y divide-lh-border px-4">
                 {upcoming.map(({ item, date, daysLeft }) => (
                   <div key={item.id} className="flex items-baseline justify-between gap-3 py-3">
                     {/* Пол ширины названию + снятый shrink-0 у правого блока: сначала
@@ -205,10 +205,10 @@ export function FinancePage() {
                         переносятся на две строки. Раньше название схлопывалось до буквы. */}
                     <p className="min-w-[6rem] truncate font-medium">{item.title}</p>
                     <div className="text-right">
-                      <p className="font-semibold tabular-nums text-muted">
+                      <p className="font-semibold tabular-nums text-lh-text-secondary">
                         {wrapRub(item.amount)}
                       </p>
-                      <p className="text-xs text-muted">
+                      <p className="text-xs text-lh-text-secondary">
                         {daysLeft === 0
                           ? t('сегодня')
                           : daysLeft === 1
@@ -225,8 +225,8 @@ export function FinancePage() {
 
           {expenses.length > 0 && (
             <section>
-              <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Расходы')}</h2>
-              <div className="card divide-y divide-hairline px-4">
+              <h2 className="mb-1.5 px-1 lh-section">{t('Расходы')}</h2>
+              <div className="card divide-y divide-lh-border px-4">
                 {expenses.map((item) => (
                   <ExpenseRow key={item.id} item={item} onOpen={() => openEdit(item)} />
                 ))}
@@ -236,8 +236,8 @@ export function FinancePage() {
 
           {incomes.length > 0 && (
             <section>
-              <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Доходы')}</h2>
-              <div className="card divide-y divide-hairline px-4">
+              <h2 className="mb-1.5 px-1 lh-section">{t('Доходы')}</h2>
+              <div className="card divide-y divide-lh-border px-4">
                 {incomes.map((item) => (
                   <ExpenseRow key={item.id} item={item} onOpen={() => openEdit(item)} />
                 ))}

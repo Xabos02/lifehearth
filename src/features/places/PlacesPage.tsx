@@ -78,12 +78,12 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
               e.stopPropagation();
               openMaps(item.location);
             }}
-            className={`flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent active:opacity-70 ${HIT_SLOP_44}`}
+            className={`flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
           >
             <MapPin size={ICON.header} />
           </button>
         ) : (
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
             <Icon size={ICON.header} />
           </div>
         )}
@@ -91,21 +91,21 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
           <div className="flex items-start gap-2">
             <p className="min-w-0 flex-1 font-semibold">{item.title}</p>
             <span
-              className={`shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-2xs ${
-                item.status === 'done' ? 'text-success' : 'text-muted'
+              className={`shrink-0 rounded-full bg-lh-surface-2 px-2 py-0.5 text-2xs ${
+                item.status === 'done' ? 'text-success' : 'text-lh-text-secondary'
               }`}
             >
               {t(STATUS_LABELS[item.status])}
             </span>
           </div>
           {item.description && (
-            <p className="mt-0.5 line-clamp-2 text-sm text-muted">{item.description}</p>
+            <p className="mt-0.5 line-clamp-2 text-sm text-lh-text-secondary">{item.description}</p>
           )}
           {item.source && (
-            <p className="mt-1 text-xs text-muted">{t('от')} {item.source}</p>
+            <p className="mt-1 text-xs text-lh-text-secondary">{t('от')} {item.source}</p>
           )}
           {item.location && (
-            <p className="mt-1 flex items-center gap-1 text-xs text-muted">
+            <p className="mt-1 flex items-center gap-1 text-xs text-lh-text-secondary">
               <MapPin size={ICON.inline} className="shrink-0" />
               <span className="truncate">{item.location}</span>
             </p>
@@ -115,7 +115,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
               {item.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-surface-2 px-2 py-0.5 text-2xs text-muted"
+                  className="rounded-full bg-lh-surface-2 px-2 py-0.5 text-2xs text-lh-text-secondary"
                 >
                   {tag}
                 </span>
@@ -128,7 +128,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className={`mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
+              className={`mt-2 inline-flex items-center gap-1 text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
             >
               <ExternalLink size={ICON.inline} />
               {t('Открыть ссылку')}

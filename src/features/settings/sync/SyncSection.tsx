@@ -174,7 +174,7 @@ export function SyncSection() {
                   </>
                 )}
                 <br />
-                <span className="text-muted">{t('Последняя: {when}', { when: formatSyncedAt(config.lastSyncedAt) })}</span>
+                <span className="text-lh-text-secondary">{t('Последняя: {when}', { when: formatSyncedAt(config.lastSyncedAt) })}</span>
                 {!!oversized && (
                   <>
                     <br />
@@ -250,7 +250,7 @@ export function SyncSection() {
             {/* min-h-11: зоны 26 и 30px нашёл сценарий пауз в touch.spec — прежний
                 обход настроек шёл без синка и этих кнопок не видел. */}
             <button
-              className="min-h-11 w-full text-sm text-muted active:opacity-60"
+              className="min-h-11 w-full text-sm text-lh-text-secondary active:opacity-60"
               disabled={busy}
               onClick={() => void handleResync()}
             >
@@ -259,21 +259,21 @@ export function SyncSection() {
             {/* ID аккаунта нужен для allowlist AI-прокси в Worker (AI_ALLOWED_ACCOUNTS):
                 значение вводится в дашборде Cloudflare руками, поэтому кнопка копирования. */}
             <button
-              className="flex w-full items-center justify-between gap-2 rounded-lg bg-surface-2 px-3 py-2 text-left active:opacity-60"
+              className="flex w-full items-center justify-between gap-2 rounded-lg bg-lh-surface-2 px-3 py-2 text-left active:opacity-60"
               onClick={() => void handleCopyAccount()}
             >
               <span className="min-w-0">
-                <span className="block text-xs text-muted">{t('ID аккаунта')}</span>
+                <span className="block text-xs text-lh-text-secondary">{t('ID аккаунта')}</span>
                 <span className="block font-mono text-xs break-all">{config.accountId}</span>
               </span>
-              <Copy size={ICON.action} className="shrink-0 text-muted" />
+              <Copy size={ICON.action} className="shrink-0 text-lh-text-secondary" />
             </button>
             {/* Самая частая причина «данные не появляются» — устройства в
                 РАЗНЫХ аккаунтах: синхронизация настраивается на каждом
                 отдельно, и после переустановки приложения её надо подключить
                 заново. Понять это по одному лишь ID было невозможно: он тут
                 стоял без единого слова о том, зачем он и с чем его сверять. */}
-            <p className="text-xs leading-snug text-muted">
+            <p className="text-xs leading-snug text-lh-text-secondary">
               {t('Этот ID должен совпадать на всех ваших устройствах: разный ID — разные аккаунты, и данные между ними не ходят. Хранить ID не нужно — он лежит внутри ключа восстановления.')}
             </p>
             <button

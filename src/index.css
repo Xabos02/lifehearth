@@ -189,10 +189,10 @@
   --app-muted: oklch(0.675 0.022 282);
   --app-accent: oklch(0.72 0.18 264);
   --app-accent-2: oklch(0.67 0.21 300);
-  /* Тёплый красно-оранжевый акцент экрана «Фокус» в духе Focus To-Do.
+  /* Акцент экрана «Фокус» — золото дизайн-системы LifeHearth (макет focus.html).
      Локальный — перекрывает --app-accent только внутри обёртки FocusPage. */
-  --focus-accent: oklch(0.645 0.215 27);
-  --focus-accent-2: oklch(0.755 0.165 55);
+  --focus-accent: var(--lh-accent);
+  --focus-accent-2: #e0c47a;
   /* Клай Claude Code — акцент раздела ИИ. Локальный: перекрывает --app-accent
      только внутри обёртки AiPage (тот же приём, что --focus-accent). Нейтрали
      приложения НЕ перетонируем — это дало бы регресс на всех 20+ экранах ради
@@ -210,9 +210,9 @@
   --app-accent-fill: oklch(0.562 0.18 264);
   --app-accent-2-fill: oklch(0.579 0.21 300);
   --app-danger-fill: oklch(0.578 0.185 20);
-  --focus-accent-fill: oklch(0.583 0.215 27);
-  /* Светлый конец градиента: без своей заливки белый глиф на нём тонул (2.29). */
-  --focus-accent-2-fill: oklch(0.60 0.165 55);
+  /* Тёмное золото под белый глиф (≥4.5:1); светлое #C9A84C под белым — 2.1. */
+  --focus-accent-fill: #7d6219;
+  --focus-accent-2-fill: #8a6d1f;
   --app-success-fill: var(--app-success);
   --app-warning-fill: var(--app-warning);
   --app-frost-fill: var(--app-frost);
@@ -235,13 +235,13 @@
      — единственный акцент интерфейса; индиго --lh-ai-accent живёт только в
      разделе ИИ. */
   --lh-bg: #08080f;
-  --lh-surface: #111118;
-  --lh-surface-2: #1a1a24;
+  --lh-surface: #18181f;
+  --lh-surface-2: #22222d;
   --lh-accent: #c9a84c;
   --lh-accent-dim: rgba(201, 168, 76, 0.15);
   --lh-accent-border: rgba(201, 168, 76, 0.3);
   --lh-text-primary: #f0eee8;
-  --lh-text-secondary: rgba(240, 238, 232, 0.45);
+  --lh-text-secondary: rgba(240, 238, 232, 0.52);
   --lh-text-tertiary: rgba(240, 238, 232, 0.25);
   --lh-border: rgba(240, 238, 232, 0.08);
   --lh-border-strong: rgba(240, 238, 232, 0.15);

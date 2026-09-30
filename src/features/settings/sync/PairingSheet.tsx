@@ -163,7 +163,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
     <Sheet open={open} onClose={onClose} title={mode === 'show' ? t('Код для другого устройства') : t('Подключить по ключу')}>
       {mode === 'show' ? (
         <div className="space-y-4">
-          <p className="text-sm text-muted">
+          <p className="text-sm text-lh-text-secondary">
             {t('Отсканируйте этот QR на втором устройстве: Настройки → Синхронизация → «У меня уже есть данные — подключить по ключу».')}
           </p>
           {paired ? (
@@ -172,7 +172,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
               {t('Устройство подключено')}
             </p>
           ) : (
-            <p className="text-center text-xs text-muted">{t('Код действует 15 минут и только один раз')}</p>
+            <p className="text-center text-xs text-lh-text-secondary">{t('Код действует 15 минут и только один раз')}</p>
           )}
           {qrUrl && (
             <div className="flex justify-center">
@@ -200,7 +200,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
               <div className="overflow-hidden rounded-2xl bg-black">
                 <video ref={videoRef} className="aspect-square w-full object-cover" muted playsInline />
               </div>
-              <p className="text-center text-sm text-muted">{t('Наведите камеру на QR-код первого устройства')}</p>
+              <p className="text-center text-sm text-lh-text-secondary">{t('Наведите камеру на QR-код первого устройства')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -209,7 +209,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
                 onChange={(e) => setPasteVal(e.target.value)}
                 placeholder={t('Вставьте ключ восстановления или код с другого устройства')}
                 rows={4}
-                className="w-full rounded-xl border border-border bg-surface p-3 font-mono text-xs"
+                className="w-full rounded-xl border border-lh-border-strong bg-lh-surface p-3 font-mono text-xs"
               />
               <Button
                 className="w-full"

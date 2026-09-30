@@ -82,15 +82,15 @@ export function SectionsPriorityGate() {
   };
 
   return (
-    <div className="fixed inset-0 z-[82] flex flex-col bg-bg">
+    <div className="fixed inset-0 z-[82] flex flex-col bg-lh-bg">
       <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
       <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+24px)]">
         <div className="mb-5 flex flex-col items-center gap-3 text-center">
-          <div className="flex size-14 items-center justify-center rounded-2xl tile-accent text-accent">
+          <div className="flex size-14 items-center justify-center rounded-2xl tile-accent text-lh-accent">
             <Sparkles size={ICON.header} />
           </div>
-          <h2 className="text-xl font-bold tracking-tight">{t('Что для вас важнее всего?')}</h2>
-          <p className="max-w-sm text-sm leading-relaxed text-muted">
+          <h2 className="text-xl font-light tracking-tight">{t('Что для вас важнее всего?')}</h2>
+          <p className="max-w-sm text-sm leading-relaxed text-lh-text-secondary">
             {t('Расставьте разделы по важности — верхние {n} сразу видны на «Главной», остальные откроются по кнопке «Показать ещё». Стрелками меняете порядок, переключателем — скрываете ненужное.', { n: HOME_VISIBLE_STEP })}
           </p>
         </div>
@@ -104,20 +104,20 @@ export function SectionsPriorityGate() {
               <div key={id}>
                 {i === HOME_VISIBLE_STEP && (
                   <div className="my-2 flex items-center gap-2 px-1">
-                    <span className="h-px flex-1 bg-border" />
-                    <span className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted">
+                    <span className="h-px flex-1 bg-lh-border-strong" />
+                    <span className="shrink-0 lh-section">
                       {t('дальше — за кнопкой «Показать ещё»')}
                     </span>
-                    <span className="h-px flex-1 bg-border" />
+                    <span className="h-px flex-1 bg-lh-border-strong" />
                   </div>
                 )}
                 {/* gap-2, а не 3: стрелкам нужно 64px вместо 34 (см. ниже), и
                     на 320px иначе от названия ничего не оставалось. */}
                 <div className="flex items-center gap-2 card p-3">
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-2 text-xs font-bold text-muted">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-xs font-bold text-lh-text-secondary">
                     {i + 1}
                   </span>
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
                     <Icon size={ICON.header} />
                   </div>
                   <span className="min-w-0 grow basis-auto truncate font-semibold">{t(sec.label)}</span>
@@ -151,7 +151,7 @@ export function SectionsPriorityGate() {
                       type="button"
                       onClick={() => toggle(id)}
                       aria-label={t('Скрыть раздел {name}', { name: t(sec.label) })}
-                      className={`ml-1 h-6 w-11 shrink-0 rounded-full border border-transparent bg-accent transition-colors ${HIT_SLOP_44}`}
+                      className={`ml-1 h-6 w-11 shrink-0 rounded-full border border-transparent bg-lh-accent transition-colors ${HIT_SLOP_44}`}
                     >
                       <span className="absolute top-0.5 left-[22px] size-4 rounded-full bg-white shadow transition-all" />
                     </button>
@@ -164,7 +164,7 @@ export function SectionsPriorityGate() {
 
         {state.hidden.length > 0 && (
           <>
-            <div className="mb-1.5 px-1 text-xs font-bold uppercase tracking-wide text-muted">{t('Скрыто')}</div>
+            <div className="mb-1.5 px-1 lh-section">{t('Скрыто')}</div>
             <div className="mb-4 space-y-2">
               {state.hidden.map((id) => {
                 const sec = SECTION_BY_ID.get(id);
@@ -172,7 +172,7 @@ export function SectionsPriorityGate() {
                 const Icon = sec.icon;
                 return (
                   <div key={id} className="flex items-center gap-3 card p-3 opacity-60">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
                       <Icon size={ICON.header} />
                     </div>
                     <span className="min-w-0 grow basis-auto truncate font-semibold">{t(sec.label)}</span>
@@ -180,7 +180,7 @@ export function SectionsPriorityGate() {
                       type="button"
                       onClick={() => toggle(id)}
                       aria-label={t('Показать раздел {name}', { name: t(sec.label) })}
-                      className={`h-6 w-11 shrink-0 rounded-full border border-border bg-surface-2 transition-colors ${HIT_SLOP_44}`}
+                      className={`h-6 w-11 shrink-0 rounded-full border border-lh-border-strong bg-lh-surface-2 transition-colors ${HIT_SLOP_44}`}
                     >
                       <span className="absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow transition-all" />
                     </button>
@@ -196,7 +196,7 @@ export function SectionsPriorityGate() {
         <button
           type="button"
           onClick={finish}
-          className="flex w-full items-center justify-center rounded-2xl bg-accent-fill px-5 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80"
+          className="flex w-full items-center justify-center rounded-2xl bg-lh-accent px-5 py-3.5 font-semibold text-lh-bg shadow-[var(--shadow-accent)] active:opacity-80"
         >
           {t('Готово')}
         </button>

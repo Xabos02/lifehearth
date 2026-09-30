@@ -31,7 +31,7 @@ const STEPS: { icon: LucideIcon; text: string }[] = [
 function Row({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
   return (
     <div className="flex gap-3 card p-4">
-      <Icon size={ICON.header} className="mt-0.5 shrink-0 text-accent" />
+      <Icon size={ICON.header} className="mt-0.5 shrink-0 text-lh-accent" />
       <p className="min-w-0 text-sm leading-relaxed">{children}</p>
     </div>
   );
@@ -45,9 +45,9 @@ export function InstallInstructionsPage() {
       <div className="space-y-6">
         {/* --- Ссылка для установки (всегда доступна) --- */}
         <section className="space-y-2.5">
-          <h2 className="text-sm font-semibold text-muted">{t('Ссылка для установки')}</h2>
+          <h2 className="lh-section">{t('Ссылка для установки')}</h2>
           <div className="card p-4">
-            <p className="mb-3 text-sm leading-relaxed text-muted">
+            <p className="mb-3 text-sm leading-relaxed text-lh-text-secondary">
               {t('Открывайте её в Safari, чтобы установить или переустановить приложение, или поделитесь ссылкой. Она всегда есть и в «Настройках».')}
             </p>
             <InstallLink />
@@ -56,7 +56,7 @@ export function InstallInstructionsPage() {
 
         {/* --- Установка на экран «Домой» --- */}
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted">{t('Установка на экран «Домой»')}</h2>
+          <h2 className="lh-section">{t('Установка на экран «Домой»')}</h2>
           {standalone ? (
             <div className="flex items-center gap-3 rounded-2xl border border-success/40 bg-success/10 p-4 text-success">
               <CircleCheck size={ICON.accent} className="shrink-0" />
@@ -69,10 +69,10 @@ export function InstallInstructionsPage() {
                   key={i}
                   className="flex items-center gap-3 card p-4"
                 >
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-lh-accent-dim text-sm font-bold text-lh-accent">
                     {i + 1}
                   </span>
-                  <step.icon size={ICON.header} className="shrink-0 text-accent" />
+                  <step.icon size={ICON.header} className="shrink-0 text-lh-accent" />
                   <p className="min-w-0">{t(step.text)}</p>
                 </div>
               ))}
@@ -88,7 +88,7 @@ export function InstallInstructionsPage() {
 
         {/* --- Данные: сохранить перед удалением и вернуть после --- */}
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted">{t('Данные: сохранить и вернуть')}</h2>
+          <h2 className="lh-section">{t('Данные: сохранить и вернуть')}</h2>
 
           <div className="flex gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4">
             <TriangleAlert size={ICON.header} className="mt-0.5 shrink-0 text-warning" />
@@ -98,7 +98,7 @@ export function InstallInstructionsPage() {
             </p>
           </div>
 
-          <p className="text-sm font-medium text-muted">{t('Как сохранить (любой из способов):')}</p>
+          <p className="text-sm font-medium text-lh-text-secondary">{t('Как сохранить (любой из способов):')}</p>
 
           <Row icon={Download}>
             <span className="font-semibold">{t('Резервная копия в файл.')}</span>{' '}
@@ -109,7 +109,7 @@ export function InstallInstructionsPage() {
             {t('«Настройки → Синхронизация → Включить синхронизацию». Зашифрованная копия ложится в облако под вашим ключом. Сразу после включения приложение попросит сохранить ключ восстановления — сохраните: без него облако не вернуть ничем.')}
           </Row>
 
-          <p className="text-sm font-medium text-muted">{t('Как вернуть после переустановки:')}</p>
+          <p className="text-sm font-medium text-lh-text-secondary">{t('Как вернуть после переустановки:')}</p>
 
           <Row icon={Upload}>
             <span className="font-semibold">{t('Из файла.')}</span>{' '}

@@ -31,7 +31,7 @@ function CollapsibleSection({ title, goals }: { title: string; goals: Goal[] }) 
         type="button"
         aria-expanded={expanded}
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-1 py-1 text-sm font-semibold text-muted"
+        className="flex w-full items-center gap-1 py-1 text-sm font-semibold text-lh-text-secondary"
       >
         <Icon size={ICON.action} />
         {title}

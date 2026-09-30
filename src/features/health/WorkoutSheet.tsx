@@ -206,14 +206,14 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
           <button
             type="button"
             onClick={() => setItems((prev) => [...prev, newItem()])}
-            className={`flex items-center gap-1 rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm font-medium text-accent active:opacity-70 ${HIT_SLOP_44}`}
+            className={`flex items-center gap-1 rounded-full border border-dashed border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
           >
             <GPlus size={ICON.inline} /> {t('Добавить ещё вид')}
           </button>
           <button
             type="button"
             onClick={() => setTemplatesOpen(true)}
-            className={`flex items-center gap-1 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70 ${HIT_SLOP_44}`}
+            className={`flex items-center gap-1 rounded-full border border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-text-secondary active:opacity-70 ${HIT_SLOP_44}`}
           >
             {t('Из шаблона')}
           </button>
@@ -221,7 +221,7 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
       )}
 
       <div>
-        <p className="mb-1.5 text-sm font-medium text-muted">{t('Как прошло')}</p>
+        <p className="mb-1.5 text-sm font-medium text-lh-text-secondary">{t('Как прошло')}</p>
         <div className="flex flex-wrap gap-2">
           {EFFORT_LABELS.map((e) => (
             <Chip key={e.value} active={effort === e.value} onClick={() => setEffort(effort === e.value ? null : e.value)}>
@@ -247,7 +247,7 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
         <button
           type="button"
           onClick={() => void saveAsTemplate()}
-          className={`w-full text-center text-sm font-medium text-accent active:opacity-70 ${HIT_SLOP_44}`}
+          className={`w-full text-center text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
         >
           {t('Сделать из этого набора шаблон')}
         </button>
@@ -256,7 +256,7 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
         <button
           type="button"
           onClick={() => void del()}
-          className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-border py-3 text-center font-medium text-danger active:opacity-70"
+          className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-lh-border-strong py-3 text-center font-medium text-danger active:opacity-70"
         >
           <Trash2 size={ICON.action} /> {t('Удалить')}
         </button>
@@ -300,13 +300,13 @@ function ItemFields({
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-border p-3">
+    <div className="space-y-3 rounded-2xl border border-lh-border-strong p-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted">{index === 0 ? t('Вид') : `${t('Вид')} ${index + 1}`}</p>
+        <p className="text-sm font-medium text-lh-text-secondary">{index === 0 ? t('Вид') : `${t('Вид')} ${index + 1}`}</p>
         {/* «Убрать» — омоним: в словаре «Clear» (снять срок задачи), здесь
             убирается весь вид — английская ветка явная. */}
         {removable && (
-          <button type="button" onClick={onRemove} className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`} aria-label={getLang() === 'en' ? 'Remove' : 'Убрать'}>
+          <button type="button" onClick={onRemove} className={`p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`} aria-label={getLang() === 'en' ? 'Remove' : 'Убрать'}>
             <GClose size={ICON.action} />
           </button>
         )}

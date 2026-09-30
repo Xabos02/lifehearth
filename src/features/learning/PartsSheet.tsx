@@ -94,13 +94,13 @@ function PlanForm({
           className="min-h-[9rem] font-mono text-sm"
         />
       </Field>
-      <p className="px-1 text-xs leading-relaxed text-muted">
+      <p className="px-1 text-xs leading-relaxed text-lh-text-secondary">
         {t(
           'Строка с # — раздел плана. Число после тире — сколько это займёт; можно не ставить.',
         )}
       </p>
       {parsed.length > 0 && (
-        <p className="px-1 text-xs text-muted">
+        <p className="px-1 text-xs text-lh-text-secondary">
           {t('Получится частей: {n}', { n: parsed.length })}
           {totalEstimate > 0 && t(', всего {n}', { n: totalEstimate })}
         </p>

@@ -43,7 +43,7 @@ export function SportTodayLine() {
 
   return (
     <section className="mb-5" data-testid="sport-today">
-      <h2 className="mb-2 flex items-center justify-between px-1 text-sm font-semibold text-muted">
+      <h2 className="mb-2 flex items-center justify-between px-1 lh-section">
         <span>{t('Спорт')}</span>
         <span className="text-xs font-normal">{t('{done} из {goal} на неделе', { done: week.done, goal: week.goal })}</span>
       </h2>
@@ -65,7 +65,7 @@ export function SportTodayLine() {
           {/* Без truncate: рядом с кнопкой заголовку остаётся ~180px, и
               «Сегодня — тренировка» резалось многоточием; перенос честнее. */}
           <span className="block font-semibold leading-tight">{adviceTitle(advice)}</span>
-          <span className="block truncate text-xs text-muted">
+          <span className="block truncate text-xs text-lh-text-secondary">
             {done
               ? `${describeWorkout(last)} · ${formatMinutes(last.minutes, t)}`
               : last
@@ -74,12 +74,12 @@ export function SportTodayLine() {
           </span>
         </span>
         {done ? (
-          <ChevronRight size={ICON.base} className="shrink-0 text-muted" />
+          <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
         ) : (
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className={`shrink-0 rounded-full bg-accent-fill px-3.5 py-1.5 text-sm font-semibold text-white active:opacity-80 ${HIT_SLOP_44}`}
+            className={`shrink-0 rounded-full bg-lh-accent px-3.5 py-1.5 text-sm font-semibold text-lh-bg active:opacity-80 ${HIT_SLOP_44}`}
           >
             {t('Отметить')}
           </button>

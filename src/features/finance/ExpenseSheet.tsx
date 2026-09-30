@@ -110,7 +110,7 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
       </Field>
       {kind === 'expense' && (
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Категория')}</span>
+          <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('Категория')}</span>
           <div className="mb-2">
             <ChipRow>
               {EXPENSE_CATEGORY_SUGGESTIONS.map((c) => (
@@ -165,8 +165,8 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
         onClick={() => setActive((v) => !v)}
         className={`w-full rounded-xl border px-3.5 py-3 text-left text-sm font-medium transition-colors ${
           active
-            ? 'border-accent bg-accent/15 text-accent'
-            : 'border-hairline bg-surface text-muted'
+            ? 'border-lh-accent bg-lh-accent-dim text-lh-accent'
+            : 'border-lh-border bg-lh-surface text-lh-text-secondary'
         }`}
       >
         {active ? t('Учитывается в сводке') : t('Не учитывается в сводке')}

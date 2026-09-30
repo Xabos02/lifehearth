@@ -177,7 +177,7 @@ export function DayBand({
           {weatherIcon(weather.code, weather.isDay)}
         </span>
         <span className="flex min-w-0 flex-1 items-baseline gap-2">
-          <span className="text-2xl leading-none font-bold tracking-tight">{weather.tempC}°</span>
+          <span className="text-2xl leading-none font-extralight tracking-tight">{weather.tempC}°</span>
           <span className="truncate text-sm text-lh-text-secondary">{weatherLabel(weather.code)}</span>
         </span>
         <span className="shrink-0 text-right text-xs text-lh-text-secondary">

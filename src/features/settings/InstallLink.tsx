@@ -27,14 +27,14 @@ export function InstallLink() {
   return (
     <div className="space-y-2.5">
       <div className="flex items-center gap-2">
-        <code className="min-w-0 flex-1 truncate rounded-lg bg-surface-2 px-2.5 py-2 font-mono text-xs">
+        <code className="min-w-0 flex-1 truncate rounded-lg bg-lh-surface-2 px-2.5 py-2 font-mono text-xs">
           {INSTALL_URL}
         </code>
         <button
           type="button"
           onClick={copy}
           aria-label={t('Скопировать ссылку')}
-          className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-accent active:opacity-60 ${HIT_SLOP_44}`}
+          className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-lh-surface-2 text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
         >
           {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
         </button>
@@ -43,7 +43,7 @@ export function InstallLink() {
         href={INSTALL_URL}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-accent active:opacity-70"
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-lh-accent active:opacity-70"
       >
         <ExternalLink size={ICON.action} />
         {t('Открыть сайт установки')}

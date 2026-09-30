@@ -60,7 +60,7 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
         </Button>
         {chats.length > 5 && (
           <div className="relative">
-            <Search size={ICON.action} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
+            <Search size={ICON.action} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-lh-text-secondary" />
             <Input
               className="pl-9"
               placeholder={t('Поиск по чатам')}
@@ -73,22 +73,22 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
           <div
             key={c.id}
             className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 ${
-              c.id === activeId ? 'border-accent/40 bg-accent/10' : 'border-hairline bg-surface-2'
+              c.id === activeId ? 'border-lh-accent/40 bg-lh-accent-dim' : 'border-lh-border bg-lh-surface-2'
             }`}
           >
             <button className="min-w-0 flex-1 text-left active:opacity-60" onClick={() => onPick(c.id)}>
               <span className="block truncate font-medium">{c.title}</span>
               {c.lastMessageText && (
-                <span className="mt-0.5 block truncate text-xs text-muted">{c.lastMessageText}</span>
+                <span className="mt-0.5 block truncate text-xs text-lh-text-secondary">{c.lastMessageText}</span>
               )}
-              <span className="mt-0.5 block text-[0.68rem] text-muted">
+              <span className="mt-0.5 block text-[0.68rem] text-lh-text-secondary">
                 {formatWhen(c.lastMessageAt ?? c.createdAt)}
                 {c.model !== 'echo' && ` · ${modelLabel(c.model)}`}
               </span>
             </button>
             <button
               aria-label={t('Удалить чат')}
-              className="p-2 text-muted active:opacity-60"
+              className="p-2 text-lh-text-secondary active:opacity-60"
               onClick={() => void handleRemove(c)}
             >
               <Trash2 size={ICON.base} />
@@ -96,7 +96,7 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
           </div>
         ))}
         {q && !shown.length && (
-          <p className="py-4 text-center text-sm text-muted">{t('Ничего не нашлось')}</p>
+          <p className="py-4 text-center text-sm text-lh-text-secondary">{t('Ничего не нашлось')}</p>
         )}
       </div>
     </Sheet>

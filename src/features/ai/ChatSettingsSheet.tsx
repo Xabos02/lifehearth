@@ -78,29 +78,29 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
     <Sheet open={open} onClose={onClose} title={t('Настройки чата')}>
       <div className="space-y-5">
         <label className="block">
-          <span className="mb-1.5 block text-sm text-muted">{t('Название')}</span>
+          <span className="mb-1.5 block text-sm text-lh-text-secondary">{t('Название')}</span>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} />
         </label>
 
         <label className="block">
-          <span className="mb-1.5 block text-sm text-muted">{t('Инструкция для модели')}</span>
+          <span className="mb-1.5 block text-sm text-lh-text-secondary">{t('Инструкция для модели')}</span>
           <Textarea
             rows={3}
             placeholder={t('Например: отвечай кратко, в два-три предложения')}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
-          <span className="mt-1 block text-xs text-muted">
+          <span className="mt-1 block text-xs text-lh-text-secondary">
             {t('Действует на все ответы в этом чате.')}
           </span>
         </label>
 
         <div className="space-y-2">
           <div className="flex min-w-0 items-center gap-2.5">
-            <Database size={ICON.base} className="shrink-0 text-accent" />
+            <Database size={ICON.base} className="shrink-0 text-lh-accent" />
             <div className="min-w-0">
               <p className="font-medium">{t('Доступ к данным')}</p>
-              <p className="text-xs text-muted">
+              <p className="text-xs text-lh-text-secondary">
                 {t('Когда включён, модель читает задачи, заметки, финансы, привычки, цели, обучение и энергию.')}
               </p>
             </div>
