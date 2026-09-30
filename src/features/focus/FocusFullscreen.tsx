@@ -62,7 +62,7 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex flex-col items-center justify-between px-6 pb-12 pt-[calc(env(safe-area-inset-top)+16px)] text-text"
+      className="fixed inset-0 z-[70] flex flex-col items-center justify-between px-6 pb-12 pt-[calc(env(safe-area-inset-top)+16px)] text-lh-text-primary"
       style={{ background: 'radial-gradient(80% 50% at 50% 0%, oklch(0.26 0.06 290), oklch(0.12 0.01 283) 70%)' }}
       data-testid="focus-fullscreen"
     >
@@ -71,7 +71,7 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
           type="button"
           aria-label={t('Свернуть')}
           onClick={onClose}
-          className={`flex size-11 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44}`}
+          className={`flex size-11 items-center justify-center rounded-full text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
         >
           <ChevronDown size={ICON.accent} />
         </button>
@@ -114,7 +114,7 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={p.reset}
             aria-label={t('Сбросить')}
-            className="flex size-12 items-center justify-center rounded-full border border-white/15 text-muted active:scale-90"
+            className="flex size-12 items-center justify-center rounded-full border border-white/15 text-lh-text-secondary active:scale-90"
           >
             <RotateCcw size={ICON.header} />
           </button>
@@ -132,12 +132,12 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
             onClick={p.skip}
             disabled={!p.active}
             aria-label={isWork ? t('Завершить круг') : t('Пропустить перерыв')}
-            className="flex size-12 items-center justify-center rounded-full border border-white/15 text-muted active:scale-90 disabled:opacity-40"
+            className="flex size-12 items-center justify-center rounded-full border border-white/15 text-lh-text-secondary active:scale-90 disabled:opacity-40"
           >
             <SkipForward size={ICON.header} />
           </button>
         </div>
-        <p className="text-xs text-muted">{t('Экран не гаснет, пока идёт круг')}</p>
+        <p className="text-xs text-lh-text-secondary">{t('Экран не гаснет, пока идёт круг')}</p>
       </div>
     </div>
   );

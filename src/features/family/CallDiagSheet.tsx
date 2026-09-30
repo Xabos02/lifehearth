@@ -14,7 +14,7 @@ export function CallDiagSheet({ open, onClose }: { open: boolean; onClose: () =>
   return (
     <Sheet open={open} onClose={onClose} title={t('Почему звонок не вышел')}>
       {!d ? (
-        <p className="py-6 text-center text-sm text-muted">
+        <p className="py-6 text-center text-sm text-lh-text-secondary">
           {t('Неудачных звонков пока не было.')}
         </p>
       ) : (
@@ -45,7 +45,7 @@ export function CallDiagSheet({ open, onClose }: { open: boolean; onClose: () =>
             <Row label={t('Отказы ретранслятора')} value={d.iceErrors.join(', ')} bad />
           )}
 
-          <p className="rounded-xl bg-surface-2 p-3 text-xs leading-relaxed text-muted">
+          <p className="rounded-xl bg-lh-surface-2 p-3 text-xs leading-relaxed text-lh-text-secondary">
             {verdict(d.turn === 'ok', !!d.local.relay, !!d.remote.relay)}
           </p>
         </div>
@@ -57,7 +57,7 @@ export function CallDiagSheet({ open, onClose }: { open: boolean; onClose: () =>
 function Row({ label, value, bad }: { label: string; value: string; bad?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="shrink-0 text-sm text-muted">{label}</span>
+      <span className="shrink-0 text-sm text-lh-text-secondary">{label}</span>
       <span className={`min-w-0 text-right text-sm font-medium ${bad ? 'text-warning' : ''}`}>
         {value}
       </span>

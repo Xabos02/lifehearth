@@ -116,7 +116,7 @@ export function SharePage() {
   return (
     <Screen title={t('Захват')} backTo="/">
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-muted">
+        <p className="text-sm text-lh-text-secondary">
           {t(
             'Вставьте или отредактируйте текст и сохраните его задачей или заметкой. Для задачи дата и время из текста подставятся сами — например «завтра в 10 позвонить маме».',
           )}

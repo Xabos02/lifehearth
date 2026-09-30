@@ -58,10 +58,10 @@ export function CycleTodayLine() {
       <span className="min-w-0 flex-1">
         <span className="block font-semibold">{t('День цикла {day}', { day })}</span>
         {range && (
-          <span className="mt-0.5 block text-sm text-muted">{t('Следующая менструация {range}', { range })}</span>
+          <span className="mt-0.5 block text-sm text-lh-text-secondary">{t('Следующая менструация {range}', { range })}</span>
         )}
       </span>
-      <ChevronRight size={ICON.base} className="shrink-0 text-muted" />
+      <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
     </Link>
   );
 }

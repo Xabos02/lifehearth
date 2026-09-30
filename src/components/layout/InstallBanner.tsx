@@ -40,7 +40,7 @@ export function InstallBanner() {
       // никуда не делось: оно на странице, которая открывается по нажатию.
       className="card print-hide mx-auto mt-3 flex w-[calc(100%-32px)] max-w-lg shrink-0 items-center gap-2.5 px-3 py-2"
     >
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg tile-accent text-accent">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg tile-accent text-lh-accent">
         <Share size={ICON.action} />
       </span>
       {/* min-h-11: свернув баннер в строку, ссылку легко оставить ниже нормы —
@@ -56,7 +56,7 @@ export function InstallBanner() {
         // Хит-зона 44px выступает на 8.75px в стороны — меньше и p-3 карточки
         // (12.75px, значит overflow:hidden у .card её не срежет), и зазора
         // gap-3 до ссылки слева, так что промах не уводит на страницу установки.
-        className={`shrink-0 p-1 text-muted ${HIT_SLOP_44}`}
+        className={`shrink-0 p-1 text-lh-text-secondary ${HIT_SLOP_44}`}
         onClick={dismissInstallBanner}
       >
         <X size={ICON.base} />

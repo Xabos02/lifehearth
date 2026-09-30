@@ -116,7 +116,7 @@ test('круг, кончившийся давно в фоне, засчитан 
   });
   // Таймер ждёт в начале следующего круга, круг засчитан.
   await expect(page.getByRole('button', { name: 'Старт' })).toBeVisible();
-  await expect(page.locator('p.text-2xl.font-bold').first()).toHaveText('1');
+  await expect(page.locator('p.text-2xl.font-extralight').first()).toHaveText('1');
   const stored = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? '{}'), KEY);
   expect(stored.phase).toBe('work');
   expect(stored.running).toBe(false);

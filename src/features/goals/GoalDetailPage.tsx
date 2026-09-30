@@ -58,7 +58,7 @@ function SectionHeader({
     <div className="mb-2 flex items-center justify-between">
       <h2 className="font-bold">{title}</h2>
       {actionLabel && onAction && (
-        <button type="button" onClick={onAction} className="text-sm font-medium text-accent">
+        <button type="button" onClick={onAction} className="text-sm font-medium text-lh-accent">
           {actionLabel}
         </button>
       )}
@@ -100,8 +100,8 @@ export function GoalDetailPage() {
     return (
       <Screen title={t('Цель')} backTo="/goals">
         <div className="py-14 text-center">
-          <p className="font-semibold text-muted">{t('Цель не найдена')}</p>
-          <Link to="/goals" className="mt-2 inline-block text-sm font-medium text-accent">
+          <p className="font-semibold text-lh-text-secondary">{t('Цель не найдена')}</p>
+          <Link to="/goals" className="mt-2 inline-block text-sm font-medium text-lh-accent">
             {t('К списку целей')}
           </Link>
         </div>
@@ -142,15 +142,15 @@ export function GoalDetailPage() {
       }
     >
       {goal.description && (
-        <p className="mb-4 whitespace-pre-wrap text-sm text-muted">{goal.description}</p>
+        <p className="mb-4 whitespace-pre-wrap text-sm text-lh-text-secondary">{goal.description}</p>
       )}
 
       <div className="flex items-center gap-4 card p-4">
         <ProgressRing value={progress} size={96} strokeWidth={7} color={goal.color} />
         <div className="min-w-0">
-          <p className="text-lg font-bold">{goalProgressLabel(goal, goalTasks)}</p>
+          <p className="text-lg font-light">{goalProgressLabel(goal, goalTasks)}</p>
           {goal.targetDate && (
-            <p className="text-sm text-muted">
+            <p className="text-sm text-lh-text-secondary">
               {t('Срок: {date}', { date: formatRu(goal.targetDate, 'd MMMM yyyy') })}
             </p>
           )}
@@ -173,7 +173,7 @@ export function GoalDetailPage() {
       <div className="mt-3">
         {goal.progressMode === 'manual' && (
           <div className="card p-4">
-            <p className="mb-2 text-sm font-medium text-muted">
+            <p className="mb-2 text-sm font-medium text-lh-text-secondary">
               {t('Прогресс вручную · {n}%', { n: goal.progressManual })}
             </p>
             <input
@@ -193,7 +193,7 @@ export function GoalDetailPage() {
         )}
         {goal.progressMode === 'numeric' && (
           <div className="card p-4">
-            <p className="mb-2 text-sm font-medium text-muted">
+            <p className="mb-2 text-sm font-medium text-lh-text-secondary">
               {t('{done} из {total}', {
                 done: formatNum(current),
                 total: formatNum(goal.targetValue ?? 0),
@@ -208,7 +208,7 @@ export function GoalDetailPage() {
                   setValueDraft(null);
                   void changeBy(-1);
                 }}
-                className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 active:opacity-70"
+                className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 active:opacity-70"
               >
                 <Minus size={ICON.base} />
               </button>
@@ -233,7 +233,7 @@ export function GoalDetailPage() {
                   setValueDraft(null);
                   void changeBy(1);
                 }}
-                className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 active:opacity-70"
+                className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 active:opacity-70"
               >
                 <Plus size={ICON.base} />
               </button>
@@ -241,14 +241,14 @@ export function GoalDetailPage() {
           </div>
         )}
         {goal.progressMode === 'tasks' && (
-          <p className="px-1 text-sm text-muted">{t('Прогресс считается по задачам ниже.')}</p>
+          <p className="px-1 text-sm text-lh-text-secondary">{t('Прогресс считается по задачам ниже.')}</p>
         )}
       </div>
 
       <section className="mt-6">
         <SectionHeader title={t('Задачи')} />
         {sortedTasks.length === 0 && (
-          <p className="px-1 text-sm text-muted">{t('Нет привязанных задач.')}</p>
+          <p className="px-1 text-sm text-lh-text-secondary">{t('Нет привязанных задач.')}</p>
         )}
         <div className="flex flex-col gap-2">
           {sortedTasks.map((taskItem) => (
@@ -269,7 +269,7 @@ export function GoalDetailPage() {
             setEditingTask(null);
             setTaskSheetOpen(true);
           }}
-          className="mt-2 flex items-center gap-1.5 px-1 py-2 text-sm font-medium text-accent"
+          className="mt-2 flex items-center gap-1.5 px-1 py-2 text-sm font-medium text-lh-accent"
         >
           <Plus size={ICON.action} /> {t('Задача')}
         </button>
@@ -282,7 +282,7 @@ export function GoalDetailPage() {
           onAction={() => setLinkLearningOpen(true)}
         />
         {linkedLearning.length === 0 && (
-          <p className="px-1 text-sm text-muted">{t('Нет привязанных материалов.')}</p>
+          <p className="px-1 text-sm text-lh-text-secondary">{t('Нет привязанных материалов.')}</p>
         )}
         <div className="flex flex-col gap-2">
           {linkedLearning.map((li: LearningItem) => {
@@ -292,7 +292,7 @@ export function GoalDetailPage() {
                 key={li.id}
                 className="flex items-center gap-3 card p-3.5"
               >
-                <Icon size={ICON.base} className="shrink-0 text-muted" />
+                <Icon size={ICON.base} className="shrink-0 text-lh-text-secondary" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-base font-medium">{li.title}</p>
                   <div className="mt-1.5">
@@ -310,7 +310,7 @@ export function GoalDetailPage() {
                   type="button"
                   aria-label={t('Отвязать')}
                   onClick={() => update(db.learningItems, li.id, { goalId: null })}
-                  className={`p-1.5 text-muted ${HIT_SLOP_44}`}
+                  className={`p-1.5 text-lh-text-secondary ${HIT_SLOP_44}`}
                 >
                   <X size={ICON.action} />
                 </button>
@@ -338,7 +338,7 @@ export function GoalDetailPage() {
         title={t('Привязать материал')}
       >
         {availableLearning.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">{t('Нет материалов для привязки.')}</p>
+          <p className="py-6 text-center text-sm text-lh-text-secondary">{t('Нет материалов для привязки.')}</p>
         ) : (
           <div className="flex flex-col gap-2 pb-2">
             {availableLearning.map((li) => {
@@ -351,9 +351,9 @@ export function GoalDetailPage() {
                     await update(db.learningItems, li.id, { goalId: goal.id });
                     setLinkLearningOpen(false);
                   }}
-                  className="flex items-center gap-3 rounded-xl bg-surface-2 px-3.5 py-3 text-left active:opacity-70"
+                  className="flex items-center gap-3 rounded-xl bg-lh-surface-2 px-3.5 py-3 text-left active:opacity-70"
                 >
-                  <Icon size={ICON.base} className="shrink-0 text-muted" />
+                  <Icon size={ICON.base} className="shrink-0 text-lh-text-secondary" />
                   <span className="min-w-0 flex-1 truncate font-medium">{li.title}</span>
                 </button>
               );

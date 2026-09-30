@@ -100,24 +100,24 @@ function LearningCard({
       className="card p-4 active:opacity-90"
     >
       <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
           <Icon size={ICON.header} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate font-semibold">{item.title}</p>
             {item.status === 'dropped' && (
-              <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-2xs text-muted">
+              <span className="shrink-0 rounded-full bg-lh-surface-2 px-2 py-0.5 text-2xs text-lh-text-secondary">
                 {t('Брошено')}
               </span>
             )}
           </div>
-          {item.author && <p className="truncate text-sm text-muted">{item.author}</p>}
+          {item.author && <p className="truncate text-sm text-lh-text-secondary">{item.author}</p>}
         </div>
         {sched && !sched.done && (
           <span
             className={`shrink-0 pt-0.5 text-xs font-semibold tabular-nums ${
-              sched.overdue ? 'text-danger' : sched.onTrack ? 'text-muted' : 'text-warning'
+              sched.overdue ? 'text-danger' : sched.onTrack ? 'text-lh-text-secondary' : 'text-warning'
             }`}
           >
             {dueLabel(item.dueDate!)}
@@ -130,7 +130,7 @@ function LearningCard({
           // Засечка плана поверх полосы: видно разрыв, а не только заполнение.
           <span
             aria-hidden
-            className="absolute -top-0.5 h-2.5 w-0.5 rounded-full bg-text/60"
+            className="absolute -top-0.5 h-2.5 w-0.5 rounded-full bg-lh-text-primary/60"
             style={{ left: `${planPct}%` }}
           />
         )}
@@ -155,9 +155,9 @@ function LearningCard({
           // Слева — «Без срока», как на артборде (design/learning/List):
           // было progressLabel и слева, и справа — прогресс дважды.
           !item.dueDate &&
-          !finished && <span className="text-xs text-muted">{t('Без срока')}</span>
+          !finished && <span className="text-xs text-lh-text-secondary">{t('Без срока')}</span>
         )}
-        <span className="ml-auto text-xs text-muted">
+        <span className="ml-auto text-xs text-lh-text-secondary">
           {sched && !sched.done
             ? t('{n}\u00A0{unit} в неделю', {
                 n: formatNum(perWeek),
@@ -176,7 +176,7 @@ function LearningCard({
               onLog();
             }}
             aria-label={t('Записать занятие')}
-            className="ml-auto flex h-11 items-center gap-1.5 rounded-xl bg-surface-2 px-3 text-sm font-semibold text-text active:opacity-70"
+            className="ml-auto flex h-11 items-center gap-1.5 rounded-xl bg-lh-surface-2 px-3 text-sm font-semibold text-lh-text-primary active:opacity-70"
           >
             <Clock size={ICON.action} />
             {t('Занятие')}

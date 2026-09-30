@@ -186,8 +186,8 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
                 onClick={() => toggleDay(d)}
                 className={`size-10 rounded-full border text-sm font-medium transition-colors ${HIT_SLOP_44} ${
                   active
-                    ? 'border-transparent bg-accent-fill text-white'
-                    : 'border-hairline bg-surface-2 text-muted'
+                    ? 'border-transparent bg-lh-accent text-lh-bg'
+                    : 'border-lh-border bg-lh-surface-2 text-lh-text-secondary'
                 }`}
               >
                 {t(label)}
@@ -198,7 +198,7 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
       )}
 
       <div>
-        <span className="mb-1.5 block text-sm font-medium text-muted">{t('Цвет')}</span>
+        <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('Цвет')}</span>
         <div className="flex flex-wrap gap-2.5">
           {PRESET_COLORS.map((c) => (
             <button
@@ -207,7 +207,7 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
               aria-label={t('Цвет {c}', { c })}
               onClick={() => setColor(c)}
               className={`size-9 rounded-full border-2 transition-colors ${HIT_SLOP_44} ${
-                color === c ? 'border-text' : 'border-transparent'
+                color === c ? 'border-lh-text-primary' : 'border-transparent'
               }`}
               style={{ background: c }}
             />

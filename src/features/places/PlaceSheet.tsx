@@ -196,7 +196,7 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
           <button
             type="button"
             onClick={() => photoInputRef.current?.click()}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6 text-sm text-muted active:opacity-70"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-lh-border-strong py-6 text-sm text-lh-text-secondary active:opacity-70"
           >
             <ImagePlus size={ICON.base} />
             {t('Добавить фото')}

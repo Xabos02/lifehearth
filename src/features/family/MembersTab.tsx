@@ -105,9 +105,9 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         onClick={() => setRenaming(true)}
         className="flex w-full items-center gap-2 card px-4 py-3 text-left active:opacity-80"
       >
-        <Pencil size={ICON.action} className="shrink-0 text-muted" />
+        <Pencil size={ICON.action} className="shrink-0 text-lh-text-secondary" />
         <span className="flex-1 truncate font-medium">{config?.familyName || t('Семья')}</span>
-        <span className="text-sm text-muted">{t('Переименовать')}</span>
+        <span className="text-sm text-lh-text-secondary">{t('Переименовать')}</span>
       </button>
 
       <Button onClick={() => setInvite(true)} className="w-full inline-flex items-center justify-center gap-2">
@@ -121,12 +121,12 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         onClick={() => setDiag(true)}
         className="flex w-full items-center gap-2 card px-4 py-3 text-left active:opacity-80"
       >
-        <PhoneOff size={ICON.action} className="shrink-0 text-muted" />
+        <PhoneOff size={ICON.action} className="shrink-0 text-lh-text-secondary" />
         <span className="flex-1 truncate font-medium">{t('Почему звонок не вышел')}</span>
-        <ChevronRight size={ICON.action} className="shrink-0 text-muted" />
+        <ChevronRight size={ICON.action} className="shrink-0 text-lh-text-secondary" />
       </button>
 
-      <div className="divide-y divide-hairline overflow-hidden card">
+      <div className="divide-y divide-lh-border overflow-hidden card">
         {alive.map((m) => (
           <div key={m.id} className="flex w-full items-center gap-3 p-3">
             <button
@@ -146,17 +146,17 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
                     сети»: он включает и это устройство, пока оно на связи.
                     Раньше точка горела и без сети, рядом с «не в сети» в шапке. */}
                 {onlineSet.has(m.id) && (
-                  <span data-testid="presence-dot" className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-surface" />
+                  <span data-testid="presence-dot" className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-lh-surface" />
                 )}
               </span>
               <span className="min-w-0 flex-1 truncate font-medium">
                 <span className={m.removedAt ? 'line-through opacity-60' : undefined}>{m.displayName}</span>
                 {m.id === selfId ? (
-                  <span className="text-muted"> · {t('вы')}</span>
+                  <span className="text-lh-text-secondary"> · {t('вы')}</span>
                 ) : m.removedAt ? (
-                  <span className="text-xs text-muted"> · {t('исключён')}</span>
+                  <span className="text-xs text-lh-text-secondary"> · {t('исключён')}</span>
                 ) : (
-                  <span className="text-xs text-muted"> · {onlineSet.has(m.id) ? t('в сети') : t('не в сети')}</span>
+                  <span className="text-xs text-lh-text-secondary"> · {onlineSet.has(m.id) ? t('в сети') : t('не в сети')}</span>
                 )}
               </span>
             </button>
@@ -187,7 +187,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
       {ownerless && (
         <div className="card p-4">
           <p className="font-semibold">{t('У группы нет владельца')}</p>
-          <p className="mt-0.5 text-sm leading-relaxed text-muted">
+          <p className="mt-0.5 text-sm leading-relaxed text-lh-text-secondary">
             {t('Она создана до того, как появилась возможность исключать участников. Пока владельца нет, исключить никого нельзя.')}
           </p>
           <Button className="mt-3 w-full" disabled={claiming} onClick={() => void claim()}>
@@ -205,7 +205,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
           onClick={onAddGroup}
           className="flex w-full items-center justify-center gap-2 card px-4 py-3 text-sm font-medium active:opacity-80"
         >
-          <Plus size={ICON.action} className="shrink-0 text-muted" />
+          <Plus size={ICON.action} className="shrink-0 text-lh-text-secondary" />
           {t('Добавить группу')}
         </button>
       )}
@@ -292,7 +292,7 @@ function RemoveMemberSheet({
   return (
     <Sheet open={Boolean(member)} onClose={onClose} title={t('Исключить {name}?', { name: member?.displayName ?? '' })}>
       <div className="space-y-4 pb-2">
-        <ul className="space-y-2 text-sm leading-snug text-text/90">
+        <ul className="space-y-2 text-sm leading-snug text-lh-text-primary/90">
           <li>{t('Новые сообщения, задачи и звонки станут ему недоступны: группа перейдёт на новый ключ.')}</li>
           <li>{t('Переписку, которую он уже скачал, вернуть нельзя — она осталась на его устройстве.')}</li>
           <li>{t('Вернуть его можно только новым приглашением.')}</li>
@@ -315,7 +315,7 @@ function RemoveMemberSheet({
         >
           {busy ? t('Исключаем…') : t('Исключить')}
         </Button>
-        <button onClick={onClose} className="w-full py-2 text-sm text-muted active:opacity-60">
+        <button onClick={onClose} className="w-full py-2 text-sm text-lh-text-secondary active:opacity-60">
           {t('Отмена')}
         </button>
       </div>

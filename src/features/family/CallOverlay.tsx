@@ -120,7 +120,7 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
 
   return (
     <>
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-bg/95 px-6 pb-[calc(env(safe-area-inset-bottom)+40px)] pt-[calc(env(safe-area-inset-top)+72px)] backdrop-blur-xl">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-lh-bg/95 px-6 pb-[calc(env(safe-area-inset-bottom)+40px)] pt-[calc(env(safe-area-inset-top)+72px)] backdrop-blur-xl">
       {/* Свернуть звонок — та же стрелка, что и «назад» в шапках приложения:
           звонок продолжается в фоне, а под ней открывается остальной интерфейс.
           Не для входящего (сначала ответить/отклонить) и не для «завершён»
@@ -131,7 +131,7 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
           aria-label={t('Свернуть звонок')}
           // POSITIONED, а не обычный: тот несёт relative, и он перебивал
           // absolute — стрелка уезжала из своего угла в поток (hitSlop.ts).
-          className={`absolute left-4 flex size-9 items-center justify-center rounded-full bg-surface-2/80 text-text active:opacity-70 ${HIT_SLOP_44_POSITIONED}`}
+          className={`absolute left-4 flex size-9 items-center justify-center rounded-full bg-lh-surface-2/80 text-lh-text-primary active:opacity-70 ${HIT_SLOP_44_POSITIONED}`}
           style={{ top: 'calc(env(safe-area-inset-top) + 16px)' }}
         >
           <ChevronLeft size={ICON.accent} />
@@ -140,15 +140,15 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
       {/* Кто и статус */}
       <div className="flex flex-1 flex-col items-center justify-center gap-6">
         <span
-          className={`flex size-28 items-center justify-center rounded-full bg-accent-fill text-3xl font-semibold text-white ${
+          className={`flex size-28 items-center justify-center rounded-full bg-lh-accent text-3xl font-extralight text-lh-bg ${
             snap.status === 'outgoing' || incoming ? 'animate-pulse' : ''
           }`}
         >
           {initial}
         </span>
         <div className="text-center">
-          <p className="text-2xl font-semibold">{snap.peerName || t('Участник')}</p>
-          <p className="mt-1 text-base text-muted">
+          <p className="text-2xl font-extralight tracking-tight">{snap.peerName || t('Участник')}</p>
+          <p className="mt-1 text-base text-lh-text-secondary">
             {snap.status === 'active' && snap.startedAt
               ? fmtElapsed(now - snap.startedAt)
               : statusText(snap)}
@@ -274,12 +274,12 @@ function CallButton({
       : color === 'success'
         ? 'bg-success-fill text-on-light'
         : color === 'active'
-          ? 'bg-accent-fill text-white'
-          : 'bg-surface-2 text-text';
+          ? 'bg-lh-accent text-lh-bg'
+          : 'bg-lh-surface-2 text-lh-text-primary';
   return (
     <button onClick={onClick} className="flex flex-col items-center gap-2 active:scale-95" aria-label={label}>
       <span className={`flex size-16 items-center justify-center rounded-full shadow-lg ${cls}`}>{children}</span>
-      <span className="text-xs text-muted">{label}</span>
+      <span className="text-xs text-lh-text-secondary">{label}</span>
     </button>
   );
 }

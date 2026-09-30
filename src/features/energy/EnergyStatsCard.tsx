@@ -39,7 +39,7 @@ function LevelBar({ level, width }: { level: EnergyLevel | null; width: string }
   return (
     <div className="flex items-end" style={{ width, height: '100%' }}>
       <div
-        className="w-full rounded-t-sm bg-accent"
+        className="w-full rounded-t-sm bg-lh-accent"
         style={{
           height: level === null ? 2 : `${(level / 5) * 100}%`,
           opacity: level === null ? 0.18 : 0.35 + (level / 5) * 0.65,
@@ -65,13 +65,13 @@ function LinkRow({
   if (low.n === 0 || high.n === 0) return null;
   return (
     <div className="flex items-baseline justify-between gap-2 py-1.5">
-      <span className="min-w-0 flex-1 text-xs text-muted">{label}</span>
+      <span className="min-w-0 flex-1 text-xs text-lh-text-secondary">{label}</span>
       <span className="shrink-0 text-xs">
         <span className="font-semibold">{format(low.avg)}</span>
-        <span className="text-muted"> {t('({n} дн.)', { n: low.n })}</span>
-        <span className="text-muted"> → </span>
+        <span className="text-lh-text-secondary"> {t('({n} дн.)', { n: low.n })}</span>
+        <span className="text-lh-text-secondary"> → </span>
         <span className="font-semibold">{format(high.avg)}</span>
-        <span className="text-muted"> {t('({n} дн.)', { n: high.n })}</span>
+        <span className="text-lh-text-secondary"> {t('({n} дн.)', { n: high.n })}</span>
       </span>
     </div>
   );
@@ -153,15 +153,15 @@ export function EnergyStatsCard() {
     <StatCard title={t('Энергия')}>
       <div className="mb-4 flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-lg font-bold leading-tight">
+          <p className="text-lg font-light leading-tight">
             {fmt(trend.current.avg)}
-            <span className="text-sm font-normal text-muted">{t(' из 5')}</span>
+            <span className="text-sm font-normal text-lh-text-secondary">{t(' из 5')}</span>
           </p>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-lh-text-secondary">
             {t('в среднем за 7 дней · отмечено {n} из 7', { n: trend.current.n })}
           </p>
         </div>
-        <p className="shrink-0 text-xs text-muted">
+        <p className="shrink-0 text-xs text-lh-text-secondary">
           {deltaText ?? t('не с чем сравнить')}
         </p>
       </div>
@@ -172,18 +172,18 @@ export function EnergyStatsCard() {
           <LevelBar key={p.date} level={p.level} width={`${100 / WINDOW_DAYS}%`} />
         ))}
       </div>
-      <p className="mb-4 text-2xs text-muted">
+      <p className="mb-4 text-2xs text-lh-text-secondary">
         {t('4 недели · отмечено {n} дн.', { n: byDate.size })}
       </p>
 
       <div className="mb-4">
         {/* «По дням недели» — омоним ключа из расписания привычек (Specific days),
             здесь смысл другой — явная ветка языка. */}
-        <p className="mb-2 text-xs font-medium text-muted">{getLang() === 'en' ? 'By weekday' : 'По дням недели'}</p>
+        <p className="mb-2 text-xs font-medium text-lh-text-secondary">{getLang() === 'en' ? 'By weekday' : 'По дням недели'}</p>
         <div className="flex items-end justify-between gap-2">
           {weekdays.map((w) => (
             <div key={w.weekday} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-              <span className="text-2xs font-semibold text-muted">
+              <span className="text-2xs font-semibold text-lh-text-secondary">
                 {w.avg === null ? '' : fmt(w.avg)}
               </span>
               {/* Высота зоны столбика — в пикселях, а не flex-1: проценты внутри
@@ -192,14 +192,14 @@ export function EnergyStatsCard() {
               <div className="flex w-full items-end" style={{ height: BAR_ZONE }}>
                 <div
                   data-testid="weekday-bar"
-                  className="w-full rounded-t-md bg-accent transition-[height] duration-300"
+                  className="w-full rounded-t-md bg-lh-accent transition-[height] duration-300"
                   style={{
                     height: w.avg === null ? 2 : Math.round((w.avg / maxWeekday) * BAR_ZONE),
                     opacity: w.avg === null ? 0.2 : 1,
                   }}
                 />
               </div>
-              <span className="text-2xs text-muted">{WEEKDAY_LABELS[w.weekday - 1]}</span>
+              <span className="text-2xs text-lh-text-secondary">{WEEKDAY_LABELS[w.weekday - 1]}</span>
             </div>
           ))}
         </div>
@@ -207,8 +207,8 @@ export function EnergyStatsCard() {
 
       {(habitSplit.low.n > 0 && habitSplit.high.n > 0) ||
       (taskSplit.low.n > 0 && taskSplit.high.n > 0) ? (
-        <div className="border-t border-hairline pt-2">
-          <p className="mb-1 text-xs font-medium text-muted">{t('В дни 1–2 против дней 4–5')}</p>
+        <div className="border-t border-lh-border pt-2">
+          <p className="mb-1 text-xs font-medium text-lh-text-secondary">{t('В дни 1–2 против дней 4–5')}</p>
           <LinkRow
             label={t('Привычек выполнено')}
             low={habitSplit.low}

@@ -43,8 +43,8 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
         <Plus size={ICON.hero} strokeWidth={STROKE_HEAVY} />
       </div>
       <div className="space-y-1.5">
-        <p className="text-lg font-semibold">{t('Семейная группа')}</p>
-        <p className="px-6 text-sm text-muted">{t('Общий чат и задачи с близкими. Содержимое шифруется на устройстве.')}</p>
+        <p className="text-lg font-light tracking-tight">{t('Семейная группа')}</p>
+        <p className="px-6 text-sm text-lh-text-secondary">{t('Общий чат и задачи с близкими. Содержимое шифруется на устройстве.')}</p>
       </div>
       <div className="w-full max-w-sm space-y-3 px-6 pt-2">
         <Button className="w-full" onClick={() => setMode('create')}>
@@ -288,11 +288,11 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
           // группы — человек должен видеть, куда его зовут, до ввода.
           <div className="space-y-3">
             <div className="card p-4 text-center">
-              <p className="text-sm text-muted">{t('Приглашение в группу')}</p>
+              <p className="text-sm text-lh-text-secondary">{t('Приглашение в группу')}</p>
               <p className="mt-0.5 font-semibold">{pendingName || t('Семья')}</p>
             </div>
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-muted">
+              <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">
                 {t('Кодовое слово от приглашающего')}
               </span>
               <input
@@ -304,11 +304,11 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
                 placeholder="ABCD EFGH"
                 autoComplete="off"
                 autoCapitalize="characters"
-                className="w-full rounded-xl border border-border bg-surface p-3 text-center font-mono text-lg tracking-[0.15em] uppercase"
+                className="w-full rounded-xl border border-lh-border-strong bg-lh-surface p-3 text-center font-mono text-lg tracking-[0.15em] uppercase"
                 aria-label={t('Кодовое слово')}
               />
             </label>
-            <p className="text-xs leading-snug text-muted">
+            <p className="text-xs leading-snug text-lh-text-secondary">
               {t('Его называет тот, кто вас приглашает. Без слова код не открыть — так перехваченное приглашение остаётся бесполезным.')}
             </p>
             {/* Столбиком: на 320px две кнопки в ряд обрезают «Назад к коду». */}
@@ -340,7 +340,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
                   видоискателя поверх камеры, её размер задаёт кадр наведения. */}
               <ScanLine className="pointer-events-none absolute inset-0 m-auto text-white/40" size={120} />
             </div>
-            <p className="text-center text-sm text-muted">{t('Наведите камеру на QR приглашения')}</p>
+            <p className="text-center text-sm text-lh-text-secondary">{t('Наведите камеру на QR приглашения')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -349,7 +349,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
               onChange={(e) => setPasteVal(e.target.value)}
               placeholder={t('Вставьте код приглашения')}
               rows={4}
-              className="w-full rounded-xl border border-border bg-surface p-3 font-mono text-xs"
+              className="w-full rounded-xl border border-lh-border-strong bg-lh-surface p-3 font-mono text-xs"
             />
             <Button className="w-full" disabled={!pasteVal.trim() || busy} onClick={() => joinRef.current(pasteVal)}>
               {busy ? t('Вхожу…') : t('Войти')}

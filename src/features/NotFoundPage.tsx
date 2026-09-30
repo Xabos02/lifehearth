@@ -10,16 +10,16 @@ export function NotFoundPage() {
   return (
     <Screen title={t('Не найдено')} backTo="/home">
       <div className="flex flex-col items-center px-4 pt-16 text-center">
-        <div className="mb-4 grid size-14 place-items-center rounded-2xl bg-surface-2 text-muted">
+        <div className="mb-4 grid size-14 place-items-center rounded-2xl bg-lh-surface-2 text-lh-text-secondary">
           <Compass size={ICON.accent} />
         </div>
         <p className="font-semibold">{t('Такого экрана нет')}</p>
-        <p className="mt-1 max-w-[16rem] text-sm text-muted">
+        <p className="mt-1 max-w-[16rem] text-sm text-lh-text-secondary">
           {t('Ссылка устарела или адрес набран с ошибкой.')}
         </p>
         <Link
           to="/"
-          className="mt-5 rounded-full bg-accent-fill px-5 py-2.5 text-sm font-semibold text-white active:opacity-80"
+          className="mt-5 rounded-full bg-lh-accent px-5 py-2.5 text-sm font-semibold text-lh-bg active:opacity-80"
         >
           {t('На «Сегодня»')}
         </Link>

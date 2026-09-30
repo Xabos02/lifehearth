@@ -49,12 +49,12 @@ function ToggleRow({
       {/* Пол ширины подписи: без него длинный заголовок ужимает саму галочку. */}
       <span className="min-w-0 flex-1">
         <span className="block font-medium">{label}</span>
-        {hint && <span className="mt-0.5 block text-sm leading-snug text-muted">{hint}</span>}
+        {hint && <span className="mt-0.5 block text-sm leading-snug text-lh-text-secondary">{hint}</span>}
       </span>
       <span
         aria-hidden
         className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-[6px] border transition-colors ${
-          checked ? 'border-accent bg-accent-fill text-white' : 'border-border bg-surface-2'
+          checked ? 'border-lh-accent bg-lh-accent text-lh-bg' : 'border-lh-border-strong bg-lh-surface-2'
         }`}
       >
         {checked && <Check size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
@@ -91,11 +91,11 @@ function PinSection({ settings }: { settings: CycleSettings }) {
 
   return (
     <section>
-      <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Код доступа')}</h2>
+      <h2 className="mb-1.5 px-1 lh-section">{t('Код доступа')}</h2>
       <div className="card space-y-3 p-4">
         {has ? (
           <>
-            <p className="text-sm text-muted">
+            <p className="text-sm text-lh-text-secondary">
               {t('Раздел закрыт кодом. Он спрашивается при каждом открытии приложения.')}
             </p>
             <Button variant="secondary" className="w-full" onClick={() => void remove()}>
@@ -138,7 +138,7 @@ function PinSection({ settings }: { settings: CycleSettings }) {
         )}
         {/* Прямо о границах защиты. Обещать больше, чем код даёт, — хуже, чем
             не иметь кода: человек станет полагаться на то, чего нет. */}
-        <p className="text-xs leading-snug text-muted">
+        <p className="text-xs leading-snug text-lh-text-secondary">
           {t(
             'Код закрывает раздел от посторонних глаз, но не шифрует записи: тот, кто разбирается в устройстве телефона, сможет их прочитать в обход. Шифровать данные кодом мы не стали сознательно — забытый код означал бы потерю всей истории, а восстановить её неоткуда. Сам код нигде не хранится, сверяется только его отпечаток.',
           )}
@@ -184,11 +184,11 @@ function ImportSection() {
 
   return (
     <section>
-      <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">
+      <h2 className="mb-1.5 px-1 lh-section">
         {t('Перенос из другого приложения')}
       </h2>
       <div className="card p-4">
-        <p className="mb-3 text-sm leading-snug text-muted">
+        <p className="mb-3 text-sm leading-snug text-lh-text-secondary">
           {t(
             'Выгрузите историю из прежнего трекера в CSV и выберите файл здесь. Нужны колонки с датой и отметкой выделений — как они называются, приложение разберётся само.',
           )}
@@ -235,7 +235,7 @@ function ImportSection() {
                 {/* Показываем, ЧТО именно взято за дату и за выделения: человек
                     должен убедиться, что разобрано то, что он думает, а не
                     соседняя колонка. */}
-                <p className="text-muted">
+                <p className="text-lh-text-secondary">
                   {t('Колонка с датой: «{col}»', { col: report.dateColumn ?? '' })}
                   {report.flowColumn
                     ? t(', выделения: «{col}»', { col: report.flowColumn })
@@ -248,7 +248,7 @@ function ImportSection() {
                     {report.skippedNoFlow > 0 && t(' (без отметки: {n})', { n: report.skippedNoFlow })}
                   </p>
                 )}
-                <p className="text-muted">
+                <p className="text-lh-text-secondary">
                   {t(
                     'Записи за те же дни будут заменены. Отменить перенос нельзя — если история уже есть, сделайте резервную копию заранее.',
                   )}
@@ -288,8 +288,8 @@ export function CycleSettingsPage() {
     <Screen title={t('Настройки раздела')} backTo="/more/cycle">
       <div className="space-y-5">
         <section>
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Прогноз')}</h2>
-          <div className="card divide-y divide-hairline px-4">
+          <h2 className="mb-1.5 px-1 lh-section">{t('Прогноз')}</h2>
+          <div className="card divide-y divide-lh-border px-4">
             <ToggleRow
               label={t('Показывать прогноз')}
               hint={t('Когда выключено, раздел ведёт только календарь — без оценок и диапазонов.')}
@@ -310,8 +310,8 @@ export function CycleSettingsPage() {
         </section>
 
         <section>
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Связь с приложением')}</h2>
-          <div className="card divide-y divide-hairline px-4">
+          <h2 className="mb-1.5 px-1 lh-section">{t('Связь с приложением')}</h2>
+          <div className="card divide-y divide-lh-border px-4">
             <ToggleRow
               label={t('Задачи по циклу')}
               hint={t(
@@ -350,7 +350,7 @@ export function CycleSettingsPage() {
           {/* Прямая оговорка про то, чего раздел делать не будет. Стоит рядом с
               переключателями, а не в справке: именно здесь человек решает,
               сколько приложению позволено. */}
-          <p className="mt-2 px-1 text-xs leading-snug text-muted">
+          <p className="mt-2 px-1 text-xs leading-snug text-lh-text-secondary">
             {t(
               'Приложение не будет подстраивать за вас план дня, тренировки или задачи под фазу цикла. Влияние фазы на работоспособность в исследованиях оказалось незначительным, а советы вроде «сегодня не берись за сложное» вредят больше, чем помогают.',
             )}
@@ -358,8 +358,8 @@ export function CycleSettingsPage() {
         </section>
 
         <section>
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Формулировки')}</h2>
-          <div className="card divide-y divide-hairline px-4">
+          <h2 className="mb-1.5 px-1 lh-section">{t('Формулировки')}</h2>
+          <div className="card divide-y divide-lh-border px-4">
             <ToggleRow
               label={t('Нейтральные названия')}
               hint={t(
@@ -378,24 +378,24 @@ export function CycleSettingsPage() {
         <PinSection settings={s} />
 
         <section>
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Врач')}</h2>
+          <h2 className="mb-1.5 px-1 lh-section">{t('Врач')}</h2>
           <div className="card">
             <Link to="/more/cycle/report" className="flex items-center gap-3 p-4">
-              <FileText size={ICON.header} className="shrink-0 text-muted" />
+              <FileText size={ICON.header} className="shrink-0 text-lh-text-secondary" />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{t('Отчёт для врача')}</span>
-                <span className="mt-0.5 block text-sm leading-snug text-muted">
+                <span className="mt-0.5 block text-sm leading-snug text-lh-text-secondary">
                   {t('Сводка по циклам за период — для показа или печати на приёме.')}
                 </span>
               </span>
-              <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
+              <ChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
             </Link>
           </div>
         </section>
 
         <section>
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Данные')}</h2>
-          <div className="card divide-y divide-hairline px-4">
+          <h2 className="mb-1.5 px-1 lh-section">{t('Данные')}</h2>
+          <div className="card divide-y divide-lh-border px-4">
             <ToggleRow
               label={t('Синхронизация между устройствами')}
               hint={t(

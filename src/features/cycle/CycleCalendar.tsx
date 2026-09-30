@@ -73,7 +73,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
       <div className="mb-3 flex items-center justify-between gap-2">
         {/* Кегль ужимается только на узких экранах: «Сентябрь 2026» при 19px
             требует больше места, чем остаётся рядом со стрелками. */}
-        <h2 className="min-w-0 truncate text-lg font-semibold">
+        <h2 className="min-w-0 truncate text-lg font-light">
           {monthLabel(month)}
         </h2>
         {/* pr-1.5: невидимая зона касания стрелки на 5,6px шире самой кнопки,
@@ -84,7 +84,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
             type="button"
             onClick={() => onMonth(shiftMonth(month, -1))}
             aria-label={t('Предыдущий месяц')}
-            className={`shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+            className={`shrink-0 rounded-lg p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
           >
             <ChevronLeft size={ICON.header} />
           </button>
@@ -95,7 +95,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
             type="button"
             onClick={() => onMonth(shiftMonth(month, 1))}
             aria-label={t('Следующий месяц')}
-            className={`ml-1 shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+            className={`ml-1 shrink-0 rounded-lg p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
           >
             <ChevronRight size={ICON.header} />
           </button>
@@ -104,7 +104,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
 
       <div className="grid grid-cols-7 gap-1">
         {WEEKDAY_LABELS.map((l) => (
-          <div key={l} className="pb-1 text-center text-2xs font-medium text-muted">
+          <div key={l} className="pb-1 text-center text-2xs font-medium text-lh-text-secondary">
             {t(l)}
           </div>
         ))}
@@ -152,8 +152,8 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
                 dots > 0 && !isSpotting
                   ? 'bg-danger/15 font-semibold text-danger'
                   : isToday
-                    ? 'bg-accent/15 font-semibold text-accent'
-                    : 'text-text'
+                    ? 'bg-lh-accent-dim font-semibold text-lh-accent'
+                    : 'text-lh-text-primary'
               } ${predicted ? 'border border-dashed border-danger/50' : ''}`}
             >
               {/* Фертильность — тонкая полоса сверху, а не заливка ячейки:
@@ -179,14 +179,14 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
                     <span key={k} className="size-1 rounded-full bg-danger" />
                   ))
                 )}
-                {hasSymptoms && dots === 0 && <span className="size-1 rounded-full bg-muted" />}
+                {hasSymptoms && dots === 0 && <span className="size-1 rounded-full bg-lh-text-tertiary" />}
               </span>
             </button>
           );
         })}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-2xs text-muted">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-2xs text-lh-text-secondary">
         <span className="flex items-center gap-1">
           <span className="size-1.5 rounded-full bg-danger" /> {t('менструация')}
         </span>

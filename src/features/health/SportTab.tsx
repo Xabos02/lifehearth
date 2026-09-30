@@ -104,18 +104,18 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
         <div className="flex items-center gap-4">
           <ProgressRing value={(week.done / week.goal) * 100} size={64} strokeWidth={6} label={`${week.done}/${week.goal}`} />
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-bold leading-tight tracking-tight">{adviceTitle(advice)}</p>
-            <p className="mt-1 text-sm leading-snug text-muted">{lastLine(last, today)}</p>
+            <p className="text-lg font-light leading-tight tracking-tight">{adviceTitle(advice)}</p>
+            <p className="mt-1 text-sm leading-snug text-lh-text-secondary">{lastLine(last, today)}</p>
           </div>
         </div>
-        <div className="mt-3 flex items-center justify-between border-t border-hairline pt-3">
-          <span className="text-sm text-muted">{t('Цель на неделю')}</span>
+        <div className="mt-3 flex items-center justify-between border-t border-lh-border pt-3">
+          <span className="text-sm text-lh-text-secondary">{t('Цель на неделю')}</span>
           <div className="flex items-center gap-1">
             <button
               type="button"
               aria-label={t('Цель: меньше')}
               onClick={() => void updateSettings({ workoutWeeklyGoal: Math.max(1, goal - 1) })}
-              className={`flex size-9 items-center justify-center rounded-full border border-border text-muted active:scale-90 ${HIT_SLOP_44}`}
+              className={`flex size-9 items-center justify-center rounded-full border border-lh-border-strong text-lh-text-secondary active:scale-90 ${HIT_SLOP_44}`}
             >
               −
             </button>
@@ -126,7 +126,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
               type="button"
               aria-label={t('Цель: больше')}
               onClick={() => void updateSettings({ workoutWeeklyGoal: Math.min(7, goal + 1) })}
-              className={`flex size-9 items-center justify-center rounded-full border border-border text-muted active:scale-90 ${HIT_SLOP_44}`}
+              className={`flex size-9 items-center justify-center rounded-full border border-lh-border-strong text-lh-text-secondary active:scale-90 ${HIT_SLOP_44}`}
             >
               +
             </button>
@@ -138,19 +138,19 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
 
       <section className="card p-4">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="px-1 text-sm font-semibold text-muted">
+          <h2 className="px-1 lh-section">
             {selected === today ? t('Сегодня') : format(fromKey(selected), 'd MMMM, EEEE', { locale: dateLocale() })}
           </h2>
           <button
             type="button"
             onClick={() => onAddFor(selected)}
-            className={`text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
+            className={`text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
           >
             {t('+ Тренировка')}
           </button>
         </div>
         {selectedList.length === 0 ? (
-          <p className="px-1 text-sm text-muted">{t('Тренировок не отмечено.')}</p>
+          <p className="px-1 text-sm text-lh-text-secondary">{t('Тренировок не отмечено.')}</p>
         ) : (
           selectedList.map((w) => <WorkoutRow key={w.id} w={w} onClick={() => onEdit(w)} />)
         )}
@@ -168,19 +168,19 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
 
       {kinds.length > 0 && (
         <section className="card p-4">
-          <h2 className="mb-2 px-1 text-sm font-semibold text-muted">{t('За 30 дней по видам')}</h2>
+          <h2 className="mb-2 px-1 lh-section">{t('За 30 дней по видам')}</h2>
           {kinds.map((k) => {
             const kind = resolveKind(k);
             return (
               <div key={`${k.type}-${k.customLabel ?? ''}`} className="flex items-center gap-3 py-1.5">
                 <span className="w-20 shrink-0 truncate text-sm font-medium">{k.type === 'custom' ? kind.label : t(kind.label)}</span>
-                <span className="h-2 flex-1 overflow-hidden rounded-full bg-hairline">
+                <span className="h-2 flex-1 overflow-hidden rounded-full bg-lh-border">
                   <span
                     className="block h-full rounded-full"
                     style={{ width: `${Math.max(4, (k.minutes / maxKindMinutes) * 100)}%`, background: kind.color }}
                   />
                 </span>
-                <span className="shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-muted">
+                <span className="shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-lh-text-secondary">
                   {formatMinutes(k.minutes, t)}
                   {kind.hasDistance && k.distanceKm > 0 ? ` · ${formatKm(k.distanceKm)}` : ''}
                 </span>
@@ -191,7 +191,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
       )}
 
       <section className="card p-4">
-        <h2 className="mb-2 px-1 text-sm font-semibold text-muted">{t('Недавние')}</h2>
+        <h2 className="mb-2 px-1 lh-section">{t('Недавние')}</h2>
         {recent.length === 0 ? (
           <EmptyState icon={Activity} title={t('Пока пусто')} hint={t('Нажмите «+», чтобы отметить тренировку.')} />
         ) : (
@@ -200,14 +200,14 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
       </section>
 
       <section className="card p-4">
-        <h2 className="mb-1 px-1 text-sm font-semibold text-muted">{t('Из других приложений')}</h2>
-        <p className="px-1 text-xs leading-snug text-muted">
+        <h2 className="mb-1 px-1 lh-section">{t('Из других приложений')}</h2>
+        <p className="px-1 text-xs leading-snug text-lh-text-secondary">
           {t('Apple Health веб-приложению закрыт, а Strava пускает к данным только по платной подписке. Зато файл выгрузки есть у всех: подойдёт activities.csv из Strava, выгрузка Garmin или своя таблица с датой, видом и минутами.')}
         </p>
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          className="mt-3 w-full rounded-xl bg-surface-2 px-4 py-3 text-center font-semibold active:opacity-80"
+          className="mt-3 w-full rounded-xl bg-lh-surface-2 px-4 py-3 text-center font-semibold active:opacity-80"
         >
           {t('Импорт из CSV')}
         </button>
@@ -219,9 +219,9 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
 
 function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="flex-1 rounded-2xl bg-surface-2 p-3 text-center">
-      <p className="text-lg font-bold leading-tight tabular-nums">{value}</p>
-      <p className="mt-0.5 text-xs leading-snug text-muted">{label}</p>
+    <div className="flex-1 rounded-2xl bg-lh-surface-2 p-3 text-center">
+      <p className="text-lg font-light leading-tight tabular-nums">{value}</p>
+      <p className="mt-0.5 text-xs leading-snug text-lh-text-secondary">{label}</p>
     </div>
   );
 }
@@ -245,18 +245,18 @@ function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () 
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 border-b border-hairline py-2.5 text-left last:border-b-0 active:opacity-70"
+      className="flex w-full items-center gap-3 border-b border-lh-border py-2.5 text-left last:border-b-0 active:opacity-70"
     >
       <span className="size-2.5 shrink-0 rounded-full" style={{ background: kind.color }} aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{w.type === 'custom' ? kind.label : t(kind.label)}</span>
-        {sub && <span className="block truncate text-xs text-muted">{sub}</span>}
+        {sub && <span className="block truncate text-xs text-lh-text-secondary">{sub}</span>}
       </span>
       <span className="shrink-0 text-right text-sm tabular-nums">
         {formatMinutes(w.minutes, t)}
-        {w.distanceKm != null && <span className="block text-xs text-muted">{formatKm(w.distanceKm)}</span>}
+        {w.distanceKm != null && <span className="block text-xs text-lh-text-secondary">{formatKm(w.distanceKm)}</span>}
       </span>
-      <ChevronRight size={ICON.base} className="shrink-0 text-muted" />
+      <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
     </button>
   );
 }

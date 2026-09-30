@@ -40,7 +40,7 @@ export function CycleYearPage() {
             <div className="space-y-4">
               {view.months.map((month) => (
                 <div key={month.key}>
-                  <p className="mb-1 px-0.5 text-xs font-medium text-muted">{month.label}</p>
+                  <p className="mb-1 px-0.5 text-xs font-medium text-lh-text-secondary">{month.label}</p>
                   <div className="flex gap-px">
                     {month.days.map((cell) => (
                       <DayCell key={cell.day} cell={cell} />
@@ -53,7 +53,7 @@ export function CycleYearPage() {
             {/* Обозначения обязательны рядом с сеткой: без них форма клетки
                 («заливка снизу» против «кольцо точки») ничего не сообщает
                 тому, кто открыл экран впервые. */}
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-2xs text-muted">
+            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-2xs text-lh-text-secondary">
               <span className="flex items-center gap-1">
                 <span className="h-3 w-1.5 rounded-[2px] bg-danger" /> {t('менструация')}
               </span>
@@ -61,25 +61,25 @@ export function CycleYearPage() {
                 <span className="size-1.5 rounded-full border border-danger" /> {t('мазня')}
               </span>
               <span className="flex items-center gap-1">
-                <span className="size-2.5 rounded-[2px] ring-1 ring-inset ring-accent" />{' '}
+                <span className="size-2.5 rounded-[2px] ring-1 ring-inset ring-lh-accent" />{' '}
                 {t('начало цикла')}
               </span>
             </div>
           </div>
 
           <section>
-            <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Циклы за период')}</h2>
+            <h2 className="mb-1.5 px-1 lh-section">{t('Циклы за период')}</h2>
             {view.cycles.length === 0 ? (
-              <p className="px-1 text-sm text-muted">
+              <p className="px-1 text-sm text-lh-text-secondary">
                 {t('За эти 12 месяцев ещё нет ни одного завершённого цикла.')}
               </p>
             ) : (
-              <div className="card divide-y divide-hairline px-4">
+              <div className="card divide-y divide-lh-border px-4">
                 {view.cycles.map((c) => (
                   <div key={c.startDate} className="py-3" data-testid="year-cycle">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="font-medium">{formatRu(c.startDate)}</span>
-                      <span className="shrink-0 text-sm tabular-nums text-muted">
+                      <span className="shrink-0 text-sm tabular-nums text-lh-text-secondary">
                         {tPlur(c.lengthDays, ['день', 'дня', 'дней'])}
                         {c.periodLengthDays !== undefined &&
                           t(', менструация {n}', { n: tPlur(c.periodLengthDays, ['день', 'дня', 'дней']) })}
@@ -94,10 +94,10 @@ export function CycleYearPage() {
                         коротких циклах в году их 13–14, и обычный цикл с
                         голым «не учитывается» выглядел бы ошибкой. */}
                     {c.excluded || !data.eligible.has(c.startDate) ? (
-                      <p className="mt-0.5 text-xs text-muted">{t('не учитывается')}</p>
+                      <p className="mt-0.5 text-xs text-lh-text-secondary">{t('не учитывается')}</p>
                     ) : (
                       !data.counted.has(c.startDate) && (
-                        <p className="mt-0.5 text-xs text-muted">
+                        <p className="mt-0.5 text-xs text-lh-text-secondary">
                           {t('не учитывается — в расчёт идут последние 12 циклов')}
                         </p>
                       )
@@ -139,8 +139,8 @@ function DayCell({ cell }: { cell: YearDayCell }) {
       aria-label={cell.ariaLabel}
       aria-hidden={cell.ariaLabel ? undefined : true}
       className={`relative h-6 flex-1 overflow-hidden rounded-[2px] ${
-        cell.future ? 'bg-transparent' : 'bg-surface-2'
-      } ${cell.isCycleStart ? 'ring-1 ring-inset ring-accent' : ''}`}
+        cell.future ? 'bg-transparent' : 'bg-lh-surface-2'
+      } ${cell.isCycleStart ? 'ring-1 ring-inset ring-lh-accent' : ''}`}
     >
       {heightClass && (
         <span aria-hidden className={`absolute inset-x-0 bottom-0 w-full rounded-t-[1px] bg-danger ${heightClass}`} />

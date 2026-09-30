@@ -146,7 +146,7 @@ export function CalendarPage() {
         <button
           type="button"
           onClick={goToday}
-          className="shrink-0 rounded-lg px-2 py-2.5 text-sm font-medium text-accent active:opacity-60"
+          className="shrink-0 rounded-lg px-2 py-2.5 text-sm font-medium text-lh-accent active:opacity-60"
         >
           {t('Сегодня')}
         </button>
@@ -160,7 +160,7 @@ export function CalendarPage() {
               3px до 20px. От 400px и шире держим исходные 19px.
               truncate (overflow:hidden) заодно снимает min-width:auto — без него
               флекс-элемент не ужимается и распирает строку. */}
-          <h2 className="min-w-0 truncate text-lg font-semibold">
+          <h2 className="min-w-0 truncate text-lg font-light">
             {monthLabel}
           </h2>
           <div className="flex shrink-0 items-center gap-2">
@@ -171,7 +171,7 @@ export function CalendarPage() {
               type="button"
               aria-label={t('Предыдущий месяц')}
               onClick={() => shiftMonth(-1)}
-              className={`shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+              className={`shrink-0 rounded-lg p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <ChevronLeft size={ICON.header} />
             </button>
@@ -183,7 +183,7 @@ export function CalendarPage() {
               type="button"
               aria-label={t('Следующий месяц')}
               onClick={() => shiftMonth(1)}
-              className={`ml-1 shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+              className={`ml-1 shrink-0 rounded-lg p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <ChevronRight size={ICON.header} />
             </button>
@@ -192,7 +192,7 @@ export function CalendarPage() {
 
         <div className="grid grid-cols-7">
           {WEEKDAY_LABELS.map((label) => (
-            <div key={label} className="pb-1 text-center text-xs font-medium text-muted">
+            <div key={label} className="pb-1 text-center text-xs font-medium text-lh-text-secondary">
               {t(label)}
             </div>
           ))}
@@ -218,15 +218,15 @@ export function CalendarPage() {
                 }}
                 className={`relative flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition-colors ${
                   isSelected
-                    ? 'bg-accent-fill font-semibold text-white'
+                    ? 'bg-lh-accent font-semibold text-lh-bg'
                     : day.inMonth
-                      ? 'text-text active:bg-surface-2'
-                      : // Дни соседних месяцев. Были text-muted/40 — контраст 1.76:1,
+                      ? 'text-lh-text-primary active:bg-lh-surface-2'
+                      : // Дни соседних месяцев. Были text-lh-text-secondary/40 — контраст 1.76:1,
                         // то есть число видно только если знать, что оно там.
                         // Они кликабельны (переводят календарь на тот месяц),
                         // значит это управляющий элемент, а не декорация.
-                        'text-muted'
-                } ${isToday && !isSelected ? 'ring-1 ring-accent' : ''}`}
+                        'text-lh-text-secondary'
+                } ${isToday && !isSelected ? 'ring-1 ring-lh-accent' : ''}`}
               >
                 {/* Отметка цикла — полоса сверху, а не точка: точка снизу уже
                     занята задачами, и две точки в одной ячейке различить
@@ -249,7 +249,7 @@ export function CalendarPage() {
                         ? 'bg-white'
                         : stat.overdue
                           ? 'bg-danger'
-                          : 'bg-accent'
+                          : 'bg-lh-accent'
                     }`}
                   />
                 )}
@@ -260,11 +260,11 @@ export function CalendarPage() {
       </div>
 
       <section className="mt-5">
-        <h2 className="mb-2 px-1 text-sm font-semibold">
+        <h2 className="mb-2 px-1 lh-section">
           {t('Задачи на {date}', { date: formatRu(selectedDate) })}
         </h2>
         {dayTasks.length > 0 ? (
-          <div className="card divide-y divide-hairline px-4">
+          <div className="card divide-y divide-lh-border px-4">
             {dayTasks.map((t) => (
               <TaskItem
                 key={t.id}
@@ -275,12 +275,12 @@ export function CalendarPage() {
             ))}
           </div>
         ) : (
-          <p className="px-1 py-3 text-sm text-muted">{t('На этот день задач нет')}</p>
+          <p className="px-1 py-3 text-sm text-lh-text-secondary">{t('На этот день задач нет')}</p>
         )}
         <button
           type="button"
           onClick={() => openTask(null)}
-          className="mt-2 flex min-h-11 items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
+          className="mt-2 flex min-h-11 items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-lh-accent active:opacity-60"
         >
           <Plus size={ICON.inline} /> {t('Задача на этот день')}
         </button>

@@ -19,7 +19,7 @@ import { ICON } from '../../components/ui/icons';
 const PRIORITY_BAR: Record<number, string> = {
   3: 'bg-danger',
   2: 'bg-warning',
-  1: 'bg-muted',
+  1: 'bg-lh-text-tertiary',
   0: 'bg-transparent',
 };
 
@@ -257,8 +257,8 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
           color={task.color ?? assignee?.color}
         />
         <div className="min-w-0 flex-1">
-          <p className={`break-words ${done ? 'text-muted line-through' : 'font-medium'}`}>{task.title}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+          <p className={`break-words ${done ? 'text-lh-text-secondary line-through' : 'font-medium'}`}>{task.title}</p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-lh-text-secondary">
             {author && <span>{t('от {name}', { name: author.displayName })}</span>}
             <span style={assignee ? { color: assignee.color } : undefined}>
               → {assignee ? assignee.displayName : t('всем')}
@@ -285,11 +285,11 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
       </Button>
 
       {active.length === 0 && completed.length === 0 ? (
-        loaded && <p className="py-10 text-center text-sm text-muted">{t('Пока нет общих задач.')}</p>
+        loaded && <p className="py-10 text-center text-sm text-lh-text-secondary">{t('Пока нет общих задач.')}</p>
       ) : (
         <>
           {active.length > 0 && (
-            <div ref={listRef} className="card divide-y divide-hairline px-4">
+            <div ref={listRef} className="card divide-y divide-lh-border px-4">
               {active.map(renderRow)}
             </div>
           )}
@@ -298,14 +298,14 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
             <div>
               <button
                 onClick={() => setShowDone((v) => !v)}
-                className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-sm text-muted active:opacity-60"
+                className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-sm text-lh-text-secondary active:opacity-60"
               >
                 <ChevronRight size={ICON.inline} className={`shrink-0 transition-transform ${showDone ? 'rotate-90' : ''}`} />
                 <span>{t('Выполненные')}</span>
                 <span className="text-xs">{completed.length}</span>
               </button>
               {showDone && (
-                <div className="card mt-1 divide-y divide-hairline px-4 opacity-70">{completed.map(renderRow)}</div>
+                <div className="card mt-1 divide-y divide-lh-border px-4 opacity-70">{completed.map(renderRow)}</div>
               )}
             </div>
           )}

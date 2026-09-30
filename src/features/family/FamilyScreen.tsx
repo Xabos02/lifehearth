@@ -105,8 +105,8 @@ export function FamilyScreen({
             шапки (useFamilyStatusLine): каждая служебная строка над чатом — это
             минус строка переписки на экране. */}
         {!pushOn && !pushHidden && (
-          <div className="flex items-center gap-2 rounded-xl bg-accent/10 px-3 py-2 text-sm">
-            <BellRing size={ICON.action} className="shrink-0 text-accent" />
+          <div className="flex items-center gap-2 rounded-xl bg-lh-accent-dim px-3 py-2 text-sm">
+            <BellRing size={ICON.action} className="shrink-0 text-lh-accent" />
             {/* Короткая формулировка намеренно: длинная растягивала баннер на
                 три строки и вместе с остальной шапкой выталкивала чат за экран. */}
             <span className="min-w-0 flex-1">{t('Уведомления')}</span>
@@ -115,7 +115,7 @@ export function FamilyScreen({
                 выгрызали ради строк переписки. */}
             <button
               onClick={() => void enableFamilyPush()}
-              className={`shrink-0 font-semibold text-accent active:opacity-60 ${HIT_SLOP_44}`}
+              className={`shrink-0 font-semibold text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
             >
               {t('Включить')}
             </button>
@@ -125,7 +125,7 @@ export function FamilyScreen({
               // ml-3, а не ml-1: у крестика зона расширена до 44 при ширине ~26,
               // то есть выходит на 9px за края — при зазоре 4px она залезала на
               // «Включить», и «скрыть» срабатывало вместо «разрешить».
-              className={`ml-3 shrink-0 p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+              className={`ml-3 shrink-0 p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <X size={ICON.action} />
             </button>

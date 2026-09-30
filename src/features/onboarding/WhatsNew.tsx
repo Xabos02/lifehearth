@@ -81,18 +81,18 @@ export function WhatsNew() {
         {list.map((r) => (
           <section key={r.version}>
             <div className="mb-2 flex items-baseline gap-2">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-lh-accent-dim text-lh-accent">
                 <Sparkles size={ICON.inline} />
               </span>
               {/* min-w-0 у левой части: без него дата ужимает версию до буквы. */}
               <span className="min-w-0 flex-1 font-semibold">{t('Версия')} {r.version}</span>
-              <span className="shrink-0 text-xs text-muted">{formatRu(r.date, 'd MMMM')}</span>
+              <span className="shrink-0 text-xs text-lh-text-secondary">{formatRu(r.date, 'd MMMM')}</span>
             </div>
             <ul className="space-y-2">
               {r.items.map((it, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm leading-snug">
-                  <span aria-hidden className="mt-1.5 size-1.5 shrink-0 rounded-full bg-accent/60" />
-                  <span className="min-w-0 flex-1 text-text/90">{it}</span>
+                  <span aria-hidden className="mt-1.5 size-1.5 shrink-0 rounded-full bg-lh-accent/60" />
+                  <span className="min-w-0 flex-1 text-lh-text-primary/90">{it}</span>
                 </li>
               ))}
             </ul>

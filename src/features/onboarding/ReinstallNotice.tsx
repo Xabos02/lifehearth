@@ -70,21 +70,21 @@ export function ReinstallNotice() {
         onClick={dismiss}
         className="absolute inset-0 bg-black/55 backdrop-blur-sm"
       />
-      <div className="relative m-3 flex max-h-[88dvh] w-full max-w-md animate-fade-in flex-col overflow-hidden rounded-3xl border border-border bg-bg">
+      <div className="relative m-3 flex max-h-[88dvh] w-full max-w-md animate-fade-in flex-col overflow-hidden rounded-3xl border border-lh-border-strong bg-lh-bg">
         {/* Шапка */}
         <div className="relative flex items-center gap-3 px-5 pt-5 pb-4">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl tile-accent text-accent">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl tile-accent text-lh-accent">
             <Sparkles size={ICON.accent} strokeWidth={STROKE_STRONG} />
           </div>
           <div className="min-w-0 pr-7">
-            <h2 className="text-lg font-bold leading-tight">{t('Новое имя и значок')}</h2>
-            <p className="text-sm text-muted">{t('Теперь приложение называется LifeHearth')}</p>
+            <h2 className="text-lg font-light leading-tight">{t('Новое имя и значок')}</h2>
+            <p className="text-sm text-lh-text-secondary">{t('Теперь приложение называется LifeHearth')}</p>
           </div>
           <button
             type="button"
             aria-label={t('Скрыть')}
             onClick={dismiss}
-            className={`absolute top-3.5 right-3.5 flex size-8 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
+            className={`absolute top-3.5 right-3.5 flex size-8 items-center justify-center rounded-full text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
           >
             <X size={ICON.base} />
           </button>
@@ -109,42 +109,42 @@ export function ReinstallNotice() {
           {/* Три шага */}
           <ol className="space-y-3">
             <li className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-text">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-lh-accent-dim text-xs font-bold text-lh-text-primary">
                 1
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
                 <p className="font-semibold">{t('Сохраните данные')}</p>
                 {syncOn ? (
-                  <p className="text-muted">
+                  <p className="text-lh-text-secondary">
                     {t('Надёжнее всего — выгрузить файл: «Настройки → Копии и восстановление → Копия файлом → Сохранить в файл» (ляжет в «Файлы»). Синхронизация тоже держит копию в облаке, но')}{' '}
-                    <span className="font-semibold text-text">{t('ключ хранится только на телефоне')}</span>{' '}
+                    <span className="font-semibold text-lh-text-primary">{t('ключ хранится только на телефоне')}</span>{' '}
                     {t('и сотрётся вместе с приложением. Если устройство одно — обязательно сохраните ключ: «Синхронизация → Показать QR → Сохранить ключ». Без ключа и без файла облако не восстановить.')}
                   </p>
                 ) : (
-                  <p className="text-muted">
+                  <p className="text-lh-text-secondary">
                     {t('«Настройки → Копии и восстановление → Копия файлом → Сохранить в файл». Файл ляжет в «Файлы» и переживёт удаление приложения.')}
                   </p>
                 )}
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-text">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-lh-accent-dim text-xs font-bold text-lh-text-primary">
                 2
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
                 <p className="font-semibold">{t('Переустановите')}</p>
-                <p className="text-muted">
+                <p className="text-lh-text-secondary">
                   {t('Удалите старый значок с экрана «Домой». Откройте сайт в Safari, нажмите «Поделиться» → «На экран „Домой“».')}
                 </p>
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-text">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-lh-accent-dim text-xs font-bold text-lh-text-primary">
                 3
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
                 <p className="font-semibold">{t('Верните данные')}</p>
-                <p className="text-muted">
+                <p className="text-lh-text-secondary">
                   {syncOn
                     ? t('Откройте приложение → «Импортировать резервную копию» (файл) или «Синхронизация → Подключить» и вставьте сохранённый ключ / QR со второго устройства. Всё продолжится с той же точки.')
                     : t('Откройте приложение → «Настройки → Копии и восстановление → Копия файлом → Восстановить» и выберите сохранённый файл. Всё продолжится с той же точки.')}
@@ -155,33 +155,33 @@ export function ReinstallNotice() {
 
           {/* Ссылка на сайт установки — открыть в Safari */}
           <div className="card p-3.5">
-            <div className="mb-2 flex items-center gap-2 text-sm text-muted">
+            <div className="mb-2 flex items-center gap-2 text-sm text-lh-text-secondary">
               <Share size={ICON.action} className="shrink-0" />
               <span>{t('Откройте эту ссылку в Safari:')}</span>
             </div>
             <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded-lg bg-surface-2 px-2.5 py-2 font-mono text-xs">
+              <code className="min-w-0 flex-1 truncate rounded-lg bg-lh-surface-2 px-2.5 py-2 font-mono text-xs">
                 {INSTALL_URL}
               </code>
               <button
                 type="button"
                 onClick={copyLink}
                 aria-label={t('Скопировать ссылку')}
-                className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-accent active:opacity-60 ${HIT_SLOP_44}`}
+                className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-lh-surface-2 text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
                 {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
               </button>
             </div>
           </div>
 
-          <p className="text-xs leading-relaxed text-muted">
+          <p className="text-xs leading-relaxed text-lh-text-secondary">
             {t('Не срочно — приложение работает и со старым значком. Это только чтобы обновить имя и иконку на экране «Домой».')}
           </p>
 
           <Link
             to="/more/settings/install"
             onClick={dismiss}
-            className="inline-flex items-center gap-1 text-sm font-semibold text-accent active:opacity-70"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-lh-accent active:opacity-70"
           >
             {t('Подробная инструкция и восстановление данных')}
             <ChevronRight size={ICON.action} />
@@ -189,11 +189,11 @@ export function ReinstallNotice() {
         </div>
 
         {/* Кнопки */}
-        <div className="flex items-center gap-2 border-t border-hairline p-4 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+        <div className="flex items-center gap-2 border-t border-lh-border p-4 pb-[calc(env(safe-area-inset-bottom)+16px)]">
           <button
             type="button"
             onClick={dismiss}
-            className="px-3 py-3 text-sm font-medium text-muted active:opacity-60"
+            className="px-3 py-3 text-sm font-medium text-lh-text-secondary active:opacity-60"
           >
             {t('Скрыть')}
           </button>
@@ -201,7 +201,7 @@ export function ReinstallNotice() {
             href={INSTALL_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-accent-fill px-5 py-3.5 font-semibold text-white active:opacity-90"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-lh-accent px-5 py-3.5 font-semibold text-lh-bg active:opacity-90"
           >
             <ExternalLink size={ICON.base} />
             {t('Открыть сайт установки')}

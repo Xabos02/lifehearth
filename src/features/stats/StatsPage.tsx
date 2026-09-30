@@ -148,10 +148,10 @@ function computeTaskTime(tasks: Task[]): TaskTimeStats {
 function StatNumber({ value, label, color }: { value: number; label: string; color?: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-lg font-bold leading-tight" style={color ? { color } : undefined}>
+      <p className="text-lg font-light leading-tight" style={color ? { color } : undefined}>
         {value}
       </p>
-      <p className="text-xs text-muted">{label}</p>
+      <p className="text-xs text-lh-text-secondary">{label}</p>
     </div>
   );
 }
@@ -162,16 +162,16 @@ function StatTile({ value, label, color }: { value: ReactNode; label: string; co
   return (
     // min-w-0 обязателен: у grid-элемента, как и у flex, min-width:auto — без него
     // колонка распирается по min-content подписи и вся сетка вылезает за карточку.
-    <div className="min-w-0 rounded-xl border border-hairline bg-surface-2 px-2.5 py-2.5">
+    <div className="min-w-0 rounded-xl border border-lh-border bg-lh-surface-2 px-2.5 py-2.5">
       <p
-        className="text-lg font-bold leading-none"
+        className="text-lg font-light leading-none"
         style={color ? { color } : undefined}
       >
         {value}
       </p>
       {/* На 320px под подпись остаётся ~55px: без переноса и уменьшения «всего
           активных» наезжает на рамку. clamp тянет 11px → 9px к узким экранам. */}
-      <p className="mt-1.5 break-words hyphens-auto text-2xs leading-tight text-muted">
+      <p className="mt-1.5 break-words hyphens-auto text-2xs leading-tight text-lh-text-secondary">
         {label}
       </p>
     </div>
@@ -327,10 +327,10 @@ export function StatsPage() {
         {/* Эффективность — разбор задач по статусам */}
         <StatCard title={t('Эффективность')}>
           {/* Хедлайн: процент выполнения + полоса */}
-          <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
+          <div className="mb-3 rounded-xl border border-lh-border bg-lh-surface-2 px-3.5 py-3">
             <div className="mb-2 flex items-baseline justify-between gap-2">
               <span className="min-w-0 truncate text-base font-medium">{t('Выполнено из всех')}</span>
-              <span className="shrink-0 text-lg font-bold" style={{ color: 'var(--app-success)' }}>
+              <span className="shrink-0 text-lg font-light" style={{ color: 'var(--app-success)' }}>
                 {taskBreakdown.completionRate}%
               </span>
             </div>
@@ -370,10 +370,10 @@ export function StatsPage() {
         {/* Время на задачи — суммарная длительность задач по дням */}
         {taskTime.weekTotal > 0 && (
           <StatCard title={t('Время на задачи')}>
-            <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
+            <div className="mb-3 rounded-xl border border-lh-border bg-lh-surface-2 px-3.5 py-3">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="min-w-0 truncate text-base font-medium">{t('Сегодня на задачи')}</span>
-                <span className="shrink-0 text-lg font-bold" style={{ color: 'var(--app-accent-2)' }}>
+                <span className="shrink-0 text-lg font-light" style={{ color: 'var(--app-accent-2)' }}>
                   {taskTime.today > 0 ? formatDuration(taskTime.today) : t('0м')}
                 </span>
               </div>
@@ -382,7 +382,7 @@ export function StatsPage() {
             <div className="flex items-stretch justify-between gap-2" style={{ height: 96 }}>
               {taskTime.days.map((d, i) => (
                 <div key={i} className="flex h-full min-w-0 flex-1 flex-col items-center gap-1.5">
-                  <span className="text-2xs font-semibold text-muted">{compactDuration(d.minutes)}</span>
+                  <span className="text-2xs font-semibold text-lh-text-secondary">{compactDuration(d.minutes)}</span>
                   <div className="flex w-full flex-1 items-end">
                     <div
                       className="w-full rounded-t-md transition-[height] duration-300"
@@ -394,13 +394,13 @@ export function StatsPage() {
                       }}
                     />
                   </div>
-                  <span className={`text-xs ${d.isToday ? 'font-bold text-text' : 'text-muted'}`}>{t(d.label)}</span>
+                  <span className={`text-xs ${d.isToday ? 'font-bold text-lh-text-primary' : 'text-lh-text-secondary'}`}>{t(d.label)}</span>
                 </div>
               ))}
             </div>
 
-            <p className="mt-3 text-center text-xs text-muted">
-              {t('За неделю всего:')} <span className="font-semibold text-text">{formatDuration(taskTime.weekTotal)}</span>
+            <p className="mt-3 text-center text-xs text-lh-text-secondary">
+              {t('За неделю всего:')} <span className="font-semibold text-lh-text-primary">{formatDuration(taskTime.weekTotal)}</span>
             </p>
           </StatCard>
         )}
@@ -410,10 +410,10 @@ export function StatsPage() {
           <div className="flex items-stretch justify-between gap-2" style={{ height: 96 }}>
             {taskStats.week.map((d, i) => (
               <div key={i} className="flex h-full min-w-0 flex-1 flex-col items-center gap-1.5">
-                <span className="text-xs font-semibold text-muted">{d.count > 0 ? d.count : ''}</span>
+                <span className="text-xs font-semibold text-lh-text-secondary">{d.count > 0 ? d.count : ''}</span>
                 <div className="flex w-full flex-1 items-end">
                   <div
-                    className="w-full rounded-t-md bg-accent transition-[height] duration-300"
+                    className="w-full rounded-t-md bg-lh-accent transition-[height] duration-300"
                     style={{
                       height: `${Math.round((d.count / maxWeek) * 100)}%`,
                       minHeight: d.count > 0 ? 4 : 2,
@@ -421,7 +421,7 @@ export function StatsPage() {
                     }}
                   />
                 </div>
-                <span className="text-xs text-muted">{t(d.label)}</span>
+                <span className="text-xs text-lh-text-secondary">{t(d.label)}</span>
               </div>
             ))}
           </div>
@@ -433,8 +433,8 @@ export function StatsPage() {
             <div className="mb-4 grid grid-cols-2 gap-x-4 gap-y-4">
               <StatNumber value={activeGoals.length} label={t('активных')} />
               <div className="min-w-0">
-                <p className="text-lg font-bold leading-tight">{avgGoalProgress}%</p>
-                <p className="text-xs text-muted">{t('средний прогресс')}</p>
+                <p className="text-lg font-light leading-tight">{avgGoalProgress}%</p>
+                <p className="text-xs text-lh-text-secondary">{t('средний прогресс')}</p>
               </div>
             </div>
             <div className="flex flex-col gap-3">
@@ -442,7 +442,7 @@ export function StatsPage() {
                 <div key={goal.id}>
                   <div className="mb-1 flex items-baseline justify-between gap-3">
                     <span className="truncate text-base font-medium">{goal.title}</span>
-                    <span className="shrink-0 text-xs text-muted">{label}</span>
+                    <span className="shrink-0 text-xs text-lh-text-secondary">{label}</span>
                   </div>
                   <ProgressBar value={value} color={goal.color} />
                 </div>
@@ -454,11 +454,11 @@ export function StatsPage() {
         {/* Развитие */}
         {learning.length > 0 && (
           <StatCard title={t('Развитие')}>
-            <p className="mb-3 text-sm text-muted">
+            <p className="mb-3 text-sm text-lh-text-secondary">
               {t('Обучение:')}{' '}
-              <span className="font-semibold text-text">{learningStats.done} {t('завершено')}</span>
+              <span className="font-semibold text-lh-text-primary">{learningStats.done} {t('завершено')}</span>
               {' / '}
-              <span className="font-semibold text-text">
+              <span className="font-semibold text-lh-text-primary">
                 {learningStats.inProgress} {t('в процессе')}
               </span>
             </p>
@@ -474,14 +474,14 @@ export function StatsPage() {
                 на узких пришлось бы ради одного крайнего случая). */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-4">
               <div className="min-w-0">
-                <p className="text-lg font-bold leading-tight tabular-nums">
+                <p className="text-lg font-light leading-tight tabular-nums">
                   {formatRub(finance.expense)}
                 </p>
-                <p className="text-xs text-muted">{t('расходы в месяц')}</p>
+                <p className="text-xs text-lh-text-secondary">{t('расходы в месяц')}</p>
               </div>
               <div className="min-w-0">
                 <p
-                  className="text-lg font-bold leading-tight tabular-nums"
+                  className="text-lg font-light leading-tight tabular-nums"
                   style={{
                     color:
                       finance.balance < 0 ? 'var(--app-danger)' : 'var(--app-success)',
@@ -489,7 +489,7 @@ export function StatsPage() {
                 >
                   {formatRub(finance.balance)}
                 </p>
-                <p className="text-xs text-muted">{t('баланс')}</p>
+                <p className="text-xs text-lh-text-secondary">{t('баланс')}</p>
               </div>
             </div>
           </StatCard>

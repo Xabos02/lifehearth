@@ -63,7 +63,7 @@ function GoalCard({
         <span className="shrink-0 font-semibold tracking-tight">{Math.round(pct)}%</span>
       </div>
 
-      <div className="h-2.5 overflow-hidden rounded-full bg-surface-2">
+      <div className="h-2.5 overflow-hidden rounded-full bg-lh-surface-2">
         <div
           className="h-full rounded-full transition-[width] duration-300"
           style={{
@@ -85,10 +85,10 @@ function GoalCard({
           пробелов сумма остаётся монолитом и переносить её некуда. С ними
           длинные суммы переносятся по разрядам вместо тихой обрезки. */}
       <div className="mt-3 flex flex-col gap-0.5 min-[380px]:flex-row min-[380px]:items-baseline min-[380px]:justify-between min-[380px]:gap-2">
-        <span className="min-w-0 text-lg font-semibold tabular-nums tracking-tight">
+        <span className="min-w-0 text-lg font-light tabular-nums tracking-tight">
           {wrapRub(saved)}
         </span>
-        <span className="min-w-0 text-sm text-muted tabular-nums">
+        <span className="min-w-0 text-sm text-lh-text-secondary tabular-nums">
           {t('цель')} {wrapRub(goal.targetAmount)}
         </span>
       </div>
@@ -103,15 +103,15 @@ function GoalCard({
           // остаётся ~131px на 320px, а «1 041 667 ₽/мес» с неразрывными
           // пробелами — неразбиваемый кусок под 120px. Обычные пробелы дают
           // строке точки переноса, иначе хвост уходит под overflow:hidden.
-          <span className="min-w-0 text-sm text-muted">
+          <span className="min-w-0 text-sm text-lh-text-secondary">
             {/* Порядок слов различается («осталось X» / «X left») — ветка, не словарь. */}
             {getLang() === 'en' ? (
               <>
-                <b className="text-text tabular-nums">{wrapRub(rem)}</b> left
+                <b className="text-lh-text-primary tabular-nums">{wrapRub(rem)}</b> left
               </>
             ) : (
               <>
-                осталось <b className="text-text tabular-nums">{wrapRub(rem)}</b>
+                осталось <b className="text-lh-text-primary tabular-nums">{wrapRub(rem)}</b>
               </>
             )}
             {monthly ? ` · ${t('по {sum}/мес', { sum: wrapRub(monthly) })}` : ''}
@@ -124,7 +124,7 @@ function GoalCard({
               e.stopPropagation();
               onClaim();
             }}
-            className="shrink-0 rounded-xl bg-surface-2 px-4 py-2.5 text-sm font-semibold active:opacity-70"
+            className="shrink-0 rounded-xl bg-lh-surface-2 px-4 py-2.5 text-sm font-semibold active:opacity-70"
           >
             {t('Забрать')}
           </button>
@@ -138,7 +138,7 @@ function GoalCard({
             // Тон цели подложкой, а не заливкой под белый текст: белое ни на
             // одном из восьми цветов палитры не читалось (1,5–2,8). Высота
             // py-2.5 — 44px касания.
-            className="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold text-text active:opacity-80"
+            className="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold text-lh-text-primary active:opacity-80"
             style={{ background: `color-mix(in oklab, ${goal.color} 26%, transparent)` }}
           >
             {t('Пополнить')}
@@ -184,13 +184,13 @@ export function SavingsSection() {
   return (
     <section>
       <div className="mb-2 flex items-end justify-between gap-2 px-1">
-        <h2 className="flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
+        <h2 className="flex items-center gap-1.5 px-1 lh-section">
           <PiggyBank size={ICON.inline} className="shrink-0" />
           {t('Накопления')}
         </h2>
         {goals.length > 0 && (
           <div className="text-right">
-            <p className="text-2xs font-medium text-muted">{t('Всего накоплено')}</p>
+            <p className="text-2xs font-medium text-lh-text-secondary">{t('Всего накоплено')}</p>
             <p className="font-bold tabular-nums tracking-tight">{formatRub(total)}</p>
           </div>
         )}
@@ -211,7 +211,7 @@ export function SavingsSection() {
         <button
           type="button"
           onClick={openNew}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border py-3.5 text-sm font-semibold text-muted active:opacity-70"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-lh-border-strong py-3.5 text-sm font-semibold text-lh-text-secondary active:opacity-70"
         >
           <Plus size={ICON.action} /> {goals.length === 0 ? t('Цель накопления') : t('Новая цель')}
         </button>

@@ -63,7 +63,7 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
   return (
     <Sheet open={open} onClose={onClose} title={t('Пригласить в группу')}>
       <div className="space-y-4">
-        <p className="text-sm leading-snug text-muted">
+        <p className="text-sm leading-snug text-lh-text-secondary">
           {t('Покажите QR участнику: у него — «Главная → Семья → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.')}
         </p>
         {qrUrl && (
@@ -83,12 +83,12 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
         </div>
         {/* Кодовое слово — второй фактор. Оно и есть то, что делает
             перехваченный код бесполезным, поэтому стоит крупно и отдельно. */}
-        <div className="rounded-2xl border border-accent/25 bg-accent/[0.07] p-4 text-center">
-          <p className="text-sm text-muted">{t('Кодовое слово')}</p>
-          <p className="mt-1 font-mono text-2xl font-bold tracking-[0.15em] tabular-nums">
+        <div className="rounded-2xl border border-lh-accent/25 bg-lh-accent/[0.07] p-4 text-center">
+          <p className="text-sm text-lh-text-secondary">{t('Кодовое слово')}</p>
+          <p className="mt-1 font-mono text-2xl font-light tracking-[0.15em] tabular-nums">
             {word ? formatInviteWord(word) : '········'}
           </p>
-          <p className="mt-1.5 text-xs leading-snug text-muted">
+          <p className="mt-1.5 text-xs leading-snug text-lh-text-secondary">
             {t('Назовите его вслух. Без слова код не откроется.')}
           </p>
         </div>

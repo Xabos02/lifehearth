@@ -62,18 +62,18 @@ function HintsResetRow() {
         // подсказок, а человек считает их одним набором.
         resetSessionHints();
       }}
-      className="flex w-full items-center gap-2 border-b border-hairline p-4 text-left disabled:opacity-40"
+      className="flex w-full items-center gap-2 border-b border-lh-border p-4 text-left disabled:opacity-40"
     >
-      <Lightbulb size={ICON.header} className="shrink-0 text-muted" />
+      <Lightbulb size={ICON.header} className="shrink-0 text-lh-text-secondary" />
       <span className="min-w-0 flex-1">
         <span className="block truncate">{t('Показать подсказки заново')}</span>
-        <span className="block text-sm text-muted">
+        <span className="block text-sm text-lh-text-secondary">
           {nothingToReset
             ? t('Все подсказки на месте')
             : t('Скрыто {hidden} из {total}', { hidden, total: HINT_IDS.length })}
         </span>
       </span>
-      <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
+      <ChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
     </button>
   );
 }
@@ -85,7 +85,7 @@ function BackupStatus() {
   const settings = useSettings();
   const last = settings.lastBackupAt;
   if (!last) return <span className="shrink-0 text-sm font-medium text-warning">{t('нет копии')}</span>;
-  return <span className="shrink-0 text-sm text-muted">{formatRu(last.slice(0, 10))}</span>;
+  return <span className="shrink-0 text-sm text-lh-text-secondary">{formatRu(last.slice(0, 10))}</span>;
 }
 
 /** Плашка наверху настроек, пока внешнее стоит на паузе без согласия
@@ -109,7 +109,7 @@ function ConsentPausedBanner() {
         <button
           type="button"
           onClick={() => showConsent()}
-          className="mt-2 inline-flex min-h-11 items-center rounded-full bg-accent-fill px-4 text-sm font-semibold text-white active:opacity-80"
+          className="mt-2 inline-flex min-h-11 items-center rounded-full bg-lh-accent px-4 text-sm font-semibold text-lh-bg active:opacity-80"
         >
           {t('Прочитать и принять')}
         </button>
@@ -194,7 +194,7 @@ export function SettingsPage() {
                 ТЕКУЩЕЙ темы: превью в чужой теме обещало бы не то, что человек
                 получит. Акцент применяется мгновенно, так что сам экран и есть
                 предпросмотр. */}
-            <div className="flex items-center gap-3.5 border-t border-hairline p-3.5">
+            <div className="flex items-center gap-3.5 border-t border-lh-border p-3.5">
               {ACCENTS.map((a) => {
                 const selected = (settings.accent ?? 'indigo') === a.id;
                 const [c1, c2] = light ? a.light : a.dark;
@@ -217,7 +217,7 @@ export function SettingsPage() {
                     className="size-11 shrink-0 rounded-full transition-transform active:scale-95"
                     style={{
                       background: `linear-gradient(135deg, ${c1}, ${c2})`,
-                      boxShadow: selected ? `0 0 0 2.5px var(--app-surface), 0 0 0 5px ${c1}` : undefined,
+                      boxShadow: selected ? `0 0 0 2.5px var(--lh-surface), 0 0 0 5px ${c1}` : undefined,
                     }}
                   />
                 );
@@ -226,13 +226,13 @@ export function SettingsPage() {
                   и повторять её у каждого незачем. */}
               <span className="min-w-0 flex-1 text-right">
                 <span className="block truncate font-semibold">{t(selectedAccent.label)}</span>
-                <span className="block truncate text-xs text-muted">{t(selectedAccent.hint)}</span>
+                <span className="block truncate text-xs text-lh-text-secondary">{t(selectedAccent.hint)}</span>
               </span>
             </div>
             {/* Смена языка перерисовывает приложение перезагрузкой: строки
                 читаются в момент рендера, reload — честный способ обновить
                 каждую (язык меняют раз в жизни, цена приемлема). */}
-            <div className="flex flex-wrap items-center gap-2 border-t border-hairline p-4">
+            <div className="flex flex-wrap items-center gap-2 border-t border-lh-border p-4">
               <span className="flex-1">{t('Язык')}</span>
               <Select
                 compact
@@ -273,7 +273,7 @@ export function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => void handleEnablePush()}
-                  className={`shrink-0 rounded-full bg-accent-fill px-3.5 py-2 text-sm font-semibold text-white active:opacity-80 ${HIT_SLOP_44}`}
+                  className={`shrink-0 rounded-full bg-lh-accent px-3.5 py-2 text-sm font-semibold text-lh-bg active:opacity-80 ${HIT_SLOP_44}`}
                 >
                   {t('Включить')}
                 </button>
@@ -352,11 +352,11 @@ export function SettingsPage() {
             <button
               type="button"
               onClick={() => showConsent()}
-              className="flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left active:bg-surface-2"
+              className="flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left active:bg-lh-surface-2"
             >
               <span className="min-w-0 flex-1">{t('Что уходит с телефона')}</span>
               {settings.consentAt ? (
-                <span className="shrink-0 text-sm text-muted">
+                <span className="shrink-0 text-sm text-lh-text-secondary">
                   {/* Местный день, а не UTC: принятое ночью по Москве иначе было бы «вчера». */}
                   {t('принято {date}', { date: formatRu(toKey(new Date(settings.consentAt))) })}
                 </span>
@@ -366,11 +366,11 @@ export function SettingsPage() {
             </button>
             <Link
               to="/more/settings/backup"
-              className="flex min-h-11 items-center gap-2 border-t border-hairline px-4 py-2.5 active:bg-surface-2"
+              className="flex min-h-11 items-center gap-2 border-t border-lh-border px-4 py-2.5 active:bg-lh-surface-2"
             >
               <span className="flex-1">{t('Копии и восстановление')}</span>
               <BackupStatus />
-              <ChevronRight size={ICON.action} className="shrink-0 text-muted" />
+              <ChevronRight size={ICON.action} className="shrink-0 text-lh-text-secondary" />
             </Link>
           </div>
         </Section>

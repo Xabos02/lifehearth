@@ -44,11 +44,15 @@ import { ChatListSheet } from './ChatListSheet';
 import { ChatSettingsSheet } from './ChatSettingsSheet';
 import { ModelSheet } from './ModelSheet';
 
-// Акцент раздела — клай Claude Code. Перекрываем только акцентные переменные на
-// обёртке, как это делает FocusPage: нейтрали приложения остаются общими.
+// Акцент раздела — индиго дизайн-системы (--lh-ai-accent) вместо золота.
+// Перекрываем только акцентные переменные на обёртке: нейтрали остаются общими.
 const CC_THEME: CSSProperties = {
-  '--app-accent': 'var(--cc-accent)',
-  '--app-accent-2': 'var(--cc-accent-2)',
+  '--app-accent': 'var(--lh-ai-accent)',
+  '--app-accent-2': 'var(--lh-ai-accent)',
+  '--app-accent-fill': 'var(--lh-ai-accent)',
+  '--lh-accent': 'var(--lh-ai-accent)',
+  '--lh-accent-dim': 'color-mix(in srgb, var(--lh-ai-accent) 15%, transparent)',
+  '--lh-accent-border': 'color-mix(in srgb, var(--lh-ai-accent) 30%, transparent)',
 } as CSSProperties;
 
 export function AiPage() {
@@ -245,7 +249,7 @@ export function AiPage() {
           {awayFromBottom && (
             <button
               aria-label={t('К последнему сообщению')}
-              className="absolute right-3 bottom-40 z-10 grid size-10 place-items-center rounded-full border border-hairline bg-elevated text-accent shadow-[var(--shadow-card)] active:opacity-70"
+              className="absolute right-3 bottom-40 z-10 grid size-10 place-items-center rounded-full border border-lh-border bg-lh-surface-2 text-lh-accent shadow-[var(--shadow-card)] active:opacity-70"
               onClick={() => bottomRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })}
             >
               <ArrowDown size={ICON.header} />
@@ -315,12 +319,12 @@ function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string
       <div
         aria-hidden
         className="mb-4 grid size-16 place-items-center rounded-[1.25rem] text-white shadow-[var(--shadow-accent)]"
-        style={{ background: 'linear-gradient(150deg, var(--app-accent), var(--app-accent-2))' }}
+        style={{ background: 'linear-gradient(150deg, var(--lh-accent), var(--app-accent-2))' }}
       >
         <GSparkle size={ICON.display} />
       </div>
-      <p className="text-lg font-bold tracking-tight">{t('Спросите о своём')}</p>
-      <p className="mt-1 mb-5 max-w-[17rem] text-sm text-muted">
+      <p className="text-lg font-light tracking-tight">{t('Спросите о своём')}</p>
+      <p className="mt-1 mb-5 max-w-[17rem] text-sm text-lh-text-secondary">
         {dataTools
           ? t('Ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.')
           : t('Включите «Данные» под полем ввода — и ассистент ответит по вашим задачам, заметкам, финансам и привычкам.')}
@@ -331,7 +335,7 @@ function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string
         {SUGGESTIONS.map((q) => (
           <button
             key={q}
-            className="rounded-2xl border border-hairline bg-surface-2 px-4 py-3 text-left text-sm active:opacity-70"
+            className="rounded-2xl border border-lh-border bg-lh-surface-2 px-4 py-3 text-left text-sm active:opacity-70"
             onClick={() => onAsk(t(q))}
           >
             {t(q)}
@@ -347,7 +351,7 @@ function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string
 function UserBubble({ message }: { message: LlmMessage }) {
   return (
     <div className="cc-msg-in flex justify-end">
-      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-surface-2 px-3.5 py-2.5 whitespace-pre-wrap">
+      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-lh-surface-2 px-3.5 py-2.5 whitespace-pre-wrap">
         {message.content}
       </div>
     </div>
@@ -372,7 +376,7 @@ function AssistantBlock({
   return (
     <div className="cc-msg-in grid grid-cols-[1.25rem_1fr] gap-x-1">
       <div aria-hidden className="pt-2">
-        <span className={`block size-1.5 rounded-full ${failed ? 'bg-danger' : 'bg-accent'}`} />
+        <span className={`block size-1.5 rounded-full ${failed ? 'bg-danger' : 'bg-lh-accent'}`} />
       </div>
       <div className="min-w-0">
         {failed ? (
@@ -395,7 +399,7 @@ function AssistantBlock({
         ) : message.finishReason === 'content_filter' && !message.content.trim() ? (
           // Отказ приходит HTTP 200 с пустым содержимым (§4.6) — без этой
           // ветки на экране висел бы пустой блок со статусом «готово».
-          <p className="text-sm text-muted">{t('Модель отклонила запрос.')}</p>
+          <p className="text-sm text-lh-text-secondary">{t('Модель отклонила запрос.')}</p>
         ) : (
           <Markdown text={message.content} />
         )}
@@ -406,7 +410,7 @@ function AssistantBlock({
             {message.toolTrace.map((tr, i) => (
               <span
                 key={i}
-                className="rounded-md bg-accent/10 px-1.5 py-0.5 font-mono text-[0.68rem] text-accent"
+                className="rounded-md bg-lh-accent-dim px-1.5 py-0.5 font-mono text-[0.68rem] text-lh-accent"
               >
                 {t(TOOL_LABELS[tr.tool] ?? tr.tool)} · {tr.count}
               </span>
@@ -417,7 +421,7 @@ function AssistantBlock({
           <div className="mt-1.5 flex items-center gap-2.5">
             <p className="text-xs text-warning">{t('Ответ обрезан лимитом токенов.')}</p>
             <button
-              className="rounded-lg bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent active:opacity-70 disabled:opacity-40"
+              className="rounded-lg bg-lh-accent-dim px-2.5 py-1 text-xs font-medium text-lh-accent active:opacity-70 disabled:opacity-40"
               disabled={busy}
               onClick={onContinue}
             >
@@ -425,7 +429,7 @@ function AssistantBlock({
             </button>
           </div>
         )}
-        <div className="mt-1.5 flex items-center gap-3 font-mono text-[0.7rem] text-muted">
+        <div className="mt-1.5 flex items-center gap-3 font-mono text-[0.7rem] text-lh-text-secondary">
           {!failed && message.tokensIn !== null && (
             <span>
               {message.tokensIn}→{message.tokensOut}
@@ -458,7 +462,7 @@ function StreamingBlock({ text }: { text: string }) {
   return (
     <div className="grid grid-cols-[1.25rem_1fr] gap-x-1">
       <div aria-hidden className="pt-2">
-        <span className="block size-1.5 animate-pulse rounded-full bg-accent" />
+        <span className="block size-1.5 animate-pulse rounded-full bg-lh-accent" />
       </div>
       <div className="min-w-0">
         <Markdown text={text} />
@@ -472,9 +476,9 @@ function Thinking() {
   return (
     <div className="grid grid-cols-[1.25rem_1fr] gap-x-1">
       <div aria-hidden className="pt-2">
-        <span className="block size-1.5 animate-pulse rounded-full bg-accent" />
+        <span className="block size-1.5 animate-pulse rounded-full bg-lh-accent" />
       </div>
-      <p className="font-mono text-xs text-muted">{t('думает…')}</p>
+      <p className="font-mono text-xs text-lh-text-secondary">{t('думает…')}</p>
     </div>
   );
 }
@@ -484,10 +488,10 @@ function ToolLine({ label }: { label: string }) {
   return (
     <div className="grid grid-cols-[1.25rem_1fr] gap-x-1">
       <div aria-hidden className="pt-2">
-        <span className="block size-1.5 animate-pulse rounded-full bg-accent" />
+        <span className="block size-1.5 animate-pulse rounded-full bg-lh-accent" />
       </div>
-      <p className="font-mono text-xs text-muted">
-        {t('читаю:')} <span className="text-accent">{t(label)}</span>…
+      <p className="font-mono text-xs text-lh-text-secondary">
+        {t('читаю:')} <span className="text-lh-accent">{t(label)}</span>…
       </p>
     </div>
   );
@@ -511,13 +515,13 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
     // Один плотный блок вместо двух полупустых строк: поле во всю ширину,
     // под ним слева модель и доступ к данным, справа отправка. Ни одного
     // элемента, висящего в воздухе, — каждый угол занят делом.
-    <div className="shrink-0 border-t border-hairline pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
+    <div className="shrink-0 border-t border-lh-border pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
       <textarea
         ref={ref}
         value={value}
         rows={1}
         placeholder={t('Сообщение…')}
-        className="max-h-40 min-h-11 w-full resize-none rounded-2xl bg-surface-2 px-3.5 py-2.5 outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-accent/60"
+        className="max-h-40 min-h-11 w-full resize-none rounded-2xl bg-lh-surface-2 px-3.5 py-2.5 outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-lh-accent/60"
         onChange={(e) => {
           onChange(e.target.value);
           // Авторост: сбрасываем высоту перед замером, иначе поле не сжимается.
@@ -541,11 +545,11 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
         <button
           aria-label={t('Модель')}
           disabled={busy}
-          className={`inline-flex min-w-0 items-center gap-1 rounded-full border border-hairline bg-surface-2 py-1.5 pr-2 pl-3 text-[0.82rem] font-medium active:opacity-70 disabled:opacity-50 ${HIT_SLOP_44}`}
+          className={`inline-flex min-w-0 items-center gap-1 rounded-full border border-lh-border bg-lh-surface-2 py-1.5 pr-2 pl-3 text-[0.82rem] font-medium active:opacity-70 disabled:opacity-50 ${HIT_SLOP_44}`}
           onClick={onModelTap}
         >
           <span className="truncate">{modelName}</span>
-          <ChevronDown size={ICON.inline} className="shrink-0 text-muted" />
+          <ChevronDown size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
         </button>
         {/* Доступ модели к данным приложения. Выключен по умолчанию (решение
             25.09, задача 33): прочитанное уходит через наш воркер провайдеру
@@ -556,8 +560,8 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
           disabled={busy}
           className={`inline-flex shrink-0 items-center gap-1 rounded-full border py-1.5 pr-2.5 pl-2 text-[0.82rem] font-medium transition-colors ${HIT_SLOP_44} ${
             dataTools
-              ? 'border-accent/30 bg-accent/12 text-accent'
-              : 'border-hairline bg-surface-2 text-muted'
+              ? 'border-lh-accent/30 bg-lh-accent/12 text-lh-accent'
+              : 'border-lh-border bg-lh-surface-2 text-lh-text-secondary'
           }`}
           onClick={() => onDataTools(!dataTools)}
         >
@@ -568,7 +572,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
         {busy ? (
           <button
             aria-label={t('Остановить')}
-            className={`grid size-10 shrink-0 place-items-center rounded-full border border-hairline bg-surface-2 active:opacity-70 ${HIT_SLOP_44}`}
+            className={`grid size-10 shrink-0 place-items-center rounded-full border border-lh-border bg-lh-surface-2 active:opacity-70 ${HIT_SLOP_44}`}
             onClick={onStop}
           >
             <Square size={ICON.action} />

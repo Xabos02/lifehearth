@@ -126,7 +126,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
           else a.pause();
         }}
         aria-label={playing ? t('Пауза') : t('Воспроизвести')}
-        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${HIT_SLOP_44} ${own ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'}`}
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${HIT_SLOP_44} ${own ? 'bg-white/20 text-white' : 'bg-lh-accent-dim text-lh-accent'}`}
       >
         {playing ? <Pause size={ICON.action} /> : <Play size={ICON.action} />}
       </button>
@@ -163,7 +163,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
         }}
         className="flex flex-1 cursor-pointer touch-none items-center py-2"
       >
-        <div className={`h-1 w-full overflow-hidden rounded-full ${own ? 'bg-white/25' : 'bg-hairline'}`}>
+        <div className={`h-1 w-full overflow-hidden rounded-full ${own ? 'bg-white/25' : 'bg-lh-border'}`}>
           <div className="h-full rounded-full bg-current" style={{ width: `${Math.min(100, (pos / total) * 100)}%` }} />
         </div>
       </div>
@@ -217,13 +217,13 @@ function FileBubble({ m, own, received }: { m: FamilyMessage; own: boolean; rece
   return (
     <div className="flex min-w-[190px] max-w-[240px] items-center gap-2.5 py-0.5">
       <div
-        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'}`}
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-white/20 text-white' : 'bg-lh-accent-dim text-lh-accent'}`}
       >
         <Icon size={ICON.base} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{info.name}</p>
-        <p className={`truncate text-2xs ${unavailable ? 'opacity-60' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
+        <p className={`truncate text-2xs ${unavailable ? 'opacity-60' : ''} ${own ? 'text-white/70' : 'text-lh-text-secondary'}`}>
           {subtitle}
         </p>
       </div>
@@ -503,7 +503,7 @@ function MessageRow({
         ))}
     </>
   );
-  const metaTone = jumbo ? 'text-muted' : own ? 'text-white/70' : 'text-muted';
+  const metaTone = jumbo ? 'text-lh-text-secondary' : own ? 'text-white/70' : 'text-lh-text-secondary';
   // Текстовый пузырь уводит метку в поток абзаца (float), остальные типы —
   // фото, голос, файл — держат её отдельной строкой снизу: внутри картинки
   // потоку не на чем висеть.
@@ -515,7 +515,7 @@ function MessageRow({
         <div className="flex items-center">
           {dragX > 4 && (
             <span
-              className="flex shrink-0 items-center pr-2 text-accent"
+              className="flex shrink-0 items-center pr-2 text-lh-accent"
               style={{ opacity: Math.min(1, dragX / SWIPE_REPLY_PX) }}
             >
               <Reply size={ICON.base} />
@@ -538,8 +538,8 @@ function MessageRow({
                 ? 'bg-transparent px-1 py-0'
                 : `rounded-[1.15rem] shadow-[0_1px_2px_-1px_rgb(0_0_0/0.25)] ${m.image ? 'p-[3px]' : 'px-3 py-1.5'} ${
                     own
-                      ? `bg-accent-fill text-white ${groupEnd ? 'rounded-br-[0.4rem]' : ''}`
-                      : `bg-surface-2 text-text ${groupEnd ? 'rounded-bl-[0.4rem]' : ''}`
+                      ? `bg-lh-accent text-lh-bg ${groupEnd ? 'rounded-br-[0.4rem]' : ''}`
+                      : `bg-lh-surface-2 text-lh-text-primary ${groupEnd ? 'rounded-bl-[0.4rem]' : ''}`
                   }`
             } ${highlight ? 'ring-2 ring-frost' : ''}`}
           >
@@ -557,12 +557,12 @@ function MessageRow({
                 }}
                 className={`mb-1 block w-full rounded-lg border-l-2 px-2 py-1 text-left ${
                   m.image ? 'mx-2 mt-1 w-auto' : ''
-                } ${own ? 'border-white/60 bg-white/15' : 'border-accent bg-accent/10'}`}
+                } ${own ? 'border-white/60 bg-white/15' : 'border-lh-accent bg-lh-accent-dim'}`}
               >
-                <span className={`block text-2xs font-semibold ${own ? 'text-white/90' : 'text-accent'}`}>
+                <span className={`block text-2xs font-semibold ${own ? 'text-white/90' : 'text-lh-accent'}`}>
                   {m.replyTo.name}
                 </span>
-                <span className={`block truncate text-xs ${own ? 'text-white/75' : 'text-muted'}`}>
+                <span className={`block truncate text-xs ${own ? 'text-white/75' : 'text-lh-text-secondary'}`}>
                   {m.replyTo.text}
                 </span>
               </button>
@@ -603,7 +603,7 @@ function MessageRow({
                       // жесты пузыря живут на родителе.
                       onClick={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
-                      className={`underline underline-offset-2 ${own ? 'text-white' : 'text-accent'}`}
+                      className={`underline underline-offset-2 ${own ? 'text-white' : 'text-lh-accent'}`}
                     >
                       {part.value}
                     </a>
@@ -641,11 +641,11 @@ function MessageRow({
                 type="button"
                 onClick={() => onToggleChip(m, c.emoji)}
                 className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs active:scale-95 ${
-                  c.mine ? 'border-accent/50 bg-accent/15' : 'border-border bg-surface-2'
+                  c.mine ? 'border-lh-accent/50 bg-lh-accent-dim' : 'border-lh-border-strong bg-lh-surface-2'
                 }`}
               >
                 <span>{c.emoji}</span>
-                {c.count > 1 && <span className="tabular-nums text-muted">{c.count}</span>}
+                {c.count > 1 && <span className="tabular-nums text-lh-text-secondary">{c.count}</span>}
               </button>
             ))}
           </div>
@@ -1219,29 +1219,29 @@ export function ChatTab({ familyId }: { familyId: string }) {
           {others.length === 1 ? (
             <>
               <span
-                className={`size-2 shrink-0 rounded-full ${onlineSet.has(others[0].id) ? 'bg-success' : 'bg-muted'}`}
+                className={`size-2 shrink-0 rounded-full ${onlineSet.has(others[0].id) ? 'bg-success' : 'bg-lh-text-tertiary'}`}
               />
               <span className="font-medium" style={{ color: readableName(others[0].color) }}>
                 {others[0].displayName}
               </span>
-              <span className={typers.length > 0 ? 'text-accent' : 'text-muted'}>{headerStatus}</span>
+              <span className={typers.length > 0 ? 'text-lh-accent' : 'text-lh-text-secondary'}>{headerStatus}</span>
             </>
           ) : (
             <>
               <span
                 className={`size-2 shrink-0 rounded-full ${
-                  others.some((o) => onlineSet.has(o.id)) ? 'bg-success' : 'bg-muted'
+                  others.some((o) => onlineSet.has(o.id)) ? 'bg-success' : 'bg-lh-text-tertiary'
                 }`}
               />
-              <span className={typers.length > 0 ? 'text-accent' : 'text-muted'}>{headerStatus}</span>
+              <span className={typers.length > 0 ? 'text-lh-accent' : 'text-lh-text-secondary'}>{headerStatus}</span>
             </>
           )}
         </div>
       )}
       {searchOpen && (
         <div className="mb-2 shrink-0">
-          <div className="flex items-center gap-2 rounded-2xl border border-border bg-surface px-3 py-1.5 focus-within:border-accent">
-            <SearchIcon size={ICON.action} className="shrink-0 text-muted" />
+          <div className="flex items-center gap-2 rounded-2xl border border-lh-border-strong bg-lh-surface px-3 py-1.5 focus-within:border-lh-accent">
+            <SearchIcon size={ICON.action} className="shrink-0 text-lh-text-secondary" />
             <input
               autoFocus
               value={query}
@@ -1257,7 +1257,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 setHits([]);
               }}
               aria-label={t('Закрыть поиск')}
-              className={`shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+              className={`shrink-0 p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <X size={ICON.action} />
             </button>
@@ -1265,9 +1265,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
           {query.trim().length >= 2 && (
             // Плотный фон и тень: полупрозрачная подложка сливалась с лентой,
             // и находки читались как продолжение переписки.
-            <div className="mt-1.5 max-h-56 overflow-y-auto rounded-2xl border border-border bg-surface shadow-lg">
+            <div className="mt-1.5 max-h-56 overflow-y-auto rounded-2xl border border-lh-border-strong bg-lh-surface shadow-lg">
               {hits.length === 0 ? (
-                <p className="px-3 py-2.5 text-xs text-muted">{t('Ничего не нашлось')}</p>
+                <p className="px-3 py-2.5 text-xs text-lh-text-secondary">{t('Ничего не нашлось')}</p>
               ) : (
                 hits.map((h) => (
                   <button
@@ -1276,7 +1276,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                       setSearchOpen(false);
                       revealMessage(h.message);
                     }}
-                    className="flex w-full items-baseline gap-2 border-b border-hairline/50 px-3 py-2 text-left last:border-0 active:bg-surface-2"
+                    className="flex w-full items-baseline gap-2 border-b border-lh-border/50 px-3 py-2 text-left last:border-0 active:bg-lh-surface-2"
                   >
                     <span className="min-w-0 flex-1 truncate text-xs">
                       <span className="font-medium" style={{ color: readableName(memberMap[h.message.senderMemberId]?.color) }}>
@@ -1286,10 +1286,10 @@ export function ChatTab({ familyId }: { familyId: string }) {
                       {/* Найденное выделяем: в длинной строке иначе не видно,
                           за что она зацепилась. */}
                       {h.message.text.slice(Math.max(0, h.from - 24), h.from)}
-                      <mark className="rounded bg-accent/25 text-text">{h.message.text.slice(h.from, h.to)}</mark>
+                      <mark className="rounded bg-lh-accent/25 text-lh-text-primary">{h.message.text.slice(h.from, h.to)}</mark>
                       {h.message.text.slice(h.to, h.to + 40)}
                     </span>
-                    <span className="shrink-0 text-2xs text-muted">
+                    <span className="shrink-0 text-2xs text-lh-text-secondary">
                       {now ? dayLabel(h.message.createdAt, now) : ''}
                     </span>
                   </button>
@@ -1339,7 +1339,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         >
           {list.length === 0 ? (
             loaded && (
-              <p className="py-12 text-center text-sm text-muted">{t('Пока нет сообщений. Напишите первым!')}</p>
+              <p className="py-12 text-center text-sm text-lh-text-secondary">{t('Пока нет сообщений. Напишите первым!')}</p>
             )
           ) : (
             // justify-end: короткая переписка живёт у композера, как во всех
@@ -1350,7 +1350,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   подгрузка на подъёме выглядит как случайность. */}
               {hasOlder && (
                 <div className="flex items-center justify-center py-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2/70 px-3 py-1 text-2xs text-muted">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-lh-surface-2/70 px-3 py-1 text-2xs text-lh-text-secondary">
                     <LoaderCircle size={ICON.inline} className="animate-spin" />
                     {t('Загружаю прошлые сообщения…')}
                   </span>
@@ -1370,7 +1370,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 const divider =
                   i === 0 || dayKey(list[i - 1].createdAt) !== dayKey(m.createdAt) ? (
                     <div key={`d-${m.clientMsgId}`} className="flex items-center justify-center py-1.5">
-                      <span className="rounded-full bg-surface-2/80 px-3 py-0.5 text-2xs font-medium text-muted">
+                      <span className="rounded-full bg-lh-surface-2/80 px-3 py-0.5 text-2xs font-medium text-lh-text-secondary">
                         {now ? dayLabel(m.createdAt, now) : ''}
                       </span>
                     </div>
@@ -1380,11 +1380,11 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 const unreadMark =
                   m.clientMsgId === firstUnreadId ? (
                     <div key={`u-${m.clientMsgId}`} className="flex items-center gap-2 py-2">
-                      <span className="h-px flex-1 bg-accent/30" />
-                      <span className="rounded-full bg-accent/12 px-2.5 py-0.5 text-2xs font-semibold text-accent">
+                      <span className="h-px flex-1 bg-lh-accent/30" />
+                      <span className="rounded-full bg-lh-accent/12 px-2.5 py-0.5 text-2xs font-semibold text-lh-accent">
                         {t('Непрочитанные')}
                       </span>
-                      <span className="h-px flex-1 bg-accent/30" />
+                      <span className="h-px flex-1 bg-lh-accent/30" />
                     </div>
                   ) : null;
                 if (m.system) {
@@ -1395,7 +1395,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                       {/* Полупрозрачная плашка: служебные события не должны
                           весить столько же, сколько живые сообщения. */}
                       <div className="py-0.5 text-center">
-                        <span className="inline-block rounded-full bg-surface-2/70 px-3 py-1 text-xs text-muted">{systemMessageText(m)}</span>
+                        <span className="inline-block rounded-full bg-lh-surface-2/70 px-3 py-1 text-xs text-lh-text-secondary">{systemMessageText(m)}</span>
                       </div>
                     </div>
                   );
@@ -1465,17 +1465,17 @@ export function ChatTab({ familyId }: { familyId: string }) {
               const el = scrollRef.current;
               if (el) el.scrollTop = el.scrollHeight;
             }}
-            className="absolute bottom-3 right-2 flex size-10 items-center justify-center rounded-full border border-border bg-elevated/95 text-muted shadow-lg shadow-black/20 active:scale-95"
+            className="absolute bottom-3 right-2 flex size-10 items-center justify-center rounded-full border border-lh-border-strong bg-lh-surface-2/95 text-lh-text-secondary shadow-lg shadow-black/20 active:scale-95"
           >
             <ChevronsDown size={ICON.header} />
           </button>
         )}
       </div>
 
-      <div className="shrink-0 border-t border-hairline bg-bg">
+      <div className="shrink-0 border-t border-lh-border bg-lh-bg">
         {editingId && (
-          <div className="flex items-center gap-2 px-1 pt-2 text-sm text-muted">
-            <Pencil size={ICON.inline} className="shrink-0 text-accent" />
+          <div className="flex items-center gap-2 px-1 pt-2 text-sm text-lh-text-secondary">
+            <Pencil size={ICON.inline} className="shrink-0 text-lh-accent" />
             <span className="flex-1">{t('Редактирование сообщения')}</span>
             <button
               onClick={() => {
@@ -1491,12 +1491,12 @@ export function ChatTab({ familyId }: { familyId: string }) {
         )}
         {replyTo && (
           <div className="flex items-center gap-2 px-1 pt-2 text-sm">
-            <Reply size={ICON.inline} className="shrink-0 text-accent" />
-            <div className="min-w-0 flex-1 border-l-2 border-accent pl-2">
-              <p className="text-xs font-semibold text-accent">
+            <Reply size={ICON.inline} className="shrink-0 text-lh-accent" />
+            <div className="min-w-0 flex-1 border-l-2 border-lh-accent pl-2">
+              <p className="text-xs font-semibold text-lh-accent">
                 {memberMap[replyTo.senderMemberId]?.displayName || t('Участник')}
               </p>
-              <p className="truncate text-xs text-muted">{snippetOf(replyTo)}</p>
+              <p className="truncate text-xs text-lh-text-secondary">{snippetOf(replyTo)}</p>
             </div>
             <button
               onClick={() => {
@@ -1504,7 +1504,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 persistDraft(text, null);
               }}
               aria-label={t('Отменить ответ')}
-              className={`p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+              className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <X size={ICON.action} />
             </button>
@@ -1522,12 +1522,12 @@ export function ChatTab({ familyId }: { familyId: string }) {
             <div className="flex flex-1 items-center gap-2 text-sm">
               <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-danger" />
               <span className="font-mono tabular-nums">{fmtDur(rec.elapsed)}</span>
-              <span className="text-muted">{t('запись…')}</span>
+              <span className="text-lh-text-secondary">{t('запись…')}</span>
             </div>
             <button
               onClick={rec.stop}
               aria-label={t('Отправить голосовое')}
-              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent-fill text-white active:scale-95"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-lh-accent text-lh-bg active:scale-95"
             >
               <Send size={ICON.header} />
             </button>
@@ -1561,13 +1561,13 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 if (f) void handlePickFile(f);
               }}
             />
-            <div className="flex w-full items-end rounded-3xl border border-border bg-surface transition-[border-color,box-shadow] focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
+            <div className="flex w-full items-end rounded-3xl border border-lh-border-strong bg-lh-surface transition-[border-color,box-shadow] focus-within:border-lh-accent focus-within:ring-2 focus-within:ring-lh-accent/20">
               <button
                 onClick={() => setAttachSheetOpen(true)}
                 disabled={sendingAttachment}
                 aria-label={sendingAttachment ? t('Вложение отправляется') : t('Прикрепить')}
                 aria-busy={sendingAttachment || undefined}
-                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted active:text-accent disabled:opacity-50"
+                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-lh-text-secondary active:text-lh-accent disabled:opacity-50"
               >
                 {sendingAttachment ? (
                   <LoaderCircle size={ICON.header} className="animate-spin motion-reduce:animate-none" />
@@ -1603,7 +1603,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   onClick={() => void submit()}
                   disabled={!text.trim()}
                   aria-label={t('Отправить')}
-                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-accent-fill text-white disabled:opacity-40 active:scale-95 ${HIT_SLOP_44}`}
+                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-lh-accent text-lh-bg disabled:opacity-40 active:scale-95 ${HIT_SLOP_44}`}
                 >
                   <Send size={ICON.base} />
                 </button>
@@ -1618,7 +1618,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                     });
                   }}
                   aria-label={t('Записать голосовое')}
-                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-accent-fill text-white active:scale-95 ${HIT_SLOP_44}`}
+                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-lh-accent text-lh-bg active:scale-95 ${HIT_SLOP_44}`}
                 >
                   <Mic size={ICON.base} />
                 </button>
@@ -1635,9 +1635,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
               setAttachSheetOpen(false);
               imageRef.current?.click();
             }}
-            className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
+            className="flex w-full items-center gap-3 rounded-xl bg-lh-surface-2 p-3.5 text-left active:opacity-80"
           >
-            <ImageIcon size={ICON.base} className="text-accent" />
+            <ImageIcon size={ICON.base} className="text-lh-accent" />
             {t('Фото')}
           </button>
           <button
@@ -1645,9 +1645,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
               setAttachSheetOpen(false);
               docRef.current?.click();
             }}
-            className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
+            className="flex w-full items-center gap-3 rounded-xl bg-lh-surface-2 p-3.5 text-left active:opacity-80"
           >
-            <FileIcon size={ICON.base} className="text-accent" />
+            <FileIcon size={ICON.base} className="text-lh-accent" />
             {t('Файл')}
           </button>
         </div>
@@ -1657,7 +1657,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         {actionMsg && (
           <div className="space-y-2 pb-2">
             {!actionMsg.system && (
-              <div className="flex justify-between gap-1 rounded-2xl bg-surface-2 p-2">
+              <div className="flex justify-between gap-1 rounded-2xl bg-lh-surface-2 p-2">
                 {REACTIONS.map((emoji) => (
                   <button
                     key={emoji}
@@ -1665,7 +1665,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                     onClick={() => void toggleReaction(actionMsg, emoji)}
                     aria-label={t('Реакция {emoji}', { emoji })}
                     className={`flex size-10 items-center justify-center rounded-full text-lg transition-transform active:scale-90 ${
-                      myReactions.get(actionMsg.clientMsgId) === emoji ? 'bg-accent/20 ring-1 ring-accent/50' : ''
+                      myReactions.get(actionMsg.clientMsgId) === emoji ? 'bg-lh-accent/20 ring-1 ring-lh-accent/50' : ''
                     }`}
                   >
                     {emoji}
@@ -1675,26 +1675,26 @@ export function ChatTab({ familyId }: { familyId: string }) {
             )}
             <button
               onClick={() => startReply(actionMsg)}
-              className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
+              className="flex w-full items-center gap-3 rounded-xl bg-lh-surface-2 p-3.5 text-left active:opacity-80"
             >
-              <Reply size={ICON.base} className="text-accent" />
+              <Reply size={ICON.base} className="text-lh-accent" />
               {t('Ответить')}
             </button>
             {actionMsg.text && (
               <button
                 onClick={() => void copyText(actionMsg)}
-                className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
+                className="flex w-full items-center gap-3 rounded-xl bg-lh-surface-2 p-3.5 text-left active:opacity-80"
               >
-                <Copy size={ICON.base} className="text-accent" />
+                <Copy size={ICON.base} className="text-lh-accent" />
                 {t('Копировать')}
               </button>
             )}
             {actionMsg.senderMemberId === selfId && !actionMsg.image && !actionMsg.audio && !actionMsg.file && (
               <button
                 onClick={() => startEdit(actionMsg)}
-                className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
+                className="flex w-full items-center gap-3 rounded-xl bg-lh-surface-2 p-3.5 text-left active:opacity-80"
               >
-                <Pencil size={ICON.base} className="text-accent" />
+                <Pencil size={ICON.base} className="text-lh-accent" />
                 {t('Редактировать')}
               </button>
             )}
@@ -1723,5 +1723,5 @@ export function ChatTab({ familyId }: { familyId: string }) {
  *  на светлом пузыре белый и лаймовый давали 1,1–1,7. Подмешиваем цвет текста
  *  темы — тон остаётся узнаваемым, контраст дотягивает. */
 function readableName(color: string | undefined): string | undefined {
-  return color ? `color-mix(in oklab, ${color} 55%, var(--app-text))` : undefined;
+  return color ? `color-mix(in oklab, ${color} 55%, var(--lh-text-primary))` : undefined;
 }

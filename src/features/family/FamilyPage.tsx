@@ -238,8 +238,8 @@ function ScreenWithStatus({
             onClick={onToggleChrome}
             aria-label={chromeOpen ? t('Свернуть панель группы') : t('Показать группы и вкладки')}
             aria-expanded={chromeOpen}
-            className={`flex size-9 items-center justify-center rounded-full text-muted transition-colors active:text-accent ${
-              chromeOpen ? 'bg-surface-2 text-text' : ''
+            className={`flex size-9 items-center justify-center rounded-full text-lh-text-secondary transition-colors active:text-lh-accent ${
+              chromeOpen ? 'bg-lh-surface-2 text-lh-text-primary' : ''
             } ${HIT_SLOP_44}`}
           >
             <ChevronDown
@@ -251,7 +251,7 @@ function ScreenWithStatus({
             <button
               onClick={action.onPress}
               aria-label={action.label}
-              className={`flex size-9 items-center justify-center rounded-full text-muted active:text-accent ${HIT_SLOP_44}`}
+              className={`flex size-9 items-center justify-center rounded-full text-lh-text-secondary active:text-lh-accent ${HIT_SLOP_44}`}
             >
               <ActionIcon size={ICON.header} />
             </button>
@@ -298,14 +298,14 @@ function GroupSwitcher({
             key={c.familyId}
             onClick={() => onSelect(c.familyId)}
             className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium active:opacity-80 ${
-              active ? 'bg-accent-fill text-white' : 'bg-surface-2 text-muted'
+              active ? 'bg-lh-accent text-lh-bg' : 'bg-lh-surface-2 text-lh-text-secondary'
             }`}
           >
             <span className="max-w-[9rem] truncate">{c.familyName || t('Семья')}</span>
             {n > 0 && (
               <span
                 className={`flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-2xs font-bold leading-none ${
-                  active ? 'bg-white/25 text-white' : 'bg-accent-fill text-white'
+                  active ? 'bg-white/25 text-lh-bg' : 'bg-lh-accent text-lh-bg'
                 }`}
               >
                 {n > 99 ? '99+' : n}
@@ -317,7 +317,7 @@ function GroupSwitcher({
       <button
         onClick={onAdd}
         aria-label={t('Добавить группу')}
-        className={`flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-surface-2 text-muted active:opacity-80 ${HIT_SLOP_44}`}
+        className={`flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-lh-surface-2 text-lh-text-secondary active:opacity-80 ${HIT_SLOP_44}`}
       >
         <Plus size={ICON.base} />
       </button>
@@ -325,7 +325,7 @@ function GroupSwitcher({
         <button
           onClick={onManage}
           aria-label={t('Управление группами')}
-          className={`flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-surface-2 text-muted active:opacity-80 ${HIT_SLOP_44}`}
+          className={`flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-lh-surface-2 text-lh-text-secondary active:opacity-80 ${HIT_SLOP_44}`}
         >
           <SlidersHorizontal size={ICON.action} />
         </button>

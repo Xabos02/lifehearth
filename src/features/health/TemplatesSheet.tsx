@@ -38,19 +38,19 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
     <Sheet open={open} onClose={close} title={creating ? t('Новый шаблон') : t('Шаблоны тренировок')}>
       {open && !creating && (
         <div className="space-y-2 pb-2">
-          {list.length === 0 && <p className="py-4 text-center text-sm text-muted">{t('Шаблонов пока нет.')}</p>}
+          {list.length === 0 && <p className="py-4 text-center text-sm text-lh-text-secondary">{t('Шаблонов пока нет.')}</p>}
           {list.map((tpl) => (
-            <div key={tpl.id} className="flex items-center gap-2 rounded-2xl border border-border p-3">
+            <div key={tpl.id} className="flex items-center gap-2 rounded-2xl border border-lh-border-strong p-3">
               <button type="button" onClick={() => onPick(tpl)} className="flex-1 text-left active:opacity-70">
                 <p className="font-medium">{tpl.name}</p>
-                <p className="text-sm text-muted">{summarize(tpl.items)}</p>
+                <p className="text-sm text-lh-text-secondary">{summarize(tpl.items)}</p>
               </button>
               <button
                 type="button"
                 onClick={() => {
                   if (window.confirm(t('Удалить шаблон?'))) void removeTemplate(tpl.id);
                 }}
-                className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+                className={`p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
                 aria-label={t('Удалить шаблон')}
               >
                 <Trash2 size={ICON.base} />
@@ -60,7 +60,7 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 font-medium text-accent active:opacity-70"
+            className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-lh-border-strong py-3 font-medium text-lh-accent active:opacity-70"
           >
             <GPlus size={ICON.action} /> {t('Новый шаблон')}
           </button>
@@ -110,7 +110,7 @@ function TemplateBuilder({ onDone }: { onDone: () => void }) {
         <Input value={name} onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder={t('Например, «День ног»')} />
       </Field>
       {rows.map((row, idx) => (
-        <div key={row.key} className="space-y-2 rounded-2xl border border-border p-3">
+        <div key={row.key} className="space-y-2 rounded-2xl border border-lh-border-strong p-3">
           <div className="flex flex-wrap gap-2">
             {WORKOUT_KINDS.map((k) => (
               <Chip
@@ -137,7 +137,7 @@ function TemplateBuilder({ onDone }: { onDone: () => void }) {
               <button
                 type="button"
                 onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}
-                className={`mt-5 p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+                className={`mt-5 p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
                 // «Убрать» — омоним: в словаре «Clear» (снять срок задачи),
                 // здесь убирается строка вида — английская ветка явная.
                 aria-label={getLang() === 'en' ? 'Remove' : 'Убрать'}
@@ -150,7 +150,7 @@ function TemplateBuilder({ onDone }: { onDone: () => void }) {
             <button
               type="button"
               onClick={() => setRows((prev) => [...prev, newRow()])}
-              className={`flex items-center gap-1 text-sm font-medium text-accent active:opacity-70 ${HIT_SLOP_44}`}
+              className={`flex items-center gap-1 text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
             >
               <GPlus size={ICON.inline} /> {t('Добавить ещё вид')}
             </button>

@@ -35,7 +35,7 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
   const id = 'grp-' + label.replace(/\s+/g, '-').toLowerCase();
   return (
     <div role="group" aria-labelledby={id}>
-      <span id={id} className="mb-1.5 block text-sm font-medium text-muted">
+      <span id={id} className="mb-1.5 block text-sm font-medium text-lh-text-secondary">
         {label}
       </span>
       {children}
@@ -137,7 +137,7 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
                   className={`flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-2xs transition-colors ${
                     active
                       ? 'border-danger bg-danger/15 font-semibold text-danger'
-                      : 'border-hairline bg-surface-2 text-muted'
+                      : 'border-lh-border bg-lh-surface-2 text-lh-text-secondary'
                   }`}
                 >
                   <span aria-hidden className="flex h-1.5 items-center gap-0.5">
@@ -171,8 +171,8 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
                       aria-pressed={Boolean(e)}
                       className={`min-h-11 rounded-xl border px-3 py-2 text-sm transition-colors ${
                         e
-                          ? 'border-accent bg-accent/15 font-medium text-accent'
-                          : 'border-hairline bg-surface-2 text-muted'
+                          ? 'border-lh-accent bg-lh-accent-dim font-medium text-lh-accent'
+                          : 'border-lh-border bg-lh-surface-2 text-lh-text-secondary'
                       }`}
                     >
                       {t(s.label)}

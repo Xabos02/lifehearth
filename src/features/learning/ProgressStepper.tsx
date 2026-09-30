@@ -13,7 +13,7 @@ import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 const BTN_CLASS =
-  `flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-text active:opacity-70 disabled:opacity-40 ${HIT_SLOP_44}`;
+  `flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-text-primary active:opacity-70 disabled:opacity-40 ${HIT_SLOP_44}`;
 
 /** Компактный степпер прогресса: −, значение, +, для страниц ещё «+10». */
 export function ProgressStepper({ item }: { item: LearningItem }) {

@@ -92,13 +92,13 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
   return (
     <div className="card p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate text-lg font-semibold">{title}</h2>
+        <h2 className="min-w-0 truncate text-lg font-light">{title}</h2>
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             aria-label={scale === 'week' ? t('Предыдущая неделя') : t('Предыдущий месяц')}
             onClick={() => shift(-1)}
-            className={`shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+            className={`shrink-0 rounded-lg p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
           >
             <ChevronLeft size={ICON.header} />
           </button>
@@ -106,7 +106,7 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
             type="button"
             aria-label={scale === 'week' ? t('Следующая неделя') : t('Следующий месяц')}
             onClick={() => shift(1)}
-            className={`ml-1 shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+            className={`ml-1 shrink-0 rounded-lg p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
           >
             <ChevronRight size={ICON.header} />
           </button>
@@ -136,7 +136,7 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
       ) : (
         <div className="grid grid-cols-7" data-testid="workout-month">
           {WEEKDAY_LABELS.map((label) => (
-            <div key={label} className="pb-1 text-center text-xs font-medium text-muted">
+            <div key={label} className="pb-1 text-center text-xs font-medium text-lh-text-secondary">
               {t(label)}
             </div>
           ))}
@@ -226,14 +226,14 @@ function DayCell({
         square ? 'aspect-square' : 'py-2'
       } ${
         isSelected
-          ? 'bg-accent-fill font-semibold text-white'
+          ? 'bg-lh-accent font-semibold text-lh-bg'
           : muted || future
-            ? 'text-muted'
-            : 'text-text active:bg-surface-2'
-      } ${isToday && !isSelected ? 'ring-1 ring-accent' : ''}`}
+            ? 'text-lh-text-secondary'
+            : 'text-lh-text-primary active:bg-lh-surface-2'
+      } ${isToday && !isSelected ? 'ring-1 ring-lh-accent' : ''}`}
     >
       {/* Подпись дня — сплошным белым: white/80 на заливке давала 3,65:1. */}
-      {weekday && <span className={`text-[11px] font-medium ${isSelected ? 'text-white' : 'text-muted'}`}>{weekday}</span>}
+      {weekday && <span className={`text-[11px] font-medium ${isSelected ? 'text-lh-bg' : 'text-lh-text-secondary'}`}>{weekday}</span>}
       <span>{day}</span>
       <span className="flex h-1.5 items-center gap-0.5" aria-hidden>
         {dots.map((c, i) => (

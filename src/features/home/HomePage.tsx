@@ -107,7 +107,7 @@ function ProfileCard() {
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className={`text-lg font-semibold ${p?.name?.trim() ? 'truncate' : 'leading-tight'}`}>
+        <p className={`text-lg font-light ${p?.name?.trim() ? 'truncate' : 'leading-tight'}`}>
           {p?.name?.trim() || (hasAny ? t('Без имени') : t('Заполнить профиль'))}
         </p>
         <p className="text-sm leading-snug text-lh-text-secondary">

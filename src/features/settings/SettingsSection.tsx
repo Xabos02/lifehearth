@@ -23,9 +23,9 @@ export function Section({
 }) {
   return (
     <section>
-      <h2 className="mb-2 px-1 text-sm font-semibold text-muted">{title}</h2>
+      <h2 className="lh-section mb-2 px-1">{title}</h2>
       {children}
-      {footnote && <p className="mt-2 px-1 text-xs leading-snug text-muted">{footnote}</p>}
+      {footnote && <p className="mt-2 px-1 text-xs leading-snug text-lh-text-secondary">{footnote}</p>}
     </section>
   );
 }
@@ -49,10 +49,10 @@ export function Row({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-11 flex-wrap items-center gap-2 border-t border-hairline px-4 py-2.5 first:border-t-0">
-      {Icon && <Icon size={ICON.header} className="shrink-0 text-muted" />}
+    <div className="flex min-h-11 flex-wrap items-center gap-2 border-t border-lh-border px-4 py-2.5 first:border-t-0">
+      {Icon && <Icon size={ICON.header} className="shrink-0 text-lh-text-secondary" />}
       <span className="flex-1">{label}</span>
-      {value != null && <span className="shrink-0 text-sm text-muted">{value}</span>}
+      {value != null && <span className="shrink-0 text-sm text-lh-text-secondary">{value}</span>}
       {children}
     </div>
   );
@@ -77,12 +77,12 @@ export function LinkRow({
   return (
     <Link
       to={to}
-      className="flex min-h-11 items-center gap-2 border-t border-hairline px-4 py-2.5 first:border-t-0 active:bg-surface-2"
+      className="flex min-h-11 items-center gap-2 border-t border-lh-border px-4 py-2.5 first:border-t-0 active:bg-lh-surface-2"
     >
-      {Icon && <Icon size={ICON.header} className="shrink-0 text-muted" />}
+      {Icon && <Icon size={ICON.header} className="shrink-0 text-lh-text-secondary" />}
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {value != null && <span className="shrink-0 text-sm text-muted">{value}</span>}
-      <ChevronRight size={ICON.action} className="shrink-0 text-muted" />
+      {value != null && <span className="shrink-0 text-sm text-lh-text-secondary">{value}</span>}
+      <ChevronRight size={ICON.action} className="shrink-0 text-lh-text-secondary" />
     </Link>
   );
 }
@@ -106,11 +106,11 @@ export function ButtonRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-11 w-full items-center gap-2 border-t border-hairline px-4 py-2.5 text-left first:border-t-0 active:bg-surface-2"
+      className="flex min-h-11 w-full items-center gap-2 border-t border-lh-border px-4 py-2.5 text-left first:border-t-0 active:bg-lh-surface-2"
     >
-      {Icon && <Icon size={ICON.header} className="shrink-0 text-muted" />}
+      {Icon && <Icon size={ICON.header} className="shrink-0 text-lh-text-secondary" />}
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="shrink-0 text-sm font-semibold text-accent">{action}</span>
+      <span className="shrink-0 text-sm font-semibold text-lh-accent">{action}</span>
     </button>
   );
 }
