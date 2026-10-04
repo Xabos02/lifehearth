@@ -104,6 +104,11 @@ async function scrollerBox(page: Page) {
   });
 }
 
+/** Подсветка секции-цели — золотое кольцо токена дизайн-системы. Класс
+ *  целиком, а не подстрока: «ring-accent» после перехода на lh-токены
+ *  перестал встречаться, и проверка краснела на исправной подсветке. */
+const DROP_HIGHLIGHT = /(^|\s)ring-lh-accent(\s|$)/;
+
 /** Навестись на секцию так, чтобы палец в итоге стоял ВНЕ краевых зон
  *  авто-скролла и ВНУТРИ секции. Одного захода мало по двум причинам: точка
  *  в краевой зоне заставляет список ехать, а смена цели двигает линию вставки
@@ -123,7 +128,7 @@ async function hoverSection(page: Page, key: string) {
     const inBand = y > z.topZoneEnd && y < z.bottomZoneStart;
     if (after && inBand && y > after.y + 2 && y < after.y + after.height - 2) break;
   }
-  await expect(target, `секция ${key} не подсветилась — попадания не было`).toHaveClass(/ring-accent/);
+  await expect(target, `секция ${key} не подсветилась — попадания не было`).toHaveClass(DROP_HIGHLIGHT);
 }
 
 // ---------------------------------------------------------------------------
@@ -377,7 +382,7 @@ test('отпустить задачу чуть выше свёрнутой па�
   const x = p2.x + p2.width / 2;
   await page.mouse.move(x, p2.y - 5);
   await page.mouse.move(x, p2.y - 10);
-  await expect(page.locator('[data-drop-key="p2"]')).toHaveClass(/ring-accent/);
+  await expect(page.locator('[data-drop-key="p2"]')).toHaveClass(DROP_HIGHLIGHT);
   await page.mouse.up();
   await expect.poll(() => projectOf(page, 't1_0')).toBe('p2');
 });
