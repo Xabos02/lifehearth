@@ -187,6 +187,10 @@ test('при вложении линия вставки не спорит с п�
   await health.hover();
   await page.mouse.down();
   await page.waitForTimeout(650);
+  // Якорь: пока жест — смена порядка, линия есть. Без него проверка ниже
+  // молча слепнет, стоит линии сменить разметку, — так уже было, когда она
+  // искалась по классу тени, снятому из интерфейса.
+  await expect(page.getByTestId('project-drop-line')).toHaveCount(1);
 
   const box = (await health.boundingBox())!;
   const biz = (await page.getByText('Бизнес', { exact: true }).first().boundingBox())!;
@@ -196,7 +200,7 @@ test('при вложении линия вставки не спорит с п�
 
   await expect(page.getByText(/Внутрь «Бизнес»/)).toBeVisible();
   // Линии вставки при этом быть не должно ни одной.
-  await expect(page.locator('.bg-accent.shadow-\\[0_0_12px_2px_var\\(--app-accent-fill\\)\\]')).toHaveCount(0);
+  await expect(page.getByTestId('project-drop-line')).toHaveCount(0);
   await page.mouse.up();
   await page.waitForTimeout(400);
   expect(await parentOf(page, 'p2')).toBe('p1');
