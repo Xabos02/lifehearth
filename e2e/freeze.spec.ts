@@ -26,12 +26,15 @@ function sheet(page: Page): Locator {
   return page.locator('.fixed.inset-0.z-50');
 }
 
-/** Скролл-контейнер списка кандидатов. Селектор — по трём классам, которые
+/** Скролл-контейнер списка кандидатов. Селектор — по двум классам, которые
  *  остаются на нужном узле и в правильной, и в сломанной (объединённой с
  *  .card на одном элементе) версии разметки: один и тот же локатор одинаково
- *  честно проверяет и фикс, и его временный откат при проверке на красноту. */
+ *  честно проверяет и фикс, и его временный откат при проверке на красноту.
+ *  Цвет разделителя в селектор не входит: при переходе на токены lh-*
+ *  divide-hairline стал divide-lh-border, и локатор потерял узел, хотя
+ *  прокрутка была цела. */
 function candidatesScroller(page: Page): Locator {
-  return sheet(page).locator('.divide-y.divide-hairline.overflow-y-auto');
+  return sheet(page).locator('.divide-y.overflow-y-auto');
 }
 
 interface SeedProject {
