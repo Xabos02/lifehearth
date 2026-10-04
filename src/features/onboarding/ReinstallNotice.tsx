@@ -73,7 +73,7 @@ export function ReinstallNotice() {
       <div className="relative m-3 flex max-h-[88dvh] w-full max-w-md animate-fade-in flex-col overflow-hidden rounded-3xl border border-lh-border-strong bg-lh-bg">
         {/* Шапка */}
         <div className="relative flex items-center gap-3 px-5 pt-5 pb-4">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl tile-accent text-lh-accent">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl tile-lh text-lh-accent">
             <Sparkles size={ICON.accent} strokeWidth={STROKE_STRONG} />
           </div>
           <div className="min-w-0 pr-7">

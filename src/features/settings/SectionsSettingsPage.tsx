@@ -313,7 +313,7 @@ export function SectionsSettingsPage() {
             {opts.homeIndex}
           </span>
         )}
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
           <Icon size={ICON.header} />
         </div>
         {/* Обычный shrink (был shrink-[0.05]): при сумме flex-факторов меньше 1
@@ -363,7 +363,7 @@ export function SectionsSettingsPage() {
   // как у обычной строки (см. row): те же зазоры, тот же неусыхаемый бейдж.
   const anchorRow = anchor && (
     <div className="flex items-center gap-3 card p-3 max-[375px]:gap-2 max-[375px]:px-2">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
         <anchor.icon size={ICON.header} />
       </div>
       <span className="min-w-0 grow basis-auto truncate font-semibold">{t(anchor.label)}</span>

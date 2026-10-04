@@ -224,10 +224,10 @@
   --shadow-pop: 0 8px 30px -8px oklch(0 0 0 / 0.6);
   --shadow-accent: 0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);
   /* Тень под плиткой знака. Мягче акцентной: та поднимает кнопку, эта лишь
-     отделяет плитку от карточки. Цвет тянется из --app-accent, поэтому
-     переопределять её в каждой палитре не нужно. */
-  --shadow-tile: 0 8px 20px -14px color-mix(in oklab, var(--app-accent) 55%, transparent);
-  --shadow-focus: 0 10px 30px -8px oklch(0.66 0.205 38 / 0.5);
+     отделяет плитку от карточки. Цвет тянется из --lh-accent, как и сама
+     плитка .tile-lh, поэтому переопределять её в светлой теме не нужно. */
+  --shadow-tile: 0 8px 20px -14px color-mix(in oklab, var(--lh-accent) 55%, transparent);
+  --shadow-focus: 0 10px 30px -8px color-mix(in oklab, var(--focus-accent) 50%, transparent);
 
   /* ── Дизайн-система LifeHearth: чёрный + золото ──
      Источник — канва на 29 экранов. Текст идёт ступенями прозрачности одного
@@ -298,8 +298,8 @@
   --shadow-card: 0 1px 2px oklch(0.7 0.02 284 / 0.18), 0 10px 24px -14px oklch(0.5 0.04 284 / 0.3);
   --shadow-pop: 0 10px 30px -8px oklch(0.5 0.04 284 / 0.25);
   --shadow-accent: 0 10px 30px -10px oklch(0.58 0.17 266 / 0.45);
-  --shadow-tile: 0 6px 16px -12px color-mix(in oklab, var(--app-accent) 40%, transparent);
-  --shadow-focus: 0 10px 30px -10px oklch(0.62 0.205 35 / 0.45);
+  --shadow-tile: 0 6px 16px -12px color-mix(in oklab, var(--lh-accent) 40%, transparent);
+  --shadow-focus: 0 10px 30px -10px color-mix(in oklab, var(--focus-accent) 45%, transparent);
   /* Светлой версии чёрно-золотой системы пока нет на канве. Чтобы светлая
      тема не стала тёмной из-за body и lh-утилит, lh-токены здесь смотрят на
      существующую светлую палитру; золото затемнено до текста на белом. */
@@ -788,25 +788,12 @@ select {
  *
  * Границу держим внутри размера (box-sizing: border-box у Tailwind по
  * умолчанию), поэтому size-10 остаётся 40px и раскладка не едет. */
-.tile-accent {
+.tile-lh {
   /* Стопы НЕПРОЗРАЧНЫЕ — акцент подмешан к поверхности, а не к transparent.
      Полупрозрачный градиент выглядит так же, но ломает замер контраста: обход
      в e2e/contrast.spec.ts, найдя backgroundImage, берёт его стопы за базу и
      прекращает подъём по родителям, а прозрачный стоп базой быть не может —
      все иконки на плитках показывали 1.01:1 вместо реальных четырёх. */
-  background-image: linear-gradient(
-    150deg,
-    color-mix(in oklab, var(--app-accent) 20%, var(--app-surface)),
-    color-mix(in oklab, var(--app-accent) 8%, var(--app-surface))
-  );
-  border: 1px solid color-mix(in oklab, var(--app-accent) 24%, transparent);
-  box-shadow: var(--shadow-tile);
-}
-/* Та же плитка на токенах LifeHearth — для переведённых экранов. Отдельный
-   класс, а не правка .tile-accent: непереведённые экраны ставят на плитку
-   синий text-accent, и золотая подложка под синим знаком была бы хуже обоих.
-   Стопы непрозрачные по той же причине, что выше (замер контраста). */
-.tile-lh {
   background-image: linear-gradient(
     150deg,
     color-mix(in oklab, var(--lh-accent) 16%, var(--lh-surface)),

@@ -100,7 +100,7 @@ function LearningCard({
       className="card p-4 active:opacity-90"
     >
       <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
           <Icon size={ICON.header} />
         </div>
         <div className="min-w-0 flex-1">

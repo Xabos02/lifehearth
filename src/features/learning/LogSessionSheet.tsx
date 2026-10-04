@@ -62,7 +62,7 @@ function SessionForm({ item, onClose }: { item: LearningItem; onClose: () => voi
             }}
             className={`h-11 flex-1 rounded-xl text-base font-semibold tabular-nums transition-all duration-200 ${
               total === m
-                ? 'bg-lh-accent text-lh-bg shadow-[0_2px_10px_-3px_var(--app-accent-fill)]'
+                ? 'bg-lh-accent text-lh-bg shadow-[0_2px_10px_-3px_var(--lh-accent-border)]'
                 : 'bg-lh-surface-2 text-lh-text-secondary active:text-lh-text-primary'
             }`}
           >

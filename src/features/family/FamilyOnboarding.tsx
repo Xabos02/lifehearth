@@ -38,7 +38,7 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
     <div className="flex h-full flex-col items-center justify-center gap-5 py-10 text-center">
       <div
         aria-hidden
-        className="flex size-20 items-center justify-center rounded-3xl bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent"
+        className="flex size-20 items-center justify-center rounded-3xl tile-lh text-lh-accent"
       >
         <Plus size={ICON.hero} strokeWidth={STROKE_HEAVY} />
       </div>

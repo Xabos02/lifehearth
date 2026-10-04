@@ -78,12 +78,12 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
               e.stopPropagation();
               openMaps(item.location);
             }}
-            className={`flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
+            className={`flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
           >
             <MapPin size={ICON.header} />
           </button>
         ) : (
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
             <Icon size={ICON.header} />
           </div>
         )}

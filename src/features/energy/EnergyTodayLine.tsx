@@ -63,7 +63,7 @@ export function EnergyTodayLine({ collapsed = false }: { collapsed?: boolean }) 
               <span
                 className={`flex size-9 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
                   active
-                    ? 'bg-lh-accent text-lh-bg shadow-[0_2px_10px_-3px_var(--app-accent-fill)]'
+                    ? 'bg-lh-accent text-lh-bg shadow-[0_2px_10px_-3px_var(--lh-accent-border)]'
                     : 'bg-lh-surface-2 text-lh-text-secondary'
                 }`}
               >
