@@ -933,7 +933,8 @@ textarea:focus-visible {
     overflow: visible !important;
   }
   body,
-  #root {
+  #root,
+  #app-frame {
     background: #fff !important;
     color: #000 !important;
   }
@@ -943,10 +944,11 @@ textarea:focus-visible {
     border-color: #000 !important;
     box-shadow: none !important;
   }
-  .divide-hairline > * + * {
+  .divide-lh-border > * + * {
     border-color: #000 !important;
   }
-  .text-muted {
+  .text-lh-text-secondary,
+  .lh-section {
     color: #333 !important;
   }
 }
