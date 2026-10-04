@@ -10,8 +10,11 @@ interface Props<T extends string> {
 }
 
 export function SegmentedControl<T extends string>({ options, value, onChange }: Props<T>) {
+  // Обводка трека — ring-inset, а не border: border съедает 2px ширины, и их
+  // целиком теряет самый короткий сегмент (длинные упираются в свой текст).
+  // В шите места «Еда» на Linux так ушла с 44 до 42px — ниже зоны касания.
   return (
-    <div className="flex rounded-lh-btn border border-lh-border bg-lh-surface-2 p-1">
+    <div className="flex rounded-lh-btn bg-lh-surface-2 p-1 ring-1 ring-inset ring-lh-border">
       {options.map((o) => (
         <button
           key={o.value}
