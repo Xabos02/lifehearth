@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body{margin:0;background:#08080f;font-family:Inter,-apple-system,system-ui,sans-serif}
+    .ab{width:375px;background:#08080f;color:#f0eee8}
+    .cap{height:40px;box-sizing:border-box;margin:0;padding:16px 16px 0;font-size:12px;font-weight:600;
+      letter-spacing:0.03em;text-transform:uppercase;color:rgba(240,238,232,0.52)}
+    .row{display:flex;gap:20px}
+    img{display:block;width:375px}
+  </style>
+</helmet>
+<div class="ab">
+  <img src="shots/aurora-none.webp" alt="">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":812}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
