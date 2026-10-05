@@ -1,34 +1,30 @@
 import { test, expect, openApp } from './fixtures';
 
-// Оформление: акцентные темы и строка версии в настройках.
+// Оформление: акцент и строка версии в настройках.
 
-test('акцент меняется мгновенно и переживает перезагрузку', async ({ page }) => {
+// Акцент один — золото (канва design/palette, 05.10.2026). Переключатель
+// «Индиго / Изумруд / Закат» убран: экраны и так красились золотом, а выбранный
+// цвет доставался только рамке фокуса, свечению под кнопками и галочкам в
+// заметках — то есть спорил с золотом. Страж держит обе половины: выбора нет,
+// и общий акцент со свечением собраны из золота в обеих темах, а не из
+// захардкоженного цвета.
+test('акцент один — золото: выбора цвета нет, фокус и свечение золотые', async ({ page }) => {
   await openApp(page, '/more/settings');
+  await expect(page.getByRole('button', { name: /Индиго|Изумруд|Закат/ })).toHaveCount(0);
 
-  const accentOf = () =>
-    page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue('--app-accent').trim(),
-    );
-  const indigo = await accentOf();
-
-  await page.getByRole('button', { name: /Изумруд/ }).click();
-  // Настройка едет асинхронно (Dexie → live-запрос → эффект) — ждём, не меряем сразу.
-  await expect.poll(accentOf).not.toBe(indigo);
-  const emerald = await accentOf();
-  await expect
-    .poll(() => page.evaluate(() => document.documentElement.dataset.accent))
-    .toBe('emerald');
-
-  // Настройка device-local, как тема: живёт в IndexedDB и держится после
-  // перезагрузки.
-  await page.reload();
-  await expect(page.getByRole('button', { name: /Изумруд/ })).toBeVisible();
-  await expect.poll(accentOf).toBe(emerald);
-
-  // Возврат к классике — атрибут снимается, токены дефолтные.
-  await page.getByRole('button', { name: /Индиго/ }).click();
-  await expect.poll(accentOf).toBe(indigo);
-  expect(await page.evaluate(() => document.documentElement.dataset.accent)).toBeUndefined();
+  for (const light of [false, true]) {
+    const v = await page.evaluate((light) => {
+      document.documentElement.classList.toggle('light', light);
+      const cs = getComputedStyle(document.documentElement);
+      return {
+        accent: cs.getPropertyValue('--app-accent').trim(),
+        gold: cs.getPropertyValue('--lh-accent').trim(),
+        glow: cs.getPropertyValue('--shadow-accent'),
+      };
+    }, light);
+    expect(v.accent, light ? 'светлая' : 'тёмная').toBe(v.gold);
+    expect(v.glow, light ? 'светлая' : 'тёмная').toContain(v.gold);
+  }
 });
 
 test('строка версии живая и открывает «Что нового»', async ({ page }) => {

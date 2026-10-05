@@ -53,6 +53,8 @@ const CC_THEME: CSSProperties = {
   '--lh-accent': 'var(--lh-ai-accent)',
   '--lh-accent-dim': 'color-mix(in srgb, var(--lh-ai-accent) 15%, transparent)',
   '--lh-accent-border': 'color-mix(in srgb, var(--lh-ai-accent) 30%, transparent)',
+  // Общее свечение собрано из золота в :root — здесь своё, индиговое.
+  '--shadow-accent': '0 10px 30px -8px color-mix(in oklab, var(--lh-ai-accent) 50%, transparent)',
 } as CSSProperties;
 
 export function AiPage() {

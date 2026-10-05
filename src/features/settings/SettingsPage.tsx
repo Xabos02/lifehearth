@@ -13,7 +13,6 @@ import {
   GBellRing as BellRing,
   GTasks as ListChecks,
 } from '../../components/ui/glyphs';
-import { ACCENTS } from '../../lib/accents';
 import { getLang, resolveLang, t } from '../../lib/i18n';
 import { APP_VERSION } from '../../lib/changelog';
 import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/sounds';
@@ -163,13 +162,6 @@ export function SettingsPage() {
     }
   }
 
-  // Светлая ли тема прямо сейчас: образцы акцентов рисуются цветами ТЕКУЩЕЙ
-  // темы, иначе превью обещает не те цвета, что человек получит.
-  const light =
-    settings.theme === 'light' ||
-    (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches);
-  const selectedAccent = ACCENTS.find((a) => a.id === (settings.accent ?? 'indigo')) ?? ACCENTS[0];
-
   return (
     <Screen title={t('Настройки')} backTo="/home">
       <div className="space-y-6">
@@ -182,52 +174,6 @@ export function SettingsPage() {
                 value={settings.theme}
                 onChange={(theme) => void updateSettings({ theme })}
               />
-            </div>
-            {/* ВЫБОР ЦВЕТА — РЯД ОБРАЗЦОВ, А НЕ СПИСОК СТРОК.
-                Раньше каждый акцент был строкой с названием, описанием и
-                галочкой: 262px на три варианта, и сравнить цвета было нельзя —
-                они разнесены по вертикали, глаз держит только соседние. Цвет
-                объясняет себя сам, названию место у выбранного.
-
-                Образец показывает акцент и его пару градиентом — те же два
-                цвета, которыми потом красится интерфейс. Цвета берутся для
-                ТЕКУЩЕЙ темы: превью в чужой теме обещало бы не то, что человек
-                получит. Акцент применяется мгновенно, так что сам экран и есть
-                предпросмотр. */}
-            <div className="flex items-center gap-3.5 border-t border-lh-border p-3.5">
-              {ACCENTS.map((a) => {
-                const selected = (settings.accent ?? 'indigo') === a.id;
-                const [c1, c2] = light ? a.light : a.dark;
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => void updateSettings({ accent: a.id })}
-                    aria-pressed={selected}
-                    aria-label={t(a.label)}
-                    // Кольцо цветом самого акцента, с зазором цвета карточки —
-                    // белая обводка спорила бы с палитрой, а без зазора кольцо
-                    // сливается с образцом.
-                    // Выбор показывает КОЛЬЦО, а не галочка внутри образца:
-                    // белый глиф на светлом акценте дал 2.62:1 при норме 3 для
-                    // иконок (поймал прогон контраста), а перекрашивать его в
-                    // тёмный пришлось бы по-разному для каждого акцента.
-                    // Кольцо ничего не перекрывает и читается на любом цвете:
-                    // зазор цвета карточки отделяет его от самого образца.
-                    className="size-11 shrink-0 rounded-full transition-transform active:scale-95"
-                    style={{
-                      background: `linear-gradient(135deg, ${c1}, ${c2})`,
-                      boxShadow: selected ? `0 0 0 2.5px var(--lh-surface), 0 0 0 5px ${c1}` : undefined,
-                    }}
-                  />
-                );
-              })}
-              {/* Подпись выбранного — справа: она объясняет ровно один образец,
-                  и повторять её у каждого незачем. */}
-              <span className="min-w-0 flex-1 text-right">
-                <span className="block truncate font-semibold">{t(selectedAccent.label)}</span>
-                <span className="block truncate text-xs text-lh-text-secondary">{t(selectedAccent.hint)}</span>
-              </span>
             </div>
             {/* Смена языка перерисовывает приложение перезагрузкой: строки
                 читаются в момент рендера, reload — честный способ обновить

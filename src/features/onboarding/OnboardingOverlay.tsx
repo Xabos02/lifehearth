@@ -116,7 +116,6 @@ export function OnboardingOverlay() {
 
   return (
     <div className="fixed inset-0 z-[80] flex flex-col bg-lh-bg">
-      <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
       {/* key={step} перезапускает fade-in при смене слайда.
 
           Свайп влево/вправо листает слайды — на телефоне это первый жест,

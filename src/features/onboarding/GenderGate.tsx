@@ -36,7 +36,6 @@ export function GenderGate() {
     // пользователя без выбранного пола этот экран обязан быть первым, что он
     // видит, а не третьим в очереди одноразовых окон.
     <div className="fixed inset-0 z-[90] flex flex-col bg-lh-bg">
-      <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
       <div className="relative flex min-h-0 flex-1 animate-fade-in flex-col items-center justify-center gap-5 px-8 text-center">
         <div className="flex size-20 items-center justify-center rounded-3xl tile-lh text-lh-accent shadow-[var(--shadow-accent)]">
           <UserRound size={ICON.hero} strokeWidth={STROKE_STRONG} />

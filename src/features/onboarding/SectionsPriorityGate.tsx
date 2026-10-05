@@ -83,7 +83,6 @@ export function SectionsPriorityGate() {
 
   return (
     <div className="fixed inset-0 z-[82] flex flex-col bg-lh-bg">
-      <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
       <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+24px)]">
         <div className="mb-5 flex flex-col items-center gap-3 text-center">
           <div className="flex size-14 items-center justify-center rounded-2xl tile-lh text-lh-accent">

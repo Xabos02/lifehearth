@@ -148,7 +148,6 @@ export function ConsentGate() {
       aria-labelledby="consent-title"
       className="fixed inset-0 z-[84] flex flex-col bg-lh-bg"
     >
-      <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
       {/* key: смена вида — новый контейнер прокрутки, с начала, а не с того
           места, куда пролистали краткий вид. */}
       <div
