@@ -77,8 +77,7 @@ OKLCH: L перцептивно равномерна, глубину можно 
 - текстовый токен как заливка — только у безглифовых форм: точка, прогресс, столбик, полоса
   приоритета.
 
-[планка] `Checkbox.tsx:38` (белая галочка на `--app-accent`, 2.62:1), `AiPage.tsx:310` (градиент из
-текстовых токенов), `PlanList.tsx:45`.
+[планка] `AiPage.tsx:310` (градиент из текстовых токенов), `PlanList.tsx:45`.
 
 ### 1.2. Контраст — измеряется, не постулируется
 
@@ -121,8 +120,8 @@ OKLCH: L перцептивно равномерна, глубину можно 
 раздела — в `:root` и `:root.light` (`--focus-*`, `--cc-*`), в компоненте — только `var()`.
 
 - `FOCUS_VARS` — тёплый hue 27/55 в духе Focus To-Do; дуга кольца — градиент, своя `--shadow-focus`.
-- `CC_THEME` (`AiPage.tsx:46`) — клай Claude Code, фон кода `--cc-code-bg`. [планка] Перекрывает два
-  токена из пяти: «Отправить» — общего акцента (§19).
+- `CC_THEME` (`AiPage.tsx:49`) — индиго `--lh-ai-accent` (§1.9): перекрывает `--app-accent`, `-2`, `-fill`,
+  `--shadow-accent` и `--lh-accent*`; фон кода `--cc-code-bg`.
 
 Список закрыт этими двумя; новый — только при сильном внешнем ориентире и со словом владельца.
 
@@ -315,8 +314,8 @@ FAB, таб-бар и safe-area сюда не добавлять (вернётс
 активная вкладка, «Назад», крестик поля; `STROKE_HEAVY = 2.4` — глиф на заливке
 (галочка, «+» на FAB). CSS `.lucide { stroke-width }` и литералы веса запрещены. [планка]
 `GoalsProgress.tsx:128`, `PlanList.tsx:49`; отметка выбора заметок — `STROKE_STRONG` на
-`bg-accent-fill` (`NotesPage.tsx:239`); галочка чек-листа заметок — CSS-рамка 2.5px `#fff`
-(`index.css:628-636`), мимо `STROKE_*`.
+`bg-lh-accent` (`NotesPage.tsx:237`); галочка чек-листа заметок — CSS-рамка 2.5px цвета `--lh-bg`
+(`index.css:684`), мимо `STROKE_*`.
 
 Семь ступеней `ICON.*` (`icons.ts:65`): `inline` 14 (в строке текста), `action` 16 (действие в
 строке списка), `base` 18 (шиты, ряды, кнопки), `header` 20 (шапка, таб-бар, шевроны), `accent` 24
@@ -414,11 +413,11 @@ FAB, таб-бар и safe-area сюда не добавлять (вернётс
 
 ### 5.3. Кнопки (`Button.tsx`, `IconButton.tsx`)
 
-`Button` — четыре варианта: `primary` (`bg-accent-fill text-white`), `secondary` (`bg-surface-2`),
-`ghost` (`text-accent`), `danger` (подложка `danger/15`; сплошной красный — только у
+`Button` — четыре варианта: `primary` (`bg-lh-accent text-lh-bg`), `secondary` (`bg-lh-surface-2`),
+`ghost` (`text-lh-accent`), `danger` (подложка `danger/15`; сплошной красный — только у
 свайп-удаления). `rounded-xl px-4 py-3 font-semibold`, `active:scale-[0.98]` за 150ms,
 `disabled:opacity-40`; prominent — одна-две на экран. [планка] Инлайн-пилюля `rounded-full
-bg-accent-fill text-sm` мимо `Button`; CTA гейтов — конвенция, не вариант (§19).
+bg-lh-accent text-sm` мимо `Button`; CTA гейтов — конвенция, не вариант (§19).
 
 `IconButton` — единственная кнопка-иконка шапки: бокс `size-9`, `ICON.header` + `shrink-0`,
 `HIT_SLOP_44`, обязательный `label`, `tone`, `filled`; `className` — не метрика (шесть прежних
@@ -468,8 +467,8 @@ overflow-x-hidden overscroll-none`, въезд 250ms. Панель «мёртв�
 - Пустое поле даты выглядит пустым (`date-empty` + «Не задан»: WebKit рисовал сегодняшнее число);
   под ним «Сегодня», «Завтра», «Убрать».
 - `Chip` — пилюля `px-3.5 py-1.5 text-sm`, `HIT_SLOP_44`, `aria-pressed`; активный — сплошная
-  `bg-accent-fill text-white` (текст на подложке упирается в 3.3:1).
-- `SegmentedControl` — выбор варианта (активный — `bg-accent-fill`), не навигация. Обводка трека —
+  `border-lh-accent bg-lh-accent text-lh-bg` (текст на подложке упирается в 3.3:1).
+- `SegmentedControl` — выбор варианта (активный — `bg-lh-accent text-lh-bg`), не навигация. Обводка трека —
   `ring-1 ring-inset`, не `border`: бордер отнимает 2px у самого короткого сегмента («Еда» в шите
   места на Linux — 42px вместо 44).
 - `Switch` — одно «вкл/выкл» (`role="switch"`, 26×44), не сегменты «Выкл/Вкл» (44px против 115);
@@ -489,7 +488,7 @@ overflow-x-hidden overscroll-none`, въезд 250ms. Панель «мёртв�
   «Привычках», «Энергии», «Корзине».
 - `Fab` — круг 56, «+» 24 `STROKE_HEAVY`; только на экранах списков с добавлением; сам ставит
   `--fab-strip: 68px`; удержание 450ms — перенос. Два смысла — спрашивает шторкой («Что создать?»).
-- `TabBar` — «Главная» + до 4 разделов, активная — `STROKE_STRONG` + `text-accent`; скрыт в
+- `TabBar` — «Главная» + до 4 разделов, активная — `STROKE_STRONG` + `text-lh-accent`; скрыт в
   редакторе заметки и на чате семьи.
 
 ### 5.8. Отклик, наведение, фокус, загрузка
