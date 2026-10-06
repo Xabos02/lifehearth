@@ -5,7 +5,7 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 const styles: Record<Variant, string> = {
   primary: 'bg-lh-accent text-lh-bg active:opacity-90',
   secondary: 'bg-lh-surface-2 text-lh-text-primary border border-lh-border active:opacity-80',
-  ghost: 'bg-transparent text-lh-accent active:opacity-60',
+  ghost: 'bg-transparent border border-lh-accent text-lh-accent active:opacity-60',
   danger: 'bg-danger/15 text-danger active:opacity-80',
 };
 

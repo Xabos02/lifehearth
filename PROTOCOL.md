@@ -170,18 +170,25 @@ OKLCH: L перцептивно равномерна, глубину можно 
 | Токен | Значение (тёмная) | Утилита Tailwind |
 |---|---|---|
 | `--lh-bg` | `#08080F` | `bg-lh-bg` |
-| `--lh-surface` / `--lh-surface-2` | `#111118` / `#1A1A24` | `bg-lh-surface`, `bg-lh-surface-2` |
+| `--lh-surface` / `--lh-surface-2` | `#18181F` / `#22222D` (макет — `#111118`: 1.06:1 к фону, ниже порога карточки 1.12 из §1.7) | `bg-lh-surface`, `bg-lh-surface-2` |
 | `--lh-accent` | `#C9A84C` | `text-lh-accent`, `bg-lh-accent` |
 | `--lh-accent-dim` / `--lh-accent-border` | золото 15% / 30% | `bg-lh-accent-dim`, `border-lh-accent-border` |
-| `--lh-text-primary` / `-secondary` / `-tertiary` | `#F0EEE8` / 45% / 25% | `text-lh-text`, `text-lh-text-secondary`, `text-lh-text-tertiary` |
-| `--lh-border` / `--lh-border-strong` | белый 8% / 15% | `border-lh-border`, `border-lh-border-strong` |
-| `--lh-radius-card` / `-btn` / `-sm` | 20 / 14 / 10px | `rounded-lh-card`, `rounded-lh-btn`, `rounded-lh-sm` |
+| `--lh-text-primary` / `-secondary` / `-tertiary` | `#F0EEE8` / 52% / 25% (макет — 45%: 3.98:1, ниже AA) | `text-lh-text`, `text-lh-text-secondary`, `text-lh-text-tertiary` |
+| `--lh-border` / `--lh-border-strong` | белый 7% / 15% | `border-lh-border`, `border-lh-border-strong` |
+| `--lh-radius-card` / `-btn` / `-sm` | 16 / 12 / 10px | `rounded-lh-card`, `rounded-lh-btn`, `rounded-lh-sm` |
 | `--lh-ai-accent` | `#8B7CF6` | `text-lh-ai` — **только раздел ИИ** |
 
-Типографика: `.lh-heading` (28px/200, трекинг −0.5px), `.lh-body` (15px/400), `.lh-label`
+Типографика: `.lh-heading` (28px/300, трекинг −0.5px), `.lh-section` (12px, капс, 0.08em), `.lh-body` (15px/400), `.lh-label`
 (12px/300, капс, 0.05em), `.lh-caption` (11px/300). В светлой теме lh-токены указывают на
 существующую светлую палитру, золото затемнено (`#8A6D1F`). [планка] Третичный текст 25% — для
 декоративных подписей; для значимого текста контраст сверять по §1.2.
+
+Компоненты (редизайн 06.10.2026): таб-бар — только иконки (имя вкладки в `aria-label`), фон
+`--lh-bg` 92% + `backdrop-blur 20px`; неактивная иконка — `secondary`, не `tertiary` (25% даёт
+~2:1, ниже 3:1 для графики). Fab — 56px, золото, без тени; глиф тёмный `--lh-bg`, не белый (белый
+на `#C9A84C` ≈2.2:1). Пустое состояние — знак 40px без плитки цветом `secondary` (по той же причине).
+Кнопка ghost — рамка 1px и текст золотом. Тёмные `--app-bg` / `--app-elevated` / `--app-border` —
+`#08080F` / `#111118` / белый 7%; `--app-accent` не тронут: он принадлежит пикеру акцентных тем.
 
 ## 2. Типографика
 
