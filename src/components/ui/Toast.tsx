@@ -20,6 +20,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           Регион висит в DOM всегда, меняется только текст: вставленный вместе с
           сообщением, он озвучивается не во всех связках браузер-скринридер. */}
       <div
+        // id — для слоя тоста на время перехода экранов (index.css).
+        id="toast"
         role="status"
         aria-live="polite"
         className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+92px)] z-[60] flex justify-center px-6"

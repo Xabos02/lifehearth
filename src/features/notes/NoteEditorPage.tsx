@@ -25,6 +25,7 @@ import {
 } from '../../components/ui/glyphs';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
+import { NAV_BACK } from '../../components/layout/navState';
 import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 import { MicButton } from '../../components/ui/MicButton';
 import { Hint } from '../../components/ui/Hint';
@@ -316,7 +317,19 @@ export function NoteEditorPage() {
         });
         savedIdRef.current = created.id;
         knownAtRef.current = created.updatedAt;
-        navigate(`/notes/${created.id}`, { replace: true });
+        // «Удалить» нажали, пока запись создавалась: handleDelete её ещё не
+        // видел (savedIdRef был пуст) — в корзину она уходит здесь.
+        if (deletedRef.current) {
+          await remove(db.notes, created.id);
+          return;
+        }
+        // Адрес подменяем, только если человек ещё в новой заметке. Создание,
+        // начатое уходом с поля («Готово», «Назад», вкладка), заканчивается уже
+        // после ухода — и replace возвращал его из списка обратно в редактор.
+        // Настоящий адрес, а не роутера: при переходе экранов тот отстаёт на кадр.
+        if (window.location.pathname.endsWith('/notes/new')) {
+          navigate(`/notes/${created.id}`, { replace: true });
+        }
       }
       // Флаг «есть несохранённое» снимаем ТОЛЬКО после успешной записи.
       // Раньше он снимался до неё, и упавшее сохранение уже не повторялось:
@@ -669,14 +682,14 @@ export function NoteEditorPage() {
     deletedRef.current = true;
     clearTimeout(timerRef.current);
     if (savedIdRef.current) await remove(db.notes, savedIdRef.current);
-    navigate('/notes');
+    navigate('/notes', { state: NAV_BACK });
   };
 
   // «Готово»: гасим отложенный автосейв, сохраняем текущее состояние и уходим.
   const handleDone = async () => {
     clearTimeout(timerRef.current);
     await flush();
-    navigate('/notes');
+    navigate('/notes', { state: NAV_BACK });
   };
 
   return (

@@ -515,6 +515,102 @@ select {
   animation: fade-in 0.2s ease;
 }
 
+/* ── Переходы между экранами (NavRouter.tsx, PROTOCOL §6) ─────────────
+   data-nav на <html> стоит только пока идёт переход, и имя слоя живёт
+   вместе с ним: постоянный view-transition-name сделал бы ленту контекстом
+   наложения, и окна внутри страниц уходили бы под таб-бар.
+
+   Едет только лента (#app-scroll). Каркас с таб-баром — корневой слой —
+   стоит и меняется сразу: вкладка подсвечивается без анимации, как в iOS.
+   Фон ленте — иначе новый экран просвечивал бы старым.
+
+   Селекторы — html[data-nav]::view-transition-…, БЕЗ пробела перед «::»:
+   псевдоэлементы перехода бывают только у самого <html>, а с пробелом
+   правило искало бы их у потомков и не срабатывало никогда.
+
+   Reduced motion: переход не запускается вовсе (проверка в NavRouter) —
+   глобальный блок на *, *::before, *::after до этих псевдоэлементов не
+   дотягивается. */
+html[data-nav] #app-scroll {
+  view-transition-name: page;
+  background-color: var(--lh-bg);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+/* Смешение plus-lighter браузер вешает своей анимацией — замена
+   animation-name его уже снимает; normal — страховка для движков, где оно
+   стояло обычным свойством: сложило бы два непрозрачных экрана в засвет. */
+::view-transition-old(page),
+::view-transition-new(page) {
+  mix-blend-mode: normal;
+  animation: 0.36s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Вглубь: новый экран въезжает справа, старый уходит на треть влево и
+   притухает. Назад — зеркально, уходящий экран поверх. */
+html[data-nav='push']::view-transition-new(page) {
+  animation-name: nav-in-right;
+}
+html[data-nav='push']::view-transition-old(page) {
+  animation-name: nav-out-left;
+}
+html[data-nav='pop']::view-transition-new(page) {
+  animation-name: nav-in-left;
+}
+html[data-nav='pop']::view-transition-old(page) {
+  animation-name: nav-out-right;
+  z-index: 1;
+}
+
+/* Вкладка: вход — ступень «появления слоя» (200ms ease), выход мгновенный. */
+html[data-nav='tab']::view-transition-old(page) {
+  animation: none;
+  opacity: 0;
+}
+html[data-nav='tab']::view-transition-new(page) {
+  animation: nav-tab-in 0.2s ease both;
+}
+
+/* Плавающие слои вне ленты — тост и свёрнутый звонок — на время перехода
+   получают свой слой: в корневом снимке их закрывала бы лента (группа page
+   рисуется поверх root). Старый снимок прячется сразу — выход мгновенный, и
+   сменившийся текст тоста не ляжет на новый; новый живой, со своим входом. */
+html[data-nav] #toast {
+  view-transition-name: toast;
+}
+html[data-nav] #call-pill {
+  view-transition-name: call-pill;
+}
+::view-transition-old(toast),
+::view-transition-old(call-pill) {
+  animation: none;
+  opacity: 0;
+}
+::view-transition-new(toast),
+::view-transition-new(call-pill) {
+  animation: none;
+}
+
+@keyframes nav-in-right {
+  from { transform: translateX(100%); }
+}
+@keyframes nav-out-left {
+  to { transform: translateX(-28%); filter: brightness(0.7); }
+}
+@keyframes nav-in-left {
+  from { transform: translateX(-28%); filter: brightness(0.7); }
+}
+@keyframes nav-out-right {
+  to { transform: translateX(100%); }
+}
+@keyframes nav-tab-in {
+  from { opacity: 0; transform: scale(0.97); }
+}
+
 /* ── Раздел ИИ: разметка ответа в духе Claude Code ──────────────── */
 /* Моно только на машинном слое (код, метаданные) — в CLI моно всё, но на
    телефоне это нечитаемо. Тело ответа обычным текстом. */

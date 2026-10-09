@@ -1,5 +1,5 @@
 import { Component, useEffect, useRef, type ReactNode } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { LucideProvider } from 'lucide-react';
 import { db } from './db/db';
@@ -7,6 +7,7 @@ import { t } from './lib/i18n';
 import { cycleAllowed } from './lib/sections';
 import { STROKE } from './components/ui/icons';
 import { InstallBanner } from './components/layout/InstallBanner';
+import { NavRouter } from './components/layout/NavRouter';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
 import { SyncRunner } from './components/SyncRunner';
 import { BackupRunner } from './components/BackupRunner';
@@ -134,7 +135,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 
 export default function App() {
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+    <NavRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       {/* absoluteStrokeWidth делит вес на размер иконки, поэтому STROKE — это
           настоящие пиксели штриха, одинаковые и на 14px, и на 40px. Без него
           один и тот же вес давал разброс почти втрое (см. ui/icons.ts). */}
@@ -281,6 +282,6 @@ export default function App() {
         </PomodoroProvider>
       </ToastProvider>
       </LucideProvider>
-    </BrowserRouter>
+    </NavRouter>
   );
 }

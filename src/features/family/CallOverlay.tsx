@@ -241,6 +241,8 @@ export function MinimizedCallBar({ snap, onExpand }: { snap: CallSnapshot; onExp
 
   return (
     <button
+      // id — для слоя плашки на время перехода экранов (index.css).
+      id="call-pill"
       onClick={onExpand}
       aria-label={t('Развернуть звонок: {name}, {status}', { name: snap.peerName || t('Участник'), status: statusText(snap) })}
       // Плашка ~34px в высоту — зона добирается до 44 невидимо; POSITIONED,
