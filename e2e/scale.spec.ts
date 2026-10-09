@@ -12,8 +12,8 @@ const SCREENS = ['/', '/tasks', '/notes', '/calendar', '/goals', '/stats', '/hom
   '/more/places', '/more/family', '/more/cycle', '/more/settings',
   '/more/health'];
 
-// Значения при базовых 17px. Заголовок экрана — clamp, поэтому попадает в
-// диапазон 23–27 и перечислен отдельно.
+// Значения при базовых 17px. Заголовок экрана (h1, .lh-heading 28px, на узких
+// экранах 7.5vw) в шкалу не входит и ниже пропускается целиком.
 const SIZES = new Set([
   11, 13, 15, 17, 20, 26, 32, 48,
   // 16px — поля ввода. Не ступень шкалы, а обход поведения iOS: Safari
@@ -31,9 +31,10 @@ const RADII = new Set([
   24,
   // 27.2 — верх нижнего шита, задан произвольным значением, а не ступенью.
   27.2,
-  // 10, 14, 20 — радиусы дизайн-системы LifeHearth: --lh-radius-sm / -btn /
-  // -card (index.css, PROTOCOL.md §1.9 и §3). Токены, а не произвольные числа.
-  10, 14, 20,
+  // 10 — --lh-radius-sm дизайн-системы LifeHearth (index.css, PROTOCOL.md §1.9
+  // и §3). -btn 12 и -card 16 уже стоят в шкале выше. Токен, а не произвольное
+  // число.
+  10,
 ]);
 
 test('кегли и радиусы — только из шкалы', async ({ page }) => {
@@ -56,7 +57,10 @@ test('кегли и радиусы — только из шкалы', async ({ p
           const size = Math.round(parseFloat(cs.fontSize) * 100) / 100;
           // Заголовок экрана масштабируется по ширине окна — у него диапазон.
           const isTitle = el.tagName === 'H1';
-          if (!isTitle && !sizes.some((s) => Math.abs(s - size) < 0.6)) {
+          // 12px — ступень типографики дизайн-системы (.lh-section / .lh-label,
+          // PROTOCOL.md §1.9 и §2.2), и только внутри неё, а не где угодно.
+          const isLh12 = Math.abs(size - 12) < 0.6 && el.closest('.lh-section, .lh-label') != null;
+          if (!isTitle && !isLh12 && !sizes.some((s) => Math.abs(s - size) < 0.6)) {
             out.push({ key: `кегль ${size}`, text: `${size}px — ${cls}` });
           }
           for (const corner of [cs.borderTopLeftRadius, cs.borderBottomRightRadius]) {

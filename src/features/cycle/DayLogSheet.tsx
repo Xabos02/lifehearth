@@ -205,8 +205,8 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
             {t('Сохранить')}
           </Button>
           {existing && (
-            <Button variant="ghost" onClick={() => void clear()} className="text-danger!">
-              <Trash2 size={ICON.action} /> {t('Очистить день')}
+            <Button variant="ghost" onClick={() => void clear()} className="border-danger! text-danger!">
+              <Trash2 size={ICON.action} className="-mt-0.5 mr-1 inline" /> {t('Очистить день')}
             </Button>
           )}
         </div>

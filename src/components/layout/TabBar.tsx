@@ -23,7 +23,7 @@ export function TabBar() {
   if (pathname === '/more/family' && new URLSearchParams(search).get('t') == null) return null;
 
   return (
-    <nav className="z-30 shrink-0 border-t border-lh-border bg-lh-surface pb-[clamp(6px,env(safe-area-inset-bottom),8px)]">
+    <nav className="z-30 shrink-0 border-t border-lh-border bg-[color-mix(in_srgb,var(--lh-bg)_92%,transparent)] backdrop-blur-[20px] pb-[clamp(6px,env(safe-area-inset-bottom),8px)]">
       <div className="mx-auto flex max-w-lg px-1">
         {bottom.map(({ id, to, label, icon: Icon, end }) => {
           // Бейджи привязаны к разделу, куда бы он ни встал: непрочитанное у
@@ -34,25 +34,24 @@ export function TabBar() {
               key={id}
               to={to}
               end={end}
-              // Оранжевая точка 8px — единственный носитель двух разных
-              // сообщений, и в дереве доступности её не было вовсе: подпись
-              // вкладки читалась как обычно, про бейдж ни слова. Текстовый
-              // дубль уходит в имя ссылки.
+              // Подписей под иконками нет (макеты) — имя вкладки живёт только
+              // здесь. Оранжевая точка 8px несёт два разных сообщения; их
+              // текстовый дубль тоже уходит в имя ссылки.
               aria-label={
                 showBadge
                   ? `${t(label)}, ${id === 'home' ? t('нужна резервная копия') : t('есть непрочитанные')}`
-                  : undefined
+                  : t(label)
               }
               // min-w-0 обязателен: без него flex-элемент не сжимается ниже
-              // min-content своей подписи, и пятая вкладка уезжает за край
-              // экрана (на 320px ряд требовал 348px и обрезался).
-              className="flex min-w-0 flex-1 flex-col items-center gap-1 pt-2 pb-1.5"
+              // min-content содержимого, и пятая вкладка уезжает за край
+              // экрана (с подписями на 320px ряд требовал 348px и обрезался).
+              className="flex min-w-0 flex-1 flex-col items-center pt-2 pb-1.5"
             >
               {({ isActive }) => (
                 <>
                   <span
-                    // Пилюля тянется по вкладке, но не шире прежних w-16 (4rem
-                    // при root 17px = 68px): на 393/430px вид не меняется, а на
+                    // Пилюля тянется по вкладке, но не шире прежних w-16 (64px:
+                    // шаг --spacing 4px × 16): на 393/430px вид не меняется, а на
                     // узком экране она сжимается вместо того, чтобы задавать
                     // неусыхаемый min-content и выталкивать ряд за край.
                     className={`flex h-9 w-full max-w-16 items-center justify-center rounded-2xl transition-colors duration-200 ${
@@ -70,21 +69,9 @@ export function TabBar() {
                         strokeWidth={isActive ? STROKE_STRONG : STROKE}
                       />
                       {showBadge && (
-                        <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-lh-surface" />
+                        <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-lh-bg" />
                       )}
                     </span>
-                  </span>
-                  <span
-                    // На узком экране подпись мельчает и поджимает трекинг, а не
-                    // режется многоточием: при 320px и шести вкладках на ярлык
-                    // остаётся ~52px, и даже «Статистика» укладывается в них
-                    // целиком. max-w-full + truncate — страховка на случай
-                    // более длинной метки, чтобы она распирала не ряд, а себя.
-                    className={`max-w-full truncate text-2xs font-semibold transition-colors max-[380px]:tracking-[-0.01em] max-[340px]:tracking-tight ${
-                      isActive ? 'text-lh-accent' : 'text-lh-text-secondary'
-                    }`}
-                  >
-                    {t(label)}
                   </span>
                 </>
               )}
