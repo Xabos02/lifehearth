@@ -100,26 +100,12 @@ async function scan(page: Page): Promise<Finding[]> {
   });
 }
 
-// Акцентные темы меняют только акцентные токены, поэтому их прогон короче:
-// экраны, где акцент представлен всеми ролями — текстом, заливкой кнопок,
-// чипами, Fab и градиентом шапки. Дефолтный индиго проверяется по всем
-// экранам, как раньше.
-const ACCENT_SCREENS = ['/', '/tasks', '/notes', '/goals', '/home', '/more/settings'];
-
 async function auditScreens(
   page: Page,
   theme: 'dark' | 'light',
-  accent: string,
   screens: string[],
 ): Promise<string[]> {
-  await page.evaluate(
-    ({ t, a }) => {
-      document.documentElement.classList.toggle('light', t === 'light');
-      if (a === 'indigo') delete document.documentElement.dataset.accent;
-      else document.documentElement.dataset.accent = a;
-    },
-    { t: theme, a: accent },
-  );
+  await page.evaluate((t) => document.documentElement.classList.toggle('light', t === 'light'), theme);
   const bad: string[] = [];
   for (const path of screens) {
     // Переход внутри приложения, без перезагрузки: она сбросила бы класс темы,
@@ -139,18 +125,21 @@ async function auditScreens(
 for (const theme of ['dark', 'light'] as const) {
   test(`${theme}: контраст текста и иконок не ниже AA`, async ({ page }) => {
     await openApp(page);
-    const bad = await auditScreens(page, theme, 'indigo', SCREENS);
+    const bad = await auditScreens(page, theme, SCREENS);
     expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
   });
-
-  for (const accent of ['emerald', 'sunset'] as const) {
-    test(`${theme} + ${accent}: акцентная палитра не роняет контраст`, async ({ page }) => {
-      await openApp(page);
-      const bad = await auditScreens(page, theme, accent, ACCENT_SCREENS);
-      expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
-    });
-  }
 }
+
+// Правила печати в index.css перекрашивают классы экрана под белый лист. После
+// перевода на lh-* они смотрели на старые text-muted / divide-hairline, и
+// вторичный текст тёмной темы уходил в «Отчёт для врача» почти белым на белом.
+test('печать «Отчёта для врача»: текст читается на белом листе', async ({ page }) => {
+  await openApp(page, '/more/cycle/report');
+  await expect(page.locator('h1').first()).toHaveText(/Отчёт для врача/);
+  await page.emulateMedia({ media: 'print' });
+  const bad = (await scan(page)).map((f) => `«${f.что}» ${f.контраст}:1 (нужно ${f.нужно}) [${f.класс}]`);
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+});
 
 // Окно согласия и экраны паузы (задача 34) закрывают обычные экраны и
 // показываются только без согласия — обход SCREENS под фикстурой их не видит.

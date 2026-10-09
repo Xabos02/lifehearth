@@ -56,7 +56,7 @@ export function SoundPickerSheet<K extends string>({
             value={Math.round(volume * 100)}
             aria-label={volumeLabel}
             onChange={(e) => onVolume(Number(e.target.value) / 100)}
-            className="h-11 min-w-0 flex-1 accent-[var(--app-accent)]"
+            className="h-11 min-w-0 flex-1 accent-[var(--lh-accent)]"
           />
         </label>
         <div className="flex flex-col" role="radiogroup" aria-label={title}>

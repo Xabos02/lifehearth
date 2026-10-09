@@ -355,7 +355,7 @@ export function FocusPage() {
   const isWork = p.phase === 'work';
   // Метка фазы и «ручка» слайдера — сплошной цвет (акцент перекрыт тёплым ниже
   // по дереву); сама дуга в фокусе — красно-оранжевый градиент Focus To-Do.
-  const accentColor = isWork ? 'var(--app-accent)' : 'var(--app-success)';
+  const accentColor = isWork ? 'var(--lh-accent)' : 'var(--app-success)';
   const ringStroke = isWork ? 'url(#focusGrad)' : 'var(--app-success)';
   // Когда сессии нет и фаза «работа» — кольцо это слайдер длительности
   // (заполнение = workMin/ringMax); тянешь по кругу → меняешь время. Иначе — отсчёт.
@@ -474,7 +474,7 @@ export function FocusPage() {
                 cy={handleY}
                 r={13}
                 fill={accentColor}
-                stroke="var(--app-bg)"
+                stroke="var(--lh-bg)"
                 strokeWidth={3}
               />
             )}

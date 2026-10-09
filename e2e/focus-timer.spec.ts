@@ -52,7 +52,7 @@ test('при работающем таймере в задаче можно сп
 
 test('пропущенный круг не засчитывается как сделанный', async ({ page }) => {
   await openApp(page, '/more/focus');
-  const done = page.locator('p.text-2xl.font-bold').first();
+  const done = page.locator('p.text-2xl.font-extralight').first();
   await expect(done).toHaveText('0');
 
   await page.getByRole('button', { name: 'Старт' }).click();

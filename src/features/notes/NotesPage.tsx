@@ -705,9 +705,9 @@ export function NotesPage() {
         // пустом выборе, а не спрятанные: человек видит, что делать дальше.
         <div
           data-testid="notes-select-bar"
-          // Ровно над таб-баром: у кнопки «+» клиренс 80px от низа (таб-бар и
-          // 4px воздуха), панель встаёт на те же 76 без воздуха — вплотную.
-          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 76px)' }}
+          // Ровно над таб-баром: у кнопки «+» клиренс 61px от низа (таб-бар и
+          // 4px воздуха), панель встаёт на те же 57 без воздуха — вплотную.
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 57px)' }}
           className="fixed inset-x-0 z-30 mx-auto flex max-w-lg gap-2.5 border-t border-lh-border bg-lh-surface-2 px-4 py-3"
         >
           <button

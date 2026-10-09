@@ -134,7 +134,7 @@ export function FolderSheet({
                 aria-pressed={color === c}
                 onClick={() => setColor(c)}
                 className={`size-11 rounded-full transition-transform ${
-                  color === c ? 'scale-110 ring-2 ring-lh-text-primary ring-offset-2 ring-offset-surface' : ''
+                  color === c ? 'scale-110 ring-2 ring-lh-text-primary ring-offset-2 ring-offset-lh-surface' : ''
                 }`}
                 style={{ background: c }}
               />

@@ -83,10 +83,9 @@ export function SectionsPriorityGate() {
 
   return (
     <div className="fixed inset-0 z-[82] flex flex-col bg-lh-bg">
-      <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
       <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+24px)]">
         <div className="mb-5 flex flex-col items-center gap-3 text-center">
-          <div className="flex size-14 items-center justify-center rounded-2xl tile-accent text-lh-accent">
+          <div className="flex size-14 items-center justify-center rounded-2xl tile-lh text-lh-accent">
             <Sparkles size={ICON.header} />
           </div>
           <h2 className="text-xl font-light tracking-tight">{t('Что для вас важнее всего?')}</h2>
@@ -117,7 +116,7 @@ export function SectionsPriorityGate() {
                   <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-xs font-bold text-lh-text-secondary">
                     {i + 1}
                   </span>
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
                     <Icon size={ICON.header} />
                   </div>
                   <span className="min-w-0 grow basis-auto truncate font-semibold">{t(sec.label)}</span>
@@ -172,7 +171,7 @@ export function SectionsPriorityGate() {
                 const Icon = sec.icon;
                 return (
                   <div key={id} className="flex items-center gap-3 card p-3 opacity-60">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
                       <Icon size={ICON.header} />
                     </div>
                     <span className="min-w-0 grow basis-auto truncate font-semibold">{t(sec.label)}</span>

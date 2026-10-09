@@ -44,7 +44,7 @@ function newItem(type: WorkoutType = 'run', minutes = String(workoutKind('run').
 
 function kindOfItem(it: Pick<Item, 'type' | 'customLabel' | 'customColor'>): WorkoutKind {
   if (it.type === 'custom') {
-    return { value: 'custom', label: it.customLabel ?? '', color: it.customColor ?? 'var(--app-muted)', hasDistance: false, defaultMinutes: 30 };
+    return { value: 'custom', label: it.customLabel ?? '', color: it.customColor ?? 'var(--lh-text-secondary)', hasDistance: false, defaultMinutes: 30 };
   }
   return workoutKind(it.type);
 }

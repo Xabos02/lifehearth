@@ -233,7 +233,7 @@ export function FrozenSection({
 /** Линия-индикатор вставки при перетаскивании проекта — показывает, куда он встанет. */
 export function DropLine() {
   return (
-    <div className="mx-1 mb-4 flex items-center gap-2" aria-hidden>
+    <div className="mx-1 mb-4 flex items-center gap-2" aria-hidden data-testid="project-drop-line">
       <span className="size-3 shrink-0 rounded-full bg-lh-accent" />
       <span className="h-1.5 flex-1 rounded-full bg-lh-accent" />
     </div>

@@ -205,11 +205,16 @@ test('раздел есть в списке «Главной» и открыва
 });
 
 test('строка спорта на «Сегодня»: появляется после первой тренировки, отмечает одним жестом', async ({ page }) => {
+  // Часы — на среду: «позавчера» той же недели. По живым часам в понедельник и
+  // вторник позавчера уходило на прошлую неделю, счётчик честно писал «1 из 3»,
+  // и тест краснел по дням недели, а не из-за кода (CI 29.09, вторник).
+  const today = '2026-09-16';
+  await page.clock.setFixedTime(new Date(`${today}T12:00:00`));
   await openApp(page, '/');
   // До первой тренировки строки нет — новичку она не навязывается.
   await expect(page.getByTestId('sport-today')).toHaveCount(0);
 
-  await seedWorkout(page, addDaysKey(todayKey(), -2));
+  await seedWorkout(page, addDaysKey(today, -2));
   const line = page.getByTestId('sport-today');
   await expect(line).toContainText('Сегодня — тренировка');
   await expect(line).toContainText('позавчера · гири');

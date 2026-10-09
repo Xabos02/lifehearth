@@ -313,7 +313,7 @@ export function SectionsSettingsPage() {
             {opts.homeIndex}
           </span>
         )}
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
           <Icon size={ICON.header} />
         </div>
         {/* Обычный shrink (был shrink-[0.05]): при сумме flex-факторов меньше 1
@@ -363,7 +363,7 @@ export function SectionsSettingsPage() {
   // как у обычной строки (см. row): те же зазоры, тот же неусыхаемый бейдж.
   const anchorRow = anchor && (
     <div className="flex items-center gap-3 card p-3 max-[375px]:gap-2 max-[375px]:px-2">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-lh-accent">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
         <anchor.icon size={ICON.header} />
       </div>
       <span className="min-w-0 grow basis-auto truncate font-semibold">{t(anchor.label)}</span>
@@ -457,19 +457,10 @@ export function SectionsSettingsPage() {
       <div className="flex overflow-hidden rounded-2xl border border-lh-border bg-lh-surface-2">
         {previewBottom.map((s) =>
           s ? (
-            <div key={s.id} className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2.5">
+            <div key={s.id} className="flex min-w-0 flex-1 flex-col items-center py-2.5">
               <s.icon size={ICON.header} className="text-lh-text-secondary" />
-              {/* без max-w-full подпись раздвигает колонку и превью уезжает вбок.
-                  Кегль плавающий и мельче, чем в самой панели: колонка превью
-                  уже настоящей вкладки (страница отъедает px-4 = 34px), на 320px
-                  это 56.8px против 62.3px. При фиксированных 10px «Статистика»
-                  (64.95px) обрезалась бы именно в том превью, ради которого
-                  пользователь её сюда и переносит. 2.6vw даёт 8.32px на 320px —
-                  запас 2.76px, а с 393px кегль упирается в прежние 10px.
-                  Боковых полей нет: 4.25px в такой колонке дороже, чем воздух. */}
-              <span className="max-w-full truncate text-2xs font-semibold text-lh-text-secondary">
-                {t(s.label)}
-              </span>
+              {/* Подписей нет и в самой панели (TabBar) — имя только для диктора. */}
+              <span className="sr-only">{t(s.label)}</span>
             </div>
           ) : null,
         )}

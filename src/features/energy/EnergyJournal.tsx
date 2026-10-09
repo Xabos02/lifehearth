@@ -48,7 +48,7 @@ export function EnergyJournal({ byDate }: Props) {
                   level
                     ? 'bg-lh-accent text-lh-bg'
                     : 'border border-dashed border-lh-border'
-                } ${isToday ? 'ring-2 ring-lh-accent ring-offset-2 ring-offset-surface' : ''}`}
+                } ${isToday ? 'ring-2 ring-lh-accent ring-offset-2 ring-offset-lh-surface' : ''}`}
               >
                 {level ?? ''}
               </span>

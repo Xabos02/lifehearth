@@ -1723,5 +1723,5 @@ export function ChatTab({ familyId }: { familyId: string }) {
  *  на светлом пузыре белый и лаймовый давали 1,1–1,7. Подмешиваем цвет текста
  *  темы — тон остаётся узнаваемым, контраст дотягивает. */
 function readableName(color: string | undefined): string | undefined {
-  return color ? `color-mix(in oklab, ${color} 55%, var(--app-text))` : undefined;
+  return color ? `color-mix(in oklab, ${color} 55%, var(--lh-text-primary))` : undefined;
 }

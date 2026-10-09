@@ -53,6 +53,8 @@ const CC_THEME: CSSProperties = {
   '--lh-accent': 'var(--lh-ai-accent)',
   '--lh-accent-dim': 'color-mix(in srgb, var(--lh-ai-accent) 15%, transparent)',
   '--lh-accent-border': 'color-mix(in srgb, var(--lh-ai-accent) 30%, transparent)',
+  // Общее свечение собрано из золота в :root — здесь своё, индиговое.
+  '--shadow-accent': '0 10px 30px -8px color-mix(in oklab, var(--lh-ai-accent) 50%, transparent)',
 } as CSSProperties;
 
 export function AiPage() {
@@ -319,7 +321,7 @@ function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string
       <div
         aria-hidden
         className="mb-4 grid size-16 place-items-center rounded-[1.25rem] text-white shadow-[var(--shadow-accent)]"
-        style={{ background: 'linear-gradient(150deg, var(--app-accent), var(--app-accent-2))' }}
+        style={{ background: 'linear-gradient(150deg, var(--lh-accent), var(--app-accent-2))' }}
       >
         <GSparkle size={ICON.display} />
       </div>

@@ -30,7 +30,7 @@ export interface MeasureDef {
 }
 
 export const MEASURES: MeasureDef[] = [
-  { key: 'weight', id: 'health:weight', title: 'Вес', unit: 'кг', color: 'var(--app-accent)', decimals: 1, min: 20, max: 300, placeholder: 75 },
+  { key: 'weight', id: 'health:weight', title: 'Вес', unit: 'кг', color: 'var(--lh-accent)', decimals: 1, min: 20, max: 300, placeholder: 75 },
   { key: 'sleep', id: 'health:sleep', title: 'Сон', unit: 'ч', color: 'var(--app-accent-2)', decimals: 2, min: 0, max: 24, placeholder: 7 },
   { key: 'pulse', id: 'health:pulse', title: 'Пульс покоя', unit: 'уд/мин', color: 'var(--app-success)', decimals: 0, min: 25, max: 220, placeholder: 60 },
   { key: 'bpSys', id: 'health:bp-sys', title: 'Давление верхнее', unit: 'мм рт. ст.', color: 'var(--app-warning)', decimals: 0, min: 60, max: 260, placeholder: 120 },

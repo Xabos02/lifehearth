@@ -188,7 +188,13 @@
   --app-hairline: oklch(1 0 0 / 0.09);
   --app-text: oklch(0.965 0.006 286);
   --app-muted: oklch(0.675 0.022 282);
-  --app-accent: oklch(0.72 0.18 264);
+  /* Акцент приложения — золото, выбора цвета нет (канва design/palette,
+     05.10.2026). Экраны красятся --lh-accent напрямую; --app-accent остаётся
+     ради того, что разделы перекрывают у себя (FOCUS_VARS, CC_THEME): рамка
+     фокуса, полоса цитаты в заметках. В светлой теме --lh-accent свой, и
+     ссылка подхватывает его сама. */
+  --app-accent: var(--lh-accent);
+  /* Не акцент, а цвет серий в графиках («Сон», «Растяжка», статистика). */
   --app-accent-2: oklch(0.67 0.21 300);
   /* Акцент экрана «Фокус» — золото дизайн-системы LifeHearth (макет focus.html).
      Локальный — перекрывает --app-accent только внутри обёртки FocusPage. */
@@ -197,7 +203,7 @@
   /* Клай Claude Code — акцент раздела ИИ. Локальный: перекрывает --app-accent
      только внутри обёртки AiPage (тот же приём, что --focus-accent). Нейтрали
      приложения НЕ перетонируем — это дало бы регресс на всех 20+ экранах ради
-     одного раздела, а аврора осталась бы холодной на тёплом сером. */
+     одного раздела. */
   --cc-accent: oklch(0.672 0.131 38.8);
   --cc-accent-2: oklch(0.770 0.101 43.6);
   --cc-code-bg: oklch(0.159 0 0);
@@ -208,7 +214,9 @@
   --app-frost: oklch(0.78 0.125 225);
   /* Заливки. Холодные затемнены под белый глиф (было 2.62 / 3.28 / 2.91 / 3.65,
      стало ≥4.5); светлые оставлены как есть — на них идёт --app-on-light. */
-  --app-accent-fill: oklch(0.562 0.18 264);
+  /* Золотая заливка — под ТЁМНЫЙ глиф --lh-bg, как у золотых кнопок: белый
+     на золоте даёт 2.29:1. */
+  --app-accent-fill: var(--lh-accent);
   --app-accent-2-fill: oklch(0.579 0.21 300);
   --app-danger-fill: oklch(0.578 0.185 20);
   /* Тёмное золото под белый глиф (≥4.5:1); светлое #C9A84C под белым — 2.1. */
@@ -223,16 +231,16 @@
   --app-on-light: oklch(0.18 0.015 285);
   --shadow-card: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px -12px oklch(0 0 0 / 0.55);
   --shadow-pop: 0 8px 30px -8px oklch(0 0 0 / 0.6);
-  --shadow-accent: 0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);
+  --shadow-accent: 0 10px 30px -8px color-mix(in oklab, var(--lh-accent) 50%, transparent);
   /* Тень под плиткой знака. Мягче акцентной: та поднимает кнопку, эта лишь
-     отделяет плитку от карточки. Цвет тянется из --app-accent, поэтому
-     переопределять её в каждой палитре не нужно. */
-  --shadow-tile: 0 8px 20px -14px color-mix(in oklab, var(--app-accent) 55%, transparent);
-  --shadow-focus: 0 10px 30px -8px oklch(0.66 0.205 38 / 0.5);
+     отделяет плитку от карточки. Цвет тянется из --lh-accent, как и сама
+     плитка .tile-lh, поэтому переопределять её в светлой теме не нужно. */
+  --shadow-tile: 0 8px 20px -14px color-mix(in oklab, var(--lh-accent) 55%, transparent);
+  --shadow-focus: 0 10px 30px -8px color-mix(in oklab, var(--focus-accent) 50%, transparent);
 
   /* ── Дизайн-система LifeHearth: чёрный + золото ──
      Источник — канва на 29 экранов. Текст идёт ступенями прозрачности одного
-     тёплого белого (0.45 / 0.25), линии — 0.08 / 0.15 того же белого, золото
+     тёплого белого (0.52 / 0.25), линии — белый 7% / 15%, золото
      — единственный акцент интерфейса; индиго --lh-ai-accent живёт только в
      разделе ИИ. */
   --lh-bg: #08080f;
@@ -262,11 +270,6 @@
   --app-hairline: oklch(0 0 0 / 0.07);
   --app-text: oklch(0.26 0.022 284);
   --app-muted: oklch(0.52 0.022 282);
-  /* 0.527, а не 0.58: акцентный текст лежит не только на белой поверхности,
-     но и на собственной подложке bg-accent/15 (чипы, подсказки, плитки) — там
-     фон ближе к самому акценту, и контраст падал до 3.67. Подобрано по
-     худшему из двух фонов (scratchpad/pick-ink.mjs). */
-  --app-accent: oklch(0.515 0.17 266);
   --app-accent-2: oklch(0.56 0.18 292);
   /* Тёплый акцент «Фокуса» — тоже текст на трёх поверхностях. */
   --focus-accent: oklch(0.553 0.225 27);
@@ -283,7 +286,6 @@
   --app-warning: oklch(0.533 0.15 70);
   --app-frost: oklch(0.514 0.135 235);
   /* Заливки светлой темы почти не двигаются: там белый глиф и так проходил. */
-  --app-accent-fill: oklch(0.563 0.17 266);
   --app-accent-2-fill: oklch(0.56 0.18 292);
   --app-danger-fill: oklch(0.568 0.2 22);
   --focus-accent-fill: oklch(0.583 0.225 27);
@@ -298,9 +300,9 @@
   --cc-code-bg: oklch(0.966 0.009 100);
   --shadow-card: 0 1px 2px oklch(0.7 0.02 284 / 0.18), 0 10px 24px -14px oklch(0.5 0.04 284 / 0.3);
   --shadow-pop: 0 10px 30px -8px oklch(0.5 0.04 284 / 0.25);
-  --shadow-accent: 0 10px 30px -10px oklch(0.58 0.17 266 / 0.45);
-  --shadow-tile: 0 6px 16px -12px color-mix(in oklab, var(--app-accent) 40%, transparent);
-  --shadow-focus: 0 10px 30px -10px oklch(0.62 0.205 35 / 0.45);
+  --shadow-accent: 0 10px 30px -10px color-mix(in oklab, var(--lh-accent) 45%, transparent);
+  --shadow-tile: 0 6px 16px -12px color-mix(in oklab, var(--lh-accent) 40%, transparent);
+  --shadow-focus: 0 10px 30px -10px color-mix(in oklab, var(--focus-accent) 45%, transparent);
   /* Светлой версии чёрно-золотой системы пока нет на канве. Чтобы светлая
      тема не стала тёмной из-за body и lh-утилит, lh-токены здесь смотрят на
      существующую светлую палитру; золото затемнено до текста на белом. */
@@ -318,56 +320,16 @@
   color-scheme: light;
 }
 
-/* ── Акцентные темы ─────────────────────────────────────────────
-   Индиго — дефолт без атрибута. Каждый акцент переопределяет ровно четыре
-   цветовых токена и тень; поверхности и смысловые цвета (успех/опасность)
-   общие. Значения подобраны той же методикой, что базовая палитра: hue и
-   chroma фиксированы, L двигается бинарным поиском до WCAG 4.5 — не глубже
-   (scratchpad/pick-accents.mjs). Для ТЕКСТА акцента худший фон включает его
-   собственную подложку bg-accent/15 (32 места в коде); у accent-2 подложки
-   в коде нет, его порог — три поверхности.
-
-   Порядок блоков важен: тёмный блок акцента стоит ПОСЛЕ :root.light и при
-   равной специфичности перебил бы светлые дефолты, поэтому светлый блок
-   акцента (:root.light[data-accent]) идёт следом и специфичностью выигрывает. */
-:root[data-accent='emerald'] {
-  --app-accent: oklch(0.695 0.16 158);
-  --app-accent-2: oklch(0.64 0.17 130);
-  --app-accent-fill: oklch(0.55 0.125 158);
-  --app-accent-2-fill: oklch(0.555 0.145 130);
-  --shadow-accent: 0 10px 30px -8px oklch(0.7 0.14 158 / 0.5);
-}
-:root.light[data-accent='emerald'] {
-  --app-accent: oklch(0.469 0.11 158);
-  --app-accent-2: oklch(0.523 0.14 130);
-  --app-accent-fill: oklch(0.55 0.125 158);
-  --app-accent-2-fill: oklch(0.555 0.145 130);
-  --shadow-accent: 0 10px 30px -10px oklch(0.55 0.13 158 / 0.45);
-}
-:root[data-accent='sunset'] {
-  --app-accent: oklch(0.73 0.165 27);
-  --app-accent-2: oklch(0.666 0.165 55);
-  --app-accent-fill: oklch(0.592 0.215 27);
-  --app-accent-2-fill: oklch(0.577 0.14 55);
-  --shadow-accent: 0 10px 30px -8px oklch(0.66 0.19 35 / 0.5);
-}
-:root.light[data-accent='sunset'] {
-  --app-accent: oklch(0.495 0.2 27);
-  --app-accent-2: oklch(0.546 0.14 52);
-  --app-accent-fill: oklch(0.593 0.225 27);
-  --app-accent-2-fill: oklch(0.577 0.145 52);
-  --shadow-accent: 0 10px 30px -10px oklch(0.6 0.19 35 / 0.45);
-}
-
 html,
 body,
 #root {
   height: 100%;
   /* Чуть крупнее весь интерфейс (текст и rem-отступы) — читабельнее. */
   font-size: 17px;
-  /* Единый цвет «холста» под каркасом: html/#root тоже залиты цветом таб-бара,
-     чтобы любой незакрашенный зазор в нижней safe-area сливался с панелью, а не
-     показывал тёмную полосу (нужно совпадение с manifest background_color). */
+  /* «Холст» под каркасом. Задуман цветом таб-бара и manifest background_color,
+     чтобы зазор в нижней safe-area сливался с панелью; после редизайна
+     06.10.2026 таб-бар и манифест — #08080F, а --app-elevated — #111118
+     (PROTOCOL §1.7, планка). */
   background-color: var(--app-elevated);
 }
 
@@ -375,9 +337,8 @@ body {
   margin: 0;
   /* Фон и текст — токены дизайн-системы LifeHearth. body виден только в зонах
      safe-area, если fixed-каркас не дотянулся до краёв в standalone-PWA; сам
-     экран перекрыт непрозрачным каркасом. Таб-бар переведён на
-     bg-lh-surface. html/#root оставлены
-     на --app-elevated, чтобы совпадать с manifest background_color. */
+     экран перекрыт непрозрачным каркасом. Таб-бар — на --lh-bg 92%,
+     html/#root — на --app-elevated (см. выше). */
   background-color: var(--lh-bg);
   color: var(--lh-text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
@@ -385,26 +346,6 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
-}
-
-/* Аврора как неподвижный слой внутри fixed-каркаса (App.tsx), а НЕ
-   background-attachment:fixed на body — тот заставлял WebKit перерисовывать
-   весь экран на каждый кадр скролла (главная причина лагов прокрутки). */
-.aurora {
-  /* Приглушённый прохладный сине-фиолетовый. Раньше правый блоб был magenta
-     (hue 304) — на OLED читался как красный и подкрашивал треугольные зазоры
-     у скруглённых углов карточек («красные выпуклые углы»). Убран красный
-     оттенок (hue ~270–282) + снижены насыщенность и непрозрачность. */
-  background-image:
-    radial-gradient(78% 48% at 12% -6%, oklch(0.62 0.12 268 / 0.12), transparent 58%),
-    radial-gradient(72% 46% at 96% -2%, oklch(0.62 0.11 282 / 0.08), transparent 56%),
-    radial-gradient(130% 75% at 50% -12%, oklch(0.26 0.03 286 / 0.45), transparent 72%);
-}
-:root.light .aurora {
-  background-image:
-    radial-gradient(78% 48% at 12% -6%, oklch(0.72 0.1 268 / 0.1), transparent 60%),
-    radial-gradient(72% 46% at 96% -2%, oklch(0.74 0.09 282 / 0.07), transparent 58%),
-    radial-gradient(130% 80% at 50% -14%, oklch(0.95 0.02 285 / 0.55), transparent 74%);
 }
 
 /* Толщина штриха иконок здесь СОЗНАТЕЛЬНО не задаётся.
@@ -467,7 +408,7 @@ body {
 /* ── Типографика дизайн-системы LifeHearth ──
    В @layer components: утилиты Tailwind (text-lh-accent, font-medium и т.п.)
    перебивают их без !important. Кегли в px — корень 17px (см. §2.2
-   PROTOCOL.md). Ультралёгкий заголовок работает, потому что @font-face выше
+   PROTOCOL.md). Лёгкий (300) заголовок работает, потому что @font-face выше
    объявляет полную ось wght 100–900. */
 @layer components {
   .lh-heading {
@@ -493,7 +434,7 @@ body {
   }
   /* Заголовок секции внутри экрана («Задачи на сегодня», «Проекты»): мелкий
      капс со свободным трекингом, вторичный цвет — секция подписана, но не
-     спорит с ультралёгким заголовком экрана. Вторичный, а не третичный, как
+     спорит с лёгким заголовком экрана. Вторичный, а не третичный, как
      на макете: подпись значимая, третичные 25% не проходят §1.2. */
   .lh-section {
     font-size: 12px;
@@ -611,7 +552,7 @@ select {
 .cc-md a { color: var(--cc-accent); text-decoration: underline; }
 .cc-md strong { font-weight: 650; }
 .cc-md blockquote {
-  border-left: 2px solid var(--app-border);
+  border-left: 2px solid var(--lh-border-strong);
   padding-left: 0.85em;
   color: var(--app-muted);
 }
@@ -726,8 +667,9 @@ select {
   top: 0.18em;
   width: 21px;
   height: 21px;
-  /* --app-border стал хайрлайном 7% — кружок на нём пропал бы; третичный
-     текст держит прежнюю заметность. */
+  /* --app-border стал линией 7% — кружок на нём пропал бы; третичный текст
+     заметнее прежнего (тёмная 1.57 → 1.98:1, светлая 1.25 → 2.70:1), но до
+     3:1 для графики не дотягивает. */
   border: 2px solid var(--lh-text-tertiary);
   /* Круг, не скруглённый квадрат: чек-лист заметок равняется на Apple Notes —
      круглая отметка и есть его визуальная подпись. */
@@ -741,7 +683,8 @@ select {
   border-color: var(--app-accent-fill);
 }
 /* Галочка — две линии через границы повёрнутого блока: рисовать её символом
-   нельзя, шрифтовая галка прыгает по вертикали между платформами. */
+   нельзя, шрифтовая галка прыгает по вертикали между платформами. Цвет —
+   тёмный --lh-bg на золотой заливке: белый дал бы 2.29:1 при норме 3. */
 .note-editor ul.cl > li[data-done='1']::after {
   content: '';
   position: absolute;
@@ -749,7 +692,7 @@ select {
   top: 0.42em;
   width: 6px;
   height: 11px;
-  border: solid #fff;
+  border: solid var(--lh-bg);
   border-width: 0 2.5px 2.5px 0;
   transform: rotate(45deg);
 }
@@ -791,25 +734,12 @@ select {
  *
  * Границу держим внутри размера (box-sizing: border-box у Tailwind по
  * умолчанию), поэтому size-10 остаётся 40px и раскладка не едет. */
-.tile-accent {
+.tile-lh {
   /* Стопы НЕПРОЗРАЧНЫЕ — акцент подмешан к поверхности, а не к transparent.
      Полупрозрачный градиент выглядит так же, но ломает замер контраста: обход
      в e2e/contrast.spec.ts, найдя backgroundImage, берёт его стопы за базу и
      прекращает подъём по родителям, а прозрачный стоп базой быть не может —
      все иконки на плитках показывали 1.01:1 вместо реальных четырёх. */
-  background-image: linear-gradient(
-    150deg,
-    color-mix(in oklab, var(--app-accent) 20%, var(--app-surface)),
-    color-mix(in oklab, var(--app-accent) 8%, var(--app-surface))
-  );
-  border: 1px solid color-mix(in oklab, var(--app-accent) 24%, transparent);
-  box-shadow: var(--shadow-tile);
-}
-/* Та же плитка на токенах LifeHearth — для переведённых экранов. Отдельный
-   класс, а не правка .tile-accent: непереведённые экраны ставят на плитку
-   синий text-accent, и золотая подложка под синим знаком была бы хуже обоих.
-   Стопы непрозрачные по той же причине, что выше (замер контраста). */
-.tile-lh {
   background-image: linear-gradient(
     150deg,
     color-mix(in oklab, var(--lh-accent) 16%, var(--lh-surface)),
@@ -936,7 +866,8 @@ textarea:focus-visible {
     overflow: visible !important;
   }
   body,
-  #root {
+  #root,
+  #app-frame {
     background: #fff !important;
     color: #000 !important;
   }
@@ -946,10 +877,11 @@ textarea:focus-visible {
     border-color: #000 !important;
     box-shadow: none !important;
   }
-  .divide-hairline > * + * {
+  .divide-lh-border > * + * {
     border-color: #000 !important;
   }
-  .text-muted {
+  .text-lh-text-secondary,
+  .lh-section {
     color: #333 !important;
   }
 }

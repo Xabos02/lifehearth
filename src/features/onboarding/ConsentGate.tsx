@@ -148,7 +148,6 @@ export function ConsentGate() {
       aria-labelledby="consent-title"
       className="fixed inset-0 z-[84] flex flex-col bg-lh-bg"
     >
-      <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
       {/* key: смена вида — новый контейнер прокрутки, с начала, а не с того
           места, куда пролистали краткий вид. */}
       <div
@@ -191,7 +190,7 @@ export function ConsentGate() {
         ) : (
           <>
             <div className="mt-6 mb-6 flex flex-col items-center gap-3 text-center">
-              <div className="flex size-14 items-center justify-center rounded-2xl tile-accent text-lh-accent">
+              <div className="flex size-14 items-center justify-center rounded-2xl tile-lh text-lh-accent">
                 {reason ? REASON_ICON[reason] : <GPhoneOut size={ICON.accent} />}
               </div>
               <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="text-lg font-light tracking-tight">
@@ -336,7 +335,7 @@ function Group({
 export function ConsentPause({ reason, title, text }: { reason: ConsentReason; title: string; text: string }) {
   return (
     <div className="flex flex-col items-center gap-3 px-4 pt-14 pb-8 text-center">
-      <div className="relative flex size-20 items-center justify-center rounded-3xl tile-accent text-lh-accent">
+      <div className="relative flex size-20 items-center justify-center rounded-3xl tile-lh text-lh-accent">
         <GFamily size={ICON.hero} />
         <span className="absolute -right-1.5 -bottom-1.5 flex size-7 items-center justify-center rounded-full border-2 border-bg bg-lh-surface-2 text-warning">
           <GPause size={ICON.inline} strokeWidth={STROKE_STRONG} />

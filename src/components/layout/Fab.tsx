@@ -15,7 +15,7 @@ interface Props {
 const FAB_SIZE = 56; // size-14 (3.5rem)
 const EDGE = 12; // отступ от боковых краёв
 const TOP_GAP = 76; // не заходить под шапку
-const BOTTOM_GAP = 96; // не заходить под таб-бар (+ запас на safe-area)
+const BOTTOM_GAP = 77; // не заходить под таб-бар (+ запас на safe-area)
 const TIMER_SPACE = 48; // мини-помодоро — полоска над таб-баром
 const LONG_PRESS_MS = 450; // удержание без ухода пальца → режим перетаскивания
 const CANCEL_MOVE = 10; // уход пальца до срабатывания удержания = не перетаскивание
@@ -106,7 +106,7 @@ export function Fab({ onClick, label }: Props) {
   // поднималась на его высоту (до 150px) и садилась в середину экрана, где
   // перекрывала живые элементы — сегмент «Год» в Финансах на 66%, карандаш
   // раздела на 93%.
-  const clearance = `calc(env(safe-area-inset-bottom) + ${active ? 128 : 80}px)`;
+  const clearance = `calc(env(safe-area-inset-bottom) + ${active ? 109 : 61}px)`;
 
   // Куда рисуем: только что перенесли (override) → сохранённая → дефолт
   // (right/bottom). Границы для своей позиции считает CSS через clamp(), а не JS:

@@ -18,8 +18,10 @@ test('у новой задачи срок не задан, и поле гово�
 
   const due = page.locator('input[type="date"]').first();
   await expect(due).toHaveValue('');
-  // Ни один чип не подсвечен — срока действительно нет.
-  await expect(page.getByRole('button', { name: 'Сегодня', exact: true })).not.toHaveClass(/bg-accent/);
+  // Ни один чип не подсвечен — срока действительно нет. По aria-pressed, а не
+  // по классу: подстрока /bg-accent/ после перехода на lh-токены перестала
+  // встречаться, и отрицательная проверка проходила при любом чипе.
+  await expect(page.getByRole('button', { name: 'Сегодня', exact: true })).toHaveAttribute('aria-pressed', 'false');
   // И человек видит это словом, а не гадает по бледным цифрам.
   await expect(page.getByText('Не задан')).toBeVisible();
   // Нативный текст поля при этом не виден — иначе слово легло бы на цифры.

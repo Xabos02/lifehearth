@@ -145,7 +145,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
             type="button"
             aria-label={t('Без цвета')}
             onClick={() => setColor(null)}
-            className={`flex size-8 items-center justify-center rounded-full border-2 border-dashed border-lh-border-strong text-lh-text-secondary ${HIT_SLOP_44} ${color === null ? 'ring-2 ring-lh-accent ring-offset-2 ring-offset-bg' : ''}`}
+            className={`flex size-8 items-center justify-center rounded-full border-2 border-dashed border-lh-border-strong text-lh-text-secondary ${HIT_SLOP_44} ${color === null ? 'ring-2 ring-lh-accent ring-offset-2 ring-offset-lh-surface' : ''}`}
           >
             ×
           </button>
@@ -156,7 +156,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
               aria-label={t('Цвет {c}', { c })}
               onClick={() => setColor(c)}
               style={{ background: c }}
-              className={`flex size-8 items-center justify-center rounded-full ${HIT_SLOP_44} ${color === c ? 'ring-2 ring-lh-accent ring-offset-2 ring-offset-bg' : ''}`}
+              className={`flex size-8 items-center justify-center rounded-full ${HIT_SLOP_44} ${color === c ? 'ring-2 ring-lh-accent ring-offset-2 ring-offset-lh-surface' : ''}`}
             >
               {color === c && <Check size={ICON.inline} className={isLightColor(c) ? 'text-black' : 'text-white'} />}
             </button>
