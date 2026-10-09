@@ -177,7 +177,10 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
                     >
                       {t(s.label)}
                       {e?.severity !== undefined && (
-                        <span className="ml-1.5 text-xs opacity-80">
+                        // Без opacity: золото на своей подложке подобрано ровно
+                        // под 4.5, и /80 опускало «слабо» до 3.2 (тёмная — 3.98).
+                        // Подпись тише за счёт кегля.
+                        <span className="ml-1.5 text-xs">
                           {t(SEVERITY_LABELS[e.severity])}
                         </span>
                       )}

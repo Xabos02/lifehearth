@@ -60,11 +60,39 @@ export function dayMonthFormat(): string {
   return getLang() === 'ru' ? 'd MMMM' : 'MMMM d';
 }
 
-/** Диапазон в одном месяце: «10–25 августа» / «August 10–25». */
-export function formatDayRange(fromKeyStr: string, toKeyStr: string): string {
-  return getLang() === 'ru'
-    ? `${formatRu(fromKeyStr, 'd')}–${formatRu(toKeyStr)}`
-    : `${formatRu(fromKeyStr, 'MMMM d')}–${formatRu(toKeyStr, 'd')}`;
+/** Диапазон дат — единственное оформление на всё приложение (PROTOCOL §7.5,
+ *  §7.7): тире «–» без пробелов, общее не повторяется.
+ *  - один месяц: «10–25 августа» / «August 10–25»;
+ *  - граница месяца: «26 августа–7 сентября» / «August 26–September 7».
+ *    Сжать начало до числа тут нельзя: «26–7 сентября» читается как опечатка
+ *    (так было на «Сегодня» у окна прогноза цикла);
+ *  - граница года: «28 декабря–3 января» — без года, как и одиночные даты в
+ *    приложении: диапазон короче года читается вперёд однозначно. Год и
+ *    длиннее — годы у обоих концов, иначе «10 августа–25 августа» врёт.
+ *  `year` — год всегда (отчёт для врача): «10–25 августа 2026» / «August
+ *  10–25, 2026». `short` — для узкой строки: два названия месяца сокращаются
+ *  («28 сент.–4 окт.»), одно остаётся полным.
+ *  Intl.DateTimeFormat#formatRange не берём: тире с пробелами, и вывод
+ *  зависит от версии ICU в браузере. */
+export function formatDayRange(
+  fromKeyStr: string,
+  toKeyStr: string,
+  opts: { year?: boolean; short?: boolean } = {},
+): string {
+  const ru = getLang() === 'ru';
+  const fmt = (month: string, year: boolean) =>
+    ru ? `d ${month}${year ? ' yyyy' : ''}` : `${month} d${year ? ', yyyy' : ''}`;
+  const year = !!opts.year;
+  if (fromKeyStr === toKeyStr) return formatRu(toKeyStr, fmt('MMMM', year));
+  if (fromKeyStr.slice(0, 7) === toKeyStr.slice(0, 7)) {
+    return ru
+      ? `${formatRu(fromKeyStr, 'd')}–${formatRu(toKeyStr, fmt('MMMM', year))}`
+      : `${formatRu(fromKeyStr, 'MMMM d')}–${formatRu(toKeyStr, year ? 'd, yyyy' : 'd')}`;
+  }
+  const month = opts.short ? 'MMM' : 'MMMM';
+  const yearOrLonger = toKeyStr >= `${Number(fromKeyStr.slice(0, 4)) + 1}${fromKeyStr.slice(4)}`;
+  const bothYears = fromKeyStr.slice(0, 4) !== toKeyStr.slice(0, 4) && (year || yearOrLonger);
+  return `${formatRu(fromKeyStr, fmt(month, bothYears))}–${formatRu(toKeyStr, fmt(month, year || bothYears))}`;
 }
 
 /** «11 июня» / «June 11»; с явным fmt — как задано. */

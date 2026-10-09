@@ -36,9 +36,11 @@ import { STROKE_HEAVY } from './icons';
  *  и белая галочка. Лаконичнее прежнего крупного цветного кольца. */
 export function TaskCheck({ checked, onChange, color, size = 22 }: Props) {
   const c = color || 'var(--lh-accent)';
-  // На светлой заливке (белый, янтарный, золото по умолчанию) белая галочка
-  // не видна — ставим тёмную.
-  const checkColor = !color || isLightColor(color) ? ON_COLOR_DARK : '#fff';
+  // На светлой заливке (белый, янтарный) белая галочка не видна — ставим
+  // тёмную. Золото по умолчанию — глиф --lh-bg, как у золотых кнопок: в
+  // тёмной теме он тёмный (8.74), в светлой светлый (5.74). Всегда тёмная
+  // галочка на светлом золоте давала 3.09.
+  const checkColor = !color ? 'var(--lh-bg)' : isLightColor(color) ? ON_COLOR_DARK : '#fff';
   return (
     <button
       onClick={(e) => {
@@ -54,7 +56,7 @@ export function TaskCheck({ checked, onChange, color, size = 22 }: Props) {
         background: checked ? c : 'transparent',
       }}
     >
-      {checked && <Check size={size - 10} color={checkColor} strokeWidth={STROKE_HEAVY} />}
+      {checked && <Check size={size - 10} style={{ color: checkColor }} strokeWidth={STROKE_HEAVY} />}
     </button>
   );
 }

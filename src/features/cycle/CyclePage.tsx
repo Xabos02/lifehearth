@@ -12,7 +12,7 @@ import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Button } from '../../components/ui/Button';
 import { ensureCycleSetup } from '../../lib/cycle/cycleRepo';
-import { formatRu, todayKey, formatDayRange } from '../../lib/dates';
+import { todayKey, formatDayRange } from '../../lib/dates';
 import { getLang, t, tPlur, tPlural } from '../../lib/i18n';
 import { CycleCalendar } from './CycleCalendar';
 import { CycleHabitsCard } from './CycleHabitsCard';
@@ -36,18 +36,9 @@ import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 function predictionText(p: CyclePredictionResult): { title: string; note?: string } | null {
   if (p.confidence === 'none' || p.lo80 === undefined || p.hi80 === undefined) return null;
 
-  // Начало диапазона сжимается до голого числа только внутри одного месяца:
-  // «26–7 сентября» через границу месяца читается как опечатка — месяц начала
-  // обязан прозвучать («26 августа – 7 сентября»).
-  const range = (from: string, to: string) => {
-    if (from === to) return formatRu(from);
-    if (from.slice(0, 7) === to.slice(0, 7)) return formatDayRange(from, to);
-    return `${formatRu(from)} – ${formatRu(to)}`;
-  };
-
   if (p.confidence === 'population_prior') {
     return {
-      title: t('Примерно {range}', { range: range(p.lo80, p.hi80) }),
+      title: t('Примерно {range}', { range: formatDayRange(p.lo80, p.hi80) }),
       note: t('Пока это оценка по усреднённым данным, а не по вашим: циклов слишком мало.'),
     };
   }
@@ -56,7 +47,7 @@ function predictionText(p: CyclePredictionResult): { title: string; note?: strin
     // (predict.ts, wideBecause), а не одну на уровень уверенности: при трёх
     // ровных циклах «заметно разной длины» было неправдой.
     return {
-      title: t('Между {range}', { range: range(p.lo80, p.hi80) }),
+      title: t('Между {range}', { range: formatDayRange(p.lo80, p.hi80) }),
       note:
         p.wideBecause === 'spread'
           ? t('Прогноз ориентировочный: разница между вашими циклами больше двух недель.')
@@ -68,9 +59,9 @@ function predictionText(p: CyclePredictionResult): { title: string; note?: strin
     };
   }
   return {
-    title: t('Скорее всего {range}', { range: range(p.lo50!, p.hi50!) }),
+    title: t('Скорее всего {range}', { range: formatDayRange(p.lo50!, p.hi50!) }),
     note: t('Обычно попадает в {range} — примерно в четырёх случаях из пяти.', {
-      range: range(p.lo80, p.hi80),
+      range: formatDayRange(p.lo80, p.hi80),
     }),
   };
 }

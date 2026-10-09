@@ -143,6 +143,18 @@ async function auditScreens(
   return bad;
 }
 
+// Текущее состояние экрана — в обеих темах, без перехода по адресу.
+async function scanThemes(page: Page, where: string): Promise<string[]> {
+  const bad: string[] = [];
+  for (const theme of ['dark', 'light'] as const) {
+    await page.evaluate((t) => document.documentElement.classList.toggle('light', t === 'light'), theme);
+    // Цвета меняются с переходом — мерить посреди него значит мерить смесь тем.
+    await page.waitForTimeout(400);
+    for (const f of await scan(page)) bad.push(`${where} (${theme}) — «${f.что}» ${f.контраст}:1 (нужно ${f.нужно})`);
+  }
+  return bad;
+}
+
 for (const theme of ['dark', 'light'] as const) {
   test(`${theme}: контраст текста и иконок не ниже AA`, async ({ page }) => {
     await openApp(page);
@@ -182,14 +194,7 @@ test('окно согласия и пауза: контраст не ниже AA
   await expect(dialog.getByText('Сейчас у вас включено')).toBeVisible();
 
   const bad: string[] = [];
-  const both = async (where: string) => {
-    for (const theme of ['dark', 'light'] as const) {
-      await page.evaluate((t) => document.documentElement.classList.toggle('light', t === 'light'), theme);
-      // Цвета меняются с переходом — мерить посреди него значит мерить смесь тем.
-      await page.waitForTimeout(400);
-      for (const f of await scan(page)) bad.push(`${where} (${theme}) — «${f.что}» ${f.контраст}:1 (нужно ${f.нужно})`);
-    }
-  };
+  const both = async (where: string) => { bad.push(...(await scanThemes(page, where))); };
   await both('окно, коротко');
   await dialog.getByRole('button', { name: 'Подробно, по каждой функции' }).click();
   await both('окно, подробно');
@@ -201,6 +206,54 @@ test('окно согласия и пауза: контраст не ниже AA
   await both('настройки на паузе');
   await page.goto('/more/family');
   await both('семья на паузе');
+
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+});
+
+// Светлое золото подбиралось по одному фону, а лежит ещё на surface-2 и на своей
+// подложке lh-accent-dim — там #8A6D1F давал 3.69–4.30, а обход SCREENS был
+// зелёным: такие пары появляются только в состоянии. «Больше не показывать»
+// — под крестиком подсказки, «Завтра» — под свайпом задачи, выбранный симптом
+// и «сегодня» в календаре — после отметки дня, «Учитывается в сводке» — в шите
+// расхода.
+test('золото на своей подложке и на surface-2: контраст в обеих темах', async ({ page }) => {
+  await openApp(page, '/tasks');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    await db.tasks.put({
+      id: 'gt1', createdAt: now, updatedAt: now, deletedAt: null, title: 'Задача', notes: '',
+      projectId: null, goalId: null, priority: 0, dueDate: null, dueTime: null, duration: null,
+      remindBefore: null, completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+    } as never);
+  });
+  await page.goto('/tasks');
+  const bad: string[] = [];
+
+  await page.getByRole('button', { name: 'Скрыть подсказку' }).first().click();
+  await expect(page.getByRole('button', { name: 'Больше не показывать' })).toBeVisible();
+  const row = (await page.getByText('Задача', { exact: true }).first().boundingBox())!;
+  const y = row.y + row.height / 2;
+  await page.mouse.move(row.x + 150, y);
+  await page.mouse.down();
+  await page.mouse.move(row.x + 20, y, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.getByRole('button', { name: 'Завтра', exact: true })).toBeVisible();
+  bad.push(...(await scanThemes(page, 'задачи: подсказка и свайп')));
+
+  await page.goto('/more/cycle');
+  await page.getByRole('button', { name: 'Отметить', exact: true }).click();
+  await page.getByRole('button', { name: 'Усталость' }).click();
+  await expect(page.getByRole('button', { name: 'Усталость' })).toHaveAttribute('aria-pressed', 'true');
+  bad.push(...(await scanThemes(page, 'отметка дня: выбранный симптом')));
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.locator('[aria-current="date"]')).toBeVisible();
+  bad.push(...(await scanThemes(page, 'календарь цикла: сегодня')));
+
+  await page.goto('/more/finance');
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Учитывается в сводке' })).toBeVisible();
+  bad.push(...(await scanThemes(page, 'шит расхода')));
 
   expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
 });

@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState, type TouchEvent } from 'react';
-import { addMonths, format, isSameMonth, startOfMonth } from 'date-fns';
+import { addMonths, format, startOfMonth } from 'date-fns';
 import { GChevronLeft as ChevronLeft, GChevronRight as ChevronRight } from '../../components/ui/glyphs';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
-import { WEEKDAY_LABELS, addDaysKey, dateLocale, fromKey, monthGridKeys, todayKey, toKey, weekStartKey } from '../../lib/dates';
+import { WEEKDAY_LABELS, addDaysKey, dateLocale, formatDayRange, fromKey, monthGridKeys, todayKey, toKey, weekStartKey } from '../../lib/dates';
 import type { Workout } from '../../db/types';
 import { resolveKind } from './workouts';
 import { sessionCount } from './workoutStats';
@@ -55,14 +55,7 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
     else setAnchor(toKey(addMonths(startOfMonth(fromKey(anchor)), dir)));
   };
 
-  const weekLabel = (() => {
-    const a = fromKey(weekStart);
-    const b = fromKey(addDaysKey(weekStart, 6));
-    const sameMonth = isSameMonth(a, b);
-    return sameMonth
-      ? `${format(a, 'd')} – ${format(b, 'd MMMM', { locale: dateLocale() })}`
-      : `${format(a, 'd MMM', { locale: dateLocale() })} – ${format(b, 'd MMM', { locale: dateLocale() })}`;
-  })();
+  const weekLabel = formatDayRange(weekStart, addDaysKey(weekStart, 6), { short: true });
   const title = scale === 'week' ? weekLabel : month.label.charAt(0).toUpperCase() + month.label.slice(1);
 
   const dots = (key: string) => {
