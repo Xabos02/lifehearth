@@ -852,3 +852,35 @@ test('битая заметка не роняет весь список', async 
   await expect(page.getByText('Что-то пошло не так')).toHaveCount(0);
   await expect(page.getByText('Целая заметка')).toBeVisible();
 });
+
+// «Готово» или «Удалить» сразу после набора: заметка ещё создаётся (уход с
+// поля запускает сохранение), и её завершение подменяло адрес на
+// /notes/<id> — человек, уже ушедший к списку, оказывался снова в редакторе,
+// а «удалённая» заметка оставалась жить. С переходом экранов редактор при
+// этом даже не пересоздавался, и всё дописанное потом молча не сохранялось.
+test.describe('уход из новой заметки сразу после набора', () => {
+  const notes = (page: Page) =>
+    page.evaluate(async () => {
+      const { db } = await import('/src/db/db.ts');
+      return (await db.notes.toArray()).map((n) => ({ title: n.title, deleted: Boolean(n.deletedAt) }));
+    });
+
+  test('«Готово» — список, заметка сохранена', async ({ page }) => {
+    await newNote(page);
+    await page.keyboard.type('Купить молоко');
+    await page.getByRole('button', { name: 'Готово', exact: true }).click();
+    await page.waitForTimeout(1500);
+    await expect(page).toHaveURL(/\/notes$/);
+    expect(await notes(page)).toEqual([{ title: 'Купить молоко', deleted: false }]);
+  });
+
+  test('«Удалить» — список, заметка в корзине', async ({ page }) => {
+    await newNote(page);
+    await page.keyboard.type('Черновик на выброс');
+    page.once('dialog', (d) => void d.accept());
+    await page.getByRole('button', { name: 'Удалить', exact: true }).click();
+    await page.waitForTimeout(1500);
+    await expect(page).toHaveURL(/\/notes$/);
+    expect(await notes(page)).toEqual([{ title: 'Черновик на выброс', deleted: true }]);
+  });
+});
