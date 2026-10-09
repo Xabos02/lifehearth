@@ -309,7 +309,7 @@ function RemoveMemberSheet({
         {error && <p className="text-sm text-danger">{error}</p>}
 
         <Button
-          className="w-full bg-danger-fill text-white"
+          className="w-full bg-danger-fill! text-white!"
           disabled={busy || !plan}
           onClick={() => void confirm()}
         >

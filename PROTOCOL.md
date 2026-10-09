@@ -100,9 +100,14 @@ OKLCH: L перцептивно равномерна, глубину можно 
 `TaskItem.tsx:347`, `Hint.tsx:80,86`, `WhatsNew.tsx:95`, `MembersTab.tsx:295`, `ChatTab.tsx:226,506` (`text-white/70` на золотом пузыре своих сообщений — 1.82 в тёмной), `ChatTab.tsx:562,565` (`text-white/90`, `/75` в цитате ответа на том же пузыре — 1.87/1.70).
 
 **Правило: новый цветной элемент на новом фоне прогоняется замером** — экран в `SCREENS`
-(`contrast.spec.ts:19`). [планка] Шиты, вкладки семьи и
+(`contrast.spec.ts:19`), шторка, открываемая действием, — сценарием рядом (так покрыты «Исключить»
+и журнал дня цикла). [планка] Остальные шиты, вкладки семьи и
 полноэкранные режимы не покрыты — там пользовательский цвет на тексте уже проваливает AA
-(`DepositSheet.tsx:77`, `FamilyTasksTab.tsx:263`).
+(`DepositSheet.tsx:77`, `FamilyTasksTab.tsx:263`). [планка] Светлый `danger` подобран по трём
+поверхностям без своей подложки: на `danger/15` на шторке — 4.27 (замер), на `bg` — около 4.0
+(расчёт). Задеты выбранный уровень в `DayLogSheet.tsx:139`, `CycleCalendar.tsx:153` и вариант
+`danger` у `Button` (12 кнопок удаления, по расчёту ~4.2); чинится токеном `--app-danger` в
+`:root.light`, как индиго ИИ.
 
 ### 1.3. Тёмная и светлая темы — не зеркала друг друга
 
@@ -443,10 +448,14 @@ rem (0.25rem), единица выходила 17 × 0.25 = 4.25px, и ни от
 ### 5.3. Кнопки (`Button.tsx`, `IconButton.tsx`)
 
 `Button` — четыре варианта: `primary` (`bg-lh-accent text-lh-bg`), `secondary` (`bg-lh-surface-2`, рамка `border-lh-border`),
-`ghost` (рамка `border-lh-accent`, текст `text-lh-accent`), `danger` (подложка `danger/15`; сплошной красный `bg-danger-fill` — у сброса звонка (`CallOverlay.tsx:273`) и
-свайп-удаления). `rounded-lh-btn` (12px) `px-4 py-3 font-semibold`, `active:scale-[0.98]` за 150ms,
-`disabled:opacity-40`; prominent — одна-две на экран. [планка] Инлайн-пилюля `rounded-full
-bg-lh-accent text-sm` мимо `Button`; CTA гейтов — конвенция, не вариант (§19). Перекраска `Button` через `className` без `!` ненадёжна — решает порядок правил в CSS: у «Исключить» (`MembersTab.tsx:311`, `bg-danger-fill text-white` поверх `primary`) фон остался золотым, текст стал белым (2.29:1 в тёмной теме); рабочий приём — `!` (`DayLogSheet.tsx:205`).
+`ghost` (рамка `border-lh-accent`, текст `text-lh-accent`), `danger` (подложка `danger/15`; сплошной красный `bg-danger-fill` — у сброса звонка (`CallOverlay.tsx:273`),
+свайп-удаления и «Исключить» в `RemoveMemberSheet`). `rounded-lh-btn` (12px) `px-4 py-3 font-semibold`, `active:scale-[0.98]` за 150ms,
+`disabled:opacity-40`; prominent — одна-две на экран. Перекраска варианта через `className` — только с `!`
+(`bg-danger-fill! text-white!` у «Исключить», `border-danger! text-danger!` у «Очистить день»): `Button`
+склеивает классы строкой, оба лежат в одном слое, и побеждает тот, что ниже в собранном CSS. Без `!`
+«Исключить» была белой по золоту (2.29:1), «Очистить день» — золотой вместо красной; страж — сценарий
+шторок в `contrast.spec.ts`. [планка] Инлайн-пилюля `rounded-full
+bg-lh-accent text-sm` мимо `Button`; CTA гейтов — конвенция, не вариант (§19).
 
 `IconButton` — единственная кнопка-иконка шапки: бокс `size-9`, `ICON.header` + `shrink-0`,
 `HIT_SLOP_44`, обязательный `label`, `tone`, `filled`; `className` — не метрика (шесть прежних
