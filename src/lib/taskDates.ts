@@ -17,19 +17,17 @@ export function taskOnDay(
   return t.startDate <= dayKey && dayKey <= t.dueDate;
 }
 
-/** Подпись срока-периода: «10–25 августа» в одном месяце, «28 августа —
- *  3 сентября» через границу. Дедлайн со словом («Сегодня», «Завтра»)
- *  оставляем словом — «10 августа – Завтра» читается лучше даты,
- *  до которой ещё надо посчитать дни. */
+/** Подпись срока-периода: диапазон дат — formatDayRange («10–25 августа»,
+ *  «28 августа–3 сентября»). Дедлайн со словом («Сегодня», «Завтра»)
+ *  оставляем словом — «10 августа — Завтра» читается лучше даты, до которой
+ *  ещё надо посчитать дни; это уже фраза, поэтому тире с пробелами. */
 export function formatDueRange(startKey: string, dueKey: string): string {
   if (startKey === dueKey) return formatDueDate(dueKey);
   const due = formatDueDate(dueKey);
   // Дедлайн словом («Сегодня», «Tomorrow»), а не датой: сравниваем с тем,
   // что дала бы просто дата. Проверка «начинается с буквы» тут не годится —
   // по-английски и дата начинается с буквы («August 25»).
-  const wordDue = due !== formatRu(dueKey);
-  const sameMonth = startKey.slice(0, 7) === dueKey.slice(0, 7);
-  if (!wordDue && sameMonth) return formatDayRange(startKey, dueKey);
+  if (due === formatRu(dueKey)) return formatDayRange(startKey, dueKey);
   return `${formatRu(startKey)} — ${due}`;
 }
 

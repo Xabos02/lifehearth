@@ -5,7 +5,7 @@ import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
-import { formatRu } from '../../lib/dates';
+import { formatDayRange, formatRu } from '../../lib/dates';
 import { getLang, t, tPlur, tPlural } from '../../lib/i18n';
 import { buildDoctorReport, type DoctorReportWindow } from '../../lib/cycle/report';
 import { useCycleData } from './useCycleData';
@@ -64,10 +64,7 @@ export function CycleReportPage() {
     [data.days, data.cycles, episodes, symptomDefs, data.anomalies, reportWindow, data.today],
   );
 
-  const periodText =
-    report.periodFrom === report.periodTo
-      ? formatRu(report.periodFrom, 'd MMMM yyyy')
-      : `${formatRu(report.periodFrom, 'd MMMM yyyy')} — ${formatRu(report.periodTo, 'd MMMM yyyy')}`;
+  const periodText = formatDayRange(report.periodFrom, report.periodTo, { year: true });
 
   return (
     <Screen title={t('Отчёт для врача')} backTo="/more/cycle/settings">
@@ -179,8 +176,9 @@ export function CycleReportPage() {
                     <div key={`${e.kind}-${e.startDate}-${i}`} className="py-3">
                       <p className="font-medium">{e.label}</p>
                       <p className="mt-0.5 text-sm text-lh-text-secondary">
-                        {formatRu(e.startDate, 'd MMMM yyyy')} —{' '}
-                        {e.endDate ? formatRu(e.endDate, 'd MMMM yyyy') : t('продолжается')}
+                        {e.endDate
+                          ? formatDayRange(e.startDate, e.endDate, { year: true })
+                          : `${formatRu(e.startDate, 'd MMMM yyyy')} — ${t('продолжается')}`}
                       </p>
                     </div>
                   ))}
