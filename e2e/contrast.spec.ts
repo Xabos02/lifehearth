@@ -1,5 +1,5 @@
-import { test, expect, openApp } from './fixtures';
-import type { Page } from '@playwright/test';
+import { test, expect, openApp, openFamilyChrome } from './fixtures';
+import type { Locator, Page } from '@playwright/test';
 
 // Контраст текста и иконок — по пикселям в живом браузере.
 //
@@ -44,8 +44,8 @@ async function seedAiReply(page: Page) {
 
 interface Finding { что: string; класс: string; контраст: number; нужно: number }
 
-async function scan(page: Page): Promise<Finding[]> {
-  return page.evaluate(() => {
+async function scan(page: Page, root = page.locator('body')): Promise<Finding[]> {
+  return root.evaluate((rootEl) => {
     const cv = document.createElement('canvas');
     cv.width = cv.height = 1;
     const ctx = cv.getContext('2d', { willReadFrequently: true })!;
@@ -94,7 +94,7 @@ async function scan(page: Page): Promise<Finding[]> {
     };
 
     const found: Finding[] = [];
-    for (const el of document.querySelectorAll('body *')) {
+    for (const el of rootEl.querySelectorAll('*')) {
       const r = el.getBoundingClientRect();
       if (r.width < 4 || r.height < 4) continue;
       const cs = getComputedStyle(el);
@@ -201,6 +201,90 @@ test('окно согласия и пауза: контраст не ниже AA
   await both('настройки на паузе');
   await page.goto('/more/family');
   await both('семья на паузе');
+
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+});
+
+// Кнопки, перекрашенные через className, проигрывали классу варианта Button:
+// классы склеиваются строкой, оба в одном слое, и побеждает тот, что ниже в
+// собранном CSS. «Исключить» (primary) выходила белым по золоту — 2.29:1,
+// «Очистить день» (ghost) — золотом вместо красного, что контраст не ловит:
+// золото на шторке AA проходит. Поэтому, кроме замера, — сверка с токеном.
+// Обе шторки открываются только действием, обход SCREENS их не видит.
+test('шторки «Исключить» и «Очистить день»: красные и не ниже AA в обеих темах', async ({ page }) => {
+  const sheet = page.locator('[class*="animate-sheet-up"]');
+  /** Цвет элемента — ровно токен. Пробный элемент нужен, чтобы оба значения
+   *  сериализовал один движок: в токене 'oklch(0.70 …)', в стиле 'oklch(0.7 …)'. */
+  const isToken = (loc: Locator, prop: 'color' | 'backgroundColor', token: string) =>
+    loc.evaluate((el, [p, tk]) => {
+      const probe = document.createElement('i');
+      probe.style[p] = `var(${tk})`;
+      document.body.append(probe);
+      const want = getComputedStyle(probe)[p];
+      probe.remove();
+      return getComputedStyle(el)[p] === want;
+    }, [prop, token] as const);
+  const bad: string[] = [];
+  const both = async (where: string, check: () => Promise<void>) => {
+    for (const theme of ['dark', 'light'] as const) {
+      await page.evaluate((t) => document.documentElement.classList.toggle('light', t === 'light'), theme);
+      await page.waitForTimeout(400);
+      await check();
+      for (const f of await scan(page, sheet)) bad.push(`${where} (${theme}) — «${f.что}» ${f.контраст}:1 (нужно ${f.нужно})`);
+    }
+  };
+
+  await openApp(page, '/more/family');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    const key = await generateKey();
+    const ts = new Date().toISOString();
+    // ownerSecret — иначе кнопки исключения нет вовсе (её видит только создатель).
+    await db.family.put({
+      id: 'f1', familyId: 'f1', familyToken: 't', familyKey: key, familyName: 'Наши',
+      selfMemberId: 'me', lastSeq: 0, lastReadSeq: 0, enabled: true, joinedAt: ts,
+      keyEpoch: 0, keyRing: { '0': key }, ownerSecret: 's',
+    } as never);
+    await db.familyMembers.bulkPut([
+      { id: 'me', familyId: 'f1', seq: 1, displayName: 'Влад', color: '#5b7cfa', joinedAt: ts, leftAt: null, removedAt: null },
+      { id: 'p1', familyId: 'f1', seq: 2, displayName: 'Отец', color: '#10b981', joinedAt: ts, leftAt: null, removedAt: null },
+    ] as never[]);
+  });
+  await page.goto('/more/family?g=f1');
+  await openFamilyChrome(page);
+  await page.getByRole('button', { name: 'Участники' }).click();
+  await page.getByRole('button', { name: 'Исключить Отец' }).click();
+  const remove = sheet.getByRole('button', { name: 'Исключить', exact: true });
+  await expect(remove).toBeEnabled();
+  await both('исключение', async () => {
+    expect.soft(await isToken(remove, 'backgroundColor', '--app-danger-fill'), 'фон «Исключить» не красный').toBe(true);
+  });
+  await sheet.getByRole('button', { name: 'Отмена' }).click();
+  await expect(sheet).toHaveCount(0);
+
+  await page.goto('/more/cycle');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const repo = await import('/src/lib/cycle/cycleRepo.ts');
+    const { todayKey } = await import('/src/lib/dates.ts');
+    const ts = new Date().toISOString();
+    await repo.ensureCycleSetup();
+    // Только заметка, без кровотечения: выбранный чип уровня — красный текст
+    // на своей подложке /15, а в светлой теме это 4.27 у всего приложения
+    // ([планка] PROTOCOL §1.2, чинится токеном --app-danger, не здесь).
+    await db.cycleDays.put({
+      date: todayKey(), note: 'Голова', symptomKeys: [],
+      createdAt: ts, updatedAt: ts, source: 'user',
+    } as never);
+    await repo.rebuildCycles();
+  });
+  await page.getByRole('button', { name: 'Отметить', exact: true }).click();
+  const clear = sheet.getByRole('button', { name: 'Очистить день' });
+  await expect(clear).toBeVisible();
+  await both('журнал дня', async () => {
+    expect.soft(await isToken(clear, 'color', '--app-danger'), '«Очистить день» не красная').toBe(true);
+  });
 
   expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
 });
