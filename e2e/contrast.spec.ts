@@ -19,7 +19,28 @@ import type { Page } from '@playwright/test';
 const SCREENS = ['/', '/tasks', '/notes', '/calendar', '/goals', '/stats', '/home',
   '/more/finance', '/more/focus', '/more/habits', '/more/learning', '/more/energy',
   '/more/places', '/more/family', '/more/cycle', '/more/settings',
-  '/more/health'];
+  '/more/health', '/more/ai'];
+
+// Пустой раздел ИИ не набран индиго ни в одном тексте: пока у светлой темы
+// не было своего --lh-ai-accent, текст раздела шёл на 2.65–2.74, а страж на
+// пустом разделе был зелёным. Индиговый текст — след инструментов и
+// «Дописать» на подложке /15, «Данные» на /12 — появляется только у ответа,
+// поэтому ответ засеваем.
+async function seedAiReply(page: Page) {
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    await db.llmChats.put({
+      ...base('ai-c'), title: 'Чат', model: 'm', systemPrompt: '', lastMessageAt: now, dataTools: true,
+    } as never);
+    await db.llmMessages.put({
+      ...base('ai-m'), chatId: 'ai-c', role: 'assistant', content: 'Ответ', model: 'm',
+      tokensIn: 1, tokensOut: 1, costRub: 0, status: 'done', error: null,
+      finishReason: 'length', toolTrace: [{ tool: 'list_tasks', count: 3 }],
+    } as never);
+  });
+}
 
 interface Finding { что: string; класс: string; контраст: number; нужно: number }
 
@@ -125,6 +146,7 @@ async function auditScreens(
 for (const theme of ['dark', 'light'] as const) {
   test(`${theme}: контраст текста и иконок не ниже AA`, async ({ page }) => {
     await openApp(page);
+    await seedAiReply(page);
     const bad = await auditScreens(page, theme, SCREENS);
     expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
   });
