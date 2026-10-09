@@ -50,8 +50,8 @@ export function TabBar() {
               {({ isActive }) => (
                 <>
                   <span
-                    // Пилюля тянется по вкладке, но не шире прежних w-16 (4rem
-                    // при root 17px = 68px): на 393/430px вид не меняется, а на
+                    // Пилюля тянется по вкладке, но не шире прежних w-16 (64px:
+                    // шаг --spacing 4px × 16): на 393/430px вид не меняется, а на
                     // узком экране она сжимается вместо того, чтобы задавать
                     // неусыхаемый min-content и выталкивать ряд за край.
                     className={`flex h-9 w-full max-w-16 items-center justify-center rounded-2xl transition-colors duration-200 ${
