@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body{margin:0;background:#f6f6fa;font-family:Inter,-apple-system,system-ui,sans-serif}
+    .ab{width:375px;background:#f6f6fa}
+    .cap{height:40px;box-sizing:border-box;margin:0;padding:16px 16px 0;font-size:12px;font-weight:600;
+      letter-spacing:0.03em;text-transform:uppercase;color:#6e6e7a}
+    .sub{height:28px;box-sizing:border-box;margin:0;padding:10px 16px 0;font-size:11px;color:#6e6e7a}
+    img{display:block;width:375px}
+  </style>
+</helmet>
+<div class="ab">
+  <p class="cap">А: L 0.495 — по худшему фону с подложкой</p>
+  <p class="sub">Подсказка: «Больше не показывать» · свайп: «Завтра»</p>
+  <img src="shots/light-a-tasks.webp" alt="">
+  <p class="sub">Отметка дня: выбранные симптомы</p>
+  <img src="shots/light-a-sheet.webp" alt="">
+  <p class="sub">Золотая кнопка: светлый глиф</p>
+  <img src="shots/light-a-button.webp" alt="">
+  <p class="sub">Календарь цикла: сегодня</p>
+  <img src="shots/light-a-calendar.webp" alt="">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":1379}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
