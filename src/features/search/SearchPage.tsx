@@ -17,6 +17,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
+import { NAV_BACK } from '../../components/layout/navState';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
@@ -56,7 +57,13 @@ interface SectionResult {
 
 function Row({ icon: Icon, hit }: { icon: LucideIcon; hit: Hit }) {
   return (
-    <Link to={hit.to} className="flex items-start gap-3 px-4 py-3 active:opacity-70">
+    // Напоминание ведёт на «Сегодня» — туда же, куда стрелка поиска (§12), и
+    // анимируется так же, возвратом.
+    <Link
+      to={hit.to}
+      state={hit.to === '/' ? NAV_BACK : undefined}
+      className="flex items-start gap-3 px-4 py-3 active:opacity-70"
+    >
       <Icon size={ICON.base} className="mt-0.5 shrink-0 text-lh-accent" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{hit.title || t('Без названия')}</p>

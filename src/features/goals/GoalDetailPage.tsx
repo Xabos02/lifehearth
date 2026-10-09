@@ -24,6 +24,7 @@ import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
 import { goalProgress, goalProgressLabel } from '../../lib/progress';
 import { Screen } from '../../components/layout/Screen';
+import { NAV_BACK } from '../../components/layout/navState';
 import { Input } from '../../components/ui/Input';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { ProgressRing } from '../../components/ui/ProgressRing';
@@ -101,7 +102,7 @@ export function GoalDetailPage() {
       <Screen title={t('Цель')} backTo="/goals">
         <div className="py-14 text-center">
           <p className="font-semibold text-lh-text-secondary">{t('Цель не найдена')}</p>
-          <Link to="/goals" className="mt-2 inline-block text-sm font-medium text-lh-accent">
+          <Link to="/goals" state={NAV_BACK} className="mt-2 inline-block text-sm font-medium text-lh-accent">
             {t('К списку целей')}
           </Link>
         </div>

@@ -8,6 +8,7 @@ import {
 import { t } from '../../lib/i18n';
 import { IconButton } from '../ui/IconButton';
 import { ICON, STROKE_STRONG } from '../ui/icons';
+import { NAV_BACK } from './navState';
 
 interface Props {
   title: string;
@@ -61,7 +62,7 @@ function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void
       <IconButton
         icon={ChevronLeft}
         label={t('Назад')}
-        {...(onClick ? { onClick } : { to })}
+        {...(onClick ? { onClick } : { to, state: NAV_BACK })}
         size={ICON.accent}
         strokeWidth={STROKE_STRONG}
       />
@@ -83,7 +84,7 @@ function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void
       {inner}
     </button>
   ) : (
-    <Link to={to!} aria-label={t('Назад: {label}', { label })} className={cls}>
+    <Link to={to!} state={NAV_BACK} aria-label={t('Назад: {label}', { label })} className={cls}>
       {inner}
     </Link>
   );

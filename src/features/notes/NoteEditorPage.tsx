@@ -25,6 +25,7 @@ import {
 } from '../../components/ui/glyphs';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
+import { NAV_BACK } from '../../components/layout/navState';
 import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 import { MicButton } from '../../components/ui/MicButton';
 import { Hint } from '../../components/ui/Hint';
@@ -669,14 +670,14 @@ export function NoteEditorPage() {
     deletedRef.current = true;
     clearTimeout(timerRef.current);
     if (savedIdRef.current) await remove(db.notes, savedIdRef.current);
-    navigate('/notes');
+    navigate('/notes', { state: NAV_BACK });
   };
 
   // «Готово»: гасим отложенный автосейв, сохраняем текущее состояние и уходим.
   const handleDone = async () => {
     clearTimeout(timerRef.current);
     await flush();
-    navigate('/notes');
+    navigate('/notes', { state: NAV_BACK });
   };
 
   return (

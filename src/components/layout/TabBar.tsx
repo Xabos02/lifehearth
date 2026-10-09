@@ -4,6 +4,7 @@ import { isBackupDue } from '../../db/backup';
 import { useFamilyUnread } from '../../hooks/useFamilyUnread';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import { ICON, STROKE, STROKE_STRONG } from '../ui/icons';
+import { NAV_TAB } from './navState';
 import { t } from '../../lib/i18n';
 
 export function TabBar() {
@@ -32,6 +33,7 @@ export function TabBar() {
           return (
             <NavLink
               key={id}
+              state={NAV_TAB}
               to={to}
               end={end}
               // Оранжевая точка 8px — единственный носитель двух разных

@@ -20,6 +20,8 @@ interface Props {
   onClick?: () => void;
   /** Вместо кнопки — ссылка на маршрут. */
   to?: string;
+  /** state ссылки — пометка перехода для NavRouter (NAV_BACK у стрелки «Назад»). */
+  state?: unknown;
   tone?: Tone;
   /** Залить глиф текущим цветом — для состояний «включено» (закреплено). */
   filled?: boolean;
@@ -48,6 +50,7 @@ export function IconButton({
   label,
   onClick,
   to,
+  state,
   tone = 'accent',
   filled = false,
   size = ICON.header,
@@ -64,7 +67,7 @@ export function IconButton({
 
   if (to) {
     return (
-      <Link to={to} aria-label={label} className={cls}>
+      <Link to={to} state={state} aria-label={label} className={cls}>
         {glyph}
       </Link>
     );
