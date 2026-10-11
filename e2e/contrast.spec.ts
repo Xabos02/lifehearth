@@ -94,7 +94,8 @@ async function scan(page: Page, root = page.locator('body')): Promise<Finding[]>
     };
 
     const found: Finding[] = [];
-    for (const el of rootEl.querySelectorAll('*')) {
+    // Корень — тоже кандидат: у чипа на подложке текст лежит прямо в нём.
+    for (const el of [rootEl, ...rootEl.querySelectorAll('*')]) {
       const r = el.getBoundingClientRect();
       if (r.width < 4 || r.height < 4) continue;
       const cs = getComputedStyle(el);
@@ -255,6 +256,124 @@ test('золото на своей подложке и на surface-2: конт�
   await expect(page.getByRole('button', { name: 'Учитывается в сводке' })).toBeVisible();
   bad.push(...(await scanThemes(page, 'шит расхода')));
 
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+});
+
+// Серый --lh-text-secondary на золотой подложке не держит AA ни в одной теме:
+// поверх bg / surface / surface-2 — 4.30 / 4.62 / 4.09 в светлой и 4.77 /
+// 4.40 / 4.05 в тёмной (канва design/muted-on-gold). Такие пары живут только
+// в состоянии: цитата во входящем ответе и своя реакция в семейном чате,
+// открытый чат и выбранная модель в шторках ИИ, цель переноса в «Задачах».
+// Меряется всё, что лежит на подложке, — а у цели переноса вся секция: её
+// подсветка от правки потеряла заливку, и мерить по классу было бы нечего.
+async function scanRoots(page: Page, where: string, roots: () => Promise<Locator[]>): Promise<string[]> {
+  const bad: string[] = [];
+  for (const theme of ['dark', 'light'] as const) {
+    await page.evaluate((t) => document.documentElement.classList.toggle('light', t === 'light'), theme);
+    await page.waitForTimeout(400);
+    const found = await roots();
+    expect(found.length, `${where}: подложки нет — мерить нечего`).toBeGreaterThan(0);
+    for (const root of found) {
+      for (const f of await scan(page, root)) bad.push(`${where} (${theme}) — «${f.что}» ${f.контраст}:1 (нужно ${f.нужно})`);
+    }
+  }
+  return bad;
+}
+const tints = (within: Locator) => () => within.locator('.bg-lh-accent-dim').all();
+
+test('чат: цитата и своя реакция на золотой подложке — AA в обеих темах', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    const key = await generateKey();
+    const ts = new Date().toISOString();
+    await db.family.put({
+      id: 'f1', familyId: 'f1', familyToken: 't', familyKey: key, familyName: 'Наши',
+      selfMemberId: 'me', lastSeq: 6, lastReadSeq: 6, enabled: true, joinedAt: ts,
+      keyEpoch: 0, keyRing: { '0': key },
+    } as never);
+    await db.familyMembers.bulkPut([
+      { id: 'me', familyId: 'f1', seq: 1, displayName: 'Влад', color: '#5b7cfa', joinedAt: ts, leftAt: null, removedAt: null },
+      { id: 'p1', familyId: 'f1', seq: 2, displayName: 'Мама', color: '#10b981', joinedAt: ts, leftAt: null, removedAt: null },
+    ] as never[]);
+    const msg = (id: string, seq: number, sender: string, text: string, over: Record<string, unknown> = {}) => ({
+      clientMsgId: id, familyId: 'f1', seq, senderMemberId: sender, text, status: 'acked', deletedAt: null,
+      createdAt: new Date(Date.now() - (10 - seq) * 60000).toISOString(), ...over,
+    });
+    // Ответ Мамы с цитатой и «👍» от обоих: число на чипе видно от двух.
+    await db.familyMessages.bulkPut([
+      msg('m1', 3, 'me', 'Купить к ужину хлеб?'),
+      msg('m2', 4, 'p1', 'Да, и молоко', { replyTo: { id: 'm1', name: 'Влад', text: 'Купить к ужину хлеб?' } }),
+      msg('r1', 5, 'me', '', { reaction: { targetId: 'm2', emoji: '👍' } }),
+      msg('r2', 6, 'p1', '', { reaction: { targetId: 'm2', emoji: '👍' } }),
+    ] as never[]);
+  });
+  await page.goto('/more/family?g=f1');
+  await expect(page.getByText('Да, и молоко')).toBeVisible();
+  const bad = await scanRoots(page, 'чат', tints(page.locator('body')));
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+});
+
+test('ИИ: открытый чат и выбранная модель на золотой подложке — AA в обеих темах', async ({ page }) => {
+  // Шторки рисуются вне обёртки раздела, поэтому подложка в них золотая.
+  await openApp(page, '/');
+  // Засев до захода в раздел: пустой раздел заводит свой чат, и открытым
+  // оказался бы он, а не засеянный.
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { MODELS } = await import('/src/lib/ai/models.ts');
+    const now = new Date().toISOString();
+    await db.llmChats.put({
+      id: 'ai-c', createdAt: now, updatedAt: now, deletedAt: null, title: 'План', model: MODELS.at(-1)!.id,
+      systemPrompt: '', lastMessageAt: now, lastMessageText: 'Перенесите на четверг', dataTools: false,
+    } as never);
+  });
+  const sheet = page.locator('[class*="animate-sheet-up"]');
+  await page.goto('/more/ai');
+  await page.getByRole('button', { name: 'Список чатов' }).click();
+  await expect(sheet.getByText('Перенесите на четверг')).toBeVisible();
+  const bad = await scanRoots(page, 'список чатов', tints(sheet));
+  await sheet.getByRole('button', { name: 'Закрыть' }).click();
+  await expect(sheet).toHaveCount(0);
+  await page.getByRole('button', { name: 'Модель', exact: true }).click();
+  await expect(sheet).toBeVisible();
+  bad.push(...(await scanRoots(page, 'модель', tints(sheet))));
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+});
+
+test('задачи: цель переноса — AA в обеих темах', async ({ page }) => {
+  await openApp(page, '/tasks');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    await db.projects.bulkPut([
+      { ...base('p1'), name: 'Бизнес', color: '#5b7cfa', emoji: '💼', sortOrder: 1000, archivedAt: null, parentId: null },
+      { ...base('s1'), name: 'Поставщики', color: '#f59e0b', emoji: '📦', sortOrder: 1000, archivedAt: null, parentId: 'p1' },
+      { ...base('p2'), name: 'Здоровье', color: '#3aa35e', emoji: '🏃', sortOrder: 2000, archivedAt: null, parentId: null },
+    ] as never[]);
+    const task = (id: string, title: string, projectId: string, completedAt: string | null = null) => ({
+      ...base(id), title, notes: '', projectId, goalId: null, priority: 0, dueDate: null, dueTime: null,
+      duration: null, remindBefore: null, completedAt, checklist: [], recurrence: null, tags: [], sortOrder: 1000,
+    });
+    // Выполненная задача и подпроект — чтобы в цели были «Выполненные»,
+    // «Подпроект» и серое имя подпроекта.
+    await db.tasks.bulkPut([
+      task('dt1', 'Позвонить поставщику', 'p1'), task('dt2', 'Сверить счёт', 'p1', now),
+      task('dt3', 'Пробежка', 'p2'), task('dt4', 'Заказать образцы', 's1'),
+    ] as never[]);
+  });
+  await page.goto('/tasks');
+  await page.getByText('Пробежка', { exact: true }).first().hover();
+  await page.mouse.down();
+  await expect(page.locator('.fixed.z-\\[70\\]'), 'перенос не стартовал').toBeVisible({ timeout: 2000 });
+  const target = page.locator('[data-drop-key="p1"]');
+  const box = (await target.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + 20, { steps: 4 });
+  await expect(target).toHaveClass(/(^|\s)ring-lh-accent(\s|$)/);
+  const bad = await scanRoots(page, 'цель переноса', async () => [target]);
+  await page.mouse.up();
   expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
 });
 
