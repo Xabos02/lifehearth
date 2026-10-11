@@ -47,7 +47,7 @@ function predictionText(p: CyclePredictionResult): { title: string; note?: strin
     // (predict.ts, wideBecause), а не одну на уровень уверенности: при трёх
     // ровных циклах «заметно разной длины» было неправдой.
     return {
-      title: t('Между {range}', { range: formatDayRange(p.lo80, p.hi80) }),
+      title: t('Между {range}', { range: formatDayRange(p.lo80, p.hi80, { between: true }) }),
       note:
         p.wideBecause === 'spread'
           ? t('Прогноз ориентировочный: разница между вашими циклами больше двух недель.')
@@ -60,8 +60,8 @@ function predictionText(p: CyclePredictionResult): { title: string; note?: strin
   }
   return {
     title: t('Скорее всего {range}', { range: formatDayRange(p.lo50!, p.hi50!) }),
-    note: t('Обычно попадает в {range} — примерно в четырёх случаях из пяти.', {
-      range: formatDayRange(p.lo80, p.hi80),
+    note: t('Примерно в четырёх случаях из пяти — между {range}.', {
+      range: formatDayRange(p.lo80, p.hi80, { between: true }),
     }),
   };
 }
