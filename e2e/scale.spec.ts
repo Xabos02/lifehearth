@@ -1,4 +1,5 @@
 import { test, expect, openApp } from './fixtures';
+import type { Locator } from '@playwright/test';
 
 // Шкала кеглей и радиусов держится тестом, а не договорённостью.
 //
@@ -77,4 +78,24 @@ test('кегли и радиусы — только из шкалы', async ({ p
     for (const f of found) if (!bad.has(f.key)) bad.set(f.key, `${path}: ${f.text}`);
   }
   expect([...bad.values()], `значений вне шкалы: ${bad.size}`).toEqual([]);
+});
+
+// Кегль и вес из классов обязаны доходить до кнопок и полей. С 12.06 по
+// 11.10.2026 в index.css вне слоёв стояло button { font: inherit }: оно
+// перебивало text-sm и font-semibold, и любая кнопка рисовалась 17px весом
+// 400. Тест выше этого не видел — 17 в шкале есть.
+test('кегль и вес из классов доходят до кнопок', async ({ page }) => {
+  await openApp(page, '/calendar');
+  const font = (l: Locator) =>
+    l.evaluate((el) => `${getComputedStyle(el).fontSize} ${getComputedStyle(el).fontWeight}`);
+  // Выбранный день месяца — text-sm font-semibold.
+  expect(await font(page.locator('button[aria-label*="выбрано"]').first())).toBe('15px 600');
+  // Текстовое действие шапки — text-base, во всех разделах (PROTOCOL §5.3).
+  expect(await font(page.getByRole('button', { name: 'Сегодня', exact: true }))).toBe('17px 500');
+  await page.goto('/more/settings');
+  // Button — font-semibold.
+  expect(await font(page.getByRole('button', { name: 'Включить синхронизацию' }))).toBe('17px 600');
+  // Поле крупнее 16px перебивает правило полей только через `!` (index.css).
+  await page.goto('/more/focus');
+  expect(await font(page.getByLabel('Фокус, минут'))).toBe('26px 200');
 });

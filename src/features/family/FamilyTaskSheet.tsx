@@ -119,6 +119,8 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
         </div>
       </Field>
       <Field label={t('Приоритет')}>
+        {/* min-h-11 у сегмента: text-sm с py-2.5 дают 41.75px — 44 держались
+            только на кегле 17px, который до 11.10.2026 перебивал классы. */}
         <div className="flex rounded-xl bg-lh-surface-2 p-1">
           {PRIORITIES.map((o) => (
             <button
@@ -126,7 +128,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
               type="button"
               aria-pressed={priority === o.value}
               onClick={() => setPriority(o.value)}
-              className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-1 py-2.5 text-sm font-medium transition-all duration-200 ${
+              className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-1 py-2.5 text-sm font-medium transition-all duration-200 ${
                 priority === o.value ? 'bg-lh-bg text-lh-text-primary shadow-sm' : 'text-lh-text-secondary active:text-lh-text-primary'
               }`}
             >

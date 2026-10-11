@@ -97,7 +97,7 @@ export function CyclePage() {
           <button
             type="button"
             onClick={() => setPickedDate(todayKey())}
-            className="shrink-0 rounded-lg px-2 py-2.5 text-sm font-medium text-lh-accent active:opacity-60"
+            className="shrink-0 rounded-lg px-2 py-2.5 text-base font-medium text-lh-accent active:opacity-60"
           >
             {t('Отметить')}
           </button>

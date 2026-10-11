@@ -587,11 +587,11 @@ export function NotesPage() {
                   selected.size === filtered.length ? new Set() : new Set(filtered.map((n) => n.id)),
                 )
               }
-              className={`text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
+              className={`text-base font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
             >
               {selected.size === filtered.length && filtered.length > 0 ? t('Снять выбор') : t('Выбрать все')}
             </button>
-            <button onClick={exitSelect} className={`text-sm font-semibold text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}>
+            <button onClick={exitSelect} className={`text-base font-semibold text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}>
               {t('Готово')}
             </button>
           </div>
@@ -604,7 +604,7 @@ export function NotesPage() {
             {filtered.length > 0 && !q && (
               <button
                 onClick={() => setSelecting(true)}
-                className={`pr-1 text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
+                className={`pr-1 text-base font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
                 {t('Выбрать')}
               </button>
@@ -621,7 +621,7 @@ export function NotesPage() {
             {current && (
               <button
                 onClick={() => setFolderSheet(current)}
-                className={`pl-1 text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
+                className={`pl-1 text-base font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
                 {t('Изменить')}
               </button>

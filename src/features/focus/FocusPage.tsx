@@ -161,7 +161,9 @@ function DurationStepper({
             const n = parseInt(text, 10);
             if (!Number.isFinite(n) || n < 1) setText(String(value));
           }}
-          className="min-w-0 flex-1 rounded-lg bg-transparent text-center text-2xl font-extralight tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-lh-accent/60"
+          // text-2xl! — с `!`: правило полей font-size: 16px (iOS, index.css)
+          // лежит вне слоёв и без него оставило бы цифры 16px.
+          className="min-w-0 flex-1 rounded-lg bg-transparent text-center text-2xl! font-extralight tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-lh-accent/60"
         />
         <button
           type="button"
