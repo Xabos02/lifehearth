@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Dexie from 'dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   UserPlus,
@@ -6,6 +7,7 @@ import {
   UserMinus,
   PhoneOff,
   Trash2,
+  ClipboardCheck,
 } from 'lucide-react';
 import {
   GPencil as Pencil,
@@ -32,12 +34,25 @@ import {
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
 import { CallDiagSheet } from './CallDiagSheet';
-import { t } from '../../lib/i18n';
+import { getLang, t, tPlur } from '../../lib/i18n';
+import { previewByMember, previewWhen } from './memberPreview';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
-import { isLightColor } from '../../lib/colors';
 
-export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
+/** Сколько сообщений хвоста ленты смотрим ради строк участников. */
+const PREVIEW_WINDOW = 300;
+
+export function MembersTab({
+  familyId,
+  onLeft,
+  onAddGroup,
+  onOpenTasks,
+}: {
+  familyId: string;
+  onLeft: () => void;
+  onAddGroup?: () => void;
+  onOpenTasks?: () => void;
+}) {
   const members = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]) ?? [];
   const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
   const selfId = config?.selfMemberId;
@@ -49,6 +64,31 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
   const [editName, setEditName] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [removing, setRemoving] = useState<FamilyMember | null>(null);
+
+  // ponytail: смотрим только хвост ленты — у молчавшего дольше PREVIEW_WINDOW
+  // сообщений участника строка покажет статус вместо реплики. Индекс по
+  // [familyId+sender+seq] — если это начнёт мешать.
+  const recent = useLiveQuery(
+    () =>
+      db.familyMessages
+        .where('[familyId+seq]')
+        .between([familyId, Dexie.minKey], [familyId, Dexie.maxKey])
+        .reverse()
+        .limit(PREVIEW_WINDOW)
+        .toArray(),
+    [familyId],
+  );
+  const previews = useMemo(
+    () => previewByMember(recent ?? [], selfId, config?.lastReadSeq ?? 0),
+    [recent, selfId, config?.lastReadSeq],
+  );
+  const activeTasks =
+    useLiveQuery(
+      () => db.familyTasks.where('familyId').equals(familyId).filter((x) => !x.deletedAt && !x.completedAt).count(),
+      [familyId],
+    ) ?? 0;
+  const locale = getLang() === 'ru' ? 'ru-RU' : 'en-US';
+  const [now] = useState(() => new Date());
 
   const alive = members.filter((m) => !m.leftAt).sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
   const self = alive.find((m) => m.id === selfId);
@@ -102,6 +142,94 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
 
   return (
     <div className="space-y-3">
+      {/* Макет семьи: строки прямо на фоне, без карточки; волосяной
+          разделитель начинается от текста, а не от края — под аватаром пусто. */}
+      <div>
+        {alive.map((m, i) => {
+          const p = previews.get(m.id);
+          const status =
+            m.id === selfId ? t('вы') : m.removedAt ? t('исключён') : onlineSet.has(m.id) ? t('в сети') : t('не в сети');
+          const line = p
+            ? p.last.text || (p.last.image ? t('Фото') : p.last.audio ? t('Голосовое сообщение') : p.last.file ? t('Файл') : status)
+            : status;
+          return (
+            <div key={m.id} className="relative flex w-full items-center gap-3 py-2.5">
+              <button
+                onClick={() => {
+                  if (m.id === selfId) setEditName(true);
+                }}
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left active:opacity-80"
+              >
+                <span className="relative shrink-0">
+                  <span className="flex size-11 items-center justify-center rounded-full bg-lh-accent-dim text-sm font-semibold text-lh-accent">
+                    {m.displayName.slice(0, 1).toUpperCase()}
+                  </span>
+                  {/* У себя — тоже по списку сервера, без поблажки «я всегда в
+                      сети»: он включает и это устройство, пока оно на связи. */}
+                  {onlineSet.has(m.id) && (
+                    <span data-testid="presence-dot" className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-lh-bg" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-baseline gap-2">
+                    <span className={`min-w-0 flex-1 truncate text-sm font-medium ${m.removedAt ? 'line-through opacity-60' : ''}`}>
+                      {m.displayName}
+                      {m.id === selfId && <span className="font-normal text-lh-text-secondary"> · {t('вы')}</span>}
+                    </span>
+                    {p && (
+                      <span className={`shrink-0 text-2xs tabular-nums ${p.unread ? 'text-lh-accent' : 'text-lh-text-secondary'}`}>
+                        {previewWhen(p.last.createdAt, now, locale, t('Вчера'))}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-0.5 flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-xs text-lh-text-secondary">{line}</span>
+                    {p && p.unread > 0 && (
+                      <span className="flex h-[1.1rem] min-w-[1.1rem] shrink-0 items-center justify-center rounded-full bg-lh-accent px-1 text-2xs font-semibold leading-none text-lh-bg">
+                        {p.unread > 99 ? '99+' : p.unread}
+                      </span>
+                    )}
+                  </span>
+                </span>
+              </button>
+              {m.id !== selfId && !m.removedAt && (
+                <>
+                  {isOwner && (
+                    <button
+                      onClick={() => setRemoving(m)}
+                      aria-label={t('Исключить {name}', { name: m.displayName })}
+                      className={`flex size-10 shrink-0 items-center justify-center rounded-full text-danger active:scale-95 ${HIT_SLOP_44}`}
+                    >
+                      <UserMinus size={ICON.base} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => void callManager.startCall(familyId, m.id)}
+                    aria-label={t('Позвонить {name}', { name: m.displayName })}
+                    className={`flex size-10 shrink-0 items-center justify-center rounded-full text-lh-text-secondary active:scale-95 active:text-lh-accent ${HIT_SLOP_44}`}
+                  >
+                    <Phone size={ICON.base} />
+                  </button>
+                </>
+              )}
+              {i < alive.length - 1 && <span aria-hidden className="absolute right-0 bottom-0 left-14 h-px bg-lh-border" />}
+            </div>
+          );
+        })}
+      </div>
+
+      {onOpenTasks && (
+        <button
+          onClick={onOpenTasks}
+          className="flex min-h-11 w-full items-center gap-3 card px-4 py-3.5 text-left active:opacity-80"
+        >
+          <ClipboardCheck size={ICON.header} className="shrink-0 text-lh-accent" />
+          <span className="min-w-0 flex-1 truncate text-sm">{t('Общие задачи')}</span>
+          <span className="shrink-0 text-xs text-lh-text-secondary">{tPlur(activeTasks, ['активная', 'активные', 'активных'])}</span>
+          <ChevronRight size={ICON.action} className="shrink-0 text-lh-text-secondary" />
+        </button>
+      )}
+
       <button
         onClick={() => setRenaming(true)}
         className="flex w-full items-center gap-2 card px-4 py-3 text-left active:opacity-80"
@@ -126,67 +254,6 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         <span className="flex-1 truncate font-medium">{t('Почему звонок не вышел')}</span>
         <ChevronRight size={ICON.action} className="shrink-0 text-lh-text-secondary" />
       </button>
-
-      <div className="divide-y divide-lh-border overflow-hidden card">
-        {alive.map((m) => (
-          <div key={m.id} className="flex w-full items-center gap-3 px-3 py-2.5">
-            {/* min-h-11: сама по себе кнопка — аватар 36px, на 8px ниже нормы.
-                Отступ строки 10px, а не 12: строка выходит 64px — как прежде у
-                строки с круглыми кнопками size-10, и все строки одной высоты. */}
-            <button
-              onClick={() => {
-                if (m.id === selfId) setEditName(true);
-              }}
-              className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left active:opacity-80"
-            >
-              <span className="relative shrink-0">
-                <span
-                  className={`flex size-9 items-center justify-center rounded-full text-sm font-semibold ${isLightColor(m.color) ? 'text-on-light' : 'text-white'}`}
-                  style={{ background: m.color }}
-                >
-                  {m.displayName.slice(0, 1).toUpperCase()}
-                </span>
-                {/* У себя — тоже по списку сервера, без поблажки «я всегда в
-                    сети»: он включает и это устройство, пока оно на связи.
-                    Раньше точка горела и без сети, рядом с «не в сети» в шапке. */}
-                {onlineSet.has(m.id) && (
-                  <span data-testid="presence-dot" className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-lh-surface" />
-                )}
-              </span>
-              <span className="min-w-0 flex-1 truncate font-medium">
-                <span className={m.removedAt ? 'line-through opacity-60' : undefined}>{m.displayName}</span>
-                {m.id === selfId ? (
-                  <span className="text-lh-text-secondary"> · {t('вы')}</span>
-                ) : m.removedAt ? (
-                  <span className="text-xs text-lh-text-secondary"> · {t('исключён')}</span>
-                ) : (
-                  <span className="text-xs text-lh-text-secondary"> · {onlineSet.has(m.id) ? t('в сети') : t('не в сети')}</span>
-                )}
-              </span>
-            </button>
-            {m.id !== selfId && !m.removedAt && (
-              <>
-                {isOwner && (
-                  <button
-                    onClick={() => setRemoving(m)}
-                    aria-label={t('Исключить {name}', { name: m.displayName })}
-                    className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95 ${HIT_SLOP_44}`}
-                  >
-                    <UserMinus size={ICON.base} />
-                  </button>
-                )}
-                <button
-                  onClick={() => void callManager.startCall(familyId, m.id)}
-                  aria-label={t('Позвонить {name}', { name: m.displayName })}
-                  className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success active:scale-95 ${HIT_SLOP_44}`}
-                >
-                  <Phone size={ICON.base} />
-                </button>
-              </>
-            )}
-          </div>
-        ))}
-      </div>
 
       {ownerless && (
         <div className="card p-4">

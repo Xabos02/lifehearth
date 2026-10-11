@@ -75,6 +75,8 @@ const EN_PLURALS: Record<string, [string, string]> = {
   фото: ['photo', 'photos'],
   пунктов: ['item', 'items'],
   уроков: ['lesson', 'lessons'],
+  // «3 active» — в английском прилагательное не склоняется.
+  активных: ['active', 'active'],
 };
 
 /** Склонение с учётом языка: русские формы — как в plural(), английская пара

@@ -255,7 +255,7 @@ test('семья: свои сообщения, участники, звонок 
   await page.getByRole('button', { name: 'Закрыть' }).click();
   await expect(page.getByRole('heading', { name: 'Кому позвонить' })).toBeHidden();
 
-  await page.getByRole('button', { name: 'Задачи' }).click();
+  await page.getByRole('button', { name: 'Задачи', exact: true }).click();
   await page.getByRole('button', { name: 'Изменить задачу', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Мама', exact: true })).toBeVisible();
   bad.push(...(await scanThemes(page, 'форма задачи')));

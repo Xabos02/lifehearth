@@ -466,6 +466,9 @@ export const GChevronRight = /*#__PURE__*/ glyph('chevron-right', <path d="M9.6 
 /** Шеврон влево — «назад». */
 export const GChevronLeft = /*#__PURE__*/ glyph('chevron-left', <path d="M14.4 5.6 8 12l6.4 6.4" />);
 
+/** Стрелка вверх — «отправить» в капсуле ввода чата (макет семьи). */
+export const GArrowUp = /*#__PURE__*/ glyph('arrow-up', <path d="M12 19.2V4.8M5.6 11.2 12 4.8l6.4 6.4" />);
+
 /** Шеврон вниз — раскрыть. */
 export const GChevronDown = /*#__PURE__*/ glyph('chevron-down', <path d="M5.6 9.6 12 16l6.4-6.4" />);
 

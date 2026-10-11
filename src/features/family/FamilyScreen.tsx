@@ -142,7 +142,7 @@ export function FamilyScreen({
         ) : tab === 'tasks' ? (
           <FamilyTasksTab familyId={familyId} />
         ) : (
-          <MembersTab familyId={familyId} onLeft={onLeft} onAddGroup={onAddGroup} />
+          <MembersTab familyId={familyId} onLeft={onLeft} onAddGroup={onAddGroup} onOpenTasks={() => setTab('tasks')} />
         )}
       </div>
     </div>

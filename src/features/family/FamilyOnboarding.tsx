@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { ScanLine, ImageUp } from 'lucide-react';
-import {
-  GPlus as Plus,
-} from '../../components/ui/glyphs';
+import { ScanLine, ImageUp, Users } from 'lucide-react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Field, Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -17,14 +14,14 @@ import {
   normalizeInviteWord,
   parsePastedInvite,
 } from '../../lib/crypto';
-import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
+import { ICON, STROKE } from '../../components/ui/icons';
 
 const JOIN_TABS = [
   { value: 'scan' as const, label: 'Сканировать' },
   { value: 'paste' as const, label: 'Вставить код' },
 ];
 
-/** Первый экран семьи (групп ещё нет): крупная иконка «＋» с подсказкой.
+/** Первый экран семьи (групп ещё нет): тихая иконка, подпись и две кнопки.
  *  По нажатию — выбор «Создать группу / Войти по приглашению».
  *  onReady получает familyId созданной/выбранной группы — чтобы её сразу открыть. */
 export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => void }) {
@@ -32,25 +29,22 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
 
   // Кнопки действий — прямо на экране, а не за иконкой-плюсом: раньше первый
   // тап открывал шит с теми же двумя кнопками, то есть человек делал два шага
-  // там, где хватает одного, а сама иконка не читалась как кнопка. Плюс
+  // там, где хватает одного, а сама иконка не читалась как кнопка. Иконка
   // остаётся декорацией, действия — действиями.
   return (
     <div className="flex h-full flex-col items-center justify-center gap-5 py-10 text-center">
-      <div
-        aria-hidden
-        className="flex size-20 items-center justify-center rounded-3xl tile-lh text-lh-accent"
-      >
-        <Plus size={ICON.hero} strokeWidth={STROKE_HEAVY} />
-      </div>
+      {/* Иконка без плитки — как в EmptyState: пустой экран говорит тихо.
+          Цвет secondary, а не tertiary: 25% не держит контраст 3:1 для глифа. */}
+      <Users aria-hidden size={ICON.hero} strokeWidth={STROKE} className="text-lh-text-secondary" />
       <div className="space-y-1.5">
-        <p className="text-lg font-light tracking-tight">{t('Семейная группа')}</p>
-        <p className="px-6 text-sm text-lh-text-secondary">{t('Общий чат и задачи с близкими. Содержимое шифруется на устройстве.')}</p>
+        <p className="text-base text-lh-text-secondary">{t('Семья не настроена')}</p>
+        <p className="px-6 text-xs text-lh-text-secondary">{t('Общий чат и задачи с близкими. Содержимое шифруется на устройстве.')}</p>
       </div>
       <div className="w-full max-w-sm space-y-3 px-6 pt-2">
         <Button className="w-full" onClick={() => setMode('create')}>
           {t('Создать группу')}
         </Button>
-        <Button variant="secondary" className="w-full" onClick={() => setMode('join')}>
+        <Button variant="ghost" className="w-full border border-lh-accent-border" onClick={() => setMode('join')}>
           {t('Войти по приглашению')}
         </Button>
       </div>

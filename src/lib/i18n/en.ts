@@ -219,6 +219,8 @@ export const EN: Record<string, string> = {
 
   // === Семья: онбординг и приглашение ===
   'Семейная группа': 'Family group',
+  'Семья не настроена': 'Family is not set up',
+  'Общие задачи': 'Shared tasks',
   'Общий чат и задачи с близкими. Содержимое шифруется на устройстве.':
     'Shared chat and tasks with your loved ones. Content is encrypted on your device.',
   'Создать группу': 'Create a group',

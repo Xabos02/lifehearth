@@ -27,6 +27,7 @@ import {
   GClose as X,
   GCopy as Copy,
   GSend as Send,
+  GArrowUp as ArrowUp,
   GReply as Reply,
   GPlay as Play,
   GPause as Pause,
@@ -93,7 +94,7 @@ function fmtDur(sec: number): string {
 }
 
 /** Плеер голосового: play/pause + полоса прогресса + длительность. */
-function AudioBubble({ src, duration, own }: { src: string; duration: number; own: boolean }) {
+function AudioBubble({ src, duration }: { src: string; duration: number }) {
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
   const aRef = useRef<HTMLAudioElement>(null);
@@ -126,7 +127,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
           else a.pause();
         }}
         aria-label={playing ? t('Пауза') : t('Воспроизвести')}
-        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${HIT_SLOP_44} ${own ? 'bg-lh-bg text-lh-accent' : 'bg-lh-accent-dim text-lh-accent'}`}
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${HIT_SLOP_44} bg-lh-accent-dim text-lh-accent`}
       >
         {playing ? <Pause size={ICON.action} /> : <Play size={ICON.action} />}
       </button>
@@ -163,7 +164,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
         }}
         className="flex flex-1 cursor-pointer touch-none items-center py-2"
       >
-        <div className={`h-1 w-full overflow-hidden rounded-full ${own ? 'bg-lh-bg/25' : 'bg-lh-border'}`}>
+        <div className="h-1 w-full overflow-hidden rounded-full bg-lh-border">
           <div className="h-full rounded-full bg-current" style={{ width: `${Math.min(100, (pos / total) * 100)}%` }} />
         </div>
       </div>
@@ -200,7 +201,7 @@ const FILE_ICONS: Record<string, LucideIcon> = {
 
 /** Карточка файла-манифеста: иконка типа, имя, подпись — тип+размер, когда
  *  файл на руках; прогресс сборки или «недоступен», пока нет. */
-function FileBubble({ m, own, received }: { m: FamilyMessage; own: boolean; received: number }) {
+function FileBubble({ m, received }: { m: FamilyMessage; received: number }) {
   const info = m.file!;
   const Icon = FILE_ICONS[fileKindLabel(info.mime, info.name)] ?? FileIcon;
   const available = Boolean(m.fileData);
@@ -216,14 +217,13 @@ function FileBubble({ m, own, received }: { m: FamilyMessage; own: boolean; rece
       : t('Получение {a} из {b}', { a: received, b: info.chunksTotal });
   return (
     <div className="flex min-w-[190px] max-w-[240px] items-center gap-2.5 py-0.5">
-      <div
-        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-lh-bg text-lh-accent' : 'bg-lh-accent-dim text-lh-accent'}`}
-      >
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-lh-accent-dim text-lh-accent">
         <Icon size={ICON.base} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{info.name}</p>
-        <p className={`truncate text-2xs ${own ? '' : 'text-lh-text-secondary'}`}>
+        {/* Не --app-muted: на своём пузыре в светлой теме он 4.3:1 — ниже AA. */}
+        <p className="truncate text-2xs text-lh-text-primary/75">
           {subtitle}
         </p>
       </div>
@@ -320,7 +320,6 @@ function MessageRow({
   authorName,
   authorColor,
   groupStart,
-  groupEnd,
   highlight,
   chips,
   maxOtherRead,
@@ -340,7 +339,6 @@ function MessageRow({
   /** Первый/последний в серии подряд идущих сообщений одного автора за день:
    *  имя — только на первом, «хвостик» угла — только на последнем. */
   groupStart: boolean;
-  groupEnd: boolean;
   highlight: boolean;
   chips: { emoji: string; count: number; mine: boolean }[] | undefined;
   maxOtherRead: number;
@@ -503,9 +501,10 @@ function MessageRow({
         ))}
     </>
   );
-  // На своём пузыре — цвет самого пузыря, без приглушения: у светлого золота
-  // запас над 4.5 невелик, и прозрачность уводит метку под норму.
-  const metaTone = own && !jumbo ? '' : 'text-lh-text-secondary';
+  // Метка вторичная, а не третичная, как на макете: 25% не держат AA (§1.2).
+  // На своём пузыре — цвет текста на 75%: в светлой теме золотая подкраска
+  // съедает --app-muted до 4.3:1, а текст/75 держит порог в обеих темах.
+  const metaTone = own ? 'text-lh-text-primary/75' : 'text-lh-text-secondary';
   // Текстовый пузырь уводит метку в поток абзаца (float), остальные типы —
   // фото, голос, файл — держат её отдельной строкой снизу: внутри картинки
   // потоку не на чем висеть.
@@ -538,10 +537,13 @@ function MessageRow({
             className={`relative cursor-pointer select-none overflow-hidden transition-shadow active:opacity-80 ${
               jumbo
                 ? 'bg-transparent px-1 py-0'
-                : `rounded-[1.15rem] shadow-[0_1px_2px_-1px_rgb(0_0_0/0.25)] ${m.image ? 'p-[3px]' : 'px-3 py-1.5'} ${
+                : // Макет семьи: свой — золотая подкраска с золотой волосяной рамкой,
+                  // чужой — поверхность с обычной рамкой; без тени. Острый угол —
+                  // вверху, у первого пузыря серии: «хвост» смотрит на автора.
+                  `rounded-[1.15rem] border text-lh-text-primary ${m.image ? 'p-[3px]' : 'px-3 py-1.5'} ${
                     own
-                      ? `bg-lh-accent text-lh-bg ${groupEnd ? 'rounded-br-[0.4rem]' : ''}`
-                      : `bg-lh-surface-2 text-lh-text-primary ${groupEnd ? 'rounded-bl-[0.4rem]' : ''}`
+                      ? `border-lh-accent-border bg-lh-accent-dim ${groupStart ? 'rounded-tr-[0.25rem]' : ''}`
+                      : `border-lh-border bg-lh-surface ${groupStart ? 'rounded-tl-[0.25rem]' : ''}`
                   }`
             } ${highlight ? 'ring-2 ring-frost' : ''}`}
           >
@@ -559,28 +561,28 @@ function MessageRow({
                 }}
                 className={`mb-1 block w-full rounded-lg border-l-2 px-2 py-1 text-left ${
                   m.image ? 'mx-2 mt-1 w-auto' : ''
-                } ${own ? 'border-lh-bg' : 'border-lh-accent bg-lh-accent-dim'}`}
+                } border-lh-accent ${own ? '' : 'bg-lh-accent-dim'}`}
               >
-                <span className={`block text-2xs font-semibold ${own ? '' : 'text-lh-accent'}`}>
+                <span className="block text-2xs font-semibold text-lh-accent">
                   {m.replyTo.name}
                 </span>
                 {/* Текст цитаты — основным, не серым: серый на золотой подложке
                     поверх пузыря surface-2 давал 4.05 в тёмной и 4.09 в светлой
                     (канва design/muted-on-gold). Имя над ним остаётся золотым. */}
-                <span className={`block truncate text-xs ${own ? '' : 'text-lh-text-primary'}`}>
+                <span className="block truncate text-xs text-lh-text-primary">
                   {m.replyTo.text}
                 </span>
               </button>
             )}
-            {m.audio && <AudioBubble src={m.audio} duration={m.audioDur ?? 0} own={own} />}
+            {m.audio && <AudioBubble src={m.audio} duration={m.audioDur ?? 0} />}
             {/* Длинное голосовое приезжает частями, как файл, — но человеку
                 это знать незачем: как только запись собрана, показываем
                 обычный плеер. Пока части в пути — карточка с прогрессом. */}
             {m.file &&
               (m.audioDur != null && m.fileData ? (
-                <AudioBubble src={m.fileData} duration={m.audioDur} own={own} />
+                <AudioBubble src={m.fileData} duration={m.audioDur} />
               ) : (
-                <FileBubble m={m} own={own} received={fileReceived} />
+                <FileBubble m={m} received={fileReceived} />
               ))}
             {m.image && (
               <img src={m.image} alt={t('Фото')} loading="lazy" className="block max-h-80 max-w-full rounded-xl" draggable={false} />
@@ -608,7 +610,7 @@ function MessageRow({
                       // жесты пузыря живут на родителе.
                       onClick={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
-                      className={`underline underline-offset-2 ${own ? '' : 'text-lh-accent'}`}
+                      className="underline underline-offset-2 text-lh-accent"
                     >
                       {part.value}
                     </a>
@@ -1375,7 +1377,6 @@ export function ChatTab({ familyId }: { familyId: string }) {
                       dayKey(a.createdAt) === dayKey(b.createdAt),
                   );
                 const groupStart = !sameGroup(list[i - 1], m);
-                const groupEnd = !sameGroup(list[i + 1] as FamilyMessage | undefined, m);
                 const divider =
                   i === 0 || dayKey(list[i - 1].createdAt) !== dayKey(m.createdAt) ? (
                     <div key={`d-${m.clientMsgId}`} className="flex items-center justify-center py-1.5">
@@ -1423,7 +1424,6 @@ export function ChatTab({ familyId }: { familyId: string }) {
                         authorName={author?.displayName ?? null}
                         authorColor={author?.color ?? null}
                         groupStart={groupStart}
-                        groupEnd={groupEnd}
                         highlight={highlightId === m.clientMsgId}
                         chips={chips}
                         maxOtherRead={maxOtherRead}
@@ -1570,7 +1570,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 if (f) void handlePickFile(f);
               }}
             />
-            <div className="flex w-full items-end rounded-3xl border border-lh-border-strong bg-lh-surface transition-[border-color,box-shadow] focus-within:border-lh-accent focus-within:ring-2 focus-within:ring-lh-accent/20">
+            <div className="flex w-full items-end rounded-3xl border border-lh-border bg-lh-surface transition-[border-color,box-shadow] focus-within:border-lh-accent focus-within:ring-2 focus-within:ring-lh-accent/20">
               <button
                 onClick={() => setAttachSheetOpen(true)}
                 disabled={sendingAttachment}
@@ -1614,7 +1614,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   aria-label={t('Отправить')}
                   className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-lh-accent text-lh-bg disabled:opacity-40 active:scale-95 ${HIT_SLOP_44}`}
                 >
-                  <Send size={ICON.base} />
+                  <ArrowUp size={ICON.base} />
                 </button>
               ) : (
                 <button
