@@ -315,7 +315,7 @@ function RemoveMemberSheet({
         >
           {busy ? t('Исключаем…') : t('Исключить')}
         </Button>
-        <button onClick={onClose} className="w-full py-2 text-sm text-lh-text-secondary active:opacity-60">
+        <button onClick={onClose} className="min-h-11 w-full py-2 text-sm text-lh-text-secondary active:opacity-60">
           {t('Отмена')}
         </button>
       </div>

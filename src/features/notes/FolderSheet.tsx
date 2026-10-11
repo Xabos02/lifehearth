@@ -148,7 +148,7 @@ export function FolderSheet({
         {folder && onMove && (
           <button
             onClick={() => onMove(folder)}
-            className="w-full py-2 text-sm font-medium text-lh-accent active:opacity-60"
+            className="min-h-11 w-full py-2 text-sm font-medium text-lh-accent active:opacity-60"
           >
             {t('Переместить папку')}
           </button>
@@ -156,7 +156,7 @@ export function FolderSheet({
         {folder && (
           <button
             onClick={() => void del()}
-            className="w-full py-2 text-sm text-danger active:opacity-60"
+            className="min-h-11 w-full py-2 text-sm text-danger active:opacity-60"
           >
             {t('Удалить папку')}
           </button>

@@ -1,4 +1,4 @@
-import { test, expect, openApp } from './fixtures';
+import { test, expect, openApp, openFamilyChrome } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // Зона касания меньше 44×44 — самый частый дефект мобильной вёрстки и
@@ -13,10 +13,13 @@ const SCREENS = ['/', '/tasks', '/notes', '/calendar', '/goals', '/home',
   '/more/health',
   '/home/profile', '/share'];
 
-async function small(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
+/** rootSel — как у overlapsOn: берётся последний подходящий контейнер. Нужен,
+ *  когда шторка открыта поверх другой и мерить надо только верхнюю. */
+async function small(page: Page, rootSel = 'body'): Promise<string[]> {
+  return page.evaluate((rootSel) => {
     const bad: string[] = [];
-    for (const el of document.querySelectorAll('button, a[href], [role="button"]')) {
+    const root = [...document.querySelectorAll(rootSel)].at(-1)!;
+    for (const el of root.querySelectorAll('button, a[href], [role="button"]')) {
       const cs = getComputedStyle(el);
       if (cs.visibility === 'hidden' || cs.opacity === '0' || cs.pointerEvents === 'none') continue;
       const r = el.getBoundingClientRect();
@@ -38,7 +41,7 @@ async function small(page: Page): Promise<string[]> {
       }
     }
     return bad;
-  });
+  }, rootSel);
 }
 
 /** Насыпать экранам содержимого.
@@ -387,6 +390,61 @@ test('шиты и экраны с содержимым: зоны не меньш
   await page.goto('/more/ai');
   await expect(page.getByRole('button', { name: 'Новый чат' })).toBeVisible();
   await check('ИИ');
+
+  expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
+});
+
+// Текстовые кнопки во всю ширину — «Отмена» под «Исключить», «Переместить
+// папку» и «Удалить папку» в шторке папки, «Отмена» на «Куда перенести?».
+// При py-2 в них было 41.5px: не 38, как по text-sm, — на <button> кегль не
+// работает (`font: inherit` вне слоёв в index.css), кнопка берёт 17px родителя.
+// HIT_SLOP_44 тут не годится: его квадрат 44×44 стоит по центру, а у края
+// широкой кнопки высота осталась бы 41.5. Все открываются только действием.
+test('текстовые кнопки шторок исключения и папки: не меньше 44 и не налезают', async ({ page }) => {
+  const bad: string[] = [];
+  const check = async (where: string, root?: string) => {
+    for (const b of await small(page, root)) bad.push(`${where}: ${b}`);
+    for (const o of await overlapsOn(page, root)) bad.push(`${where}: ${o}`);
+  };
+
+  await openApp(page, '/more/family');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    const key = await generateKey();
+    const ts = new Date().toISOString();
+    // ownerSecret — иначе кнопки исключения нет вовсе (её видит только создатель).
+    await db.family.put({
+      id: 'f1', familyId: 'f1', familyToken: 't', familyKey: key, familyName: 'Наши',
+      selfMemberId: 'me', lastSeq: 0, lastReadSeq: 0, enabled: true, joinedAt: ts,
+      keyEpoch: 0, keyRing: { '0': key }, ownerSecret: 's',
+    } as never);
+    await db.familyMembers.bulkPut([
+      { id: 'me', familyId: 'f1', seq: 1, displayName: 'Влад', color: '#5b7cfa', joinedAt: ts, leftAt: null, removedAt: null },
+      { id: 'p1', familyId: 'f1', seq: 2, displayName: 'Отец', color: '#10b981', joinedAt: ts, leftAt: null, removedAt: null },
+    ] as never[]);
+  });
+  await page.goto('/more/family?g=f1');
+  await openFamilyChrome(page);
+  await page.getByRole('button', { name: 'Участники' }).click();
+  await page.getByRole('button', { name: 'Исключить Отец' }).click();
+  await expect(page.locator(SHEET).getByRole('button', { name: 'Исключить', exact: true })).toBeEnabled();
+  // Только верхняя шторка: под ней вкладка «Участники», у неё свой тест.
+  await check('шторка исключения', SHEET);
+
+  await page.goto('/notes');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const ts = new Date().toISOString();
+    await db.noteFolders.put({ id: 'nf1', name: 'Быт', emoji: '🏠', color: '#5b7cfa', parentId: null, sortOrder: 1000, createdAt: ts, updatedAt: ts, deletedAt: null } as never);
+  });
+  await page.getByText('Быт', { exact: true }).click();
+  await page.getByRole('button', { name: 'Изменить' }).click();
+  await expect(page.getByRole('button', { name: 'Удалить папку' })).toBeVisible();
+  await check('шторка папки', SHEET);
+  await page.getByRole('button', { name: 'Переместить папку' }).click();
+  await expect(page.getByRole('heading', { name: 'Куда перенести?' })).toBeVisible();
+  await check('куда перенести');
 
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
 });
