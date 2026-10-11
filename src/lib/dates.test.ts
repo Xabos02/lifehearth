@@ -48,6 +48,16 @@ describe('formatDayRange', () => {
     expect(formatDayRange('2026-09-28', '2026-10-04', { short: true })).toBe(nb('Sep_28–Oct_4'));
   });
 
+  // «Между 25 августа — 6 сентября» / «Between August 25–September 6»: после
+  // «между» тире — ошибка в обоих языках, нужен союз.
+  it('после «между»: «и»/«and» вместо тире, перенос — только перед союзом', () => {
+    expect(formatDayRange('2026-08-25', '2026-08-30', { between: true })).toBe(nb('25 и_30_августа'));
+    expect(formatDayRange('2026-08-25', '2026-09-06', { between: true })).toBe(nb('25_августа и_6_сентября'));
+    setLang('en');
+    expect(formatDayRange('2026-08-25', '2026-08-30', { between: true })).toBe(nb('August_25 and_30'));
+    expect(formatDayRange('2026-08-25', '2026-09-06', { between: true })).toBe(nb('August_25 and_September_6'));
+  });
+
   it('конец словом: тот же перенос только после тире', () => {
     expect(formatRangeToWord('2026-08-10', 'Завтра')).toBe(nb('10_августа_— Завтра'));
     expect(formatRangeToWord('2026-03-03', 'продолжается', 'd MMMM yyyy')).toBe(nb('3_марта_2026_— продолжается'));

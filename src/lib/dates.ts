@@ -80,29 +80,35 @@ export function dayMonthFormat(): string {
  *  `year` — год всегда (отчёт для врача): «10–25 августа 2026» / «August
  *  10–25, 2026». `short` — для узкой строки: два названия месяца сокращаются
  *  («28 сент. — 4 окт.»), одно остаётся полным.
+ *  `between` — после «между»/«between»: тире там ошибка (Chicago, 17-е изд.,
+ *  6.78 — «between X and Y», не «between X–Y»), концы связывает «и»/«and»:
+ *  «25 и 30 августа», «25 августа и 6 сентября». Перенос — перед союзом, не
+ *  после, как у тире: союз привязывается к следующему слову (Лебедев §62),
+ *  однобуквенное «и» в конце строки не висит.
  *  Intl.DateTimeFormat#formatRange не берём: вывод зависит от версии ICU в
  *  браузере (CLDR 49 меняет русское тире), а английский он отбивает тонкими
  *  пробелами вопреки гайдам. */
 export function formatDayRange(
   fromKeyStr: string,
   toKeyStr: string,
-  opts: { year?: boolean; short?: boolean } = {},
+  opts: { year?: boolean; short?: boolean; between?: boolean } = {},
 ): string {
   const ru = getLang() === 'ru';
   const fmt = (month: string, year: boolean) =>
     ru ? `d ${month}${year ? ' yyyy' : ''}` : `${month} d${year ? ', yyyy' : ''}`;
   const end = (key: string, pattern: string) => formatRu(key, pattern).replace(/ /g, '\u00A0');
   const year = !!opts.year;
+  const and = opts.between ? ` ${t('и')}\u00A0` : undefined;
   if (fromKeyStr === toKeyStr) return end(toKeyStr, fmt('MMMM', year));
   if (fromKeyStr.slice(0, 7) === toKeyStr.slice(0, 7)) {
     return ru
-      ? `${end(fromKeyStr, 'd')}–${end(toKeyStr, fmt('MMMM', year))}`
-      : `${end(fromKeyStr, 'MMMM d')}–${end(toKeyStr, year ? 'd, yyyy' : 'd')}`;
+      ? `${end(fromKeyStr, 'd')}${and ?? '–'}${end(toKeyStr, fmt('MMMM', year))}`
+      : `${end(fromKeyStr, 'MMMM d')}${and ?? '–'}${end(toKeyStr, year ? 'd, yyyy' : 'd')}`;
   }
   const month = opts.short ? 'MMM' : 'MMMM';
   const yearOrLonger = toKeyStr >= `${Number(fromKeyStr.slice(0, 4)) + 1}${fromKeyStr.slice(4)}`;
   const bothYears = fromKeyStr.slice(0, 4) !== toKeyStr.slice(0, 4) && (year || yearOrLonger);
-  const dash = ru ? '\u00A0— ' : '–';
+  const dash = and ?? (ru ? '\u00A0— ' : '–');
   return `${end(fromKeyStr, fmt(month, bothYears))}${dash}${end(toKeyStr, fmt(month, year || bothYears))}`;
 }
 
