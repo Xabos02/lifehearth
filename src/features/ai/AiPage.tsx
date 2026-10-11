@@ -389,8 +389,10 @@ function AssistantBlock({
               <CircleAlert size={ICON.action} className="mt-0.5 shrink-0 text-danger" />
               <span className="min-w-0">{message.error}</span>
             </p>
+            {/* Обводка, а не своя подложка: подложка поверх красной карточки
+                темнее одной, и красный текст на ней шёл на 3.45. */}
             <button
-              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-danger/15 px-3 py-1.5 text-sm font-medium text-danger active:opacity-70 disabled:opacity-40"
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-sm font-medium text-danger active:opacity-70 disabled:opacity-40"
               disabled={busy}
               onClick={onRetry}
             >
