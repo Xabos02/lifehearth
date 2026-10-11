@@ -35,6 +35,7 @@ import { CallDiagSheet } from './CallDiagSheet';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { isLightColor } from '../../lib/colors';
 
 export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
   const members = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]) ?? [];
@@ -128,16 +129,19 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
 
       <div className="divide-y divide-lh-border overflow-hidden card">
         {alive.map((m) => (
-          <div key={m.id} className="flex w-full items-center gap-3 p-3">
+          <div key={m.id} className="flex w-full items-center gap-3 px-3 py-2.5">
+            {/* min-h-11: сама по себе кнопка — аватар 36px, на 8px ниже нормы.
+                Отступ строки 10px, а не 12: строка выходит 64px — как прежде у
+                строки с круглыми кнопками size-10, и все строки одной высоты. */}
             <button
               onClick={() => {
                 if (m.id === selfId) setEditName(true);
               }}
-              className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-80"
+              className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left active:opacity-80"
             >
               <span className="relative shrink-0">
                 <span
-                  className="flex size-9 items-center justify-center rounded-full text-sm font-semibold text-white"
+                  className={`flex size-9 items-center justify-center rounded-full text-sm font-semibold ${isLightColor(m.color) ? 'text-on-light' : 'text-white'}`}
                   style={{ background: m.color }}
                 >
                   {m.displayName.slice(0, 1).toUpperCase()}
@@ -220,7 +224,10 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         </button>
       )}
 
-      <button onClick={() => void leave()} className="flex w-full items-center justify-center gap-2 pt-2 text-sm text-danger active:opacity-60">
+      {/* min-h-11 вместо pt-2: кнопка во всю ширину, а квадрат HIT_SLOP_44
+          стоит по центру — у краёв высота осталась бы 34px. Отступ сверху
+          теперь даёт поле самой кнопки. */}
+      <button onClick={() => void leave()} className="flex min-h-11 w-full items-center justify-center gap-2 text-sm text-danger active:opacity-60">
         <LogOut size={ICON.action} />
         {t('Выйти из группы')}
       </button>
@@ -315,7 +322,7 @@ function RemoveMemberSheet({
         >
           {busy ? t('Исключаем…') : t('Исключить')}
         </Button>
-        <button onClick={onClose} className="w-full py-2 text-sm text-lh-text-secondary active:opacity-60">
+        <button onClick={onClose} className="min-h-11 w-full py-2 text-sm text-lh-text-secondary active:opacity-60">
           {t('Отмена')}
         </button>
       </div>

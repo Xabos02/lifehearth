@@ -10,6 +10,7 @@ import { subscribePresence } from '../../lib/family/familyChat';
 import { callManager } from '../../lib/family/familyCall';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { isLightColor } from '../../lib/colors';
 
 /**
  * Звонок из семейного экрана.
@@ -97,7 +98,7 @@ function MemberRow({
     >
       <span
         aria-hidden
-        className="flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+        className={`flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${isLightColor(member.color) ? 'text-on-light' : 'text-white'}`}
         style={{ background: member.color }}
       >
         {member.displayName.slice(0, 1).toUpperCase()}

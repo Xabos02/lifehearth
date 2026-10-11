@@ -5,7 +5,7 @@ import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
-import { formatDayRange, formatRu } from '../../lib/dates';
+import { formatDayRange, formatRangeToWord, formatRu } from '../../lib/dates';
 import { getLang, t, tPlur, tPlural } from '../../lib/i18n';
 import { buildDoctorReport, type DoctorReportWindow } from '../../lib/cycle/report';
 import { useCycleData } from './useCycleData';
@@ -178,7 +178,7 @@ export function CycleReportPage() {
                       <p className="mt-0.5 text-sm text-lh-text-secondary">
                         {e.endDate
                           ? formatDayRange(e.startDate, e.endDate, { year: true })
-                          : `${formatRu(e.startDate, 'd MMMM yyyy')} — ${t('продолжается')}`}
+                          : formatRangeToWord(e.startDate, t('продолжается'), 'd MMMM yyyy')}
                       </p>
                     </div>
                   ))}

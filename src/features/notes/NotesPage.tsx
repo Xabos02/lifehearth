@@ -558,7 +558,7 @@ export function NotesPage() {
         </div>
         <button
           onClick={() => setMoving(null)}
-          className="mt-4 w-full py-2 text-sm text-lh-text-secondary active:opacity-60"
+          className="mt-4 min-h-11 w-full py-2 text-sm text-lh-text-secondary active:opacity-60"
         >
           {t('Отмена')}
         </button>

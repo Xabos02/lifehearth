@@ -78,10 +78,14 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
           >
             <button className="min-w-0 flex-1 text-left active:opacity-60" onClick={() => onPick(c.id)}>
               <span className="block truncate font-medium">{c.title}</span>
+              {/* У открытого чата подписи основным: серый на золотой подложке
+                  поверх шторки — 4.40 в тёмной (канва design/muted-on-gold). */}
               {c.lastMessageText && (
-                <span className="mt-0.5 block truncate text-xs text-lh-text-secondary">{c.lastMessageText}</span>
+                <span className={`mt-0.5 block truncate text-xs ${c.id === activeId ? 'text-lh-text-primary' : 'text-lh-text-secondary'}`}>
+                  {c.lastMessageText}
+                </span>
               )}
-              <span className="mt-0.5 block text-[0.68rem] text-lh-text-secondary">
+              <span className={`mt-0.5 block text-[0.68rem] ${c.id === activeId ? 'text-lh-text-primary' : 'text-lh-text-secondary'}`}>
                 {formatWhen(c.lastMessageAt ?? c.createdAt)}
                 {c.model !== 'echo' && ` · ${modelLabel(c.model)}`}
               </span>
