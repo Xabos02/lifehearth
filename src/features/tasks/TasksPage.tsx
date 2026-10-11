@@ -120,8 +120,12 @@ function SubSection({
       //
       // Не «чинить» ни ту, ни другую половину: тест e2e/subproject-rail.spec.ts
       // держит и загибы слева, и прямые углы справа.
-      className={`mt-3 ml-1.5 rounded-l-2xl border-l-2 border-lh-border pl-3 transition-[background-color,opacity] ${
-        highlight ? 'border-lh-accent bg-lh-accent-dim ring-2 ring-lh-accent' : ''
+      //
+      // Цель переноса — кольцо без заливки: под ней остаются серые строки
+      // (имя, «Выполненные», «Подпроект»), а серый на золотой подложке — 4.30
+      // в светлой теме (канва design/muted-on-gold).
+      className={`mt-3 ml-1.5 rounded-l-2xl border-l-2 border-lh-border pl-3 transition-opacity ${
+        highlight ? 'border-lh-accent ring-2 ring-lh-accent' : ''
       } ${isReorderSource ? 'opacity-40' : ''}`}
     >
       {/* gap-3 по той же причине, что и у проекта: зона карандаша вылезает
@@ -232,8 +236,10 @@ function Section({
     <section
       ref={dropRef}
       data-drop-key={dropKey}
-      className={`mb-12 rounded-lh-card transition-[background-color,opacity] ${
-        highlight ? 'bg-lh-accent-dim ring-2 ring-lh-accent' : ''
+      // Без заливки, как у подпроекта: серое в шапке и под списком на золотой
+      // подложке не держит AA (канва design/muted-on-gold).
+      className={`mb-12 rounded-lh-card transition-opacity ${
+        highlight ? 'ring-2 ring-lh-accent' : ''
       } ${isReorderSource ? 'opacity-40' : ''}`}
     >
       {/* gap-3 (12.75px). Восьми не хватило: зона касания карандаша вылезает

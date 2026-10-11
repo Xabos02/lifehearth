@@ -562,7 +562,10 @@ function MessageRow({
                 <span className={`block text-2xs font-semibold ${own ? 'text-white/90' : 'text-lh-accent'}`}>
                   {m.replyTo.name}
                 </span>
-                <span className={`block truncate text-xs ${own ? 'text-white/75' : 'text-lh-text-secondary'}`}>
+                {/* Текст цитаты — основным, не серым: серый на золотой подложке
+                    поверх пузыря surface-2 давал 4.05 в тёмной и 4.09 в светлой
+                    (канва design/muted-on-gold). Имя над ним остаётся золотым. */}
+                <span className={`block truncate text-xs ${own ? 'text-white/75' : 'text-lh-text-primary'}`}>
                   {m.replyTo.text}
                 </span>
               </button>
@@ -645,7 +648,11 @@ function MessageRow({
                 }`}
               >
                 <span>{c.emoji}</span>
-                {c.count > 1 && <span className="tabular-nums text-lh-text-secondary">{c.count}</span>}
+                {/* Моя реакция — выбранный чип, и число на ней золотое, как у
+                    остальных выбранных чипов: серый на подложке — 4.30 в светлой. */}
+                {c.count > 1 && (
+                  <span className={`tabular-nums ${c.mine ? 'text-lh-accent' : 'text-lh-text-secondary'}`}>{c.count}</span>
+                )}
               </button>
             ))}
           </div>
