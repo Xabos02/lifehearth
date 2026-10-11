@@ -110,7 +110,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
               key={m.id}
               type="button"
               onClick={() => setAssigneeId(m.id)}
-              className={`rounded-full px-3 py-1.5 text-sm ${HIT_SLOP_44} ${assigneeId === m.id ? 'text-white' : 'bg-lh-surface-2 text-lh-text-secondary'}`}
+              className={`rounded-full px-3 py-1.5 text-sm ${HIT_SLOP_44} ${assigneeId === m.id ? (isLightColor(m.color) ? 'text-on-light' : 'text-white') : 'bg-lh-surface-2 text-lh-text-secondary'}`}
               style={assigneeId === m.id ? { background: m.color } : undefined}
             >
               {m.displayName}
@@ -158,7 +158,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
               style={{ background: c }}
               className={`flex size-8 items-center justify-center rounded-full ${HIT_SLOP_44} ${color === c ? 'ring-2 ring-lh-accent ring-offset-2 ring-offset-lh-surface' : ''}`}
             >
-              {color === c && <Check size={ICON.inline} className={isLightColor(c) ? 'text-black' : 'text-white'} />}
+              {color === c && <Check size={ICON.inline} className={isLightColor(c) ? 'text-on-light' : 'text-white'} />}
             </button>
           ))}
         </div>

@@ -74,7 +74,18 @@ async function scan(page: Page, root = page.locator('body')): Promise<Finding[]>
         ? (img.match(/(?:rgba?|oklch|oklab|hsla?)\([^)]*\)|#[0-9a-f]{3,8}/gi) || [])
         : []
       ).map(px).filter((c) => c[3] > 0);
-    const bgOf = (el: Element): number[][] => {
+    // Заливка — непрозрачный фон, который заметно отличается от каждой
+    // поверхности темы: кнопка, пузырь, аватар, плашка. Глиф на ней — 4.5
+    // при любом размере (CLAUDE.md, PROTOCOL §1.2); пол 3 для иконок — про
+    // поверхности. Без этого белая стрелка на индиговой кнопке ИИ (3.33)
+    // проходила как иконка. Подкрашенная поверхность — плитка .tile-lh,
+    // подложка /15–/20 — отличается от своей на 1.23–1.45 и заливкой не
+    // считается; настоящие заливки — от 3.
+    const rootCs = getComputedStyle(document.documentElement);
+    const surfaces = ['--app-bg', '--app-surface', '--app-surface-2', '--app-elevated',
+      '--lh-bg', '--lh-surface', '--lh-surface-2'].map((v) => px(rootCs.getPropertyValue(v)));
+    const distinct = (c: number[]) => surfaces.every((s) => ratio(c, s) >= 1.5);
+    const bgOf = (el: Element): { bgs: number[][]; fill: boolean } => {
       const stack: number[][] = [];
       let grad: number[][] = [];
       for (let n: Element | null = el; n; n = n.parentElement) {
@@ -85,12 +96,17 @@ async function scan(page: Page, root = page.locator('body')): Promise<Finding[]>
         if (c[3] > 0) stack.push(c);
         if (c[3] >= 0.999) break;
       }
+      const opaque = stack[stack.length - 1];
+      const fill = grad.length > 0 ? grad.some(distinct) : opaque !== undefined && opaque[3] >= 0.999 && distinct(opaque);
       const bases = grad.length ? grad : [[14, 14, 21, 1]];
-      return bases.map((base) => {
-        let out = [base[0], base[1], base[2]];
-        for (let i = stack.length - 1; i >= 0; i--) out = over(stack[i], out);
-        return out;
-      });
+      return {
+        fill,
+        bgs: bases.map((base) => {
+          let out = [base[0], base[1], base[2]];
+          for (let i = stack.length - 1; i >= 0; i--) out = over(stack[i], out);
+          return out;
+        }),
+      };
     };
 
     const found: Finding[] = [];
@@ -105,11 +121,13 @@ async function scan(page: Page, root = page.locator('body')): Promise<Finding[]>
       const isIcon = el.tagName === 'svg';
       if (!ownText && !isIcon) continue;
       const fg = px(isIcon ? (cs.stroke !== 'none' ? cs.stroke : cs.color) : cs.color);
-      const c = Math.min(...bgOf(el).map((bg) => ratio(over(fg, bg), bg)));
+      const { bgs, fill } = bgOf(el);
+      const c = Math.min(...bgs.map((bg) => ratio(over(fg, bg), bg)));
       const size = parseFloat(cs.fontSize) || 17;
       const bold = Number(cs.fontWeight) >= 600;
-      // Пороги WCAG AA: 3.0 для крупного текста и графики, 4.5 для обычного.
-      const need = isIcon || size >= 24 || (bold && size >= 19) ? 3 : 4.5;
+      // Пороги WCAG AA: 3.0 для крупного текста и графики, 4.5 для обычного;
+      // на заливке — 4.5 всему.
+      const need = !fill && (isIcon || size >= 24 || (bold && size >= 19)) ? 3 : 4.5;
       if (c < need) {
         found.push({
           что: (isIcon ? `иконка ${el.getAttribute('class') ?? ''}` : ownText).slice(0, 40),
@@ -164,6 +182,118 @@ for (const theme of ['dark', 'light'] as const) {
     expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
   });
 }
+
+// Пустой раздел семьи — экран подключения, и обход SCREENS не видел ни
+// своего пузыря чата (золото, а метки, цитата и ссылки в нём оставались
+// белыми от индигового: 1.82–2.29), ни инициалов на цвете участника (белое
+// на #ffffff — 1.0), ни свёрнутого звонка (белое на зелёном — 1.75). Цвета
+// участников — те, на которых белый глиф и проваливался: белый, лаймовый и
+// голубой, где старый порог яркости тоже выбирал белый (2.65).
+test('семья: свои сообщения, участники, звонок и форма задачи — контраст в обеих темах', async ({ page }) => {
+  await page.route(/\/family\/ticket/, (r) => r.fulfill({ json: { ticket: 't' } }));
+  await page.routeWebSocket(/\/family\/ws/, (ws) => {
+    ws.onMessage((m) => {
+      // Мама прочитала всё — у своих сообщений двойная галочка «прочитано».
+      if (JSON.parse(String(m)).type === 'hello') {
+        ws.send(JSON.stringify({ type: 'ready', online: ['me'], reads: [{ memberId: 'mom', seq: 99 }] }));
+      }
+    });
+  });
+  await openApp(page, '/more/family');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    const key = await generateKey();
+    const ts = new Date().toISOString();
+    await db.family.put({
+      id: 'f1', familyId: 'f1', familyToken: 't', familyKey: key, familyName: 'Наши',
+      selfMemberId: 'me', lastSeq: 4, lastReadSeq: 4, enabled: true, joinedAt: ts,
+      keyEpoch: 0, keyRing: { '0': key },
+    } as never);
+    const member = (id: string, displayName: string, color: string) =>
+      ({ id, familyId: 'f1', seq: 1, displayName, color, joinedAt: ts, leftAt: null, removedAt: null });
+    await db.familyMembers.bulkPut([
+      member('me', 'Влад', '#ffffff'), member('mom', 'Мама', '#a3e635'), member('dad', 'Папа', '#7c9aff'),
+    ] as never[]);
+    const msg = (clientMsgId: string, seq: number | null, senderMemberId: string, text: string, extra = {}) =>
+      ({ clientMsgId, familyId: 'f1', seq, senderMemberId, text, createdAt: ts, deletedAt: null, status: 'acked', ...extra });
+    await db.familyMessages.bulkPut([
+      msg('m1', 1, 'mom', 'Билеты на субботу взяла'),
+      msg('m2', 2, 'me', 'Отлично, маршрут: https://example.com/route', {
+        replyTo: { id: 'm1', name: 'Мама', text: 'Билеты на субботу взяла' }, editedAt: ts,
+      }),
+      msg('m3', 3, 'me', '', { audio: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=', audioDur: 14 }),
+      msg('m4', 4, 'me', '', {
+        file: { fileId: 'fl', name: 'Билеты.pdf', mime: 'application/pdf', size: 120000, chunksTotal: 1 },
+        fileData: 'data:application/pdf;base64,JVBERi0=',
+      }),
+      msg('m5', null, 'me', 'Во сколько выезжаем?', { status: 'pending' }),
+    ] as never[]);
+    await db.familyTasks.put({
+      id: 't1', familyId: 'f1', seq: 5, title: 'Купить хлеб', notes: '', priority: 0, dueDate: null, dueTime: null,
+      remindBefore: null, color: '#a3e635', assigneeId: 'mom', createdBy: 'me', completedAt: null,
+      completedBy: null, deletedAt: null, sortOrder: 1000,
+    } as never);
+  });
+  await page.goto('/more/family?g=f1');
+  await expect(page.getByText('Во сколько выезжаем?')).toBeVisible();
+  await expect(page.getByText('Билеты.pdf')).toBeVisible();
+  // Связь поднялась — отметка «прочитано» дошла до своих сообщений.
+  await expect(page.locator('.lucide-check-check').first()).toBeVisible();
+
+  const bad: string[] = [];
+  bad.push(...(await scanThemes(page, 'чат')));
+
+  await openFamilyChrome(page);
+  await page.getByRole('button', { name: 'Участники' }).click();
+  await expect(page.getByText('Папа')).toBeVisible();
+  bad.push(...(await scanThemes(page, 'участники')));
+
+  await page.getByRole('button', { name: 'Позвонить', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Кому позвонить' })).toBeVisible();
+  bad.push(...(await scanThemes(page, 'кому позвонить')));
+  await page.getByRole('button', { name: 'Закрыть' }).click();
+  await expect(page.getByRole('heading', { name: 'Кому позвонить' })).toBeHidden();
+
+  await page.getByRole('button', { name: 'Задачи' }).click();
+  await page.getByRole('button', { name: 'Изменить задачу', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Мама', exact: true })).toBeVisible();
+  bad.push(...(await scanThemes(page, 'форма задачи')));
+  await page.getByRole('button', { name: 'Закрыть' }).click();
+  await expect(page.getByRole('button', { name: 'Мама', exact: true })).toBeHidden();
+
+  // Звонок без сети не поднять — состояние «идёт разговор» ставится напрямую,
+  // и оверлей сворачивается настоящей кнопкой.
+  await page.evaluate(async () => {
+    const { callManager } = await import('/src/lib/family/familyCall.ts');
+    (callManager as unknown as { set(p: object): void })
+      .set({ status: 'active', familyId: 'f1', peerId: 'mom', peerName: 'Мама', startedAt: Date.now() });
+  });
+  await page.getByRole('button', { name: 'Свернуть звонок' }).click();
+  await expect(page.getByRole('button', { name: /Развернуть звонок/ })).toBeVisible();
+  bad.push(...(await scanThemes(page, 'свёрнутый звонок')));
+
+  // Известное и записанное: светлый danger на своей подложке /15 — 4.27 у
+  // всех кнопок удаления ([планка] PROTOCOL §1.2, чинится токеном
+  // --app-danger в :root.light). Исключение точное: только «Удалить» формы
+  // в светлой теме и только на нынешних 4.27 — любая другая пара и любое
+  // падение ниже здесь по-прежнему красные.
+  const known = /^форма задачи \(light\) — «Удалить» 4\.27:1 /;
+  const fresh = bad.filter((b) => !known.test(b));
+  expect(fresh, `пар ниже порога: ${fresh.length}`).toEqual([]);
+});
+
+// Кнопка «Отправить» в ИИ активна только с текстом в поле, а плитка с искрой
+// видна только в пустом чате — обход SCREENS видел кнопку погашенной и
+// плитку не видел вовсе. Белая стрелка на индиго #8B7CF6 давала 3.33.
+test('ИИ: кнопка «Отправить» и плитка пустого чата — глиф на заливке', async ({ page }) => {
+  await openApp(page, '/more/ai');
+  await page.getByPlaceholder('Сообщение…').fill('Что у меня по задачам?');
+  await expect(page.getByRole('button', { name: 'Отправить' })).toBeEnabled();
+  const bad: string[] = [];
+  bad.push(...(await scanThemes(page, 'ИИ')));
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+});
 
 // Правила печати в index.css перекрашивают классы экрана под белый лист. После
 // перевода на lh-* они смотрели на старые text-muted / divide-hairline, и

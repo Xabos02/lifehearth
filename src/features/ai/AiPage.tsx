@@ -49,7 +49,7 @@ import { ModelSheet } from './ModelSheet';
 const CC_THEME: CSSProperties = {
   '--app-accent': 'var(--lh-ai-accent)',
   '--app-accent-2': 'var(--lh-ai-accent)',
-  '--app-accent-fill': 'var(--lh-ai-accent)',
+  '--app-accent-fill': 'var(--lh-ai-accent-fill)',
   '--lh-accent': 'var(--lh-ai-accent)',
   '--lh-accent-dim': 'color-mix(in srgb, var(--lh-ai-accent) 15%, transparent)',
   '--lh-accent-border': 'color-mix(in srgb, var(--lh-ai-accent) 30%, transparent)',
@@ -321,7 +321,7 @@ function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string
       <div
         aria-hidden
         className="mb-4 grid size-16 place-items-center rounded-[1.25rem] text-white shadow-[var(--shadow-accent)]"
-        style={{ background: 'linear-gradient(150deg, var(--lh-accent), var(--app-accent-2))' }}
+        style={{ background: 'var(--app-accent-fill)' }}
       >
         <GSparkle size={ICON.display} />
       </div>
