@@ -560,4 +560,13 @@ test('вкладка «Участники»: строки участников �
   // шторки поверх неё. Поэтому overlapsOn — с корнем по умолчанию.
   const bad = [...await small(page), ...await overlapsOn(page)];
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
+  // Действие по строке — только «изменить своё имя». Чужая строка была пустой
+  // кнопкой: мигала на нажатие и объявлялась скринридеру как кнопка. Теперь
+  // это блок — и той же высоты, что своя строка, иначе строки разъедутся.
+  const own = page.getByRole('button', { name: /Влад · вы/ });
+  await expect(own).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /Отец · / })).toHaveCount(0);
+  // clientHeight, а не boundingBox: у первой строки нижняя граница divide-y.
+  const height = (l: typeof own) => l.locator('..').evaluate((el) => el.clientHeight);
+  expect(await height(page.getByRole('button', { name: 'Позвонить Отец' }))).toBe(await height(own));
 });

@@ -127,64 +127,69 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
       </button>
 
       <div className="divide-y divide-lh-border overflow-hidden card">
-        {alive.map((m) => (
-          <div key={m.id} className="flex w-full items-center gap-3 px-3 py-2.5">
-            {/* min-h-11: сама по себе кнопка — аватар 36px, на 8px ниже нормы.
-                Отступ строки 10px, а не 12: строка выходит 64px — как прежде у
-                строки с круглыми кнопками size-10, и все строки одной высоты. */}
-            <button
-              onClick={() => {
-                if (m.id === selfId) setEditName(true);
-              }}
-              className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left active:opacity-80"
-            >
-              <span className="relative shrink-0">
-                <span
-                  className="flex size-9 items-center justify-center rounded-full text-sm font-semibold text-white"
-                  style={{ background: m.color }}
-                >
-                  {m.displayName.slice(0, 1).toUpperCase()}
-                </span>
-                {/* У себя — тоже по списку сервера, без поблажки «я всегда в
-                    сети»: он включает и это устройство, пока оно на связи.
-                    Раньше точка горела и без сети, рядом с «не в сети» в шапке. */}
-                {onlineSet.has(m.id) && (
-                  <span data-testid="presence-dot" className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-lh-surface" />
-                )}
-              </span>
-              <span className="min-w-0 flex-1 truncate font-medium">
-                <span className={m.removedAt ? 'line-through opacity-60' : undefined}>{m.displayName}</span>
-                {m.id === selfId ? (
-                  <span className="text-lh-text-secondary"> · {t('вы')}</span>
-                ) : m.removedAt ? (
-                  <span className="text-xs text-lh-text-secondary"> · {t('исключён')}</span>
-                ) : (
-                  <span className="text-xs text-lh-text-secondary"> · {onlineSet.has(m.id) ? t('в сети') : t('не в сети')}</span>
-                )}
-              </span>
-            </button>
-            {m.id !== selfId && !m.removedAt && (
-              <>
-                {isOwner && (
-                  <button
-                    onClick={() => setRemoving(m)}
-                    aria-label={t('Исключить {name}', { name: m.displayName })}
-                    className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95 ${HIT_SLOP_44}`}
+        {alive.map((m) => {
+          const isSelf = m.id === selfId;
+          // Действие у строки одно — переименовать себя. Чужая строка — не
+          // кнопка: иначе мигает на нажатие и скринридер обещает действие,
+          // которого нет. min-h-11 у обеих — высота строк одинаковая.
+          const Name = isSelf ? 'button' : 'div';
+          return (
+            <div key={m.id} className="flex w-full items-center gap-3 px-3 py-2.5">
+              {/* min-h-11: сама по себе кнопка — аватар 36px, на 8px ниже нормы.
+                  Отступ строки 10px, а не 12: строка выходит 64px — как прежде у
+                  строки с круглыми кнопками size-10, и все строки одной высоты. */}
+              <Name
+                onClick={isSelf ? () => setEditName(true) : undefined}
+                className={`flex min-h-11 min-w-0 flex-1 items-center gap-3 ${isSelf ? 'text-left active:opacity-80' : ''}`}
+              >
+                <span className="relative shrink-0">
+                  <span
+                    className="flex size-9 items-center justify-center rounded-full text-sm font-semibold text-white"
+                    style={{ background: m.color }}
                   >
-                    <UserMinus size={ICON.base} />
+                    {m.displayName.slice(0, 1).toUpperCase()}
+                  </span>
+                  {/* У себя — тоже по списку сервера, без поблажки «я всегда в
+                      сети»: он включает и это устройство, пока оно на связи.
+                      Раньше точка горела и без сети, рядом с «не в сети» в шапке. */}
+                  {onlineSet.has(m.id) && (
+                    <span data-testid="presence-dot" className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-lh-surface" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  <span className={m.removedAt ? 'line-through opacity-60' : undefined}>{m.displayName}</span>
+                  {m.id === selfId ? (
+                    <span className="text-lh-text-secondary"> · {t('вы')}</span>
+                  ) : m.removedAt ? (
+                    <span className="text-xs text-lh-text-secondary"> · {t('исключён')}</span>
+                  ) : (
+                    <span className="text-xs text-lh-text-secondary"> · {onlineSet.has(m.id) ? t('в сети') : t('не в сети')}</span>
+                  )}
+                </span>
+              </Name>
+              {!isSelf && !m.removedAt && (
+                <>
+                  {isOwner && (
+                    <button
+                      onClick={() => setRemoving(m)}
+                      aria-label={t('Исключить {name}', { name: m.displayName })}
+                      className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95 ${HIT_SLOP_44}`}
+                    >
+                      <UserMinus size={ICON.base} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => void callManager.startCall(familyId, m.id)}
+                    aria-label={t('Позвонить {name}', { name: m.displayName })}
+                    className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success active:scale-95 ${HIT_SLOP_44}`}
+                  >
+                    <Phone size={ICON.base} />
                   </button>
-                )}
-                <button
-                  onClick={() => void callManager.startCall(familyId, m.id)}
-                  aria-label={t('Позвонить {name}', { name: m.displayName })}
-                  className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success active:scale-95 ${HIT_SLOP_44}`}
-                >
-                  <Phone size={ICON.base} />
-                </button>
-              </>
-            )}
-          </div>
-        ))}
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {ownerless && (
