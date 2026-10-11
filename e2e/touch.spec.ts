@@ -1,4 +1,4 @@
-import { test, expect, openApp } from './fixtures';
+import { test, expect, openApp, openFamilyChrome } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // Зона касания меньше 44×44 — самый частый дефект мобильной вёрстки и
@@ -467,5 +467,39 @@ test('шторки спорта, семейная задача, экран пр�
   await expect(page.getByRole('button', { name: 'Прочитать и принять' })).toBeVisible();
   await check('семья на паузе');
 
+  expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
+});
+
+// Вкладка «Участники» открывается только из шторы шапки семьи, и аудит по
+// адресам её не видел. Живой замер 11.10: строки участников 36px в высоту
+// (кнопка — это аватар size-9 и имя, без своего отступа) и «Выйти из группы»
+// 34px. Группа засеяна с секретом владельца (ownerSecret): без него у чужой
+// строки нет «Исключить», и перекрытие не мерилось бы у самого плотного ряда —
+// имя, «Исключить» и «Позвонить» рядом.
+test('вкладка «Участники»: строки участников и «Выйти из группы» не меньше 44 и не налезают', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    const key = await generateKey();
+    const ts = new Date().toISOString();
+    await db.family.put({
+      id: 'f1', familyId: 'f1', familyToken: 't', familyKey: key, familyName: 'Наши',
+      selfMemberId: 'me', lastSeq: 0, lastReadSeq: 0, enabled: true, joinedAt: ts,
+      keyEpoch: 0, keyRing: { '0': key }, ownerSecret: 's',
+    } as never);
+    await db.familyMembers.bulkPut([
+      { id: 'me', familyId: 'f1', seq: 1, displayName: 'Влад', color: '#5b7cfa', joinedAt: ts, leftAt: null, removedAt: null },
+      { id: 'p1', familyId: 'f1', seq: 2, displayName: 'Отец', color: '#10b981', joinedAt: ts, leftAt: null, removedAt: null },
+    ] as never[]);
+  });
+  await page.goto('/more/family?g=f1');
+  await openFamilyChrome(page);
+  await page.getByRole('button', { name: 'Участники' }).click();
+  await expect(page.getByRole('button', { name: 'Исключить Отец' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Выйти из группы' })).toBeVisible();
+  // Вкладка, а не шторка: MembersTab рисуется в #root, порталом в body — только
+  // шторки поверх неё. Поэтому overlapsOn — с корнем по умолчанию.
+  const bad = [...await small(page), ...await overlapsOn(page)];
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
 });
