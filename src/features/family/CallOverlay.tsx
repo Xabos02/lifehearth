@@ -244,8 +244,9 @@ export function MinimizedCallBar({ snap, onExpand }: { snap: CallSnapshot; onExp
       onClick={onExpand}
       aria-label={t('Развернуть звонок: {name}, {status}', { name: snap.peerName || t('Участник'), status: statusText(snap) })}
       // Плашка ~34px в высоту — зона добирается до 44 невидимо; POSITIONED,
-      // потому что relative из обычного HIT_SLOP сбил бы fixed.
-      className={`fixed z-50 flex items-center gap-2 rounded-full bg-success-fill px-3 py-2 text-white shadow-lg active:opacity-90 ${HIT_SLOP_44_POSITIONED}`}
+      // потому что relative из обычного HIT_SLOP сбил бы fixed. Зелёный по
+      // смыслу светлый — глиф тёмный, как у «Принять» (белый давал 1.75).
+      className={`fixed z-50 flex items-center gap-2 rounded-full bg-success-fill px-3 py-2 text-on-light shadow-lg active:opacity-90 ${HIT_SLOP_44_POSITIONED}`}
       style={{ top: 'calc(env(safe-area-inset-top) + 10px)', right: '12px' }}
     >
       <Phone size={ICON.inline} className="animate-pulse" />

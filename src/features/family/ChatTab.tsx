@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import Dexie from 'dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { LucideIcon } from 'lucide-react';
@@ -126,7 +126,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
           else a.pause();
         }}
         aria-label={playing ? t('Пауза') : t('Воспроизвести')}
-        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${HIT_SLOP_44} ${own ? 'bg-white/20 text-white' : 'bg-lh-accent-dim text-lh-accent'}`}
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${HIT_SLOP_44} ${own ? 'bg-lh-bg text-lh-accent' : 'bg-lh-accent-dim text-lh-accent'}`}
       >
         {playing ? <Pause size={ICON.action} /> : <Play size={ICON.action} />}
       </button>
@@ -163,7 +163,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
         }}
         className="flex flex-1 cursor-pointer touch-none items-center py-2"
       >
-        <div className={`h-1 w-full overflow-hidden rounded-full ${own ? 'bg-white/25' : 'bg-lh-border'}`}>
+        <div className={`h-1 w-full overflow-hidden rounded-full ${own ? 'bg-lh-bg/25' : 'bg-lh-border'}`}>
           <div className="h-full rounded-full bg-current" style={{ width: `${Math.min(100, (pos / total) * 100)}%` }} />
         </div>
       </div>
@@ -217,13 +217,13 @@ function FileBubble({ m, own, received }: { m: FamilyMessage; own: boolean; rece
   return (
     <div className="flex min-w-[190px] max-w-[240px] items-center gap-2.5 py-0.5">
       <div
-        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-white/20 text-white' : 'bg-lh-accent-dim text-lh-accent'}`}
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-lh-bg text-lh-accent' : 'bg-lh-accent-dim text-lh-accent'}`}
       >
         <Icon size={ICON.base} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{info.name}</p>
-        <p className={`truncate text-2xs ${unavailable ? 'opacity-60' : ''} ${own ? 'text-white/70' : 'text-lh-text-secondary'}`}>
+        <p className={`truncate text-2xs ${own ? '' : 'text-lh-text-secondary'}`}>
           {subtitle}
         </p>
       </div>
@@ -497,13 +497,15 @@ function MessageRow({
         (m.status === 'pending' ? (
           <Clock size={ICON.inline} />
         ) : m.seq != null && maxOtherRead >= m.seq ? (
-          <CheckCheck size={ICON.inline} className="text-sky-300" />
+          <CheckCheck size={ICON.inline} />
         ) : (
           <Check size={ICON.inline} />
         ))}
     </>
   );
-  const metaTone = jumbo ? 'text-lh-text-secondary' : own ? 'text-white/70' : 'text-lh-text-secondary';
+  // На своём пузыре — цвет самого пузыря, без приглушения: у светлого золота
+  // запас над 4.5 невелик, и прозрачность уводит метку под норму.
+  const metaTone = own && !jumbo ? '' : 'text-lh-text-secondary';
   // Текстовый пузырь уводит метку в поток абзаца (float), остальные типы —
   // фото, голос, файл — держат её отдельной строкой снизу: внутри картинки
   // потоку не на чем висеть.
@@ -544,7 +546,7 @@ function MessageRow({
             } ${highlight ? 'ring-2 ring-frost' : ''}`}
           >
             {!own && authorName && groupStart && (
-              <p className={`mb-0.5 text-xs font-semibold ${m.image ? 'px-2 pt-1' : ''}`} style={{ color: authorColor ? readableName(authorColor) : undefined }}>
+              <p className={`member-color mb-0.5 text-xs font-semibold ${m.image ? 'px-2 pt-1' : ''}`} style={memberColor(authorColor)}>
                 {authorName}
               </p>
             )}
@@ -557,15 +559,15 @@ function MessageRow({
                 }}
                 className={`mb-1 block w-full rounded-lg border-l-2 px-2 py-1 text-left ${
                   m.image ? 'mx-2 mt-1 w-auto' : ''
-                } ${own ? 'border-white/60 bg-white/15' : 'border-lh-accent bg-lh-accent-dim'}`}
+                } ${own ? 'border-lh-bg' : 'border-lh-accent bg-lh-accent-dim'}`}
               >
-                <span className={`block text-2xs font-semibold ${own ? 'text-white/90' : 'text-lh-accent'}`}>
+                <span className={`block text-2xs font-semibold ${own ? '' : 'text-lh-accent'}`}>
                   {m.replyTo.name}
                 </span>
                 {/* Текст цитаты — основным, не серым: серый на золотой подложке
                     поверх пузыря surface-2 давал 4.05 в тёмной и 4.09 в светлой
                     (канва design/muted-on-gold). Имя над ним остаётся золотым. */}
-                <span className={`block truncate text-xs ${own ? 'text-white/75' : 'text-lh-text-primary'}`}>
+                <span className={`block truncate text-xs ${own ? '' : 'text-lh-text-primary'}`}>
                   {m.replyTo.text}
                 </span>
               </button>
@@ -606,7 +608,7 @@ function MessageRow({
                       // жесты пузыря живут на родителе.
                       onClick={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
-                      className={`underline underline-offset-2 ${own ? 'text-white' : 'text-lh-accent'}`}
+                      className={`underline underline-offset-2 ${own ? '' : 'text-lh-accent'}`}
                     >
                       {part.value}
                     </a>
@@ -1228,7 +1230,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               <span
                 className={`size-2 shrink-0 rounded-full ${onlineSet.has(others[0].id) ? 'bg-success' : 'bg-lh-text-tertiary'}`}
               />
-              <span className="font-medium" style={{ color: readableName(others[0].color) }}>
+              <span className="member-color font-medium" style={memberColor(others[0].color)}>
                 {others[0].displayName}
               </span>
               <span className={typers.length > 0 ? 'text-lh-accent' : 'text-lh-text-secondary'}>{headerStatus}</span>
@@ -1286,7 +1288,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                     className="flex w-full items-baseline gap-2 border-b border-lh-border/50 px-3 py-2 text-left last:border-0 active:bg-lh-surface-2"
                   >
                     <span className="min-w-0 flex-1 truncate text-xs">
-                      <span className="font-medium" style={{ color: readableName(memberMap[h.message.senderMemberId]?.color) }}>
+                      <span className="member-color font-medium" style={memberColor(memberMap[h.message.senderMemberId]?.color)}>
                         {memberMap[h.message.senderMemberId]?.displayName || t('Участник')}
                       </span>
                       {': '}
@@ -1726,9 +1728,8 @@ export function ChatTab({ familyId }: { familyId: string }) {
   );
 }
 
-/** Цвет участника, читаемый в обеих темах: палитра подобрана под тёмный фон,
- *  на светлом пузыре белый и лаймовый давали 1,1–1,7. Подмешиваем цвет текста
- *  темы — тон остаётся узнаваемым, контраст дотягивает. */
-function readableName(color: string | undefined): string | undefined {
-  return color ? `color-mix(in oklab, ${color} 55%, var(--lh-text-primary))` : undefined;
+/** Цвет участника для класса member-color (index.css): в тёмной теме он
+ *  подмешан к цвету текста, в светлой — muted (PROTOCOL §1.8). */
+function memberColor(color: string | null | undefined): CSSProperties | undefined {
+  return color ? ({ '--member-color': color } as CSSProperties) : undefined;
 }
