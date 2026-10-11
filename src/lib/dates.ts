@@ -61,19 +61,28 @@ export function dayMonthFormat(): string {
 }
 
 /** Диапазон дат — единственное оформление на всё приложение (PROTOCOL §7.5,
- *  §7.7): тире «–» без пробелов, общее не повторяется.
- *  - один месяц: «10–25 августа» / «August 10–25»;
- *  - граница месяца: «26 августа–7 сентября» / «August 26–September 7».
- *    Сжать начало до числа тут нельзя: «26–7 сентября» читается как опечатка
+ *  §7.7), общее не повторяется.
+ *  - один месяц: «10–25 августа» / «August 10–25» — короткое тире без
+ *    пробелов, между концами только числа;
+ *  - граница месяца: «26 августа — 7 сентября» / «August 26–September 7».
+ *    В русском интервал словами отбивается пробелами (Лопатин §118 прим. 2,
+ *    Лебедев §97 п. 14; прямой пример — шаблон «Диапазон дат» ru-Википедии),
+ *    знак — длинное тире, как во фразе. В английском американские гайды
+ *    (Chicago 6.83, Microsoft) держат en dash закрытым и здесь.
+ *    Сжать начало до числа нельзя: «26–7 сентября» читается как опечатка
  *    (так было на «Сегодня» у окна прогноза цикла);
- *  - граница года: «28 декабря–3 января» — без года, как и одиночные даты в
- *    приложении: диапазон короче года читается вперёд однозначно. Год и
- *    длиннее — годы у обоих концов, иначе «10 августа–25 августа» врёт.
+ *  - граница года: «28 декабря — 3 января» — без года, как и одиночные даты:
+ *    диапазон короче года читается вперёд однозначно. Год и длиннее — годы у
+ *    обоих концов, иначе «10 августа — 25 августа» врёт.
+ *  Перенос строки — только после тире: внутри дат и перед тире пробелы
+ *  неразрывные, иначе строка рвётся как «26 / августа — 7 сентября» или
+ *  «26 августа / — 7 сентября».
  *  `year` — год всегда (отчёт для врача): «10–25 августа 2026» / «August
  *  10–25, 2026». `short` — для узкой строки: два названия месяца сокращаются
- *  («28 сент.–4 окт.»), одно остаётся полным.
- *  Intl.DateTimeFormat#formatRange не берём: тире с пробелами, и вывод
- *  зависит от версии ICU в браузере. */
+ *  («28 сент. — 4 окт.»), одно остаётся полным.
+ *  Intl.DateTimeFormat#formatRange не берём: вывод зависит от версии ICU в
+ *  браузере (CLDR 49 меняет русское тире), а английский он отбивает тонкими
+ *  пробелами вопреки гайдам. */
 export function formatDayRange(
   fromKeyStr: string,
   toKeyStr: string,
@@ -82,17 +91,25 @@ export function formatDayRange(
   const ru = getLang() === 'ru';
   const fmt = (month: string, year: boolean) =>
     ru ? `d ${month}${year ? ' yyyy' : ''}` : `${month} d${year ? ', yyyy' : ''}`;
+  const end = (key: string, pattern: string) => formatRu(key, pattern).replace(/ /g, '\u00A0');
   const year = !!opts.year;
-  if (fromKeyStr === toKeyStr) return formatRu(toKeyStr, fmt('MMMM', year));
+  if (fromKeyStr === toKeyStr) return end(toKeyStr, fmt('MMMM', year));
   if (fromKeyStr.slice(0, 7) === toKeyStr.slice(0, 7)) {
     return ru
-      ? `${formatRu(fromKeyStr, 'd')}–${formatRu(toKeyStr, fmt('MMMM', year))}`
-      : `${formatRu(fromKeyStr, 'MMMM d')}–${formatRu(toKeyStr, year ? 'd, yyyy' : 'd')}`;
+      ? `${end(fromKeyStr, 'd')}–${end(toKeyStr, fmt('MMMM', year))}`
+      : `${end(fromKeyStr, 'MMMM d')}–${end(toKeyStr, year ? 'd, yyyy' : 'd')}`;
   }
   const month = opts.short ? 'MMM' : 'MMMM';
   const yearOrLonger = toKeyStr >= `${Number(fromKeyStr.slice(0, 4)) + 1}${fromKeyStr.slice(4)}`;
   const bothYears = fromKeyStr.slice(0, 4) !== toKeyStr.slice(0, 4) && (year || yearOrLonger);
-  return `${formatRu(fromKeyStr, fmt(month, bothYears))}–${formatRu(toKeyStr, fmt(month, year || bothYears))}`;
+  const dash = ru ? '\u00A0— ' : '–';
+  return `${end(fromKeyStr, fmt(month, bothYears))}${dash}${end(toKeyStr, fmt(month, year || bothYears))}`;
+}
+
+/** Диапазон, где конец — слово: «10 августа — Завтра», «3 марта 2026 —
+ *  продолжается». Перенос — только после тире, как у formatDayRange. */
+export function formatRangeToWord(fromKeyStr: string, word: string, fmt?: string): string {
+  return `${formatRu(fromKeyStr, fmt).replace(/ /g, '\u00A0')}\u00A0— ${word}`;
 }
 
 /** «11 июня» / «June 11»; с явным fmt — как задано. */

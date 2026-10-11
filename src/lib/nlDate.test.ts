@@ -381,6 +381,6 @@ describe('подсказка разбора (describeParsed)', () => {
 
   it('период показывается диапазоном', () => {
     const hint = describeParsed(parseQuickTask('отпуск с 10 по 25 сентября'));
-    expect(hint).toBe('10–25 сентября');
+    expect(hint).toBe('10–25\u00A0сентября');
   });
 });

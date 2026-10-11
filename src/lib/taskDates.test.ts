@@ -3,11 +3,14 @@ import { formatDueRange, nextWindowStart, taskOnDay } from './taskDates';
 import { setLang } from './i18n';
 import { addDaysKey, todayKey } from './dates';
 
+// «_» — неразрывный пробел (formatDayRange рвёт строку только после тире).
+const nb = (s: string) => s.replace(/_/g, '\u00A0');
+
 describe('срок-период задачи', () => {
   // «Сегодня», «Завтра», «Вчера» подставляются относительно текущей даты, поэтому
   // календарь фиксируем. Иначе тест с захардкоженными датами краснеет ровно в те
   // дни, когда один из концов диапазона попадает в окно относительных слов —
-  // «28 августа–3 сентября» превращается в «28 августа — Вчера» 4 сентября.
+  // «28 августа — 3 сентября» превращается в «28 августа — Вчера» 4 сентября.
   beforeAll(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-15T12:00:00'));
@@ -36,21 +39,21 @@ describe('срок-период задачи', () => {
   });
 
   it('диапазон в одном месяце сжимается: «10–25 августа»', () => {
-    expect(formatDueRange('2026-08-10', '2026-08-25')).toBe('10–25 августа');
+    expect(formatDueRange('2026-08-10', '2026-08-25')).toBe(nb('10–25_августа'));
   });
 
   it('в английском порядок «месяц день»: August 10–25, August 28–September 3', () => {
     setLang('en');
     try {
-      expect(formatDueRange('2026-08-10', '2026-08-25')).toBe('August 10–25');
-      expect(formatDueRange('2026-08-28', '2026-09-03')).toBe('August 28–September 3');
+      expect(formatDueRange('2026-08-10', '2026-08-25')).toBe(nb('August_10–25'));
+      expect(formatDueRange('2026-08-28', '2026-09-03')).toBe(nb('August_28–September_3'));
     } finally {
       setLang('ru');
     }
   });
 
   it('диапазон через месяц — оба конца целиком', () => {
-    expect(formatDueRange('2026-08-28', '2026-09-03')).toBe('28 августа–3 сентября');
+    expect(formatDueRange('2026-08-28', '2026-09-03')).toBe(nb('28_августа_— 3_сентября'));
   });
 
   it('дедлайн-слово остаётся словом', () => {

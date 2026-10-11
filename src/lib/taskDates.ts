@@ -3,7 +3,7 @@
 
 import { differenceInCalendarDays } from 'date-fns';
 import type { Task } from '../db/types';
-import { addDaysKey, formatDayRange, formatDueDate, formatRu, fromKey } from './dates';
+import { addDaysKey, formatDayRange, formatDueDate, formatRangeToWord, formatRu, fromKey } from './dates';
 
 /** Актуальна ли задача в этот день: точечный срок — ровно в свой день,
  *  период — каждый день окна включительно. Этим предикатом живут «Сегодня»
@@ -18,9 +18,9 @@ export function taskOnDay(
 }
 
 /** Подпись срока-периода: диапазон дат — formatDayRange («10–25 августа»,
- *  «28 августа–3 сентября»). Дедлайн со словом («Сегодня», «Завтра»)
+ *  «28 августа — 3 сентября»). Дедлайн со словом («Сегодня», «Завтра»)
  *  оставляем словом — «10 августа — Завтра» читается лучше даты, до которой
- *  ещё надо посчитать дни; это уже фраза, поэтому тире с пробелами. */
+ *  ещё надо посчитать дни. */
 export function formatDueRange(startKey: string, dueKey: string): string {
   if (startKey === dueKey) return formatDueDate(dueKey);
   const due = formatDueDate(dueKey);
@@ -28,7 +28,7 @@ export function formatDueRange(startKey: string, dueKey: string): string {
   // что дала бы просто дата. Проверка «начинается с буквы» тут не годится —
   // по-английски и дата начинается с буквы («August 25»).
   if (due === formatRu(dueKey)) return formatDayRange(startKey, dueKey);
-  return `${formatRu(startKey)} — ${due}`;
+  return formatRangeToWord(startKey, due);
 }
 
 /** Окно следующего повторения: дедлайн считает nextOccurrence, начало едет
