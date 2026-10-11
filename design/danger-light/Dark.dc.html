@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body{margin:0;background:#08080f;font-family:Inter,-apple-system,system-ui,sans-serif}
+    .ab{width:375px;background:#08080f}
+    .cap{height:40px;box-sizing:border-box;margin:0;padding:16px 16px 0;font-size:12px;font-weight:600;
+      letter-spacing:0.03em;text-transform:uppercase;color:#8f8d99}
+    .sub{height:28px;box-sizing:border-box;margin:0;padding:10px 16px 0;font-size:11px;color:#8f8d99}
+    img{display:block;width:375px}
+  </style>
+</helmet>
+<div class="ab">
+  <p class="cap">Тёмная — токен тот же</p>
+  <p class="sub">Шторка задачи: «Удалить» (подложка /15 на белом) · 4.97</p>
+  <img src="shots/dark-task.webp" alt="">
+  <p class="sub">Отметка дня: выбранный уровень (/15 на белом) · 4.97</p>
+  <img src="shots/dark-level.webp" alt="">
+  <p class="sub">Отметка дня: «Очистить день» — красный без подложки · 6.07</p>
+  <img src="shots/dark-clear.webp" alt="">
+  <p class="sub">Календарь цикла: дни кровотечения (/15 на карточке) · 4.97</p>
+  <img src="shots/dark-calendar.webp" alt="">
+  <p class="sub">ИИ: ошибка ответа, «Повторить» (подложка на подложке) · 5.01</p>
+  <img src="shots/dark-ai.webp" alt="">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

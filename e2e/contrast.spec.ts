@@ -25,7 +25,8 @@ const SCREENS = ['/', '/tasks', '/notes', '/calendar', '/goals', '/stats', '/hom
 // не было своего --lh-ai-accent, текст раздела шёл на 2.65–2.74, а страж на
 // пустом разделе был зелёным. Индиговый текст — след инструментов и
 // «Дописать» на подложке /15, «Данные» на /12 — появляется только у ответа,
-// поэтому ответ засеваем.
+// поэтому ответ засеваем. И второй, упавший: «Повторить» — красный на
+// подложке, лежащей на красной же карточке ошибки.
 async function seedAiReply(page: Page) {
   await page.evaluate(async () => {
     const { db } = await import('/src/db/db.ts');
@@ -38,6 +39,10 @@ async function seedAiReply(page: Page) {
       ...base('ai-m'), chatId: 'ai-c', role: 'assistant', content: 'Ответ', model: 'm',
       tokensIn: 1, tokensOut: 1, costRub: 0, status: 'done', error: null,
       finishReason: 'length', toolTrace: [{ tool: 'list_tasks', count: 3 }],
+    } as never);
+    await db.llmMessages.put({
+      ...base('ai-e'), chatId: 'ai-c', role: 'assistant', content: '', model: 'm',
+      tokensIn: 0, tokensOut: 0, costRub: 0, status: 'error', error: 'Нет связи',
     } as never);
   });
 }
@@ -273,14 +278,7 @@ test('семья: свои сообщения, участники, звонок 
   await expect(page.getByRole('button', { name: /Развернуть звонок/ })).toBeVisible();
   bad.push(...(await scanThemes(page, 'свёрнутый звонок')));
 
-  // Известное и записанное: светлый danger на своей подложке /15 — 4.27 у
-  // всех кнопок удаления ([планка] PROTOCOL §1.2, чинится токеном
-  // --app-danger в :root.light). Исключение точное: только «Удалить» формы
-  // в светлой теме и только на нынешних 4.27 — любая другая пара и любое
-  // падение ниже здесь по-прежнему красные.
-  const known = /^форма задачи \(light\) — «Удалить» 4\.27:1 /;
-  const fresh = bad.filter((b) => !known.test(b));
-  expect(fresh, `пар ниже порога: ${fresh.length}`).toEqual([]);
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
 });
 
 // Кнопка «Отправить» в ИИ активна только с текстом в поле, а плитка с искрой
@@ -513,6 +511,9 @@ test('задачи: цель переноса — AA в обеих темах', 
 // «Очистить день» (ghost) — золотом вместо красного, что контраст не ловит:
 // золото на шторке AA проходит. Поэтому, кроме замера, — сверка с токеном.
 // Обе шторки открываются только действием, обход SCREENS их не видит.
+// Заодно — красный на своей подложке: выбранный уровень, день кровотечения
+// в календаре, «Удалить группу». Светлый --app-danger подбирался без неё, и
+// все три шли на 4.27–4.29.
 test('шторки «Исключить» и «Очистить день»: красные и не ниже AA в обеих темах', async ({ page }) => {
   const sheet = page.locator('[class*="animate-sheet-up"]');
   /** Цвет элемента — ровно токен. Пробный элемент нужен, чтобы оба значения
@@ -527,12 +528,12 @@ test('шторки «Исключить» и «Очистить день»: кр
       return getComputedStyle(el)[p] === want;
     }, [prop, token] as const);
   const bad: string[] = [];
-  const both = async (where: string, check: () => Promise<void>) => {
+  const both = async (where: string, check: () => Promise<void>, root = sheet) => {
     for (const theme of ['dark', 'light'] as const) {
       await page.evaluate((t) => document.documentElement.classList.toggle('light', t === 'light'), theme);
       await page.waitForTimeout(400);
       await check();
-      for (const f of await scan(page, sheet)) bad.push(`${where} (${theme}) — «${f.что}» ${f.контраст}:1 (нужно ${f.нужно})`);
+      for (const f of await scan(page, root)) bad.push(`${where} (${theme}) — «${f.что}» ${f.контраст}:1 (нужно ${f.нужно})`);
     }
   };
 
@@ -556,6 +557,9 @@ test('шторки «Исключить» и «Очистить день»: кр
   await page.goto('/more/family?g=f1');
   await openFamilyChrome(page);
   await page.getByRole('button', { name: 'Участники' }).click();
+  // «Удалить группу» — красный на подложке /10 прямо на фоне экрана.
+  const dropGroup = page.getByRole('button', { name: 'Удалить группу' });
+  await both('участники: «Удалить группу»', async () => {}, dropGroup);
   await page.getByRole('button', { name: 'Исключить Отец' }).click();
   const remove = sheet.getByRole('button', { name: 'Исключить', exact: true });
   await expect(remove).toBeEnabled();
@@ -572,11 +576,11 @@ test('шторки «Исключить» и «Очистить день»: кр
     const { todayKey } = await import('/src/lib/dates.ts');
     const ts = new Date().toISOString();
     await repo.ensureCycleSetup();
-    // Только заметка, без кровотечения: выбранный чип уровня — красный текст
-    // на своей подложке /15, а в светлой теме это 4.27 у всего приложения
-    // ([планка] PROTOCOL §1.2, чинится токеном --app-danger, не здесь).
+    // С кровотечением: выбранный чип уровня — красный текст на своей подложке
+    // /15. Светлый --app-danger подбирался по трём поверхностям без неё, и чип
+    // шёл на 4.27.
     await db.cycleDays.put({
-      date: todayKey(), note: 'Голова', symptomKeys: [],
+      date: todayKey(), note: 'Голова', bleeding: 'medium', isBleedingDay: 1, symptomKeys: [],
       createdAt: ts, updatedAt: ts, source: 'user',
     } as never);
     await repo.rebuildCycles();
@@ -584,9 +588,13 @@ test('шторки «Исключить» и «Очистить день»: кр
   await page.getByRole('button', { name: 'Отметить', exact: true }).click();
   const clear = sheet.getByRole('button', { name: 'Очистить день' });
   await expect(clear).toBeVisible();
+  await expect(sheet.getByRole('button', { name: /Умеренно/ })).toHaveAttribute('aria-pressed', 'true');
   await both('журнал дня', async () => {
     expect.soft(await isToken(clear, 'color', '--app-danger'), '«Очистить день» не красная').toBe(true);
   });
+  await sheet.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(sheet).toHaveCount(0);
+  bad.push(...(await scanThemes(page, 'календарь цикла: день кровотечения')));
 
   expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
 });
