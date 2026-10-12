@@ -126,7 +126,9 @@ export function CompletedSubsection({
       <button
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-center gap-1.5 px-1 py-2.5 text-left text-sm text-lh-text-secondary active:opacity-60"
+        // min-h-11: без него строка 41.8px — 44 держались только на кегле 17px,
+        // который text-sm до 11.10.2026 не мог перебить (index.css).
+        className="flex min-h-11 w-full items-center gap-1.5 px-1 py-2.5 text-left text-sm text-lh-text-secondary active:opacity-60"
       >
         <ChevronRight
           size={ICON.inline}

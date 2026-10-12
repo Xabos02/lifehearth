@@ -146,7 +146,7 @@ export function CalendarPage() {
         <button
           type="button"
           onClick={goToday}
-          className="shrink-0 rounded-lg px-2 py-2.5 text-sm font-medium text-lh-accent active:opacity-60"
+          className="shrink-0 rounded-lg px-2 py-2.5 text-base font-medium text-lh-accent active:opacity-60"
         >
           {t('Сегодня')}
         </button>

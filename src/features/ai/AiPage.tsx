@@ -49,7 +49,7 @@ import { ModelSheet } from './ModelSheet';
 const CC_THEME: CSSProperties = {
   '--app-accent': 'var(--lh-ai-accent)',
   '--app-accent-2': 'var(--lh-ai-accent)',
-  '--app-accent-fill': 'var(--lh-ai-accent)',
+  '--app-accent-fill': 'var(--lh-ai-accent-fill)',
   '--lh-accent': 'var(--lh-ai-accent)',
   '--lh-accent-dim': 'color-mix(in srgb, var(--lh-ai-accent) 15%, transparent)',
   '--lh-accent-border': 'color-mix(in srgb, var(--lh-ai-accent) 30%, transparent)',
@@ -321,7 +321,7 @@ function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string
       <div
         aria-hidden
         className="mb-4 grid size-16 place-items-center rounded-[1.25rem] text-white shadow-[var(--shadow-accent)]"
-        style={{ background: 'linear-gradient(150deg, var(--lh-accent), var(--app-accent-2))' }}
+        style={{ background: 'var(--app-accent-fill)' }}
       >
         <GSparkle size={ICON.display} />
       </div>
@@ -389,8 +389,10 @@ function AssistantBlock({
               <CircleAlert size={ICON.action} className="mt-0.5 shrink-0 text-danger" />
               <span className="min-w-0">{message.error}</span>
             </p>
+            {/* Обводка, а не своя подложка: подложка поверх красной карточки
+                темнее одной, и красный текст на ней шёл на 3.45. */}
             <button
-              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-danger/15 px-3 py-1.5 text-sm font-medium text-danger active:opacity-70 disabled:opacity-40"
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-sm font-medium text-danger active:opacity-70 disabled:opacity-40"
               disabled={busy}
               onClick={onRetry}
             >

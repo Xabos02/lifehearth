@@ -59,6 +59,7 @@ export const EN: Record<string, string> = {
   'Сегодня, {date}': 'Today, {date}',
   'Завтра': 'Tomorrow',
   'Вчера': 'Yesterday',
+  'и': 'and',
   'Без названия': 'Untitled',
   'Сохранено': 'Saved',
 
@@ -561,8 +562,7 @@ export const EN: Record<string, string> = {
   'Последние циклы по длине заметно отличаются от прежних, поэтому диапазон широкий.':
     'Your recent cycles differ noticeably in length from earlier ones, so the range is wide.',
   'Скорее всего {range}': 'Most likely {range}',
-  'Обычно попадает в {range} — примерно в четырёх случаях из пяти.':
-    'Usually falls within {range} — about four times out of five.',
+  'Примерно в четырёх случаях из пяти — между {range}.': 'About four times out of five — between {range}.',
   'Прошло на {n} больше ожидаемого. У циклов бывает разброс — это само по себе ни о чём не говорит.':
     "{n} more than expected. Cycles naturally vary — this alone doesn't mean anything.",
   'Это наблюдения по вашим отметкам, а не диагноз. Приложение ничего не измеряет — только считает то, что ты отметила.':

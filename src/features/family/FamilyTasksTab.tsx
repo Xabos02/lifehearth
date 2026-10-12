@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
 import {
@@ -260,7 +260,9 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
           <p className={`break-words ${done ? 'text-lh-text-secondary line-through' : 'font-medium'}`}>{task.title}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-lh-text-secondary">
             {author && <span>{t('от {name}', { name: author.displayName })}</span>}
-            <span style={assignee ? { color: assignee.color } : undefined}>
+            {/* Цвет исполнителя — только в тёмной теме, в светлой muted (§1.8):
+                лаймовый на белой карточке давал 1.51. */}
+            <span className="member-color" style={assignee ? ({ '--member-color': assignee.color } as CSSProperties) : undefined}>
               → {assignee ? assignee.displayName : t('всем')}
             </span>
             {task.dueDate && (
