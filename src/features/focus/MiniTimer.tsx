@@ -35,6 +35,9 @@ export function MiniTimer() {
       aria-label={t('Открыть Фокус')}
       onClick={() => nav('/more/focus')}
       onKeyDown={(e) => {
+        // Enter на паузе или сбросе всплывает сюда, и preventDefault погасил
+        // бы их собственный клик.
+        if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           nav('/more/focus');

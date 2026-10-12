@@ -309,6 +309,9 @@ export const TaskItem = memo(function TaskItem({
         tabIndex={0}
         aria-label={task.title}
         onKeyDown={(e) => {
+          // Enter на галочке, фото или «пропустить» всплывает сюда, и
+          // preventDefault погасил бы их собственный клик.
+          if (e.target !== e.currentTarget) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             onEdit?.(task);

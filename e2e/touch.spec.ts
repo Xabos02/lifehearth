@@ -13,9 +13,25 @@ const SCREENS = ['/', '/tasks', '/notes', '/calendar', '/goals', '/home',
   '/more/health',
   '/home/profile', '/share'];
 
+/** Дождаться, пока открытые шторки доедут.
+ *
+ *  Пока шторка выезжает, её сдвиг дробный, и браузер отдаёт края кнопок с
+ *  точностью float32: сегменты приоритета в семейной задаче высотой ровно 44
+ *  на 82-м, 87-м и 91-м мс въезда мерились как 43.99997, и проверка 44×44
+ *  падала на них (перепроверка 12.10 — 1 прогон из 10). Приём тот же, что
+ *  settledTop в sheet-drag.spec: ждём конца анимаций самой панели. */
+async function sheetsAtRest(page: Page) {
+  await page.evaluate(async () => {
+    await Promise.all([...document.querySelectorAll('[class*="animate-sheet-up"]')]
+      .flatMap((el) => el.getAnimations())
+      .map((a) => a.finished));
+  });
+}
+
 /** rootSel — как у overlapsOn: берётся последний подходящий контейнер. Нужен,
  *  когда шторка открыта поверх другой и мерить надо только верхнюю. */
 async function small(page: Page, rootSel = 'body'): Promise<string[]> {
+  await sheetsAtRest(page);
   return page.evaluate((rootSel) => {
     const bad: string[] = [];
     const root = [...document.querySelectorAll(rootSel)].at(-1)!;
@@ -182,6 +198,7 @@ test('семейный чат: зоны касания не меньше 44 и �
  *  body, и для них передаётся контейнер шторки (берётся последний
  *  подходящий — верхняя из открытых). */
 async function overlapsOn(page: Page, rootSel = '#root'): Promise<string[]> {
+  await sheetsAtRest(page);
   return page.evaluate((rootSel) => {
     /** Реальная зона касания: сама кнопка плюс расширяющий ::after. */
     const hitRect = (el: Element) => {
@@ -200,6 +217,22 @@ async function overlapsOn(page: Page, rootSel = '#root'): Promise<string[]> {
       return { left: cx - w / 2, right: cx + w / 2, top: cy - h / 2, bottom: cy + h / 2 };
     };
     const root = [...document.querySelectorAll(rootSel)].at(-1)!;
+    // Шторку меряем в покое — прокрученной к началу, как она открывается.
+    // Шапка с «Закрыть» липкая: стоит панели уехать, и под шапкой оказываются
+    // ряды содержимого. Шапка их закрывает (своего z-index у рядов нет),
+    // пальцу они недоступны, а по координатам их зоны лежат на зоне крестика.
+    // Уводит панель сам Playwright: после неудачных попыток клика («not
+    // stable» — шторка ещё едет) следующая, уже на устойчивой шторке, делает
+    // scrollIntoView с выравниванием по кругу низ → центр → верх, даже если
+    // кнопка и так видна. Две неудачи — центр, и под нагрузкой тест падал с
+    // «Закрыть» и «Гири» налезают на 11×44px (11.10, 3 из 3), а на коде
+    // после e3d2bd7 — с «Закрыть» и «Убрать» на 32×13px (12.10). Проверку
+    // это не ослабляет, пока в шторке нет других липких элементов: соседи в
+    // потоке едут вместе, прокрутка меняет только положение шапки над
+    // содержимым — а его здесь и проверяем, в покое.
+    const panel = root.querySelector<HTMLElement>('[class*="animate-sheet-up"]');
+    const scrolled = panel?.scrollTop ?? 0;
+    if (panel) panel.scrollTop = 0;
     const btns = [...root.querySelectorAll('button, a[href]')].filter((el) => {
       const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
@@ -259,6 +292,8 @@ async function overlapsOn(page: Page, rootSel = '#root'): Promise<string[]> {
         }
       }
     }
+    // Вернуть, как было: замер не должен двигать экран под следующими шагами.
+    if (panel) panel.scrollTop = scrolled;
     return bad;
   }, rootSel);
 }

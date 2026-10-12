@@ -225,6 +225,9 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
           openEdit(task);
         }}
         onKeyDown={(e) => {
+          // Enter на галочке всплывает сюда, и preventDefault погасил бы её
+          // собственный клик.
+          if (e.target !== e.currentTarget) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             openEdit(task);
