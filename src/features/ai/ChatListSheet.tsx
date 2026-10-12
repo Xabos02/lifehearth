@@ -54,7 +54,7 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
   return (
     <Sheet open={open} onClose={onClose} title={t('Чаты')}>
       <div className="space-y-2">
-        <Button className="w-full inline-flex items-center justify-center gap-2" onClick={onNew}>
+        <Button className="w-full" onClick={onNew}>
           <MessageSquarePlus size={ICON.base} />
           {t('Новый чат')}
         </Button>

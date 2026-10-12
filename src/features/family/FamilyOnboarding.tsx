@@ -370,7 +370,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
         />
         <Button
           variant="secondary"
-          className="inline-flex w-full items-center justify-center gap-2"
+          className="w-full"
           onClick={() => fileRef.current?.click()}
         >
           <ImageUp size={ICON.base} />

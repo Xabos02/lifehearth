@@ -1064,7 +1064,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         {task && (
           <Button
             variant="secondary"
-            className="flex w-full items-center justify-center gap-1.5"
+            className="w-full"
             onClick={handleFocus}
           >
             <Timer size={ICON.action} /> {t('Запустить фокус')}

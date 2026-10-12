@@ -219,13 +219,13 @@ export function SyncSection() {
                 </span>
               </button>
             )}
-            <Button className="w-full inline-flex items-center justify-center gap-2" disabled={busy} onClick={() => void handleSyncNow()}>
+            <Button className="w-full" disabled={busy} onClick={() => void handleSyncNow()}>
               <RefreshCw size={ICON.base} className={busy ? 'animate-spin' : ''} />
               {t('Синхронизировать сейчас')}
             </Button>
             <Button
               variant="secondary"
-              className="w-full inline-flex items-center justify-center gap-2"
+              className="w-full"
               onClick={() => setKeySheet(true)}
             >
               <KeyRound size={ICON.base} />
@@ -233,7 +233,7 @@ export function SyncSection() {
             </Button>
             <Button
               variant="secondary"
-              className="w-full inline-flex items-center justify-center gap-2"
+              className="w-full"
               onClick={() => openSheet('show')}
             >
               <QrCode size={ICON.base} />
@@ -241,7 +241,7 @@ export function SyncSection() {
             </Button>
             <Button
               variant="secondary"
-              className="w-full inline-flex items-center justify-center gap-2"
+              className="w-full"
               onClick={() => openSheet('connect')}
             >
               <Smartphone size={ICON.base} className="shrink-0" />
@@ -293,7 +293,7 @@ export function SyncSection() {
             </Button>
             <Button
               variant="secondary"
-              className="w-full inline-flex items-center justify-center gap-2"
+              className="w-full"
               onClick={() => openSheet('connect')}
             >
               <Smartphone size={ICON.base} className="shrink-0" />

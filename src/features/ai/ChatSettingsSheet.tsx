@@ -116,7 +116,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Button variant="secondary" className="w-full inline-flex items-center justify-center gap-2" onClick={() => void handleExport()}>
+          <Button variant="secondary" className="w-full" onClick={() => void handleExport()}>
             <FileDown size={ICON.base} />
             {t('Экспорт в markdown')}
           </Button>
