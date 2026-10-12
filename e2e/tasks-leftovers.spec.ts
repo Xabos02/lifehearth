@@ -45,6 +45,24 @@ test('строка задачи открывается с клавиатуры, 
   await expect(header).toHaveAttribute('aria-expanded', 'false');
 });
 
+test('Enter на галочке отмечает задачу, а не открывает строку', async ({ page }) => {
+  await openApp(page, '/tasks', { seenHints: ['tasks-quick-add', 'tasks-gestures'] });
+  await seed(page, 1);
+  // Галочка лежит внутри строки-кнопки: Enter с неё всплывал в строку, и та
+  // своим preventDefault гасила клик галочки — открывался редактор.
+  await page.locator('[data-task-id="t1_0"]').getByRole('button', { name: 'Выполнить' }).focus();
+  await page.keyboard.press('Enter');
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { db } = await import('/src/db/db.ts');
+        return (await db.tasks.get('t1_0'))?.completedAt ?? null;
+      }),
+    )
+    .not.toBeNull();
+  await expect(page.getByRole('heading', { name: 'Задача' })).toHaveCount(0);
+});
+
 test('задача из быстрого ввода докручивается на экран', async ({ page }) => {
   await openApp(page, '/tasks', { seenHints: ['tasks-quick-add', 'tasks-gestures'] });
   await seed(page, 25);

@@ -42,6 +42,9 @@ function GoalCard({
       aria-label={t('Изменить цель накоплений')}
       onClick={onEdit}
       onKeyDown={(e) => {
+        // Enter на «Пополнить» или «Забрать» всплывает сюда, и preventDefault
+        // погасил бы их собственный клик.
+        if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onEdit();
