@@ -72,11 +72,11 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
           </div>
         )}
         <div className="flex gap-2">
-          <Button variant="secondary" className="flex-1 inline-flex items-center justify-center gap-2" onClick={copyCode}>
+          <Button variant="secondary" className="flex-1" onClick={copyCode}>
             {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
             {copied ? t('Скопировано') : t('Скопировать код')}
           </Button>
-          <Button variant="secondary" className="flex-1 inline-flex items-center justify-center gap-2" onClick={saveFile}>
+          <Button variant="secondary" className="flex-1" onClick={saveFile}>
             <Download size={ICON.base} />
             {t('Сохранить')}
           </Button>

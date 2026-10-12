@@ -190,7 +190,7 @@ function SectionSheet({
         </Field>
         <div className="flex gap-2">
           {section && (
-            <Button variant="danger" onClick={() => void del()} className="inline-flex items-center gap-1.5">
+            <Button variant="danger" onClick={() => void del()}>
               <Trash2 size={ICON.action} /> {t('Удалить')}
             </Button>
           )}
@@ -242,7 +242,7 @@ function ItemSheet({
         </Field>
         <div className="flex gap-2">
           {item && (
-            <Button variant="danger" onClick={() => void del()} className="inline-flex items-center gap-1.5">
+            <Button variant="danger" onClick={() => void del()}>
               <Trash2 size={ICON.action} /> {t('Удалить')}
             </Button>
           )}

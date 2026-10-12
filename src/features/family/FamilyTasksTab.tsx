@@ -281,7 +281,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
 
   return (
     <div className="space-y-3">
-      <Button onClick={openNew} className="w-full inline-flex items-center justify-center gap-2">
+      <Button onClick={openNew} className="w-full">
         <Plus size={ICON.base} />
         {t('Новая задача')}
       </Button>

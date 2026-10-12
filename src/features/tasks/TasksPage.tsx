@@ -1463,7 +1463,7 @@ export function TasksPage() {
       >
         <div className="flex flex-col gap-2 pb-2">
           <Button
-            className="flex w-full items-center justify-center gap-1.5"
+            className="w-full"
             onClick={() => {
               setCreateChoiceOpen(false);
               openTask(null, null);
@@ -1473,7 +1473,7 @@ export function TasksPage() {
           </Button>
           <Button
             variant="secondary"
-            className="flex w-full items-center justify-center gap-1.5"
+            className="w-full"
             onClick={() => {
               setCreateChoiceOpen(false);
               openProject(null);

@@ -302,7 +302,7 @@ export function CyclePage() {
 
         {!data.hasAnyData && !data.loading && (
           <Button onClick={() => setPickedDate(todayKey())} className="w-full">
-            <Plus size={ICON.base} className="-mt-0.5 mr-1 inline" /> {t('Отметить сегодня')}
+            <Plus size={ICON.base} /> {t('Отметить сегодня')}
           </Button>
         )}
       </div>

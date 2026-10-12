@@ -204,7 +204,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
           </div>
         )}
         <Button
-          className="inline-flex w-full items-center justify-center gap-2"
+          className="w-full"
           disabled={selected.size === 0}
           onClick={() => void confirm()}
         >
