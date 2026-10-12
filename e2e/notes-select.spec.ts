@@ -27,6 +27,12 @@ async function seed(page: import('@playwright/test').Page) {
 const rowOf = (page: import('@playwright/test').Page, title: string) =>
   page.getByRole('checkbox').filter({ hasText: title });
 
+/** Вход в режим выбора — пунктом меню «⋯» шапки, как «More → Select Notes». */
+async function startSelect(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+  await page.getByRole('button', { name: 'Выбрать заметки' }).click();
+}
+
 async function idsWhere(page: import('@playwright/test').Page, pred: string) {
   return page.evaluate(async (p) => {
     const { db } = await import('/src/db/db.ts');
@@ -37,12 +43,12 @@ async function idsWhere(page: import('@playwright/test').Page, pred: string) {
   }, pred);
 }
 
-test('вне режима тап открывает заметку; «Выбрать» включает отметки', async ({ page }) => {
+test('вне режима тап открывает заметку; «Выбрать заметки» включает отметки', async ({ page }) => {
   await openApp(page, '/notes');
   await seed(page);
   await expect(page.getByRole('checkbox')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Выбрать', exact: true }).click();
+  await startSelect(page);
   await expect(page.getByRole('heading', { name: 'Выбрано: 0' })).toBeVisible();
   await expect(page.getByTestId('notes-select-bar')).toBeVisible();
   // Кнопка «+» уступила место панели.
@@ -60,22 +66,22 @@ test('вне режима тап открывает заметку; «Выбра
   await expect(page.getByRole('checkbox')).toHaveCount(0);
 });
 
-test('«Выбрать все» берёт только текущий уровень и превращается в «Снять выбор»', async ({ page }) => {
+test('«Выбрать все» берёт только текущий уровень и превращается в «Снять все»', async ({ page }) => {
   await openApp(page, '/notes');
   await seed(page);
-  await page.getByRole('button', { name: 'Выбрать', exact: true }).click();
+  await startSelect(page);
   await page.getByRole('button', { name: 'Выбрать все' }).click();
   // В корне три заметки; четвёртая лежит в папке и в выбор не попадает.
   await expect(page.getByRole('heading', { name: 'Выбрано: 3' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Снять выбор' })).toBeVisible();
-  await page.getByRole('button', { name: 'Снять выбор' }).click();
+  await expect(page.getByRole('button', { name: 'Снять все' })).toBeVisible();
+  await page.getByRole('button', { name: 'Снять все' }).click();
   await expect(page.getByRole('heading', { name: 'Выбрано: 0' })).toBeVisible();
 });
 
 test('группа переезжает в папку через «Куда перенести?»', async ({ page }) => {
   await openApp(page, '/notes');
   await seed(page);
-  await page.getByRole('button', { name: 'Выбрать', exact: true }).click();
+  await startSelect(page);
   await rowOf(page, 'Покупки').click();
   await rowOf(page, 'Идеи').click();
   await page.getByRole('button', { name: 'Переместить (2)' }).click();
@@ -95,7 +101,7 @@ test('группа переезжает в папку через «Куда пе
 test('группа удаляется в Корзину одним подтверждением', async ({ page }) => {
   await openApp(page, '/notes');
   await seed(page);
-  await page.getByRole('button', { name: 'Выбрать', exact: true }).click();
+  await startSelect(page);
   await rowOf(page, 'Покупки').click();
   await rowOf(page, 'Книги').click();
 
@@ -114,7 +120,7 @@ test('группа удаляется в Корзину одним подтве�
 test('смена уровня снимает выбор сама', async ({ page }) => {
   await openApp(page, '/notes');
   await seed(page);
-  await page.getByRole('button', { name: 'Выбрать', exact: true }).click();
+  await startSelect(page);
   await rowOf(page, 'Покупки').click();
   await expect(page.getByRole('heading', { name: 'Выбрано: 1' })).toBeVisible();
   // Зашли в папку — режима нет, отметок нет.

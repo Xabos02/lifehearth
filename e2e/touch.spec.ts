@@ -383,13 +383,48 @@ test('шиты и экраны с содержимым: зоны не меньш
   await expect(page.getByRole('button', { name: 'Готово' })).toBeVisible();
   await check('редактор заметки');
   await page.goto('/notes');
-  await page.getByRole('button', { name: 'Выбрать' }).click();
+  await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+  await page.getByRole('button', { name: 'Выбрать заметки' }).click();
   await expect(page.getByRole('button', { name: 'Готово' })).toBeVisible();
   await check('заметки, режим выбора');
 
   await page.goto('/more/ai');
   await expect(page.getByRole('button', { name: 'Новый чат' })).toBeVisible();
   await check('ИИ');
+
+  expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
+});
+
+// «Выбрать заметки», «Новая папка» и «Изменить папку» — в шторке «⋯» шапки
+// (design/notes-header): в шапке им не хватало места под имя папки. Отдельным
+// тестом, а не шагом длинного сценария выше: тот и так идёт ~20 с при лимите 30.
+test('заметки: шторка «⋯» и режим выбора на 320px — не меньше 44 и не налезают', async ({ page }) => {
+  const bad: string[] = [];
+  const check = async (where: string, root?: string) => {
+    for (const b of await small(page, root)) bad.push(`${where}: ${b}`);
+    for (const o of await overlapsOn(page, root)) bad.push(`${where}: ${o}`);
+  };
+  await page.setViewportSize({ width: 320, height: 660 });
+  await openApp(page, '/notes');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const ts = new Date().toISOString();
+    await db.noteFolders.put({ id: 'tf1', name: 'Документы и счета', emoji: '🏠', color: '#5b7cfa', parentId: null, sortOrder: 1000, createdAt: ts, updatedAt: ts, deletedAt: null } as never);
+    await db.notes.put({ id: 'tn1', createdAt: ts, updatedAt: ts, deletedAt: null, title: 'Счёт за свет', content: '<p>Счёт за свет</p>', tags: [], pinned: false, folderId: 'tf1' } as never);
+  });
+  await page.goto('/notes');
+  await page.getByText('Документы и счета', { exact: true }).click();
+  await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Изменить папку' })).toBeVisible();
+  await check('меню «⋯» папки', SHEET);
+  // На 320px заголовок «Выбрано: N» спорит с «Все» и «Готово» за ширину —
+  // кнопки не должны сжиматься и сходиться центрами ближе 44px.
+  await page.getByRole('button', { name: 'Выбрать заметки' }).click();
+  await expect(page.getByRole('button', { name: 'Готово' })).toBeVisible();
+  await check('режим выбора в папке');
+  await page.getByRole('button', { name: 'Выбрать все' }).click();
+  await expect(page.getByRole('button', { name: 'Снять все' })).toBeVisible();
+  await check('режим выбора, всё отмечено');
 
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
 });
@@ -439,7 +474,8 @@ test('текстовые кнопки шторок исключения и па�
     await db.noteFolders.put({ id: 'nf1', name: 'Быт', emoji: '🏠', color: '#5b7cfa', parentId: null, sortOrder: 1000, createdAt: ts, updatedAt: ts, deletedAt: null } as never);
   });
   await page.getByText('Быт', { exact: true }).click();
-  await page.getByRole('button', { name: 'Изменить' }).click();
+  await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+  await page.getByRole('button', { name: 'Изменить папку' }).click();
   await expect(page.getByRole('button', { name: 'Удалить папку' })).toBeVisible();
   await check('шторка папки', SHEET);
   await page.getByRole('button', { name: 'Переместить папку' }).click();

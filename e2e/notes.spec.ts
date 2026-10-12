@@ -105,6 +105,7 @@ test.describe('папки', () => {
     await page.waitForTimeout(900); // автосохранение
     await openApp(page, '/notes');
 
+    await page.getByRole('button', { name: 'Ещё', exact: true }).click();
     await page.getByRole('button', { name: 'Новая папка' }).click();
     await page.getByPlaceholder('Например, «Работа»').fill('Работа');
     await page.getByRole('button', { name: 'Создать папку' }).click();
@@ -148,6 +149,7 @@ test.describe('папки', () => {
     await page.waitForTimeout(900);
     await openApp(page, '/notes');
 
+    await page.getByRole('button', { name: 'Ещё', exact: true }).click();
     await page.getByRole('button', { name: 'Новая папка' }).click();
     await page.getByPlaceholder('Например, «Работа»').fill('Архив');
     await page.getByRole('button', { name: 'Создать папку' }).click();
@@ -195,6 +197,7 @@ test.describe('папки', () => {
     await page.keyboard.type('Важная заметка внутри папки');
     await page.waitForTimeout(900);
     await openApp(page, '/notes');
+    await page.getByRole('button', { name: 'Ещё', exact: true }).click();
     await page.getByRole('button', { name: 'Новая папка' }).click();
     await page.getByPlaceholder('Например, «Работа»').fill('Временная');
     await page.getByRole('button', { name: 'Создать папку' }).click();
@@ -208,7 +211,8 @@ test.describe('папки', () => {
 
     page.once('dialog', (d) => void d.accept());
     await page.getByRole('button', { name: /Временная/ }).click();
-    await page.getByRole('button', { name: 'Изменить' }).click();
+    await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+    await page.getByRole('button', { name: 'Изменить папку' }).click();
     await page.getByRole('button', { name: 'Удалить папку' }).click();
     await page.waitForTimeout(500);
 
@@ -599,6 +603,8 @@ test.describe('фото и файлы в заметке', () => {
 // удалённой папки поднимается на уровень выше.
 test.describe('вложенные папки', () => {
   async function makeFolder(page: Page, name: string, label = 'Новая папка') {
+    // «Новая папка» и «Изменить папку» — в меню «⋯» шапки (design/notes-header).
+    await page.getByRole('button', { name: 'Ещё', exact: true }).click();
     await page.getByRole('button', { name: label }).click();
     await page.getByPlaceholder('Например, «Работа»').fill(name);
     await page.getByRole('button', { name: 'Создать папку' }).click();
@@ -651,7 +657,8 @@ test.describe('вложенные папки', () => {
     await page.getByRole('link', { name: /Назад/ }).click();
 
     page.on('dialog', (d) => void d.accept());
-    await page.getByRole('button', { name: 'Изменить' }).click();
+    await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+    await page.getByRole('button', { name: 'Изменить папку' }).click();
     await page.getByRole('button', { name: 'Удалить папку' }).click();
 
     // Мы в корне; вложенная папка стала корневой, заметка — в общем списке.
@@ -699,7 +706,8 @@ test.describe('вложенные папки', () => {
     await page.waitForTimeout(900);
     await page.getByRole('link', { name: /Назад/ }).click();
 
-    await page.getByRole('button', { name: 'Изменить' }).click();
+    await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+    await page.getByRole('button', { name: 'Изменить папку' }).click();
     await page.getByRole('button', { name: 'Переместить папку' }).click();
     await expect(page.getByRole('heading', { name: 'Куда перенести?' })).toBeVisible();
     // Сама «Работа» целью не предлагается — вложить папку в себя нельзя.

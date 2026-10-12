@@ -200,6 +200,7 @@ test('EN: главные экраны — сегодня, задачи, заме
 
   await openApp(page, '/notes', { language: 'en' });
   await shot(page, '05-notes', { full: true });
+  await page.getByRole('button', { name: 'More', exact: true }).click();
   await page.getByRole('button', { name: 'New folder' }).click();
   await shot(page, '06-folder-sheet');
   await page.getByRole('button', { name: 'Close' }).click();

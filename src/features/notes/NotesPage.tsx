@@ -12,11 +12,16 @@ import {
   GCheck as Check,
   GNotes as NotebookText,
   GFolderPlus as FolderPlus,
+  GMore as More,
+  GCheckCircle as CheckCircle,
+  GPencil as Pencil,
 } from '../../components/ui/glyphs';
 import { useNavigate } from 'react-router';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { IconButton } from '../../components/ui/IconButton';
+import { Sheet } from '../../components/ui/Sheet';
 import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
 import { alive, remove, update } from '../../db/repo';
@@ -121,7 +126,7 @@ function NoteRow({
    *  мучительно. */
   onMoveToFolder: () => void;
   /** Режим выбора нескольких: тап — отметка вместо открытия, свайп и
-   *  удержание выключены, слева кружок. Как в Apple Notes после «Выбрать». */
+   *  удержание выключены, слева кружок. Как в Apple Notes после «Выбрать заметки». */
   selecting?: boolean;
   selected?: boolean;
   onToggle?: () => void;
@@ -289,9 +294,9 @@ export function NotesPage() {
     | null
   >(null);
   // Режим выбора нескольких (11.09.2026, по просьбе владельца). Вход —
-  // кнопкой «Выбрать» в шапке, как в Apple Notes («More → Select Notes»):
-  // удержание в этом списке уже занято переносом одной заметки, и жест
-  // менять нельзя. Выход — «Готово», а также сам собой при смене уровня
+  // пунктом «Выбрать заметки» в меню «⋯» шапки, как в Apple Notes («More →
+  // Select Notes»): удержание в этом списке уже занято переносом одной
+  // заметки, и жест менять нельзя. Выход — «Готово», а также сам собой при смене уровня
   // или вводе в поиск: иначе «Выбрать все» стало бы неоднозначным.
   //
   // Выбор привязан к уровню и строке поиска, на которых его включили: сменился
@@ -306,6 +311,8 @@ export function NotesPage() {
   const setSelected = (upd: (prev: Set<string>) => Set<string>) =>
     setSel((prev) => (prev && prev.key === selectKey ? { key: prev.key, ids: upd(prev.ids) } : prev));
   const exitSelect = () => setSel(null);
+  // Меню «⋯» шапки: «Выбрать заметки», новая папка, правка открытой папки.
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Перестановка папок удержанием — внутри текущего уровня.
   const [reorderFolder, setReorderFolder] = useState<NoteFolder | null>(null);
@@ -566,6 +573,7 @@ export function NotesPage() {
     );
   }
 
+  const allSelected = selected.size === filtered.length && filtered.length > 0;
   return (
     <Screen
       title={
@@ -577,56 +585,36 @@ export function NotesPage() {
       }
       right={
         selecting ? (
-          <div className="flex items-center gap-3">
+          // h-9 — высота IconButton «⋯» обычного режима: без неё строку
+          // шапки держал заголовок, и при входе в выбор лента прыгала на 4–8px.
+          <div className="flex h-9 items-center gap-3">
             {/* «Выбрать все» берёт заметки ТЕКУЩЕГО уровня (закреплённые и
                 остальные), а не все заметки приложения: человек стоит в папке
-                и ждёт, что «все» — это то, что перед ним. */}
+                и ждёт, что «все» — это то, что перед ним.
+                Видимая подпись короткая — «Все»: с «Выбрать все» заголовок
+                «Выбрано: 0» на 320px переносился на две строки (ему
+                оставалось 104px, design/notes-header). Полное имя — в
+                aria-label, видимое слово в нём содержится. Граница: «Снять все»
+                шире, и на 320–359px при 10+ отмеченных «Выбрано: 10» уходит на
+                вторую строку (не режется) — лечится только другой компоновкой. */}
             <button
-              onClick={() =>
-                setSelected(() =>
-                  selected.size === filtered.length ? new Set() : new Set(filtered.map((n) => n.id)),
-                )
-              }
+              onClick={() => setSelected(() => (allSelected ? new Set() : new Set(filtered.map((n) => n.id))))}
+              aria-label={allSelected ? undefined : t('Выбрать все')}
               className={`text-base font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
             >
-              {selected.size === filtered.length && filtered.length > 0 ? t('Снять выбор') : t('Выбрать все')}
+              {allSelected ? t('Снять все') : t('Все')}
             </button>
             <button onClick={exitSelect} className={`text-base font-semibold text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}>
               {t('Готово')}
             </button>
           </div>
         ) : (
-          // gap-2, а не gap-1: зона иконки папки выходит на 4px за её края, и
-          // при зазоре 4px ложилась на «Выбрать» и «Изменить».
-          <div className="flex items-center gap-2">
-            {/* «Выбрать» — вход в режим нескольких, как в Apple Notes. Есть
-                только когда есть что выбирать и поле поиска пустое. */}
-            {filtered.length > 0 && !q && (
-              <button
-                onClick={() => setSelecting(true)}
-                className={`pr-1 text-base font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
-              >
-                {t('Выбрать')}
-              </button>
-            )}
-            {/* Новая папка создаётся на ТЕКУЩЕМ уровне: в корне — корневая,
-                внутри папки — вложенная, как в Apple Notes. */}
-            <button
-              onClick={() => setFolderSheet('new')}
-              aria-label={current ? t('Новая вложенная папка') : t('Новая папка')}
-              className={`p-1 text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
-            >
-              <FolderPlus size={ICON.header} />
-            </button>
-            {current && (
-              <button
-                onClick={() => setFolderSheet(current)}
-                className={`pl-1 text-base font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
-              >
-                {t('Изменить')}
-              </button>
-            )}
-          </div>
+          // Одна «⋯» вместо «Выбрать», «Новая папка» и «Изменить» (выбор
+          // владельца 12.10.2026, вариант Б канвы design/notes-header). Три
+          // действия по 17px занимали 208px, и имени папки оставалось 72px на
+          // 320 и 145px на 393: «Документы и счета» резалось до «🏠 / Док…».
+          // Как в Apple Notes: «Выбрать заметки» там тоже в меню «Ещё».
+          <IconButton icon={More} label={t('Ещё')} onClick={() => setMenuOpen(true)} />
         )
       }
     >
@@ -730,6 +718,49 @@ export function NotesPage() {
       ) : (
         <Fab onClick={() => navigate(current ? `/notes/new?folder=${current.id}` : '/notes/new')} />
       )}
+      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)}>
+        <div className="card divide-y divide-lh-border">
+          {/* «Выбрать» — только когда есть что выбирать и поле поиска пустое. */}
+          {filtered.length > 0 && !q && (
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                setSelecting(true);
+              }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
+            >
+              <CheckCircle size={ICON.base} className="shrink-0 text-lh-accent" />
+              <span className="min-w-0 flex-1 font-medium">{t('Выбрать заметки')}</span>
+            </button>
+          )}
+          {/* Новая папка создаётся на ТЕКУЩЕМ уровне: в корне — корневая,
+              внутри папки — вложенная, как в Apple Notes. */}
+          <button
+            onClick={() => {
+              setMenuOpen(false);
+              setFolderSheet('new');
+            }}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
+          >
+            <FolderPlus size={ICON.base} className="shrink-0 text-lh-accent" />
+            <span className="min-w-0 flex-1 font-medium">
+              {current ? t('Новая вложенная папка') : t('Новая папка')}
+            </span>
+          </button>
+          {current && (
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                setFolderSheet(current);
+              }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
+            >
+              <Pencil size={ICON.base} className="shrink-0 text-lh-accent" />
+              <span className="min-w-0 flex-1 font-medium">{t('Изменить папку')}</span>
+            </button>
+          )}
+        </div>
+      </Sheet>
       <FolderSheet
         key={folderSheet === 'new' ? 'new' : (folderSheet?.id ?? 'closed')}
         open={folderSheet !== null}
