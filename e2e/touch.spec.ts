@@ -13,9 +13,25 @@ const SCREENS = ['/', '/tasks', '/notes', '/calendar', '/goals', '/home',
   '/more/health',
   '/home/profile', '/share'];
 
+/** Дождаться, пока открытые шторки доедут.
+ *
+ *  Пока шторка выезжает, её сдвиг дробный, и браузер отдаёт края кнопок с
+ *  точностью float32: сегменты приоритета в семейной задаче высотой ровно 44
+ *  на 82-м, 87-м и 91-м мс въезда мерились как 43.99997, и проверка 44×44
+ *  падала на них (перепроверка 12.10 — 1 прогон из 10). Приём тот же, что
+ *  settledTop в sheet-drag.spec: ждём конца анимаций самой панели. */
+async function sheetsAtRest(page: Page) {
+  await page.evaluate(async () => {
+    await Promise.all([...document.querySelectorAll('[class*="animate-sheet-up"]')]
+      .flatMap((el) => el.getAnimations())
+      .map((a) => a.finished));
+  });
+}
+
 /** rootSel — как у overlapsOn: берётся последний подходящий контейнер. Нужен,
  *  когда шторка открыта поверх другой и мерить надо только верхнюю. */
 async function small(page: Page, rootSel = 'body'): Promise<string[]> {
+  await sheetsAtRest(page);
   return page.evaluate((rootSel) => {
     const bad: string[] = [];
     const root = [...document.querySelectorAll(rootSel)].at(-1)!;
@@ -182,6 +198,7 @@ test('семейный чат: зоны касания не меньше 44 и �
  *  body, и для них передаётся контейнер шторки (берётся последний
  *  подходящий — верхняя из открытых). */
 async function overlapsOn(page: Page, rootSel = '#root'): Promise<string[]> {
+  await sheetsAtRest(page);
   return page.evaluate((rootSel) => {
     /** Реальная зона касания: сама кнопка плюс расширяющий ::after. */
     const hitRect = (el: Element) => {
@@ -200,6 +217,22 @@ async function overlapsOn(page: Page, rootSel = '#root'): Promise<string[]> {
       return { left: cx - w / 2, right: cx + w / 2, top: cy - h / 2, bottom: cy + h / 2 };
     };
     const root = [...document.querySelectorAll(rootSel)].at(-1)!;
+    // Шторку меряем в покое — прокрученной к началу, как она открывается.
+    // Шапка с «Закрыть» липкая: стоит панели уехать, и под шапкой оказываются
+    // ряды содержимого. Шапка их закрывает (своего z-index у рядов нет),
+    // пальцу они недоступны, а по координатам их зоны лежат на зоне крестика.
+    // Уводит панель сам Playwright: после неудачных попыток клика («not
+    // stable» — шторка ещё едет) следующая, уже на устойчивой шторке, делает
+    // scrollIntoView с выравниванием по кругу низ → центр → верх, даже если
+    // кнопка и так видна. Две неудачи — центр, и под нагрузкой тест падал с
+    // «Закрыть» и «Гири» налезают на 11×44px (11.10, 3 из 3), а на коде
+    // после e3d2bd7 — с «Закрыть» и «Убрать» на 32×13px (12.10). Проверку
+    // это не ослабляет, пока в шторке нет других липких элементов: соседи в
+    // потоке едут вместе, прокрутка меняет только положение шапки над
+    // содержимым — а его здесь и проверяем, в покое.
+    const panel = root.querySelector<HTMLElement>('[class*="animate-sheet-up"]');
+    const scrolled = panel?.scrollTop ?? 0;
+    if (panel) panel.scrollTop = 0;
     const btns = [...root.querySelectorAll('button, a[href]')].filter((el) => {
       const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
@@ -259,6 +292,8 @@ async function overlapsOn(page: Page, rootSel = '#root'): Promise<string[]> {
         }
       }
     }
+    // Вернуть, как было: замер не должен двигать экран под следующими шагами.
+    if (panel) panel.scrollTop = scrolled;
     return bad;
   }, rootSel);
 }
@@ -383,13 +418,48 @@ test('шиты и экраны с содержимым: зоны не меньш
   await expect(page.getByRole('button', { name: 'Готово' })).toBeVisible();
   await check('редактор заметки');
   await page.goto('/notes');
-  await page.getByRole('button', { name: 'Выбрать' }).click();
+  await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+  await page.getByRole('button', { name: 'Выбрать заметки' }).click();
   await expect(page.getByRole('button', { name: 'Готово' })).toBeVisible();
   await check('заметки, режим выбора');
 
   await page.goto('/more/ai');
   await expect(page.getByRole('button', { name: 'Новый чат' })).toBeVisible();
   await check('ИИ');
+
+  expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
+});
+
+// «Выбрать заметки», «Новая папка» и «Изменить папку» — в шторке «⋯» шапки
+// (design/notes-header): в шапке им не хватало места под имя папки. Отдельным
+// тестом, а не шагом длинного сценария выше: тот и так идёт ~20 с при лимите 30.
+test('заметки: шторка «⋯» и режим выбора на 320px — не меньше 44 и не налезают', async ({ page }) => {
+  const bad: string[] = [];
+  const check = async (where: string, root?: string) => {
+    for (const b of await small(page, root)) bad.push(`${where}: ${b}`);
+    for (const o of await overlapsOn(page, root)) bad.push(`${where}: ${o}`);
+  };
+  await page.setViewportSize({ width: 320, height: 660 });
+  await openApp(page, '/notes');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const ts = new Date().toISOString();
+    await db.noteFolders.put({ id: 'tf1', name: 'Документы и счета', emoji: '🏠', color: '#5b7cfa', parentId: null, sortOrder: 1000, createdAt: ts, updatedAt: ts, deletedAt: null } as never);
+    await db.notes.put({ id: 'tn1', createdAt: ts, updatedAt: ts, deletedAt: null, title: 'Счёт за свет', content: '<p>Счёт за свет</p>', tags: [], pinned: false, folderId: 'tf1' } as never);
+  });
+  await page.goto('/notes');
+  await page.getByText('Документы и счета', { exact: true }).click();
+  await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Изменить папку' })).toBeVisible();
+  await check('меню «⋯» папки', SHEET);
+  // На 320px заголовок «Выбрано: N» спорит с «Все» и «Готово» за ширину —
+  // кнопки не должны сжиматься и сходиться центрами ближе 44px.
+  await page.getByRole('button', { name: 'Выбрать заметки' }).click();
+  await expect(page.getByRole('button', { name: 'Готово' })).toBeVisible();
+  await check('режим выбора в папке');
+  await page.getByRole('button', { name: 'Выбрать все' }).click();
+  await expect(page.getByRole('button', { name: 'Снять все' })).toBeVisible();
+  await check('режим выбора, всё отмечено');
 
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
 });
@@ -439,7 +509,8 @@ test('текстовые кнопки шторок исключения и па�
     await db.noteFolders.put({ id: 'nf1', name: 'Быт', emoji: '🏠', color: '#5b7cfa', parentId: null, sortOrder: 1000, createdAt: ts, updatedAt: ts, deletedAt: null } as never);
   });
   await page.getByText('Быт', { exact: true }).click();
-  await page.getByRole('button', { name: 'Изменить' }).click();
+  await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+  await page.getByRole('button', { name: 'Изменить папку' }).click();
   await expect(page.getByRole('button', { name: 'Удалить папку' })).toBeVisible();
   await check('шторка папки', SHEET);
   await page.getByRole('button', { name: 'Переместить папку' }).click();

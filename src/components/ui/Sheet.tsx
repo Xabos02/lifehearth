@@ -209,7 +209,9 @@ export function Sheet({ open, onClose, title, children }: Props) {
         >
           <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-lh-border-strong" />
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-lh-text-primary">{title}</h2>
+            {/* Без заголовка (меню «⋯» заметок) — без пустого h2: читалка
+                объявляла бы безымянный заголовок. ml-auto держит крестик справа. */}
+            {title && <h2 className="text-lg font-semibold text-lh-text-primary">{title}</h2>}
             {/* Крестик остаётся мелким (30px): визуально он служебный и
                 раздувать его незачем. А вот зону касания псевдоэлемент
                 добирает до 44×44 — палец мимо служебной кнопки промахивается
@@ -219,7 +221,7 @@ export function Sheet({ open, onClose, title, children }: Props) {
               onClick={onClose}
               onPointerDown={(e) => e.stopPropagation()}
               aria-label={t('Закрыть')}
-              className={`rounded-full bg-lh-surface-2 p-1.5 text-lh-text-secondary transition-transform active:scale-90 ${HIT_SLOP_44}`}
+              className={`ml-auto rounded-full bg-lh-surface-2 p-1.5 text-lh-text-secondary transition-transform active:scale-90 ${HIT_SLOP_44}`}
             >
               <X size={ICON.base} />
             </button>

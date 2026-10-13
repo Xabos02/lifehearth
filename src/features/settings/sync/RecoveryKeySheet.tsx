@@ -145,13 +145,13 @@ export function RecoveryKeySheet({ open, saved, onClose }: Props) {
           </p>
         </div>
 
-        <Button className="w-full inline-flex items-center justify-center gap-2" onClick={() => void saveFile()}>
+        <Button className="w-full" onClick={() => void saveFile()}>
           <Download size={ICON.base} />
           {t('Сохранить в файл')}
         </Button>
         <Button
           variant="secondary"
-          className="w-full inline-flex items-center justify-center gap-2"
+          className="w-full"
           onClick={() => void copyCode()}
         >
           {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}

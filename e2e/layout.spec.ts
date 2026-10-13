@@ -39,6 +39,53 @@ for (const path of SCREENS) {
   });
 }
 
+// Шапка «Заметок» внутри папки: имя папки видно целиком. Справа стояли три
+// действия по 17px — «Выбрать», «Новая папка», «Изменить», 208px, — и имени
+// оставалось 72px на 320 и 145px на 393: «Документы и счета» резалось до
+// «🏠 / Док…» на ВСЕХ трёх ширинах, а не только на узкой. Теперь справа одна
+// «⋯» (design/notes-header). Число строк имени не сверяем: ширина эмодзи
+// зависит от системного шрифта, а дефект — именно обрезка.
+for (const width of [320, 375, 393]) {
+  test(`шапка «Заметок»: имя папки и «Выбрано: N» не обрезаны, ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 700 });
+    await openApp(page, './notes');
+    await page.evaluate(async () => {
+      const { db } = await import('/src/db/db.ts');
+      const ts = new Date().toISOString();
+      await db.noteFolders.put({ id: 'lf1', name: 'Документы и счета', emoji: '🏠', color: '#5b7cfa', parentId: null, sortOrder: 1000, createdAt: ts, updatedAt: ts, deletedAt: null } as never);
+      await db.notes.bulkPut([
+        { id: 'ln1', createdAt: ts, updatedAt: ts, deletedAt: null, title: 'Счёт за свет', content: '<p>Счёт за свет</p>', tags: [], pinned: false, folderId: 'lf1' },
+        // В корне — чтобы там было что выбирать: высоту шапки сравниваем по
+        // «Заметкам», их заголовок в одну строку при любой ширине эмодзи.
+        { id: 'ln2', createdAt: ts, updatedAt: ts, deletedAt: null, title: 'Идеи', content: '<p>Идеи</p>', tags: [], pinned: false, folderId: null },
+      ] as never[]);
+    });
+    await page.goto('./notes');
+    await page.getByText('Документы и счета', { exact: true }).click();
+
+    const title = page.locator('header h1');
+    const shape = () =>
+      title.evaluate((el) => ({
+        clamped: el.scrollHeight > el.clientHeight + 1,
+        lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
+      }));
+    await expect(title).toHaveText('🏠 Документы и счета');
+    expect((await shape()).clamped, 'имя папки обрезано').toBe(false);
+
+    // Режим выбора: «Выбрано: 0» — в одну строку рядом с «Все» и «Готово»
+    // (с «Выбрать все» на 320px заголовок переносился: «Выбрано:» / «0»).
+    // И шапка той же высоты, что с «⋯»: иначе лента прыгает при входе в выбор.
+    const headerH = () => page.locator('header').evaluate((el) => el.getBoundingClientRect().height);
+    await page.goto('./notes');
+    const rootH = await headerH();
+    await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+    await page.getByRole('button', { name: 'Выбрать заметки' }).click();
+    await expect(title).toHaveText('Выбрано: 0');
+    expect(await shape()).toEqual({ clamped: false, lines: 1 });
+    expect(await headerH(), 'шапка прыгнула при входе в выбор').toBeCloseTo(rootH, 0);
+  });
+}
+
 /** Заполняет ленту так, чтобы ей было куда прокручиваться: пустой экран
  *  проверяет ровно ничего — кнопке нечего перекрывать. */
 async function seedLongList(page: Page) {

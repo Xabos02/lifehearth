@@ -210,7 +210,7 @@ export function CycleReportPage() {
 
           <div className="print:hidden space-y-2">
             <Button className="w-full" onClick={() => window.print()}>
-              <Printer size={ICON.base} className="-mt-0.5 mr-1 inline" strokeWidth={2} />
+              <Printer size={ICON.base} strokeWidth={2} />
               {t('Распечатать или сохранить в PDF')}
             </Button>
             <p className="px-1 text-xs leading-snug text-lh-text-secondary">

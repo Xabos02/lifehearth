@@ -74,6 +74,7 @@ test('английский: раздел заметок — список, пап
   await expect(page.getByRole('heading', { name: 'Notes' })).toBeVisible();
   await expect(page.getByText('No notes yet')).toBeVisible();
   // Шит новой папки.
+  await page.getByRole('button', { name: 'More', exact: true }).click();
   await page.getByRole('button', { name: 'New folder' }).click();
   await expect(page.getByText('Icon', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create folder' })).toBeVisible();

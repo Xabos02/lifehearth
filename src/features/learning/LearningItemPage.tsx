@@ -114,7 +114,7 @@ export function LearningItemPage() {
 
         {sched && <Chart item={item} sched={sched} />}
 
-        <Button className="flex w-full items-center justify-center gap-2" onClick={() => setLogOpen(true)}>
+        <Button className="w-full" onClick={() => setLogOpen(true)}>
           <Clock size={ICON.base} />
           {t('Записать занятие')}
         </Button>

@@ -183,7 +183,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
               на своём экране (RecoveryKeySheet): рядом эти две кнопки
               выглядели одинаково, хотя одна даёт 15 минут, а другая —
               вечный доступ ко всем данным. */}
-          <Button variant="secondary" className="w-full inline-flex items-center justify-center gap-2" onClick={copyCode}>
+          <Button variant="secondary" className="w-full" onClick={copyCode}>
             {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
             {copied ? t('Скопировано') : t('Скопировать код')}
           </Button>

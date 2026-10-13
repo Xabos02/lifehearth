@@ -15,8 +15,9 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Button({ variant = 'primary', className = '', ...props }: Props) {
   return (
+    // flex — чтобы иконка вставала в строку с подписью: svg по preflight block.
     <button
-      className={`rounded-lh-btn px-4 py-3 font-semibold transition-[transform,opacity] duration-150 active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100 ${styles[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lh-btn px-4 py-3 font-semibold transition-[transform,opacity] duration-150 active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100 ${styles[variant]} ${className}`}
       {...props}
     />
   );

@@ -111,7 +111,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         <span className="text-sm text-lh-text-secondary">{t('Переименовать')}</span>
       </button>
 
-      <Button onClick={() => setInvite(true)} className="w-full inline-flex items-center justify-center gap-2">
+      <Button onClick={() => setInvite(true)} className="w-full">
         <UserPlus size={ICON.base} />
         {t('Пригласить участника')}
       </Button>
