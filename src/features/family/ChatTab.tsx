@@ -51,6 +51,7 @@ import { systemMessageText } from '../../lib/family/systemMessage';
 import { linkify } from '../../lib/family/linkify';
 import { clearDraft, loadDraft, saveDraft } from '../../lib/family/draft';
 import { clearUndecrypted, subscribeUndecrypted, undecryptedCount } from '../../lib/family/undecrypted';
+import { isNotable } from '../../lib/family/unread';
 import { searchMessages, type SearchHit } from '../../lib/family/searchMessages';
 import { setScreenAction } from '../../lib/ui/screenAction';
 import {
@@ -69,6 +70,7 @@ import {
   markSeen,
 } from '../../lib/family/familyChat';
 import { useVoiceRecorder } from './useVoiceRecorder';
+import { isAlive, snippetOf } from './chats';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
 
@@ -294,15 +296,6 @@ function emojiOnly(text: string): number {
   return clusters.every((c) => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(c))
     ? clusters.length
     : 0;
-}
-
-/** Сниппет сообщения для цитаты ответа. */
-function snippetOf(m: FamilyMessage): string {
-  if (m.text) return m.text.slice(0, 120);
-  if (m.image) return t('Фото');
-  if (m.audio) return t('Голосовое сообщение');
-  if (m.file) return t('Файл');
-  return t('Сообщение');
 }
 
 const SWIPE_REPLY_PX = 56; // порог свайпа вправо «ответить»
@@ -772,9 +765,10 @@ export function ChatTab({ familyId }: { familyId: string }) {
 
   // Presence в шапке чата: онлайн-статус собеседника(ов) + «был(а) в сети …».
   const others = useMemo(
-    () => (membersRaw ?? []).filter((m) => !m.leftAt && m.id !== selfId),
+    () => (membersRaw ?? []).filter((m) => isAlive(m) && m.id !== selfId),
     [membersRaw, selfId],
   );
+  const everyoneElse = (membersRaw ?? []).filter((m) => m.id !== selfId).length;
   // Пока фото сжимается и шифруется (или файл режется на чанки), кнопка
   // занята: на большом вложении это заметная пауза, и без индикации человек
   // жмёт второй раз.
@@ -927,7 +921,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
       // сообщением ничего не сообщает — вся переписка и так новая.
       return null;
     }
-    const m = list.find((x) => x.seq != null && x.seq > readMark && x.senderMemberId !== selfId);
+    // То же правило, что у бейджа и счётчика в списке чатов (isNotable): иначе
+    // метка стояла бы над «Вася вошёл в группу», которого список не считал.
+    const m = list.find((x) => x.seq != null && x.seq > readMark && x.senderMemberId !== selfId && isNotable(x));
     return m?.clientMsgId ?? null;
   }, [list, readMark, selfId]);
 
@@ -1420,7 +1416,11 @@ export function ChatTab({ familyId }: { familyId: string }) {
                       <MessageRow
                         m={m}
                         own={own}
-                        authorName={author?.displayName ?? null}
+                        // В личном чате собеседник один — его имя над каждой
+                        // серией было бы повтором шапки. Считаем всех, кто
+                        // был в группе, а не только живых: иначе реплики
+                        // исключённого шли бы без имени, как реплики собеседника.
+                        authorName={everyoneElse > 1 ? (author?.displayName ?? null) : null}
                         authorColor={author?.color ?? null}
                         groupStart={groupStart}
                         groupEnd={groupEnd}

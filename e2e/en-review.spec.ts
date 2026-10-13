@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { openApp, openFamilyChrome, test, expect } from './fixtures';
+import { openApp, test, expect } from './fixtures';
 import { addDaysKey, todayKey } from '../src/lib/dates';
 
 // ВРЕМЕННЫЙ спек EN-скриншот-ревью. Не для постоянного набора: снимает каждый
@@ -285,21 +285,23 @@ test('EN: настройки — экран, разделы, установка,
   }
 });
 
-test('EN: семья — чат, задачи, участники, звонок', async ({ page }) => {
+test('EN: семья — список чатов, чат, звонок, карточка, задачи', async ({ page }) => {
   await openApp(page, '/more/family', { language: 'en' });
   await shot(page, '30-family-onboarding', { full: true });
   await seedFamily(page);
+  await page.goto('/more/family');
+  await expect(page.getByRole('heading', { name: 'Personal' })).toBeVisible();
+  await shot(page, '30b-family-chats', { full: true });
   await page.goto('/more/family?g=f1');
-  await expect(page.getByRole('heading', { name: 'Our family' })).toBeVisible();
-  await openFamilyChrome(page, 'Chat');
-  await page.getByRole('button', { name: 'Chat' }).click();
+  await expect(page.getByRole('heading', { name: /Our family/ })).toBeVisible();
   await shot(page, '31-family-chat', { full: true });
-  await page.getByRole('button', { name: 'Tasks' }).click();
-  await shot(page, '32-family-tasks', { full: true });
-  await page.getByRole('button', { name: 'Members' }).click();
-  await shot(page, '33-family-members', { full: true });
   await page.getByRole('button', { name: 'Call', exact: true }).click();
   await shot(page, '34-family-call-pick');
+  await page.goto('/more/family?g=f1&t=members');
+  await expect(page.getByRole('button', { name: 'Leave the group' })).toBeVisible();
+  await shot(page, '33-family-members', { full: true });
+  await page.goto('/more/family?g=f1&t=tasks');
+  await shot(page, '32-family-tasks', { full: true });
 });
 
 test('EN: цикл — онбординг, экран, настройки, год, отчёт', async ({ page }) => {

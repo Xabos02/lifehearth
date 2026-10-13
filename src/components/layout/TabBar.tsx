@@ -18,9 +18,10 @@ export function TabBar() {
   if (/^\/notes\/.+/.test(pathname)) return null;
 
   // Чат семьи — на весь экран, как переписка в мессенджере: без нижнего
-  // таббара приложения под ним. Вкладка «Чат» — она же вкладка по умолчанию
-  // (?t=tasks/members переключает на остальные, там таббар нужен).
-  if (pathname === '/more/family' && new URLSearchParams(search).get('t') == null) return null;
+  // таббара приложения под ним. Чат — это ?g=<группа> без ?t=; в списке
+  // чатов, задачах и карточке группы таббар нужен.
+  const familyQs = new URLSearchParams(search);
+  if (pathname === '/more/family' && familyQs.get('g') != null && familyQs.get('t') == null) return null;
 
   return (
     <nav className="z-30 shrink-0 border-t border-lh-border bg-[color-mix(in_srgb,var(--lh-bg)_92%,transparent)] backdrop-blur-[20px] pb-[clamp(6px,env(safe-area-inset-bottom),8px)]">

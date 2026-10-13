@@ -1,17 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   UserPlus,
-  LogOut,
   UserMinus,
-  PhoneOff,
-  Trash2,
 } from 'lucide-react';
 import {
-  GPencil as Pencil,
   GPhone as Phone,
-  GPlus as Plus,
-  GChevronRight as ChevronRight,
+  GTasks,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import type { FamilyMember } from '../../db/types';
@@ -32,13 +28,47 @@ import {
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
 import { CallDiagSheet } from './CallDiagSheet';
-import { t } from '../../lib/i18n';
+import { t, tPlur } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
-import { isLightColor } from '../../lib/colors';
+import { GroupAvatar, MemberAvatar } from './MemberAvatar';
+import { chatPath, isAlive } from './chats';
 
-export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
+/** Строка раздела «Группа» — текстом, без значков, как на артборде
+ *  Group-Info: четыре действия читаются словами. */
+function ActionRow({ label, onClick, danger = false }: { label: string; onClick: () => void; danger?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex min-h-13 w-full items-center px-4 text-left font-medium active:bg-lh-surface-2 ${danger ? 'text-danger' : ''}`}
+    >
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+/** Карточка чата (артборд Group-Info): кто в группе, приглашение, задачи и
+ *  управление. Сюда ведёт нажатие на название в шапке чата. */
+export function MembersTab({
+  familyId,
+  title,
+  partner,
+  onLeft,
+}: {
+  familyId: string;
+  title: string;
+  /** Собеседник, если это личный чат: тогда в шапке он, а не группа. */
+  partner?: FamilyMember;
+  onLeft: () => void;
+}) {
+  const navigate = useNavigate();
   const members = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]) ?? [];
+  const activeTasks =
+    useLiveQuery(
+      () => db.familyTasks.where('familyId').equals(familyId).filter((x) => !x.completedAt && !x.deletedAt).count(),
+      [familyId],
+    ) ?? 0;
   const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
   const selfId = config?.selfMemberId;
   const [online, setOnline] = useState<string[]>([]);
@@ -85,13 +115,17 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
   }
 
   async function leave() {
-    if (!window.confirm(t('Выйти из группы? Её общий чат и задачи перестанут синхронизироваться на этом устройстве.'))) return;
+    // Правда целиком: leaveFamily стирает переписку с телефона, а события
+    // «вышел» у протокола нет — остальные не узнают.
+    if (!window.confirm(t('Выйти из группы? Переписка и задачи удалятся с этого телефона. Остальные об этом не узнают, и их сообщения сюда больше не дойдут.'))) return;
     await leaveFamily(familyId);
     onLeft();
   }
 
   async function removeGroup() {
-    if (!window.confirm(t('Удалить группу навсегда?\n\nОна исчезнет у всех участников: переписка, задачи и звонки станут недоступны, а вернуть их будет нельзя. Продолжить?'))) return;
+    // Сервер стирает группу, но уже пришедшее остаётся на телефонах: у
+    // остальных баннер так и говорит — «переписка на этом устройстве осталась».
+    if (!window.confirm(t('Удалить группу навсегда?\n\nСервер сотрёт её переписку и задачи, новых сообщений не будет ни у кого. То, что уже пришло на телефоны участников, там останется. Продолжить?'))) return;
     try {
       await deleteFamily(familyId);
       onLeft();
@@ -100,33 +134,53 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
     }
   }
 
+  const live = alive.filter(isAlive);
+  const onlineCount = live.filter((m) => m.id !== selfId && onlineSet.has(m.id)).length;
+  const summary = partner
+    ? onlineSet.has(partner.id)
+      ? t('в сети')
+      : t('не в сети')
+    : [tPlur(live.length, ['участник', 'участника', 'участников']), onlineCount > 0 ? t('{n} в сети', { n: onlineCount }) : '']
+        .filter(Boolean)
+        .join(' · ');
+
   return (
     <div className="space-y-3">
-      <button
-        onClick={() => setRenaming(true)}
-        className="flex w-full items-center gap-2 card px-4 py-3 text-left active:opacity-80"
-      >
-        <Pencil size={ICON.action} className="shrink-0 text-lh-text-secondary" />
-        <span className="flex-1 truncate font-medium">{config?.familyName || t('Семья')}</span>
-        <span className="text-sm text-lh-text-secondary">{t('Переименовать')}</span>
-      </button>
+      <div className="flex flex-col items-center pb-1 text-center">
+        {partner ? (
+          <MemberAvatar member={partner} className="size-16 text-2xl" />
+        ) : (
+          <GroupAvatar className="size-16" glyph={ICON.display} />
+        )}
+        <h1 className="mt-3 text-lg font-semibold">{title}</h1>
+        <p className="mt-0.5 text-sm text-lh-text-secondary">{summary}</p>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {/* Пригласить можно всегда: «личный» здесь только вычисленный вид
+              группы на двоих, и прятать кнопку значило бы запереть группу из
+              двух. В личном чате — сначала правда о последствиях. */}
+          <Button
+            variant="ghost"
+            className="border border-lh-accent-border"
+            onClick={() => {
+              if (partner && !window.confirm(t('Пригласить ещё одного человека? Чат станет общим: новый участник увидит всю переписку.'))) return;
+              setInvite(true);
+            }}
+          >
+            <UserPlus size={ICON.base} />
+            {t('Пригласить')}
+          </Button>
+          <Button
+            variant="ghost"
+            className="border border-lh-accent-border"
+            onClick={() => navigate(chatPath(familyId, 'tasks'), { state: { from: 'members' } })}
+          >
+            <GTasks size={ICON.base} />
+            {activeTasks > 0 ? t('Задачи · {n}', { n: activeTasks }) : t('Задачи')}
+          </Button>
+        </div>
+      </div>
 
-      <Button onClick={() => setInvite(true)} className="w-full">
-        <UserPlus size={ICON.base} />
-        {t('Пригласить участника')}
-      </Button>
-
-      {/* Разбор последнего сорвавшегося звонка. Живёт здесь, а не в общих
-          настройках: сюда человек и приходит, когда «не дозвонился». */}
-      <button
-        onClick={() => setDiag(true)}
-        className="flex w-full items-center gap-2 card px-4 py-3 text-left active:opacity-80"
-      >
-        <PhoneOff size={ICON.action} className="shrink-0 text-lh-text-secondary" />
-        <span className="flex-1 truncate font-medium">{t('Почему звонок не вышел')}</span>
-        <ChevronRight size={ICON.action} className="shrink-0 text-lh-text-secondary" />
-      </button>
-
+      <h2 className="px-1 pt-2 text-sm font-semibold text-lh-text-secondary">{t('Участники')}</h2>
       <div className="divide-y divide-lh-border overflow-hidden card">
         {alive.map((m) => {
           const isSelf = m.id === selfId;
@@ -144,12 +198,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
                 className={`flex min-h-11 min-w-0 flex-1 items-center gap-3 ${isSelf ? 'text-left active:opacity-80' : ''}`}
               >
                 <span className="relative shrink-0">
-                  <span
-                    className={`flex size-9 items-center justify-center rounded-full text-sm font-semibold ${isLightColor(m.color) ? 'text-on-light' : 'text-white'}`}
-                    style={{ background: m.color }}
-                  >
-                    {m.displayName.slice(0, 1).toUpperCase()}
-                  </span>
+                  <MemberAvatar member={m} className="size-9 text-sm" />
                   {/* У себя — тоже по списку сервера, без поблажки «я всегда в
                       сети»: он включает и это устройство, пока оно на связи.
                       Раньше точка горела и без сети, рядом с «не в сети» в шапке. */}
@@ -205,37 +254,17 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         </div>
       )}
 
-      {/* Вход в создание/подключение второй группы. Раньше жил в свитчере
-          групп над чатом, но при единственной группе свитчер скрыт (он лишь
-          дублировал заголовок) — а возможность завести вторую группу обязана
-          оставаться находимой. */}
-      {onAddGroup && (
-        <button
-          onClick={onAddGroup}
-          className="flex w-full items-center justify-center gap-2 card px-4 py-3 text-sm font-medium active:opacity-80"
-        >
-          <Plus size={ICON.action} className="shrink-0 text-lh-text-secondary" />
-          {t('Добавить группу')}
-        </button>
-      )}
-
-      {isOwner && (
-        <button
-          onClick={() => void removeGroup()}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3.5 text-sm font-semibold text-danger active:opacity-70"
-        >
-          <Trash2 size={ICON.action} />
-          {t('Удалить группу')}
-        </button>
-      )}
-
-      {/* min-h-11 вместо pt-2: кнопка во всю ширину, а квадрат HIT_SLOP_44
-          стоит по центру — у краёв высота осталась бы 34px. Отступ сверху
-          теперь даёт поле самой кнопки. */}
-      <button onClick={() => void leave()} className="flex min-h-11 w-full items-center justify-center gap-2 text-sm text-danger active:opacity-60">
-        <LogOut size={ICON.action} />
-        {t('Выйти из группы')}
-      </button>
+      {/* Новая группа и вход по приглашению живут в «Новом чате» списка: их
+          место там, где выбирают, с кем говорить, а не в карточке чужой группы. */}
+      <h2 className="px-1 pt-2 text-sm font-semibold text-lh-text-secondary">{partner ? t('Чат') : t('Группа')}</h2>
+      <div className="divide-y divide-lh-border overflow-hidden card">
+        <ActionRow label={t('Переименовать группу')} onClick={() => setRenaming(true)} />
+        {/* Разбор последнего сорвавшегося звонка. Живёт здесь, а не в общих
+            настройках: сюда человек и приходит, когда «не дозвонился». */}
+        <ActionRow label={t('Почему звонок не вышел')} onClick={() => setDiag(true)} />
+        <ActionRow label={t('Выйти из группы')} onClick={() => void leave()} danger />
+        {isOwner && <ActionRow label={t('Удалить группу')} onClick={() => void removeGroup()} danger />}
+      </div>
 
       <RemoveMemberSheet
         key={removing?.id ?? 'rm-closed'}

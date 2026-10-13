@@ -64,7 +64,7 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
     <Sheet open={open} onClose={onClose} title={t('Пригласить в группу')}>
       <div className="space-y-4">
         <p className="text-sm leading-snug text-lh-text-secondary">
-          {t('Покажите QR участнику: у него — «Главная → Семья → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.')}
+          {t('Покажите QR участнику: у него — «Семья → Войти по приглашению», а если чаты уже есть — «Семья → Новый личный чат → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.')}
         </p>
         {qrUrl && (
           <div className="flex justify-center">
@@ -96,7 +96,7 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
         <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
           <TriangleAlert size={ICON.base} className="mt-0.5 shrink-0" />
           <span className="min-w-0 leading-snug">
-            {t('Кто войдёт по этому приглашению, увидит и прошлую переписку тоже, а отозвать доступ обратно пока нельзя.')}{' '}
+            {t('Кто войдёт по этому приглашению, увидит и прошлую переписку. Убрать его из группы может только её создатель.')}{' '}
             {expiresAt && t('Приглашение действует до {date}.', { date: formatRu(expiresAt.slice(0, 10), 'd MMMM') })}
           </span>
         </div>

@@ -19,8 +19,14 @@ const CONN_LABEL: Record<string, string> = {
   online: 'на связи',
 };
 
-export function useFamilyStatusLine(familyId: string): string {
+/** person — шапка с именем человека (личный чат). «Не в сети» под «Мама»
+ *  читалось бы как её статус, а это состояние НАШЕГО соединения. Там —
+ *  только сбой связи и словами, которые не спутать; где сейчас сам человек,
+ *  говорит строка присутствия над лентой. */
+export function useFamilyStatusLine(familyId: string, person = false): string | undefined {
   const [conn, setConn] = useState(connectionState(familyId));
   useEffect(() => subscribeConnection(familyId, setConn), [familyId]);
-  return t(CONN_LABEL[conn]);
+  if (!person) return t(CONN_LABEL[conn]);
+  if (conn === 'online') return undefined;
+  return conn === 'connecting' ? t('подключение…') : t('нет связи');
 }

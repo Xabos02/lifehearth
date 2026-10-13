@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Семья — вариант Б</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@200;400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;font-size:17px;-webkit-font-smoothing:antialiased}
+.screen{--bg:#08080f;--surface:#18181f;--surface2:#22222d;--accent:#c9a84c;--accentDim:rgba(201,168,76,.15);--text:#f0eee8;--muted:rgba(240,238,232,.52);--border:rgba(240,238,232,.08);--borderStrong:rgba(240,238,232,.15);--onAccent:#08080f;--onColor:#111118;--shadowCard:0 1px 2px oklch(0 0 0 / .4),0 8px 24px -12px oklch(0 0 0 / .55);
+  width:375px;height:812px;box-sizing:border-box;position:relative;overflow:hidden;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:left}
+svg{display:block;flex:none}
+.head{display:flex;align-items:center;gap:8px;padding:52px 16px 12px}
+.title{margin:0;flex:1;font-size:28px;font-weight:200;line-height:1.15;letter-spacing:-0.5px}
+.ib{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:999px;color:var(--muted)}
+.card{margin:8px 16px 0;background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadowCard);overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;width:100%;min-height:72px;padding:0 16px;box-sizing:border-box;position:relative}
+.card .row{padding:0 14px}
+.sub{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:0 14px;box-sizing:border-box;border-top:1px solid var(--border)}
+.sub .st{flex:1;font-size:15px;font-weight:500}
+.sub .sc{font-size:15px;color:var(--muted)}
+.ac{color:var(--accent)}
+.list .row + .row::before{content:'';position:absolute;top:0;left:72px;right:0;height:1px;background:var(--border)}
+.av{width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;flex:none;color:var(--onColor)}
+.grp{background:var(--accentDim);color:var(--accent)}
+.body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.line{display:flex;align-items:baseline;gap:8px}
+.name{flex:1;min-width:0;font-size:17px;line-height:1.25;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:13px;font-weight:500;color:var(--muted)}
+.time{font-size:13px;line-height:1.3;color:var(--muted);font-variant-numeric:tabular-nums}
+.time.new{color:var(--accent);font-weight:500}
+.prev{flex:1;min-width:0;font-size:15px;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.who{color:var(--text)}
+.badge{min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:var(--accent);color:var(--onAccent);font-size:12px;font-weight:700;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}
+.cap{margin:24px 16px 4px;padding:0 4px;font-size:15px;font-weight:600;color:var(--muted)}
+.list{display:flex;flex-direction:column}
+.new{width:44px;height:44px;border-radius:999px;border:1.5px dashed var(--borderStrong);box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:var(--accent);flex:none}
+.newt{flex:1;font-size:17px;font-weight:500;color:var(--accent)}
+.tabbar{position:absolute;left:0;right:0;bottom:0;display:flex;padding:0 4px 8px;background:var(--surface);border-top:1px solid var(--border)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0 4px;color:var(--muted);font-size:11px;font-weight:500;line-height:1.2}
+.tab.on{color:var(--accent)}
+.dot{position:absolute;top:-2px;right:-4px;width:8px;height:8px;border-radius:999px;background:var(--accent);box-shadow:0 0 0 2px var(--surface)}
+</style>
+</helmet>
+<div class="screen">
+  <div class="head">
+    <h1 class="title">Семья</h1>
+    <button class="ib" aria-label="Настройки семьи"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9.2" cy="8.4" r="2.6" fill="currentColor" fill-opacity="0.25"></circle><circle cx="15" cy="15.6" r="2.6" fill="currentColor" fill-opacity="0.25"></circle><path d="M3.8 8.4h2.8"></path><path d="M11.8 8.4h8.4"></path><circle cx="9.2" cy="8.4" r="2.6"></circle><path d="M3.8 15.6h8.6"></path><path d="M17.6 15.6h2.6"></path><circle cx="15" cy="15.6" r="2.6"></circle></svg></button>
+  </div>
+
+  <div class="card">
+    <button class="row">
+      <span class="av grp"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8.6" cy="6.4" r="3" fill="currentColor" fill-opacity="0.25"></circle><circle cx="8.6" cy="6.4" r="3"></circle><path d="M2.9 18.9a5.7 5.7 0 0 1 11.4 0"></path><circle cx="18" cy="8.2" r="2.3"></circle><path d="M13.89 16.78a3.9 3.9 0 0 1 7.11 2.22"></path></svg></span>
+      <span class="body">
+        <span class="line"><span class="name">Наши <span class="meta">· 4 участника</span></span><span class="time">18:21</span></span>
+        <span class="line"><span class="prev"><span class="who">Вы:</span> Возьму. Во сколько выходим?</span></span>
+      </span>
+    </button>
+    <button class="sub">
+      <span class="ac"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="12.2" y="5.2" width="8.4" height="2.4" rx="1.2" fill="currentColor" fill-opacity="0.25"></rect><rect x="12.2" y="16.4" width="8.4" height="2.4" rx="1.2" fill="currentColor" fill-opacity="0.25"></rect><path d="M3.4 6.4 5.2 8.2l3.2-3.4"></path><path d="M3.4 17.6 5.2 19.4l3.2-3.4"></path></svg></span>
+      <span class="st">Общие задачи</span>
+      <span class="sc">3 активных</span>
+      <span class="sc"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.6 5.6 16 12l-6.4 6.4"></path></svg></span>
+    </button>
+  </div>
+
+  <h2 class="cap">Личные</h2>
+  <div class="list">
+    <button class="row">
+      <span class="av" style="background: #f472b6">М</span>
+      <span class="body">
+        <span class="line"><span class="name">Мама</span><span class="time new">18:42</span></span>
+        <span class="line"><span class="prev">Как ты сегодня?</span><span class="badge">2</span></span>
+      </span>
+    </button>
+    <button class="row">
+      <span class="av" style="background: #7c9aff">П</span>
+      <span class="body">
+        <span class="line"><span class="name">Папа</span><span class="time">17:30</span></span>
+        <span class="line"><span class="prev">Окей, договорились</span></span>
+      </span>
+    </button>
+    <button class="row">
+      <span class="av" style="background: #4ade80">А</span>
+      <span class="body">
+        <span class="line"><span class="name">Аня</span><span class="time">Вчера</span></span>
+        <span class="line"><span class="prev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.7 19.1 12 12.5l5.3 6.6z" fill="currentColor" fill-opacity="0.25"></path><rect x="3.7" y="4.9" width="16.6" height="14.2" rx="3"></rect><path d="M6.7 19.1 12 12.5l5.3 6.6"></path><circle cx="16.1" cy="9.2" r="1.3" fill="currentColor" stroke="none"></circle></svg>Фото</span></span>
+      </span>
+    </button>
+    <button class="row">
+      <span class="new"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.8v14.4M4.8 12h14.4"></path></svg></span>
+      <span class="newt">Новый личный чат</span>
+    </button>
+  </div>
+
+  <nav class="tabbar">
+    <span class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 10.6 12 3.6l8.7 7v8.4a1.9 1.9 0 0 1-1.9 1.9H5.2a1.9 1.9 0 0 1-1.9-1.9Z"></path><path d="M9.7 20.9v-4.8a2.3 2.3 0 0 1 4.6 0v4.8"></path></svg>Главная</span>
+    <span class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"></path></svg>Сегодня</span>
+    <span class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.4 6.4 5.2 8.2l3.2-3.4"></path><path d="M3.4 17.6 5.2 19.4l3.2-3.4"></path><path d="M12.2 6.4h8.4M12.2 12h8.4M12.2 17.6h8.4"></path></svg>Задачи</span>
+    <span class="tab on"><span style="position: relative"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8.6" cy="6.4" r="3"></circle><path d="M2.9 18.9a5.7 5.7 0 0 1 11.4 0"></path><circle cx="18" cy="8.2" r="2.3"></circle><path d="M13.89 16.78a3.9 3.9 0 0 1 7.11 2.22"></path></svg><span class="dot"></span></span>Семья</span>
+    <span class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="2.5"></rect><path d="M8.5 8h7M8.5 12h7M8.5 16h4"></path></svg>Заметки</span>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":812}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
