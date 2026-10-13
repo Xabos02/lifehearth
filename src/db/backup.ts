@@ -194,27 +194,6 @@ export function previewBackup(b: BackupFile): ImportPreview {
   return { counts, exportedAt: b.exportedAt };
 }
 
-/** Нормализует строку из старого бэкапа: проставляет поля, добавленные после
- *  той версии схемы. bulkPut пишет объекты вербатим и НЕ запускает Dexie
- *  upgrade-хуки (db.ts version(3).upgrade), поэтому бэкфилл нужен здесь —
- *  иначе у задач из бэкапа v3/v4 (schemaVersion 1/2) tags === undefined, и
- *  первый же рендер падает на task.tags (TaskItem, TasksPage). */
-function normalizeRow(name: TableName, row: unknown): unknown {
-  if (name === 'tasks') {
-    const t = row as {
-      tags?: unknown;
-      checklist?: unknown;
-      duration?: unknown;
-      remindBefore?: unknown;
-    };
-    if (!Array.isArray(t.tags)) t.tags = [];
-    if (!Array.isArray(t.checklist)) t.checklist = [];
-    if (t.duration === undefined) t.duration = null;
-    if (t.remindBefore === undefined) t.remindBefore = null;
-  }
-  return row;
-}
-
 /** Таблицы кусков: их содержимое приезжает синком отдельно от «своих» записей,
  *  поэтому пустой список в копии значит «ещё не доехало», а не «пусто». */
 const CHUNK_TABLES = new Set(['taskPhotos', 'noteFiles', 'taskFiles']);
@@ -251,8 +230,9 @@ export async function importBackup(b: BackupFile): Promise<void> {
       const table = db.table(name);
       await table.clear();
       // bulkPut идемпотентен по первичному ключу id — переносит дубли id
-      // из файла, не роняя всю транзакцию (в отличие от bulkAdd).
-      if (rows.length) await table.bulkPut(rows.map((r) => normalizeRow(name, r)));
+      // из файла, не роняя всю транзакцию (в отличие от bulkAdd). Строки
+      // старых копий без новых полей задачи добивает хук чтения (db.ts).
+      if (rows.length) await table.bulkPut(rows);
     }
   });
 
