@@ -421,7 +421,33 @@ export class LifeHearthDB extends Dexie {
       exerciseDefs: 'id, updatedAt',
       workoutTemplates: 'id, updatedAt',
     });
+
+    this.tasks.hook('reading', normalizeTask);
   }
+}
+
+/** Задача из базы — в том виде, какой обещает тип Task.
+ *
+ *  Формы всегда пишут задачу целиком, но в базу она попадает и мимо них:
+ *  синк кладёт строку другого устройства как есть, восстановление копии —
+ *  строку из файла (bulkPut не запускает upgrade-хуки версий), тесты — что
+ *  засеяли. Экраны читают checklist/tags/notes без проверки, и одна такая
+ *  строка роняла весь список задач (TaskItem: task.checklist.filter).
+ *
+ *  Хук чтения, а не защита в местах использования: их больше десятка, и
+ *  следующий экран повторил бы ошибку. Хук срабатывает на get/bulkGet/
+ *  toArray/each и в живых подписках; мимо него идут только колбэки
+ *  Collection.filter() и modify() (на нём же upgrade-функции версий) и
+ *  .raw() — там задача приходит сырой. */
+function normalizeTask(row: Task | undefined): Task | undefined {
+  if (!row) return row; // get() по несуществующему id
+  const t = row as Partial<Task>;
+  if (!Array.isArray(t.checklist)) t.checklist = [];
+  if (!Array.isArray(t.tags)) t.tags = [];
+  if (typeof t.notes !== 'string') t.notes = '';
+  if (t.duration === undefined) t.duration = null;
+  if (t.remindBefore === undefined) t.remindBefore = null;
+  return row;
 }
 
 export const db = new LifeHearthDB();
