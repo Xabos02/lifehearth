@@ -200,12 +200,17 @@ export function Sheet({ open, onClose, title, children }: Props) {
           maxHeight: keyboardInset > 0 ? `calc(88dvh - ${keyboardInset}px)` : undefined,
         }}
       >
+        {/* z-30, как у шапки экрана: панель с transform — свой контекст
+            наложения, и при равных z выше рисуется то, что позже в DOM.
+            На z-10 крестик очистки поля (тоже z-10) при прокрутке
+            проступал поверх заголовка и забирал нажатия по шапке.
+            Просмотр фото внутри шторки (z-[70]) остаётся над ней. */}
         <div
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="sticky top-0 z-10 cursor-grab touch-none bg-lh-surface px-4 pt-2.5 pb-2 active:cursor-grabbing"
+          className="sticky top-0 z-30 cursor-grab touch-none bg-lh-surface px-4 pt-2.5 pb-2 active:cursor-grabbing"
         >
           <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-lh-border-strong" />
           <div className="flex items-center justify-between">
