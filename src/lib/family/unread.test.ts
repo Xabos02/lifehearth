@@ -58,6 +58,15 @@ describe('счёт непрочитанных', () => {
     expect(await countUnread(cfg)).toBe(0);
   });
 
+  it('реакция, «вошёл в группу» и кусок файла — не непрочитанное, пропущенный звонок — да', async () => {
+    await seed([{ seq: 4 }, { seq: 5 }, { seq: 6 }, { seq: 7 }, { seq: 8 }]);
+    await db.familyMessages.update('m0', { reaction: { targetId: 'x', emoji: '❤️' } });
+    await db.familyMessages.update('m1', { system: true, sys: { kind: 'join', name: 'Вася' } });
+    await db.familyMessages.update('m2', { fileChunk: { fileId: 'f', idx: 0, total: 2, data: '' } });
+    await db.familyMessages.update('m3', { system: true, sys: { kind: 'callMissed' } });
+    expect(await countUnread(cfg)).toBe(2);
+  });
+
   it('не ушедшее на сервер не считается: у него ещё нет номера', async () => {
     await seed([{ seq: null }, { seq: null }]);
     expect(await countUnread(cfg)).toBe(0);

@@ -262,8 +262,6 @@ export const EN: Record<string, string> = {
     "Become the group owner?\n\nThe owner is the only one who can remove members. Ownership can't be transferred back, and there won't be a second owner. Take it only if you created this group.",
   'Не получилось: владельца уже забрал кто-то другой либо нет связи.':
     "Didn't work: someone else already took ownership, or you're offline.",
-  'Выйти из группы? Её общий чат и задачи перестанут синхронизироваться на этом устройстве.':
-    'Leave the group? Its shared chat and tasks will stop syncing on this device.',
   'Переименовать': 'Rename',
   'вы': 'you',
   'исключён': 'removed',
@@ -277,8 +275,6 @@ export const EN: Record<string, string> = {
   'Добавить группу': 'Add a group',
   'Выйти из группы': 'Leave the group',
   'Удалить группу': 'Delete group',
-  'Удалить группу навсегда?\n\nОна исчезнет у всех участников: переписка, задачи и звонки станут недоступны, а вернуть их будет нельзя. Продолжить?':
-    "Delete the group permanently?\n\nIt will disappear for everyone: chat, tasks and calls will become unavailable, and there will be no way to bring them back. Continue?",
   'Не удалось удалить группу. Проверьте связь и попробуйте ещё раз':
     "Couldn't delete the group. Check your connection and try again",
   'Удалить группу может только её создатель': 'Only the group creator can delete it',
@@ -1688,12 +1684,8 @@ export const EN: Record<string, string> = {
   'Вместе с ним группу потеряют: {names}. У них старая версия приложения — новый ключ передать нечем. Попросите их открыть приложение и повторите.':
     'These members would lose the group too: {names}. They are on an older app version, so the new key cannot reach them. Ask them to open the app and try again.',
   'Всем': 'Everyone',
-  'Покажите QR участнику: у него — «Главная → Семья → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.':
-    'Show this QR to the new member: on their phone it is Home → Family → Join with an invitation. After scanning it asks for the code word — say it out loud, never send it along with the code.',
   'Назовите его вслух. Без слова код не откроется.':
     'Say it out loud. The code will not open without the word.',
-  'Кто войдёт по этому приглашению, увидит и прошлую переписку тоже, а отозвать доступ обратно пока нельзя.':
-    'Anyone who joins with this invitation will see the past conversation too, and access cannot be revoked yet.',
   'Проведите, чтобы разблокировать': 'Slide to unlock',
   'запись…': 'recording…',
   'Перетащите за ручку, чтобы изменить порядок. Нажмите на название — переименовать.':
@@ -2138,4 +2130,43 @@ export const EN: Record<string, string> = {
   'На паузе, пока нет согласия на внешнее: Настройки → Что уходит с телефона':
     'Paused until you agree to online features: Settings → What leaves your phone',
   'Ассистенту нужно согласие. Настройки → Что уходит с телефона': 'The assistant needs your consent. Settings → What leaves your phone',
+  // Семья — список чатов (1.45.0).
+  'Вас исключили из группы': 'You were removed from the group',
+  'Вы': 'You',
+  'Группа удалена': 'Group deleted',
+  'Ждём, пока войдёт по приглашению': 'Waiting for them to join with the invite',
+  'нет связи': 'no connection',
+  'Личные': 'Personal',
+  'Новый личный чат': 'New personal chat',
+  'Общие задачи': 'Shared tasks',
+  'Пока нет сообщений': 'No messages yet',
+  'Группа': 'Group',
+  'Задачи · {n}': 'Tasks · {n}',
+  'Переименовать группу': 'Rename group',
+  'Пригласить': 'Invite',
+  'QR или код и кодовое слово': 'QR or code and code word',
+  '{a} и {b}': '{a} and {b}',
+  'Из группы «{name}»': 'From “{name}”',
+  'Личный чат': 'Personal chat',
+  'Название, потом приглашение': 'Name it, then invite',
+  'Не удалось создать чат. Попробуйте ещё раз': 'Couldn’t create the chat. Try again',
+  'Новая группа': 'New group',
+  'Создаём…': 'Creating…',
+  'Чат уже есть': 'Chat already exists',
+  'участники и настройки': 'members and settings',
+  'Начать чат': 'Start chat',
+  'Показать QR': 'Show QR',
+  'Пока не с кем: сначала пригласите людей в общую группу': 'No one yet: first invite people to a shared group',
+  'Личный чат — отдельная группа на двоих со своим ключом: остальные в семье его не видят. Пока приглашение действует (сутки), войти может любой, у кого есть ваш QR и кодовое слово, — показывайте их только собеседнику.':
+    'A personal chat is a separate two-person group with its own key: the rest of the family can’t see it. While the invite is valid (one day), anyone with your QR and code word can join — show them only to the person you’re inviting.',
+  'Пригласить ещё одного человека? Чат станет общим: новый участник увидит всю переписку.':
+    'Invite one more person? The chat will become shared: the new member will see the whole conversation.',
+  'Выйти из группы? Переписка и задачи удалятся с этого телефона. Остальные об этом не узнают, и их сообщения сюда больше не дойдут.':
+    'Leave the group? Its messages and tasks will be deleted from this phone. Others won’t be notified, and their messages won’t reach you anymore.',
+  'Удалить группу навсегда?\n\nСервер сотрёт её переписку и задачи, новых сообщений не будет ни у кого. То, что уже пришло на телефоны участников, там останется. Продолжить?':
+    'Delete the group forever?\n\nThe server will erase its messages and tasks, and no one will get new ones. What already reached members’ phones stays there. Continue?',
+  'Покажите QR участнику: у него — «Семья → Войти по приглашению», а если чаты уже есть — «Семья → Новый личный чат → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.':
+    'Show the QR to the person: on their phone — “Family → Join with an invitation”, or if they already have chats — “Family → New personal chat → Join with an invitation”. After scanning it asks for the code word — say it out loud, don’t send it along with the code.',
+  'Кто войдёт по этому приглашению, увидит и прошлую переписку. Убрать его из группы может только её создатель.':
+    'Whoever joins with this invite will also see past messages. Only the group’s creator can remove them.',
 };

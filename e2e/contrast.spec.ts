@@ -1,4 +1,4 @@
-import { test, expect, openApp, openFamilyChrome } from './fixtures';
+import { test, expect, openApp, openFamilyCard, seedFamilyChats } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
 
 // Контраст текста и иконок — по пикселям в живом браузере.
@@ -246,19 +246,22 @@ test('семья: свои сообщения, участники, звонок 
   // Связь поднялась — отметка «прочитано» дошла до своих сообщений.
   await expect(page.locator('.lucide-check-check').first()).toBeVisible();
 
+  // Подпись автора на цвете участника (лаймовый «Мама») — та, что проваливала
+  // контраст; без неё скан чата прошёл бы мимо.
+  await expect(page.locator('p.member-color', { hasText: 'Мама' })).toBeVisible();
   const bad: string[] = [];
   bad.push(...(await scanThemes(page, 'чат')));
 
-  await openFamilyChrome(page);
-  await page.getByRole('button', { name: 'Участники' }).click();
-  await expect(page.getByText('Папа')).toBeVisible();
-  bad.push(...(await scanThemes(page, 'участники')));
-
+  // «Кому позвонить» — из шапки чата: в карточке группы трубка у каждого.
   await page.getByRole('button', { name: 'Позвонить', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Кому позвонить' })).toBeVisible();
   bad.push(...(await scanThemes(page, 'кому позвонить')));
   await page.getByRole('button', { name: 'Закрыть' }).click();
   await expect(page.getByRole('heading', { name: 'Кому позвонить' })).toBeHidden();
+
+  await openFamilyCard(page);
+  await expect(page.getByText('Папа')).toBeVisible();
+  bad.push(...(await scanThemes(page, 'участники')));
 
   await page.getByRole('button', { name: 'Задачи' }).click();
   await page.getByRole('button', { name: 'Изменить задачу', exact: true }).click();
@@ -278,6 +281,33 @@ test('семья: свои сообщения, участники, звонок 
   await expect(page.getByRole('button', { name: /Развернуть звонок/ })).toBeVisible();
   bad.push(...(await scanThemes(page, 'свёрнутый звонок')));
 
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+});
+
+// Список чатов «Семьи» и карточки: аватары на цвете участника (в том числе
+// белый — его кругу нужна граница), золотой бейдж и время непрочитанного,
+// пунктир «Нового личного чата». Обход SCREENS видит семью пустой — экран
+// подключения, — поэтому список засеивается здесь.
+test('семья: список чатов, карточка личного чата и «Новый чат» — контраст в обеих темах', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await seedFamilyChats(page);
+  await page.goto('/more/family');
+  await expect(page.getByRole('heading', { name: 'Личные' })).toBeVisible();
+  // Золотой бейдж и время непрочитанного уже нарисованы — их и мерим.
+  await expect(page.getByRole('button', { name: /Мама.*2 непрочитанных/ })).toBeVisible();
+  const bad: string[] = [];
+  bad.push(...(await scanThemes(page, 'список чатов')));
+
+  await page.getByRole('button', { name: 'Новый личный чат' }).click();
+  await expect(page.getByRole('heading', { name: 'Новый чат' })).toBeVisible();
+  bad.push(...(await scanThemes(page, 'новый чат')));
+  await page.getByRole('button', { name: 'Закрыть' }).click();
+  await expect(page.getByRole('heading', { name: 'Новый чат' })).toBeHidden();
+
+  await page.goto('/more/family?g=p-anya&t=members');
+  await expect(page.getByRole('button', { name: 'Выйти из группы' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Аня', level: 1, exact: true })).toBeVisible();
+  bad.push(...(await scanThemes(page, 'карточка личного чата')));
   expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
 });
 
@@ -555,9 +585,8 @@ test('шторки «Исключить» и «Очистить день»: кр
     ] as never[]);
   });
   await page.goto('/more/family?g=f1');
-  await openFamilyChrome(page);
-  await page.getByRole('button', { name: 'Участники' }).click();
-  // «Удалить группу» — красный на подложке /10 прямо на фоне экрана.
+  await openFamilyCard(page);
+  // «Удалить группу» — красный текст строкой в карточке группы.
   const dropGroup = page.getByRole('button', { name: 'Удалить группу' });
   await both('участники: «Удалить группу»', async () => {}, dropGroup);
   await page.getByRole('button', { name: 'Исключить Отец' }).click();

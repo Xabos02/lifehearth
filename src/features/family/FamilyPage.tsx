@@ -1,51 +1,44 @@
-import { useState, useSyncExternalStore, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router';
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { SlidersHorizontal, type LucideIcon } from 'lucide-react';
-import {
-  GPlus as Plus,
-  GChevronDown as ChevronDown,
-} from '../../components/ui/glyphs';
-import type { FamilyConfig } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
-import { Sheet } from '../../components/ui/Sheet';
-import { Button } from '../../components/ui/Button';
-import { listFamilyConfigs } from '../../lib/family/familyState';
-import { countUnread } from '../../lib/family/unread';
-import { screenAction, subscribeScreenAction } from '../../lib/ui/screenAction';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
-import { FamilyOnboarding, CreateFamilySheet, JoinFamilySheet } from './FamilyOnboarding';
-import { FamilyScreen } from './FamilyScreen';
-import { useFamilyStatusLine } from './useFamilyStatusLine';
-import { CallButton } from './CallButton';
-import { ManageGroupsSheet } from './ManageGroupsSheet';
+import { getFamilyConfig, listFamilyConfigs } from '../../lib/family/familyState';
+import { FamilyOnboarding } from './FamilyOnboarding';
+import { FamilyScreen, type GroupView } from './FamilyScreen';
+import { ChatList } from './ChatList';
+import { chatPath } from './chats';
 import { t } from '../../lib/i18n';
-import { ICON } from '../../components/ui/icons';
 import { useConsent } from '../../lib/consent';
 import { ConsentPause } from '../onboarding/ConsentGate';
 
-const ACTIVE_KEY = 'life-hub-active-family';
-
+/**
+ * «Семья» — как мессенджер: /more/family — список чатов, ?g=<группа> — её
+ * чат, &t=tasks / &t=members — её задачи и карточка.
+ *
+ * ?g= обязан открывать именно чат: этот адрес собирает пуш (public/push-sw.js)
+ * и поиск по приложению, и у не обновивших service worker он не изменится.
+ */
 export function FamilyPage() {
   const configs = useLiveQuery(() => listFamilyConfigs(), []);
   const consent = useConsent();
-  const [sp, setSp] = useSearchParams();
-  const [addMode, setAddMode] = useState<null | 'choose' | 'create' | 'join'>(null);
-  const [manageOpen, setManageOpen] = useState(false);
-  // «Штора» шапки: чипы групп и вкладки по умолчанию свёрнуты — экран чата
-  // начинается сразу под однострочной шапкой. Раскрывается шевроном справа.
-  const [chromeOpen, setChromeOpen] = useState(false);
+  const [sp] = useSearchParams();
+  const navigate = useNavigate();
+  const g = sp.get('g');
 
-  // Выбранная группа живёт в URL (?g=…): так переход по пуш-уведомлению (открыть
-  // конкретный чат) надёжно переключает группу, даже если открыта другая.
-  const select = (id: string) => {
-    try {
-      localStorage.setItem(ACTIVE_KEY, id);
-    } catch {
-      /* приватный режим */
-    }
-    setSp({ g: id }, { replace: true });
-  };
+  // Ссылка на группу, которой больше нет (вышли, удалили; старый пуш или
+  // поиск) — адрес меняется на список: таб-бар читает адрес, и с ?g= он
+  // прятался бы и над списком. Сверка с базой, а не только с configs: сразу
+  // после создания группы переход на её чат может опередить liveQuery.
+  useEffect(() => {
+    if (!g || !configs || configs.some((c) => c.familyId === g)) return;
+    let live = true;
+    void getFamilyConfig(g).then((c) => {
+      if (live && !c) navigate('/more/family', { replace: true });
+    });
+    return () => {
+      live = false;
+    };
+  }, [g, configs, navigate]);
 
   if (!configs)
     return (
@@ -80,256 +73,18 @@ export function FamilyPage() {
   if (configs.length === 0) {
     return (
       <Screen title={t('Семья')} backTo="/home">
-        <FamilyOnboarding onReady={select} />
+        <FamilyOnboarding onReady={(id) => navigate(chatPath(id), { replace: true })} />
       </Screen>
     );
   }
 
-  const ids = configs.map((c) => c.familyId);
-  const fromUrl = sp.get('g');
-  const fromLs = (() => {
-    try {
-      return localStorage.getItem(ACTIVE_KEY);
-    } catch {
-      return null;
-    }
-  })();
-  const selected = fromUrl && ids.includes(fromUrl) ? fromUrl : fromLs && ids.includes(fromLs) ? fromLs : ids[0];
-  const current = configs.find((c) => c.familyId === selected)!;
+  const tab = sp.get('t');
+  const view: GroupView = tab === 'tasks' || tab === 'members' ? tab : 'chat';
+  // Группы по ссылке больше нет (удалили, вышли) — список, а не чужой чат.
+  // Старые адреса «?t=…» без группы открывают первую, как раньше.
+  const current = configs.find((c) => c.familyId === g) ?? (tab && !g ? configs[0] : undefined);
+  if (!current) return <ChatList configs={configs} />;
 
-  const tabParam = sp.get('t');
-  const tabLabel = tabParam === 'tasks' ? t('Задачи') : tabParam === 'members' ? t('Участники') : undefined;
-
-  return (
-    <ScreenWithStatus
-      current={current}
-      selected={selected}
-      chromeOpen={chromeOpen}
-      onToggleChrome={() => setChromeOpen((v) => !v)}
-      tabLabel={tabLabel}
-    >
-      <div className="flex h-full flex-col">
-        {/* Свитчер групп — только когда групп больше одной: при единственной
-            группе пилюля с её именем дублировала заголовок экрана строкой ниже
-            и вместе с остальной шапкой выталкивала ленту чата за экран.
-            «Добавить группу» при этом живёт во вкладке «Участники». */}
-        {configs.length > 1 && (
-          // Свёртка сеткой (grid-rows 1fr → 0fr), а не max-height: высота
-          // полосы с чипами заранее неизвестна, и подобранный «на глаз»
-          // потолок либо резал длинные имена групп, либо оставлял пустоту.
-          <div
-            className={`grid shrink-0 transition-[grid-template-rows,opacity] duration-200 ease-out ${
-              chromeOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-            }`}
-            aria-hidden={!chromeOpen}
-          >
-            <div className="min-h-0 overflow-hidden">
-              <GroupSwitcher
-                configs={configs}
-                selected={selected}
-                onSelect={select}
-                onAdd={() => setAddMode('choose')}
-                onManage={() => setManageOpen(true)}
-              />
-            </div>
-          </div>
-        )}
-        <div className="min-h-0 flex-1">
-          {/* key=selected: смена группы полностью перемонтирует экран (чистый
-              сброс вкладки/подписок), без ручного разбора переходов. */}
-          <FamilyScreen
-            key={selected}
-            familyId={selected}
-            chromeOpen={chromeOpen}
-            onAddGroup={() => setAddMode('choose')}
-            onLeft={() => {
-              const sib = ids.find((i) => i !== selected);
-              if (sib) {
-                select(sib);
-              } else {
-                try {
-                  localStorage.removeItem(ACTIVE_KEY);
-                } catch {
-                  /* приватный режим */
-                }
-                setSp({}, { replace: true });
-              }
-            }}
-          />
-        </div>
-      </div>
-
-      <Sheet open={addMode === 'choose'} onClose={() => setAddMode(null)} title={t('Добавить группу')}>
-        <div className="space-y-3 pb-2">
-          <Button className="w-full" onClick={() => setAddMode('create')}>
-            {t('Создать группу')}
-          </Button>
-          <Button variant="secondary" className="w-full" onClick={() => setAddMode('join')}>
-            {t('Войти по приглашению')}
-          </Button>
-        </div>
-      </Sheet>
-      <CreateFamilySheet
-        open={addMode === 'create'}
-        onClose={() => setAddMode(null)}
-        onReady={(id) => {
-          setAddMode(null);
-          select(id);
-        }}
-      />
-      <JoinFamilySheet
-        open={addMode === 'join'}
-        onClose={() => setAddMode(null)}
-        onReady={(id) => {
-          setAddMode(null);
-          select(id);
-        }}
-      />
-      <ManageGroupsSheet open={manageOpen} onClose={() => setManageOpen(false)} configs={configs} />
-    </ScreenWithStatus>
-  );
-}
-
-/** Обёртка шапки: имя группы + статус соединения подзаголовком. Статус раньше
- *  занимал собственную строку в теле экрана (и ещё одну — счётчик «в сети»);
- *  подзаголовок сообщает то же самое, не отнимая у переписки ни пикселя. */
-function ScreenWithStatus({
-  current,
-  selected,
-  chromeOpen,
-  onToggleChrome,
-  tabLabel,
-  children,
-}: {
-  current: FamilyConfig;
-  selected: string;
-  /** Раскрыта ли «штора» — панель с переключателем групп и вкладками. */
-  chromeOpen: boolean;
-  onToggleChrome: () => void;
-  /** Название открытой вкладки, когда это не «Чат»: со свёрнутой шторой она
-   *  единственная подсказка, где человек находится. */
-  tabLabel?: string;
-  children: ReactNode;
-}) {
-  const status = useFamilyStatusLine(selected);
-  // Действие от открытой вкладки (сейчас это поиск на «Чате»): вкладка сама
-  // объявляет о нём, шапка только показывает. Своя строка под такую кнопку
-  // стоила бы переписке два десятка пикселей высоты.
-  const action = useSyncExternalStore(subscribeScreenAction, screenAction, () => null);
-  const ActionIcon = action?.icon as LucideIcon | undefined;
-  // Группы больше нет — «не в сети» под названием было бы враньём: чинить
-  // нечего, правду говорит баннер над чатом.
-  const gone = current.removedAt || current.groupDeletedAt;
-  const subtitle = [tabLabel, gone ? undefined : status].filter(Boolean).join(' · ');
-  return (
-    <Screen
-      compact
-      title={current.familyName}
-      subtitle={subtitle || undefined}
-      backTo="/home"
-      right={
-        // gap-3, а не gap-1: обе кнопки шириной 36px, но зона касания у каждой
-        // расширена до 44 — то есть выходит на 4px за края. При зазоре в 4px
-        // зоны смыкались, и палец над лупой попадал в звонок. Звонок — не та
-        // кнопка, которую прощают за случайное нажатие: он поднимает трезвон у
-        // человека на том конце. 12px дают 4px чистого зазора между зонами.
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onToggleChrome}
-            aria-label={chromeOpen ? t('Свернуть панель группы') : t('Показать группы и вкладки')}
-            aria-expanded={chromeOpen}
-            className={`flex size-9 items-center justify-center rounded-full text-lh-text-secondary transition-colors active:text-lh-accent ${
-              chromeOpen ? 'bg-lh-surface-2 text-lh-text-primary' : ''
-            } ${HIT_SLOP_44}`}
-          >
-            <ChevronDown
-              size={ICON.header}
-              className={`transition-transform duration-200 ${chromeOpen ? 'rotate-180' : ''}`}
-            />
-          </button>
-          {action && ActionIcon && (
-            <button
-              onClick={action.onPress}
-              aria-label={action.label}
-              className={`flex size-9 items-center justify-center rounded-full text-lh-text-secondary active:text-lh-accent ${HIT_SLOP_44}`}
-            >
-              <ActionIcon size={ICON.header} />
-            </button>
-          )}
-          <CallButton familyId={selected} />
-        </div>
-      }
-      fill
-    >
-      {children}
-    </Screen>
-  );
-}
-
-function GroupSwitcher({
-  configs,
-  selected,
-  onSelect,
-  onAdd,
-  onManage,
-}: {
-  configs: FamilyConfig[];
-  selected: string;
-  onSelect: (id: string) => void;
-  onAdd: () => void;
-  onManage: () => void;
-}) {
-  // Считаем только сообщения после отметки прочтения. Полное чтение таблицы
-  // поднимало бы сюда и фотографии, и голосовые — ради числа на кружке.
-  const unread =
-    useLiveQuery(async () => {
-      const map: Record<string, number> = {};
-      for (const c of configs) map[c.familyId] = await countUnread(c);
-      return map;
-    }, [configs]) ?? {};
-
-  return (
-    <div className="shrink-0 -mx-1 flex gap-3 overflow-x-auto px-1 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {configs.map((c) => {
-        const active = c.familyId === selected;
-        const n = unread[c.familyId] ?? 0;
-        return (
-          <button
-            key={c.familyId}
-            onClick={() => onSelect(c.familyId)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium active:opacity-80 ${
-              active ? 'bg-lh-accent text-lh-bg' : 'bg-lh-surface-2 text-lh-text-secondary'
-            }`}
-          >
-            <span className="max-w-[9rem] truncate">{c.familyName || t('Семья')}</span>
-            {n > 0 && (
-              <span
-                className={`flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-2xs font-bold leading-none ${
-                  active ? 'bg-white/25 text-lh-bg' : 'bg-lh-accent text-lh-bg'
-                }`}
-              >
-                {n > 99 ? '99+' : n}
-              </span>
-            )}
-          </button>
-        );
-      })}
-      <button
-        onClick={onAdd}
-        aria-label={t('Добавить группу')}
-        className={`flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-lh-surface-2 text-lh-text-secondary active:opacity-80 ${HIT_SLOP_44}`}
-      >
-        <Plus size={ICON.base} />
-      </button>
-      {configs.length > 0 && (
-        <button
-          onClick={onManage}
-          aria-label={t('Управление группами')}
-          className={`flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-lh-surface-2 text-lh-text-secondary active:opacity-80 ${HIT_SLOP_44}`}
-        >
-          <SlidersHorizontal size={ICON.action} />
-        </button>
-      )}
-    </div>
-  );
+  // key: смена группы полностью перемонтирует экран — чистый сброс подписок.
+  return <FamilyScreen key={current.familyId} config={current} first={current.familyId === configs[0].familyId} view={view} />;
 }

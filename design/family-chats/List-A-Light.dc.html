@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Семья — вариант А, светлая тема</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@200;400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;font-size:17px;-webkit-font-smoothing:antialiased}
+.screen{--bg:oklch(0.975 0.005 280);--surface:oklch(1 0 0);--surface2:oklch(0.955 0.006 282);--accent:oklch(0.495 0.0996 87.4);--accentDim:oklch(0.495 0.0996 87.4 / 0.12);--text:oklch(0.26 0.022 284);--muted:oklch(0.52 0.022 282);--border:oklch(0 0 0 / 0.07);--onAccent:oklch(0.975 0.005 280);--shadowCard:0 1px 2px oklch(0 0 0 / .06),0 8px 24px -12px oklch(0 0 0 / .14);--shadowAccent:0 10px 30px -8px oklch(0.495 0.0996 87.4 / .45);
+  width:375px;height:812px;box-sizing:border-box;position:relative;overflow:hidden;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:left}
+svg{display:block;flex:none}
+.head{display:flex;align-items:center;gap:8px;padding:52px 16px 12px}
+.title{margin:0;flex:1;font-size:28px;font-weight:200;line-height:1.15;letter-spacing:-0.5px}
+.icons{display:flex;gap:16px}
+.ib{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:999px;color:var(--muted)}
+.list{display:flex;flex-direction:column;padding-top:4px}
+.row{display:flex;align-items:center;gap:12px;width:100%;min-height:72px;padding:0 16px;box-sizing:border-box;position:relative}
+.row + .row::before{content:'';position:absolute;top:0;left:72px;right:0;height:1px;background:var(--border)}
+.av{width:44px;height:44px;border-radius:999px;background:var(--accentDim);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:500;flex:none}
+.body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.line{display:flex;align-items:baseline;gap:8px}
+.name{flex:1;min-width:0;font-size:17px;line-height:1.25;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.time{font-size:13px;line-height:1.3;color:var(--muted);font-variant-numeric:tabular-nums}
+.time.new{color:var(--accent);font-weight:500}
+.prev{flex:1;min-width:0;font-size:15px;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.who{color:var(--text)}
+.badge{min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:var(--accent);color:var(--onAccent);font-size:12px;font-weight:700;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}
+.tasks{display:flex;align-items:center;gap:12px;margin:20px 16px 0;padding:0 16px;min-height:60px;background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadowCard)}
+.tasks .tt{flex:1;font-size:17px;font-weight:500}
+.tasks .tc{font-size:15px;color:var(--muted)}
+.tasks .ac{color:var(--accent)}
+.fab{position:absolute;right:16px;bottom:96px;width:56px;height:56px;border-radius:999px;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadowAccent)}
+.tabbar{position:absolute;left:0;right:0;bottom:0;display:flex;padding:0 4px 8px;background:var(--surface);border-top:1px solid var(--border)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0 4px;color:var(--muted);font-size:11px;font-weight:500;line-height:1.2}
+.tab.on{color:var(--accent)}
+.dot{position:absolute;top:-2px;right:-4px;width:8px;height:8px;border-radius:999px;background:var(--accent);box-shadow:0 0 0 2px var(--surface)}
+</style>
+</helmet>
+<div class="screen">
+  <div class="head">
+    <h1 class="title">Семья</h1>
+    <div class="icons">
+      <button class="ib" aria-label="Позвонить"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.4 3.8 9.8 8.1 8 10.3a12.6 12.6 0 0 0 5.8 5.8L16 14.3l4.2 2.4v2.8a1.4 1.4 0 0 1-1.6 1.4C10.6 20.1 3.7 13.2 3.2 5.3A1.4 1.4 0 0 1 4.6 3.8z" fill="currentColor" fill-opacity="0.25"></path><path d="M7.4 3.8 9.8 8.1 8 10.3a12.6 12.6 0 0 0 5.8 5.8L16 14.3l4.2 2.4v2.8a1.4 1.4 0 0 1-1.6 1.4C10.6 20.1 3.7 13.2 3.2 5.3A1.4 1.4 0 0 1 4.6 3.8z"></path></svg></button>
+      <button class="ib" aria-label="Настройки семьи"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9.2" cy="8.4" r="2.6" fill="currentColor" fill-opacity="0.25"></circle><circle cx="15" cy="15.6" r="2.6" fill="currentColor" fill-opacity="0.25"></circle><path d="M3.8 8.4h2.8"></path><path d="M11.8 8.4h8.4"></path><circle cx="9.2" cy="8.4" r="2.6"></circle><path d="M3.8 15.6h8.6"></path><path d="M17.6 15.6h2.6"></path><circle cx="15" cy="15.6" r="2.6"></circle></svg></button>
+    </div>
+  </div>
+
+  <div class="list">
+    <button class="row">
+      <span class="av">М</span>
+      <span class="body">
+        <span class="line"><span class="name">Мама</span><span class="time new">18:42</span></span>
+        <span class="line"><span class="prev">Как ты сегодня?</span><span class="badge">2</span></span>
+      </span>
+    </button>
+    <button class="row">
+      <span class="av"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8.6" cy="6.4" r="3" fill="currentColor" fill-opacity="0.25"></circle><circle cx="8.6" cy="6.4" r="3"></circle><path d="M2.9 18.9a5.7 5.7 0 0 1 11.4 0"></path><circle cx="18" cy="8.2" r="2.3"></circle><path d="M13.89 16.78a3.9 3.9 0 0 1 7.11 2.22"></path></svg></span>
+      <span class="body">
+        <span class="line"><span class="name">Наши</span><span class="time">18:21</span></span>
+        <span class="line"><span class="prev"><span class="who">Вы:</span> Возьму. Во сколько выходим?</span></span>
+      </span>
+    </button>
+    <button class="row">
+      <span class="av">П</span>
+      <span class="body">
+        <span class="line"><span class="name">Папа</span><span class="time">17:30</span></span>
+        <span class="line"><span class="prev">Окей, договорились</span></span>
+      </span>
+    </button>
+    <button class="row">
+      <span class="av">А</span>
+      <span class="body">
+        <span class="line"><span class="name">Аня</span><span class="time">Вчера</span></span>
+        <span class="line"><span class="prev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.7 19.1 12 12.5l5.3 6.6z" fill="currentColor" fill-opacity="0.25"></path><rect x="3.7" y="4.9" width="16.6" height="14.2" rx="3"></rect><path d="M6.7 19.1 12 12.5l5.3 6.6"></path><circle cx="16.1" cy="9.2" r="1.3" fill="currentColor" stroke="none"></circle></svg>Фото</span></span>
+      </span>
+    </button>
+  </div>
+
+  <button class="tasks">
+    <span class="ac"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="12.2" y="5.2" width="8.4" height="2.4" rx="1.2" fill="currentColor" fill-opacity="0.25"></rect><rect x="12.2" y="16.4" width="8.4" height="2.4" rx="1.2" fill="currentColor" fill-opacity="0.25"></rect><path d="M3.4 6.4 5.2 8.2l3.2-3.4"></path><path d="M3.4 17.6 5.2 19.4l3.2-3.4"></path></svg></span>
+    <span class="tt">Общие задачи</span>
+    <span class="tc">3 активных</span>
+    <span class="tc"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.6 5.6 16 12l-6.4 6.4"></path></svg></span>
+  </button>
+
+  <button class="fab" aria-label="Новый чат"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.4 4 20 7.6 8.4 19.2H4.8v-3.6z"></path><path d="M14.6 5.8 18.2 9.4"></path></svg></button>
+
+  <nav class="tabbar">
+    <span class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 10.6 12 3.6l8.7 7v8.4a1.9 1.9 0 0 1-1.9 1.9H5.2a1.9 1.9 0 0 1-1.9-1.9Z"></path><path d="M9.7 20.9v-4.8a2.3 2.3 0 0 1 4.6 0v4.8"></path></svg>Главная</span>
+    <span class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"></path></svg>Сегодня</span>
+    <span class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.4 6.4 5.2 8.2l3.2-3.4"></path><path d="M3.4 17.6 5.2 19.4l3.2-3.4"></path><path d="M12.2 6.4h8.4M12.2 12h8.4M12.2 17.6h8.4"></path></svg>Задачи</span>
+    <span class="tab on"><span style="position: relative"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8.6" cy="6.4" r="3"></circle><path d="M2.9 18.9a5.7 5.7 0 0 1 11.4 0"></path><circle cx="18" cy="8.2" r="2.3"></circle><path d="M13.89 16.78a3.9 3.9 0 0 1 7.11 2.22"></path></svg><span class="dot"></span></span>Семья</span>
+    <span class="tab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="2.5"></rect><path d="M8.5 8h7M8.5 12h7M8.5 16h4"></path></svg>Заметки</span>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":812}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

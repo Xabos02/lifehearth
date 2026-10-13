@@ -1,4 +1,4 @@
-import { test, expect, openApp, openFamilyChrome } from './fixtures';
+import { test, expect, openApp, openFamilyCard, seedFamilyChats } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // Зона касания меньше 44×44 — самый частый дефект мобильной вёрстки и
@@ -495,11 +495,10 @@ test('текстовые кнопки шторок исключения и па�
     ] as never[]);
   });
   await page.goto('/more/family?g=f1');
-  await openFamilyChrome(page);
-  await page.getByRole('button', { name: 'Участники' }).click();
+  await openFamilyCard(page);
   await page.getByRole('button', { name: 'Исключить Отец' }).click();
   await expect(page.locator(SHEET).getByRole('button', { name: 'Исключить', exact: true })).toBeEnabled();
-  // Только верхняя шторка: под ней вкладка «Участники», у неё свой тест.
+  // Только верхняя шторка: под ней карточка группы, у неё свой тест.
   await check('шторка исключения', SHEET);
 
   await page.goto('/notes');
@@ -599,13 +598,33 @@ test('шторки спорта, семейная задача, экран пр�
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
 });
 
-// Вкладка «Участники» открывается только из шторы шапки семьи, и аудит по
-// адресам её не видел. Живой замер 11.10: строки участников 36px в высоту
+// Список чатов «Семьи»: строки чатов, «Общие задачи», «Новый личный чат» и
+// кнопка шапки. Обход SCREENS видит семью пустой (экран подключения), поэтому
+// список засеивается здесь; «Новый чат» — шторка, её мерим отдельно.
+test('список чатов семьи и «Новый чат»: не меньше 44 и не налезают', async ({ page }) => {
+  const bad: string[] = [];
+  const check = async (where: string, root?: string) => {
+    for (const b of await small(page, root)) bad.push(`${where}: ${b}`);
+    for (const o of await overlapsOn(page, root)) bad.push(`${where}: ${o}`);
+  };
+  await openApp(page, '/more/family');
+  await seedFamilyChats(page);
+  await page.goto('/more/family');
+  await expect(page.getByRole('heading', { name: 'Личные' })).toBeVisible();
+  await check('список чатов');
+  await page.getByRole('button', { name: 'Новый личный чат' }).click();
+  await expect(page.getByRole('heading', { name: 'Новый чат' })).toBeVisible();
+  await check('«Новый чат»', SHEET);
+  expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
+});
+
+// Карточка группы (бывшая вкладка «Участники») открывается нажатием на
+// название в шапке чата, и аудит по адресам её не видел. Живой замер 11.10: строки участников 36px в высоту
 // (кнопка — это аватар size-9 и имя, без своего отступа) и «Выйти из группы»
 // 34px. Группа засеяна с секретом владельца (ownerSecret): без него у чужой
 // строки нет «Исключить», и перекрытие не мерилось бы у самого плотного ряда —
 // имя, «Исключить» и «Позвонить» рядом.
-test('вкладка «Участники»: строки участников и «Выйти из группы» не меньше 44 и не налезают', async ({ page }) => {
+test('карточка группы: строки участников и «Выйти из группы» не меньше 44 и не налезают', async ({ page }) => {
   await openApp(page, '/more/family');
   await page.evaluate(async () => {
     const { db } = await import('/src/db/db.ts');
@@ -623,11 +642,10 @@ test('вкладка «Участники»: строки участников �
     ] as never[]);
   });
   await page.goto('/more/family?g=f1');
-  await openFamilyChrome(page);
-  await page.getByRole('button', { name: 'Участники' }).click();
+  await openFamilyCard(page);
   await expect(page.getByRole('button', { name: 'Исключить Отец' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Выйти из группы' })).toBeVisible();
-  // Вкладка, а не шторка: MembersTab рисуется в #root, порталом в body — только
+  // Экран, а не шторка: MembersTab рисуется в #root, порталом в body — только
   // шторки поверх неё. Поэтому overlapsOn — с корнем по умолчанию.
   const bad = [...await small(page), ...await overlapsOn(page)];
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);

@@ -72,6 +72,8 @@ const EN_PLURALS: Record<string, [string, string]> = {
   отметок: ['entry', 'entries'],
   файлов: ['file', 'files'],
   участников: ['member', 'members'],
+  активных: ['active', 'active'],
+  непрочитанных: ['unread', 'unread'],
   фото: ['photo', 'photos'],
   пунктов: ['item', 'items'],
   уроков: ['lesson', 'lessons'],

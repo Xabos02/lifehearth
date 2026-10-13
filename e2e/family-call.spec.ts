@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import type { Page, WebSocketRoute } from '@playwright/test';
-import { openApp, openFamilyChrome, test } from './fixtures';
+import { openApp, test, openFamilyCard } from './fixtures';
 
 // Звонок из семейного экрана.
 //
@@ -74,8 +74,8 @@ test('звонок доступен ИЗ ЧАТА, а не только со с�
   // исчезает при переходе на переписку.
   await openApp(page, '/more/family');
   await seedFamily(page, ['Отец', 'Брат']);
-  await openFamilyChrome(page);
-  await page.getByRole('button', { name: 'Чат' }).click();
+  // seedFamily открывает ?g=f1 — это и есть чат.
+  await expect(page.getByPlaceholder('Сообщение…')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Позвонить', exact: true })).toBeVisible();
 });
 
@@ -121,8 +121,7 @@ test.describe('без связи с сервером', () => {
     });
     await openApp(page, '/more/family');
     await seedFamily(page, ['Отец']);
-    await openFamilyChrome(page);
-    await page.getByRole('button', { name: 'Участники' }).click();
+    await openFamilyCard(page);
     const dot = page.getByRole('button', { name: /Влад · вы/ }).getByTestId('presence-dot');
     await expect(dot).toBeVisible();
 
@@ -136,8 +135,7 @@ test.describe('разбор неудавшегося звонка', () => {
   test('пока неудач не было — экран честно говорит, что показывать нечего', async ({ page }) => {
     await openApp(page, '/more/family');
     await seedFamily(page, ['Отец']);
-    await openFamilyChrome(page);
-    await page.getByRole('button', { name: 'Участники' }).click();
+    await openFamilyCard(page);
     await page.getByRole('button', { name: 'Почему звонок не вышел' }).click();
     await expect(page.getByText('Неудачных звонков пока не было.')).toBeVisible();
   });
@@ -160,8 +158,7 @@ test.describe('разбор неудавшегося звонка', () => {
         }),
       );
     });
-    await openFamilyChrome(page);
-    await page.getByRole('button', { name: 'Участники' }).click();
+    await openFamilyCard(page);
     await page.getByRole('button', { name: 'Почему звонок не вышел' }).click();
 
     await expect(page.getByText('Соединение потеряно')).toBeVisible();

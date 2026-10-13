@@ -38,6 +38,16 @@ interface Props {
    *  содержимым (чат). Крупный двухстрочный заголовок вместе с чипами групп и
    *  вкладками съедал там треть высоты, и переписке оставалось три сообщения. */
   compact?: boolean;
+  /** Аватар перед заголовком — шапка чата, как в мессенджерах. */
+  titleLead?: ReactNode;
+  /** Нажатие на заголовок (с аватаром и подзаголовком) — карточка чата.
+   *  Кнопка лежит внутри h1, а не наоборот: заголовок внутри кнопки —
+   *  недопустимая разметка, и экранный диктор теряет его как заголовок. */
+  onTitlePress?: () => void;
+  /** Куда ведёт эта кнопка — для диктора, скрытым текстом после заголовка.
+   *  Не aria-label: он заменил бы всё имя кнопки, и диктор перестал бы
+   *  читать подзаголовок (статус связи). */
+  titlePressHint?: string;
   children: ReactNode;
 }
 
@@ -98,6 +108,9 @@ export function Screen({
   subtitle,
   fill = false,
   compact = false,
+  titleLead,
+  onTitlePress,
+  titlePressHint,
   children,
 }: Props) {
   // Пока такой экран открыт, баннер установки не показывается: прокрутки,
@@ -138,6 +151,26 @@ export function Screen({
             // «‹ Заметки» нажимается целиком, и палец туда и целится.
             <BackControl to={backTo} onClick={onBack} label={backLabel} />
           )}
+          {onTitlePress ? (
+            <h1 className="min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={onTitlePress}
+                className="flex min-h-11 w-full min-w-0 items-center gap-2.5 text-left active:opacity-70"
+              >
+                {titleLead}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-base leading-tight font-semibold tracking-tight text-lh-text-primary">
+                    {title}
+                  </span>
+                  {subtitle && (
+                    <span className="block truncate text-2xs leading-tight font-medium text-lh-text-secondary">{subtitle}</span>
+                  )}
+                  {titlePressHint && <span className="sr-only">{titlePressHint}</span>}
+                </span>
+              </button>
+            </h1>
+          ) : (
           <div className="min-w-0 flex-1">
             {/* Заголовок переносится на вторую строку вместо обрезки многоточием
                 («Установка и данн…»): на 320px под него остаётся всего ~252px —
@@ -168,6 +201,7 @@ export function Screen({
               </p>
             )}
           </div>
+          )}
           {right}
         </div>
       </header>

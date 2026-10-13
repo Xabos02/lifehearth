@@ -29,8 +29,8 @@ async function seedFamily(page: Page, gone: { groupDeletedAt?: string; removedAt
   await page.goto('/more/family?g=f1');
 }
 
-/** Видно глазом, а не только в дереве. toBeVisible() такой баннер пропускает:
- *  в свёрнутой «шторе» он прозрачный и обрезан, но рамка у него ненулевая. */
+/** Видно глазом, а не только в дереве. toBeVisible() такой баннер пропускал,
+ *  пока жил в свёрнутой «шторе»: прозрачный и обрезанный, но с ненулевой рамкой. */
 async function seen(loc: Locator) {
   return loc.evaluate((el) => {
     const r = el.getBoundingClientRect();
@@ -50,10 +50,15 @@ test('удалённая создателем группа говорит об �
   await expect(page.getByText('Заберёшь колёса в субботу?')).toBeVisible();
   // И никакого «не в сети» под названием: чинить связь незачем.
   await expect(page.locator('header').getByText('не в сети', { exact: false })).toHaveCount(0);
+  // В списке чатов строка группы тоже не выглядит живой.
+  await page.goto('/more/family');
+  await expect(page.getByRole('button', { name: /Наши.*Группа удалена/ })).toBeVisible();
 });
 
 test('исключённый видит, что его исключили, без раскрытия шапки', async ({ page }) => {
   await openApp(page, '/more/family');
   await seedFamily(page, { removedAt: new Date().toISOString() });
   await expect.poll(() => seen(page.getByText('Вас исключили из этой группы.', { exact: false }))).toBe(true);
+  await page.goto('/more/family');
+  await expect(page.getByRole('button', { name: /Наши.*Вас исключили из группы/ })).toBeVisible();
 });
