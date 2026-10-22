@@ -82,6 +82,7 @@ function SubSection({
   onReorderStart,
   isReorderSource = false,
   children,
+  nested,
 }: {
   project: Project;
   count: number;
@@ -96,6 +97,8 @@ function SubSection({
   onReorderStart?: (at: { x: number; y: number; pointerId: number }) => void;
   isReorderSource?: boolean;
   children: ReactNode;
+  /** Подпроекты — видны и у свёрнутого (см. Section). */
+  nested?: ReactNode;
 }) {
   const { reorderable, headerProps } = useHoldToReorder(onReorderStart, onToggle);
   return (
@@ -182,6 +185,7 @@ function SubSection({
         </div>
       </div>
       {!collapsed && children}
+      {nested}
     </div>
   );
 }
@@ -209,6 +213,7 @@ function Section({
   onReorderStart,
   isReorderSource = false,
   children,
+  nested,
 }: {
   title: string;
   /** Иконка перед заголовком (цветная папка проекта / эмодзи). */
@@ -229,6 +234,11 @@ function Section({
   /** Этот проект сейчас перетаскивают — приглушаем. */
   isReorderSource?: boolean;
   children: ReactNode;
+  /** Подпроекты. Рисуются и у свёрнутой секции: сворачивание прячет только
+   *  её собственные задачи. Раньше подпроекты лежали в children и уходили
+   *  вместе с ними — владелец: «если я сворачиваю проект — сворачиваются и
+   *  подпроекты». У каждого подпроекта своя свёрнутость (collapsedProjects). */
+  nested?: ReactNode;
 }) {
   const { reorderable, headerProps } = useHoldToReorder(onReorderStart, onToggle);
 
@@ -304,6 +314,7 @@ function Section({
         )}
       </div>
       {!collapsed && children}
+      {nested}
     </section>
   );
 }
@@ -436,7 +447,29 @@ export function TasksPage() {
       if (r.bottom < y && (!above || r.bottom > above.edge)) above = { key, edge: r.bottom };
       if (r.top > y && (!below || r.top < below.edge)) below = { key, edge: r.top };
     }
-    if (best) return best;
+    if (best) {
+      // У свёрнутой папки своя цель — только шапка. Её подпроекты остаются на
+      // экране и лежат в её прямоугольнике, а зазоры между ними — нет в их
+      // собственных: задача, отпущенная между «Поставщиками» и «Рекламой»,
+      // уходила в скрытый список родителя и пропадала с экрана. Ниже шапки —
+      // ближайший прямой подпроект.
+      const el = sectionNodes.current.get(best)!;
+      const head = el.firstElementChild;
+      if (!head?.querySelector(':scope > [aria-expanded="false"]')) return best;
+      let d = y - head.getBoundingClientRect().bottom;
+      if (d <= 0) return best;
+      let near = best;
+      for (const [key, sub] of sectionNodes.current) {
+        if (!sub.isConnected || sub.dataset.subOf !== best) continue;
+        const r = sub.getBoundingClientRect();
+        const dist = Math.max(r.top - y, y - r.bottom, 0);
+        if (dist < d) {
+          near = key;
+          d = dist;
+        }
+      }
+      return near;
+    }
     // Промах в зазор между папками (SECTION_GAP) — цель та, чей край ближе.
     // Свёрнутая папка — это 45px заголовка, а полосы над и под ней уходили
     // соседям: «нужно прям точку искать». Пустота над первой секцией и под
@@ -1215,6 +1248,7 @@ export function TasksPage() {
                 highlight={Boolean(draggingTask) && dropKey === sub.id}
                 onReorderStart={(at) => onProjectReorderStart(sub, at)}
                 isReorderSource={draggingProject?.id === sub.id}
+                nested={renderSubtree(sub, depth + 1)}
               >
                 {subList.length > 0 && (
                   <TaskCard
@@ -1240,7 +1274,6 @@ export function TasksPage() {
                   onClick={() => openTask(null, sub.id)}
                   onAddSubproject={depth < MAX_DEPTH - 1 ? () => openProject(null, sub.id) : undefined}
                 />
-                {renderSubtree(sub, depth + 1)}
               </SubSection>
             </Fragment>
           );
@@ -1361,6 +1394,7 @@ export function TasksPage() {
                   }
                   onReorderStart={(at) => onProjectReorderStart(p, at)}
                   isReorderSource={draggingProject?.id === p.id}
+                  nested={renderSubtree(p, 1)}
                 >
                   {/* Живые задачи ПЕРВЫМИ, выполненные — под ними.
                       
@@ -1392,7 +1426,6 @@ export function TasksPage() {
                     onClick={() => openTask(null, p.id)}
                     onAddSubproject={() => openProject(null, p.id)}
                   />
-                  {renderSubtree(p, 1)}
                 </Section>
               </Fragment>
             );
