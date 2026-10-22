@@ -313,6 +313,13 @@ test('раздел «Задачи»: зоны касания не налезаю
   // негде. Кнопка уехала в конец строки, где соседей нет, и вопрос снялся
   // вместе с другой бедой того же расположения — сдвигом левого края списка.
   expect(await overlapsOn(page)).toEqual([]);
+
+  // Свёрнутый проект оставляет подпроекты на экране (задача 40): «+» и
+  // карандаш родителя встают прямо над «+» и карандашом подпроекта.
+  await page.locator('[data-drop-key="a1"]').getByRole('button', { name: /Бизнес/ }).first().click();
+  await expect(page.getByText('Позвонить поставщику')).toHaveCount(0);
+  await expect(page.locator('[data-drop-key="a2"]')).toBeVisible();
+  expect(await overlapsOn(page)).toEqual([]);
 });
 
 test('просроченная задача не ломает левый край списка', async ({ page }) => {
