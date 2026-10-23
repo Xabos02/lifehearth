@@ -7,16 +7,22 @@ interface Props<T extends string> {
   options: Option<T>[];
   value: T;
   onChange: (value: T) => void;
+  /** Сетка в N столбцов вместо одной строки — когда сегменты в строку не
+   *  помещаются на узком экране. */
+  columns?: number;
 }
 
-export function SegmentedControl<T extends string>({ options, value, onChange }: Props<T>) {
+export function SegmentedControl<T extends string>({ options, value, onChange, columns }: Props<T>) {
   // Обводка трека — ring-inset, а не border: border съедает 2px ширины, и их
   // целиком теряет самый короткий сегмент (длинные упираются в свой текст).
   // В шите места «Еда» на Linux так ушла с 44 до 42px — ниже зоны касания.
   // min-h-11 у сегмента: text-sm с py-2.5 дают 41.75px. 44 до 11.10.2026
   // держались только потому, что кнопка рисовалась кеглем 17px (index.css).
   return (
-    <div className="flex rounded-lh-btn bg-lh-surface-2 p-1 ring-1 ring-inset ring-lh-border">
+    <div
+      className={`${columns ? 'grid' : 'flex'} rounded-lh-btn bg-lh-surface-2 p-1 ring-1 ring-inset ring-lh-border`}
+      style={columns ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined}
+    >
       {options.map((o) => (
         <button
           key={o.value}

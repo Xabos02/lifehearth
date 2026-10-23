@@ -39,8 +39,9 @@ import { t } from '../../lib/i18n';
 import { useAutoCapitalizeTextarea } from '../../lib/useAutoCapitalizeTextarea';
 import { usePomodoroActions } from '../focus/pomodoro';
 import { ICON } from '../../components/ui/icons';
+import { isSleeping, scheduleNext } from './taskActions';
 
-type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'manual';
 type PriorityStr = '0' | '1' | '2' | '3';
 
 // Стили Input для авто-grow textarea названия (#7) — компонент Textarea не
@@ -61,9 +62,10 @@ const REC_OPTIONS: { value: RecType; label: string }[] = [
   { value: 'weekly', label: 'Неделя' },
   { value: 'monthly', label: 'Месяц' },
   { value: 'yearly', label: 'Год' },
+  { value: 'manual', label: 'Вручную' },
 ];
 
-const REC_INTERVAL_LABELS: Record<Exclude<RecType, 'none'>, string> = {
+const REC_INTERVAL_LABELS: Record<Exclude<RecType, 'none' | 'manual'>, string> = {
   daily: 'Интервал (дней)',
   weekly: 'Интервал (недель)',
   monthly: 'Интервал (месяцев)',
@@ -171,7 +173,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
   const [duration, setDuration] = useState<number | null>(task?.duration ?? null);
   const [remindBefore, setRemindBefore] = useState<number | null>(task?.remindBefore ?? null);
   const [recType, setRecType] = useState<RecType>(rec?.type ?? 'none');
-  const [recInterval, setRecInterval] = useState(String(rec?.interval ?? 1));
+  const [recInterval, setRecInterval] = useState(String(rec && 'interval' in rec ? rec.interval : 1));
   const [recWeekdays, setRecWeekdays] = useState<number[]>(
     rec?.type === 'weekly' ? [...rec.weekdays] : [],
   );
@@ -276,6 +278,8 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         };
       case 'yearly':
         return { type: 'yearly', interval };
+      case 'manual':
+        return { type: 'manual' };
     }
   };
 
@@ -324,6 +328,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
       if (task) {
         await update(db.tasks, task.id, data);
         savedId = task.id;
+        // Спящую ручную задачу перевели на расписание: она уже сделана —
+        // следующий круг заводим сразу, как сделала бы отметка.
+        const rec = data.recurrence;
+        if (isSleeping(task) && rec && rec.type !== 'manual') await scheduleNext({ ...task, ...data }, rec);
       } else {
         const created = await create(db.tasks, { ...data, completedAt: null, sortOrder: Date.now() });
         savedId = created.id;
@@ -972,12 +980,20 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         <Field label={t('Повторение')}>
           <SegmentedControl
             options={REC_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
+            // Шесть сегментов в строку на 320px не влезают (315 из 288) —
+            // две строки по три, слова целиком (канва design/manual-repeat).
+            columns={3}
             value={recType}
             onChange={setRecType}
           />
+          {recType === 'manual' && (
+            <p className="mt-1.5 text-xs leading-snug text-lh-text-secondary">
+              {t('Отмеченная задача останется на месте в списке. Когда снова пора — запустите её кнопкой справа.')}
+            </p>
+          )}
         </Field>
 
-        {recType !== 'none' && (
+        {recType !== 'none' && recType !== 'manual' && (
           <Field label={t(REC_INTERVAL_LABELS[recType])}>
             <Input
               type="number"

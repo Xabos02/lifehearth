@@ -22,6 +22,7 @@ import {
   GPencil as Pencil,
   GFolderPlus as FolderPlus,
   GPlus as Plus,
+  GRepeat as RepeatG,
   GSnowflake as Snowflake,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
@@ -61,6 +62,7 @@ import {
 } from './dragTuning';
 import { useHoldToReorder } from './useHoldToReorder';
 import { nestRefusal, unlinkDeadProjects } from './projectTree';
+import { isSleeping, launchTasks } from './taskActions';
 import {
   AddTaskRow,
   CompletedSubsection,
@@ -70,6 +72,10 @@ import {
   TaskCard,
 } from './TaskRows';
 
+/** Счётчик у заголовка — что осталось сделать: спящие задачи ручного повтора
+ *  стоят в списке, но уже сделаны. */
+const activeCount = (list: Task[]) => list.filter((x) => !x.completedAt).length;
+
 function SubSection({
   project,
   count,
@@ -77,6 +83,7 @@ function SubSection({
   onToggle,
   onEdit,
   onAdd,
+  onLaunch,
   dropRef,
   highlight = false,
   onReorderStart,
@@ -91,6 +98,8 @@ function SubSection({
   onEdit: () => void;
   /** «+» у заголовка — добавить задачу в подпроект. */
   onAdd?: () => void;
+  /** ↻ у заголовка — запустить все спящие задачи подпроекта. */
+  onLaunch?: () => void;
   dropRef: (el: HTMLElement | null) => void;
   highlight?: boolean;
   /** Удержание заголовка — перенести подпроект. */
@@ -166,6 +175,15 @@ function SubSection({
           </span>
         </button>
         <div className="flex items-center gap-5">
+          {onLaunch && (
+            <button
+              onClick={onLaunch}
+              aria-label={t('Запустить все')}
+              className={`p-1.5 text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
+            >
+              <RepeatG size={ICON.inline} />
+            </button>
+          )}
           {onAdd && (
             <button
               onClick={onAdd}
@@ -206,6 +224,7 @@ function Section({
   onToggle,
   onEdit,
   onAdd,
+  onLaunch,
   color,
   dropRef,
   dropKey,
@@ -224,6 +243,8 @@ function Section({
   onEdit?: () => void;
   /** «+» у заголовка — добавить задачу в этот проект, не листая до низа. */
   onAdd?: () => void;
+  /** ↻ у заголовка — запустить все спящие задачи ручного повтора секции. */
+  onLaunch?: () => void;
   /** Цвет проекта — для счётчика (в светлой теме не применяется, см. index.css). */
   color?: string;
   dropRef?: (el: HTMLElement | null) => void;
@@ -286,8 +307,17 @@ function Section({
             поймал перекрытие в 2px даже при gap-4 — палец по «+» открывал бы
             правку проекта. Двадцать дают честный запас. Нижняя «+ Задача»
             остаётся: она удобна, когда список дочитан до конца. */}
-        {(onAdd || onEdit) && (
+        {(onAdd || onEdit || onLaunch) && (
           <div className="flex items-center gap-5">
+            {onLaunch && (
+              <button
+                onClick={onLaunch}
+                aria-label={t('Запустить все')}
+                className={`p-1.5 text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
+              >
+                <RepeatG size={ICON.inline} />
+              </button>
+            )}
             {onAdd && (
               <button
                 onClick={onAdd}
@@ -1127,7 +1157,9 @@ export function TasksPage() {
   const activeByProject = useMemo(() => {
     const map = new Map<string, Task[]>();
     for (const task of tasks) {
-      if (task.completedAt || task.frozenAt) continue; // замороженные — в отдельной секции
+      // Замороженные — в отдельной секции. Спящая задача ручного повтора хоть и
+      // отмечена, стоит здесь, на своём месте: она ждёт запуска, а не ушла в архив.
+      if ((task.completedAt && !isSleeping(task)) || task.frozenAt) continue;
       const key = task.projectId ?? NONE;
       const arr = map.get(key);
       if (arr) arr.push(task);
@@ -1156,7 +1188,7 @@ export function TasksPage() {
   const completedByProject = useMemo(() => {
     const map = new Map<string, Task[]>();
     for (const task of tasks) {
-      if (!task.completedAt) continue;
+      if (!task.completedAt || isSleeping(task)) continue;
       const key = task.projectId ?? NONE;
       const arr = map.get(key);
       if (arr) arr.push(task);
@@ -1217,6 +1249,15 @@ export function TasksPage() {
 
   const empty = loaded && allTasks.length === 0 && projects.length === 0;
 
+  /** «Запустить все» для списка секции — есть только когда есть что запускать. */
+  const launchOf = (list: Task[]) => {
+    const sleeping = list.filter(isSleeping);
+    if (!sleeping.length) return undefined;
+    return () =>
+      void launchTasks(sleeping).then(() =>
+        toast(sleeping.length === 1 ? t('Задача запущена') : t('Запущено: {n}', { n: sleeping.length })),
+      );
+  };
 
   /** Подпроекты родителя, рекурсивно до MAX_DEPTH.
    *
@@ -1239,11 +1280,12 @@ export function TasksPage() {
               {reorderingSubs && dropParent === parent.id && subInsertIndex === si && <DropLine />}
               <SubSection
                 project={sub}
-                count={subList.length}
+                count={activeCount(subList)}
                 collapsed={collapsed.has(sub.id)}
                 onToggle={() => toggle(sub.id)}
                 onEdit={() => openProject(sub)}
                 onAdd={() => openTask(null, sub.id)}
+                onLaunch={launchOf(subList)}
                 dropRef={registerSection}
                 highlight={Boolean(draggingTask) && dropKey === sub.id}
                 onReorderStart={(at) => onProjectReorderStart(sub, at)}
@@ -1380,11 +1422,12 @@ export function TasksPage() {
                 <Section
                   title={p.name}
                   icon={<ProjectFolderIcon project={p} />}
-                  count={list.length}
+                  count={activeCount(list)}
                   collapsed={collapsed.has(p.id)}
                   onToggle={() => toggle(p.id)}
                   onEdit={() => openProject(p)}
                   onAdd={() => openTask(null, p.id)}
+                  onLaunch={launchOf(list)}
                   color={p.color}
                   dropRef={registerSection}
                   dropKey={p.id}
@@ -1435,9 +1478,10 @@ export function TasksPage() {
           {(noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
             <Section
               title={t('Без проекта')}
-              count={noProjectTasks.length}
+              count={activeCount(noProjectTasks)}
               collapsed={collapsed.has(NONE)}
               onToggle={() => toggle(NONE)}
+              onLaunch={launchOf(noProjectTasks)}
               dropRef={registerSection}
               dropKey={NONE}
               highlight={Boolean(draggingTask) && dropKey === NONE}

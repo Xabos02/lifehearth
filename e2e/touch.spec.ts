@@ -88,6 +88,11 @@ async function seedForAudit(page: Page) {
       task('at3', 'Сверить остатки', 'a2'),
       task('at4', 'Задача без проекта', null),
       task('at5', 'Уже сделано', 'a1', { completedAt: now }),
+      // Спящие задачи ручного повтора: ↻ у строки и «Запустить все» у
+      // заголовков проекта, подпроекта и «Без проекта».
+      task('at6', 'Генеральная уборка', 'a1', { recurrence: { type: 'manual' }, completedAt: now }),
+      task('at7', 'Помыть машину', 'a2', { recurrence: { type: 'manual' }, completedAt: now }),
+      task('at8', 'Полить цветы', null, { recurrence: { type: 'manual' }, completedAt: now }),
     ] as never[]);
     await db.goals.bulkPut([
       { ...base('ag1'), title: 'Закончить обучение', description: '', targetDate: null, status: 'active', metric: null, sortOrder: 0 },

@@ -11,7 +11,8 @@ import { db } from '../../db/db';
 import { create } from '../../db/repo';
 import { scheduleReminder } from '../../lib/push';
 import type { Task } from '../../db/types';
-import { toggleTask } from './taskActions';
+import { isSleeping, launchTasks, skipTask, toggleTask } from './taskActions';
+import { todayKey } from '../../lib/dates';
 
 const { reminderFireAt } = await vi.importActual<typeof import('../../lib/push')>('../../lib/push');
 
@@ -156,3 +157,87 @@ describe('ежемесячный повтор: напоминание следу
     });
   }
 });
+
+describe('ручной повтор: отметка усыпляет, запуск возвращает в работу', () => {
+  beforeEach(async () => {
+    await db.tasks.clear();
+  });
+
+  it('отметка не плодит копию, запуск ставит копию без срока, отметка уходит в историю', async () => {
+    const task = await create(db.tasks, {
+      title: 'Генеральная уборка',
+      notes: '',
+      projectId: null,
+      goalId: null,
+      priority: 0,
+      dueDate: '2026-10-20',
+      dueTime: '10:00',
+      duration: null,
+      remindBefore: 30,
+      completedAt: null,
+      checklist: [{ id: 'c1', text: 'Окна', done: true }],
+      recurrence: { type: 'manual' },
+      tags: [],
+      sortOrder: 3000,
+    });
+
+    // Отметили: второй задачи нет, отмеченная спит на месте.
+    expect(await toggleTask(task)).toBeNull();
+    const alive = async () => (await db.tasks.toArray()).filter((t) => !t.deletedAt);
+    expect(await alive()).toHaveLength(1);
+    const asleep = (await db.tasks.get(task.id))!;
+    expect(isSleeping(asleep)).toBe(true);
+
+    // Запустили: свежая копия на том же месте, без срока и напоминания,
+    // с чистым чеклистом; отмеченная больше не спит — она в истории.
+    await launchTasks([asleep]);
+    const [done, fresh] = [(await db.tasks.get(task.id))!, (await alive()).find((t) => t.id !== task.id)!];
+    expect(done.completedAt).not.toBeNull();
+    expect(isSleeping(done)).toBe(false);
+    expect(done.spawnedId).toBe(fresh.id);
+    expect(fresh).toMatchObject({
+      completedAt: null,
+      dueDate: null,
+      dueTime: null,
+      remindBefore: null,
+      sortOrder: 3000,
+      recurrence: { type: 'manual' },
+    });
+    expect(fresh.checklist.map((i) => i.done)).toEqual([false]);
+
+    // Повторный запуск того же — ничего не делает.
+    await launchTasks([done]);
+    expect(await alive()).toHaveLength(2);
+
+    // Промах: сняли отметку с истории — копия убирается, задача снова в работе.
+    await toggleTask(done);
+    const back = await alive();
+    expect(back).toHaveLength(1);
+    expect(back[0]).toMatchObject({ id: task.id, completedAt: null, spawnedId: null });
+  });
+
+  it('замороженная отмеченная не спит, пропуск переносит на сегодня, а не к «повтору»', async () => {
+    const base = {
+      notes: '', projectId: null, goalId: null, priority: 0 as const, dueTime: null, duration: null,
+      remindBefore: null, checklist: [], recurrence: { type: 'manual' as const }, tags: [], sortOrder: 1000,
+    };
+    const frozen = await create(db.tasks, { ...base, title: 'Помыть машину', dueDate: null, completedAt: '2026-10-20T10:00:00.000Z', frozenAt: '2026-10-19T10:00:00.000Z' });
+    expect(isSleeping(frozen)).toBe(false);
+
+    const overdue = await create(db.tasks, { ...base, title: 'Полить цветы', dueDate: '2026-10-01', completedAt: null });
+    await skipTask(overdue);
+    expect((await db.tasks.get(overdue.id))!.dueDate).toBe(todayKey());
+  });
+
+  it('двойной тап по ↻ со старым снимком задачи даёт одну копию', async () => {
+    const asleep = await create(db.tasks, {
+      title: 'Генеральная уборка', notes: '', projectId: null, goalId: null, priority: 0, dueDate: null,
+      dueTime: null, duration: null, remindBefore: null, completedAt: '2026-10-20T10:00:00.000Z', checklist: [],
+      recurrence: { type: 'manual' }, tags: [], sortOrder: 1000,
+    });
+    await Promise.all([launchTasks([asleep]), launchTasks([asleep])]);
+    await launchTasks([asleep]); // снимок из рендера всё ещё «спит»
+    expect((await db.tasks.toArray()).filter((t) => !t.deletedAt)).toHaveLength(2);
+  });
+});
+

@@ -22,7 +22,10 @@ import { plural } from './plural';
  * хвост прошлых повторений), но фаза цикла всегда привязана к исходному
  * сроку (anchor) — иначе при interval>1 просрочка сбивала бы кадэнс.
  */
-export function nextOccurrence(rec: Recurrence, dueKey: string | null): string {
+export function nextOccurrence(
+  rec: Exclude<Recurrence, { type: 'manual' }>,
+  dueKey: string | null,
+): string {
   const today = startOfDay(new Date());
   const after = dueKey ? max([fromKey(dueKey), today]) : today;
   const anchor = dueKey ? fromKey(dueKey) : today;
@@ -88,6 +91,8 @@ export function nextOccurrence(rec: Recurrence, dueKey: string | null): string {
 export function describeRecurrence(rec: Recurrence): string {
   const en = getLang() === 'en';
   switch (rec.type) {
+    case 'manual':
+      return t('Вручную');
     case 'daily':
       if (rec.interval === 1) return t('Каждый день');
       if (en) return `Every ${rec.interval} days`;
