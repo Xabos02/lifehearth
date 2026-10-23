@@ -77,6 +77,7 @@ const EN_PLURALS: Record<string, [string, string]> = {
   фото: ['photo', 'photos'],
   пунктов: ['item', 'items'],
   уроков: ['lesson', 'lessons'],
+  раз: ['time', 'times'],
 };
 
 /** Склонение с учётом языка: русские формы — как в plural(), английская пара

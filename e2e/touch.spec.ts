@@ -547,6 +547,9 @@ test('шторки спорта, семейная задача, экран пр�
   await page.getByRole('button', { name: 'Новый шаблон' }).click();
   await page.getByRole('button', { name: 'Добавить ещё вид' }).last().click();
   await expect(page.getByRole('button', { name: 'Убрать' }).last()).toBeVisible();
+  // Строка упражнения (задача 38): поля подходов и повторов вплотную к «×».
+  await page.getByRole('button', { name: 'Упражнение' }).last().click();
+  await expect(page.getByRole('button', { name: 'Убрать упражнение' })).toBeVisible();
   await check('новый шаблон', SHEET);
 
   await page.evaluate(async () => {

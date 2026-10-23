@@ -67,7 +67,7 @@ export function SportTodayLine() {
           <span className="block font-semibold leading-tight">{adviceTitle(advice)}</span>
           <span className="block truncate text-xs text-lh-text-secondary">
             {done
-              ? `${describeWorkout(last)} · ${formatMinutes(last.minutes, t)}`
+              ? [describeWorkout(last), last.minutes > 0 ? formatMinutes(last.minutes, t) : null].filter(Boolean).join(' · ')
               : last
                 ? `${relativeDay(last.date, today)} · ${describeWorkout(last)}`
                 : ''}

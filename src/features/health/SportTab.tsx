@@ -26,6 +26,7 @@ import {
   weekStreak,
 } from './workoutStats';
 import { adviceTitle, formatKm, lastLine } from './workoutText';
+import { formatExercises } from './exercises';
 import { WorkoutCalendar, type Scale } from './WorkoutCalendar';
 import { parseWorkoutsCsv, withoutDuplicates } from './importWorkouts';
 import { importParsed } from './workoutRepo';
@@ -61,6 +62,8 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
   const interval = avgIntervalDays(workouts, addDaysKey(today, -59), today);
   const streak = weekStreak(workouts, today, goal);
   const maxKindMinutes = kinds[0]?.minutes ?? 0;
+  // Ни у одного вида нет минут (одни упражнения) — полосы по числу занятий, как подпись.
+  const maxKindCount = Math.max(1, ...kinds.map((k) => k.count));
 
   const selectedList = useMemo(
     () => workouts.filter((w) => w.date === selected).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
@@ -177,11 +180,15 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
                 <span className="h-2 flex-1 overflow-hidden rounded-full bg-lh-border">
                   <span
                     className="block h-full rounded-full"
-                    style={{ width: `${Math.max(4, (k.minutes / maxKindMinutes) * 100)}%`, background: kind.color }}
+                    style={{
+                      width: `${Math.max(4, maxKindMinutes > 0 ? (k.minutes / maxKindMinutes) * 100 : (k.count / maxKindCount) * 100)}%`,
+                      background: kind.color,
+                    }}
                   />
                 </span>
                 <span className="shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-lh-text-secondary">
-                  {formatMinutes(k.minutes, t)}
+                  {/* Вид без времени (одни упражнения) — числом занятий, а не «0 мин». */}
+                  {k.minutes > 0 ? formatMinutes(k.minutes, t) : `${k.count} ${tPlural(k.count, ['раз', 'раза', 'раз'])}`}
                   {kind.hasDistance && k.distanceKm > 0 ? ` · ${formatKm(k.distanceKm)}` : ''}
                 </span>
               </div>
@@ -236,6 +243,7 @@ function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () 
     // формы, которых в русской традиции нет.
     withDate ? format(fromKey(w.date), 'EEEEEE, d MMMM', { locale: dateLocale() }) : null,
     pace ? `${pace} /${t('км')}` : null,
+    formatExercises(w.exercises) || null,
     effort ? t(effort).toLowerCase() : null,
     w.note || null,
   ]
@@ -253,7 +261,7 @@ function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () 
         {sub && <span className="block truncate text-xs text-lh-text-secondary">{sub}</span>}
       </span>
       <span className="shrink-0 text-right text-sm tabular-nums">
-        {formatMinutes(w.minutes, t)}
+        {w.minutes > 0 && formatMinutes(w.minutes, t)}
         {w.distanceKm != null && <span className="block text-xs text-lh-text-secondary">{formatKm(w.distanceKm)}</span>}
       </span>
       <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />

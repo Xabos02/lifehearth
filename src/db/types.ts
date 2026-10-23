@@ -406,6 +406,8 @@ export type WorkoutType =
 export interface Workout extends BaseEntity {
   date: string; // 'YYYY-MM-DD'
   type: WorkoutType;
+  /** 0 — время не указано: с 22.10.2026 минуты по желанию (отжимания с
+   *  планкой засекать незачем). Экран «0 мин» не пишет, суммы его не замечают. */
   minutes: number;
   /** Дистанция в км — только у бега, ходьбы, вело, плавания; иначе null. */
   distanceKm: number | null;
@@ -419,6 +421,18 @@ export interface Workout extends BaseEntity {
   /** Название и цвет вида type='custom' — своё упражнение, которого нет в списке. */
   customLabel: string | null;
   customColor: string | null;
+  /** Упражнения внутри вида: «Силовая» = отжимания, планка, колесо. Поле
+   *  появилось 22.10.2026 — у старых записей его нет, читать через `?? []`. */
+  exercises?: WorkoutExercise[];
+}
+
+/** Упражнение внутри вида — «Отжимания 3 × 15». Подходы одинаковые: так
+ *  выбрано на канве design/sport-exercises (вариант А). Подходы и повторы —
+ *  по желанию, имя — обязательно (без имени строка не сохраняется). */
+export interface WorkoutExercise {
+  name: string;
+  sets: number | null;
+  reps: number | null;
 }
 
 /** Своё упражнение, однажды введённое руками — предлагается заново при
@@ -436,8 +450,10 @@ export interface WorkoutTemplateItem {
   type: WorkoutType;
   customLabel: string | null;
   customColor: string | null;
+  /** 0 — не указано, как у Workout.minutes. */
   minutes: number;
   distanceKm: number | null;
+  exercises?: WorkoutExercise[];
 }
 
 /** Шаблон тренировки — набор видов, который выбирают целиком, а потом

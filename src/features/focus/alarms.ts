@@ -62,7 +62,7 @@ export function alarmOption(kind: AlarmType): AlarmOption {
 /** Объявить системе, что за звук идёт: без этого Web Audio в Safari — категория
  *  ambient, и её глушит переключатель беззвучного режима. Audio Session API есть
  *  в Safari 17+, в остальных — тихо ничего. На устройстве не проверено. */
-export function setAudioSession(type: 'playback' | 'transient'): void {
+export function setAudioSession(type: 'playback' | 'transient' | 'auto'): void {
   try {
     const nav = navigator as unknown as { audioSession?: { type: string } };
     if (nav.audioSession) nav.audioSession.type = type;

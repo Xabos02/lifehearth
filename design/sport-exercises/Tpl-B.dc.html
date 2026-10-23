@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Шаблон — вариант Б</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.scr{--bg:#08080f;--sf:#18181f;--sf2:#22222d;--ac:#c9a84c;--tx:#f0eee8;--tx2:rgba(240,238,232,.52);--bd:rgba(255,255,255,.07);--bds:rgba(240,238,232,.15);--dim:rgba(0,0,0,.6)}
+.scr.light{--bg:oklch(0.975 0.005 280);--sf:#fff;--sf2:oklch(0.955 0.006 282);--ac:oklch(0.495 0.0996 87.4);--tx:oklch(0.26 0.022 284);--tx2:oklch(0.52 0.022 282);--bd:oklch(0 0 0 / .07);--bds:oklch(0 0 0 / .14);--dim:rgba(0,0,0,.35)}
+.scr{width:375px;min-height:1450px;background:var(--bg);font-family:'Inter',-apple-system,system-ui,sans-serif;font-size:17px;color:var(--tx);-webkit-font-smoothing:antialiased;box-sizing:border-box;padding-top:40px;position:relative}
+.dim{position:absolute;inset:0;background:var(--dim)}
+.sheet{position:relative;background:var(--sf);border-top:1px solid var(--bds);border-radius:27px 27px 0 0;min-height:1410px;box-sizing:border-box;padding:0 17px 24px}
+.grab{margin:0 auto;width:36px;height:4px;border-radius:9px;background:var(--bds);position:relative;top:10px}
+.hd{display:flex;align-items:center;justify-content:space-between;padding:22px 0 12px}
+.hd h2{margin:0;font-size:19px;font-weight:600}
+.x{width:32px;height:32px;border-radius:99px;border:0;background:var(--sf2);color:var(--tx2);display:flex;align-items:center;justify-content:center}
+.lbl{display:block;font-size:14.9px;font-weight:500;color:var(--tx2);margin-bottom:6px}
+.inp{box-sizing:border-box;width:100%;height:49px;border-radius:14px;border:1px solid var(--bds);background:var(--sf2);color:var(--tx);font:inherit;padding:0 14px}
+.inp::placeholder{color:var(--tx2)}
+.card{border:1px solid var(--bds);border-radius:17px;padding:12.75px;margin-top:17px;display:flex;flex-direction:column;gap:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border-radius:99px;border:1px solid var(--bd);background:var(--sf);color:var(--tx2);font:inherit;font-size:14.9px;font-weight:500;padding:6px 14px}
+.chip.on{background:var(--ac);border-color:var(--ac);color:var(--bg)}
+.sec{font-size:14.9px;font-weight:500;color:var(--tx2)}
+.exb{border-radius:14px;background:var(--sf2);padding:6px 10px 8px}
+.exh{display:flex;align-items:center;justify-content:space-between;font-weight:600}
+.set{display:flex;align-items:center;gap:10px;padding:3px 0}
+.set b{width:22px;text-align:center;font-size:14.9px;font-weight:500;color:var(--tx2);font-variant-numeric:tabular-nums}
+.num{box-sizing:border-box;width:64px;height:44px;border-radius:12px;border:1px solid var(--bds);background:var(--sf);color:var(--tx);font:inherit;text-align:center;font-variant-numeric:tabular-nums}
+.unit{font-size:14.9px;color:var(--tx2)}
+.rm{width:44px;height:44px;border:0;background:none;color:var(--tx2);display:flex;align-items:center;justify-content:center;margin-right:-10px}
+.add{border:1px dashed var(--bds);background:none;color:var(--ac);font:inherit;font-size:14.9px;font-weight:500;border-radius:99px;padding:8px 14px;display:inline-flex;align-items:center;gap:4px}
+.addset{border:0;background:none;color:var(--ac);font:inherit;font-size:14.9px;font-weight:500;padding:10px 0 4px;display:inline-flex;align-items:center;gap:4px}
+.sug{border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font:inherit;font-size:14.9px;border-radius:99px;padding:6px 12px}
+.btn{width:100%;height:51px;border:0;border-radius:14px;background:var(--ac);color:var(--bg);font:inherit;font-weight:600;margin-top:20px}
+.hint{font-size:12.75px;color:var(--tx2);margin-top:4px}
+</style>
+</helmet>
+<div class="scr {{themeClass}}">
+<div class="dim"></div>
+<div class="sheet">
+<div class="grab"></div>
+<div class="hd"><h2>Новый шаблон</h2><button class="x" aria-label="Закрыть"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+
+<label class="lbl" for="tn">Название шаблона</label>
+<input id="tn" class="inp" value="Утро">
+
+<div class="card">
+<div class="chips">
+<button class="chip">Бег</button><button class="chip on">Силовая</button><button class="chip">Бокс</button><button class="chip">Гири</button><button class="chip">Растяжка</button><button class="chip">Ходьба</button><button class="chip">Вело</button><button class="chip">Плавание</button><button class="chip">Другое</button><button class="chip">+ Своё</button>
+</div>
+<div>
+<label class="lbl" for="m1">Минут — по желанию</label>
+<input id="m1" class="inp" placeholder="—">
+</div>
+<div class="sec">Упражнения</div>
+
+<div class="exb">
+<div class="exh"><span>Отжимания</span><button class="rm" aria-label="Убрать упражнение"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div class="set"><b>1</b><input class="num" aria-label="Подход 1, повторов" value="15"><span class="unit">повт.</span></div>
+<div class="set"><b>2</b><input class="num" aria-label="Подход 2, повторов" value="15"><span class="unit">повт.</span></div>
+<div class="set"><b>3</b><input class="num" aria-label="Подход 3, повторов" value="12"><span class="unit">повт.</span></div>
+<button class="addset"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Подход</button>
+</div>
+
+<div class="exb">
+<div class="exh"><span>Планка</span><button class="rm" aria-label="Убрать упражнение"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div class="set"><b>1</b><input class="num" aria-label="Подход 1, повторов" value="60"><span class="unit">повт.</span></div>
+<div class="set"><b>2</b><input class="num" aria-label="Подход 2, повторов" value="60"><span class="unit">повт.</span></div>
+<div class="set"><b>3</b><input class="num" aria-label="Подход 3, повторов" value="45"><span class="unit">повт.</span></div>
+<button class="addset"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Подход</button>
+</div>
+
+<div class="exb">
+<div class="exh"><span>Колесо</span><button class="rm" aria-label="Убрать упражнение"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div class="set"><b>1</b><input class="num" aria-label="Подход 1, повторов" value="10"><span class="unit">повт.</span></div>
+<div class="set"><b>2</b><input class="num" aria-label="Подход 2, повторов" value="10"><span class="unit">повт.</span></div>
+<button class="addset"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Подход</button>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button class="sug">+ Приседания</button><button class="sug">+ Подтягивания</button>
+<button class="add"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Упражнение</button>
+</div>
+</div>
+
+<div class="card">
+<div class="chips">
+<button class="chip">Бег</button><button class="chip">Силовая</button><button class="chip">Бокс</button><button class="chip on">Гири</button><button class="chip">Растяжка</button><button class="chip">Ходьба</button><button class="chip">Вело</button><button class="chip">Плавание</button><button class="chip">Другое</button><button class="chip">+ Своё</button>
+</div>
+<div>
+<label class="lbl" for="m2">Минут — по желанию</label>
+<input id="m2" class="inp" value="20">
+</div>
+<div class="sec">Упражнения</div>
+<div class="exb">
+<div class="exh"><span>Махи</span><button class="rm" aria-label="Убрать упражнение"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div class="set"><b>1</b><input class="num" aria-label="Подход 1, повторов" value="20"><span class="unit">повт.</span></div>
+<div class="set"><b>2</b><input class="num" aria-label="Подход 2, повторов" value="20"><span class="unit">повт.</span></div>
+<button class="addset"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Подход</button>
+</div>
+<div><button class="add"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Упражнение</button></div>
+</div>
+
+<div style="margin-top: 17px"><button class="add"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Добавить ещё вид</button></div>
+<button class="btn">Сохранить шаблон</button>
+<p class="hint" style="text-align: center">Сохраняется и без минут и км</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"light":{"editor":"boolean","default":false},"$preview":{"width":375,"height":1450}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { themeClass: this.props.light ? 'light' : '' };
+  }
+}
+</script>
+</body>
+</html>

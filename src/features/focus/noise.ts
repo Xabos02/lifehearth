@@ -85,6 +85,11 @@ export function stopNoise(): void {
   current = null;
 }
 
+/** Идёт ли шум сейчас: пока идёт, сессия звука должна оставаться playback. */
+export function isNoisePlaying(): boolean {
+  return current !== null;
+}
+
 /** Громкость на ходу, 0..1. */
 export function setNoiseVolume(volume: number): void {
   if (master) master.gain.value = Math.max(0, Math.min(1, volume));

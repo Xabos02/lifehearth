@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Тренировка в списке дня</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.scr{--bg:#08080f;--sf:#18181f;--sf2:#22222d;--ac:#c9a84c;--tx:#f0eee8;--tx2:rgba(240,238,232,.52);--bd:rgba(255,255,255,.07);--bds:rgba(240,238,232,.15);--ok:oklch(0.80 0.16 158);--or:oklch(0.66 0.19 45)}
+.scr.light{--bg:oklch(0.975 0.005 280);--sf:#fff;--sf2:oklch(0.955 0.006 282);--ac:oklch(0.495 0.0996 87.4);--tx:oklch(0.26 0.022 284);--tx2:oklch(0.52 0.022 282);--bd:oklch(0 0 0 / .07);--bds:oklch(0 0 0 / .14);--ok:oklch(0.495 0.16 158)}
+.scr{width:375px;height:812px;background:var(--bg);font-family:'Inter',-apple-system,system-ui,sans-serif;font-size:17px;color:var(--tx);-webkit-font-smoothing:antialiased;box-sizing:border-box;padding:24px 17px;display:flex;flex-direction:column;gap:17px}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:17px;padding:17px}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.h{padding:0 4px;font-size:12.75px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--tx2)}
+.plus{border:0;background:none;color:var(--ac);font:inherit;font-size:14.9px;font-weight:500}
+.row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd);width:100%;background:none;border-left:0;border-right:0;border-top:0;color:inherit;font:inherit;text-align:left}
+.row:last-child{border-bottom:0}
+.dot{width:10px;height:10px;border-radius:99px;flex-shrink:0}
+.mid{flex:1;min-width:0}
+.mid b{display:block;font-weight:500}
+.mid span{display:block;font-size:12.75px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r{flex-shrink:0;text-align:right;font-size:14.9px;font-variant-numeric:tabular-nums}
+.r small{display:block;font-size:12.75px;color:var(--tx2)}
+.chev{color:var(--tx2);flex-shrink:0}
+.kind{display:flex;align-items:center;gap:12px;padding:6px 0}
+.kind .n{width:80px;font-size:14.9px;font-weight:500}
+.bar{flex:1;height:8px;border-radius:99px;background:var(--bd);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px}
+.kind .v{font-size:12.75px;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
+</style>
+</helmet>
+<div class="scr {{themeClass}}">
+<div class="card">
+<div class="top"><span class="h">Сегодня</span><button class="plus">+ Тренировка</button></div>
+<button class="row"><span class="dot" style="background: var(--ac)"></span><span class="mid"><b>Силовая</b><span>Отжимания 3×15 · Планка 3×60 · Колесо 2×10</span></span><span class="r"></span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+<button class="row"><span class="dot" style="background: var(--ok)"></span><span class="mid"><b>Гири</b><span>Махи 3×20 · нормально</span></span><span class="r">20 мин</span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+
+<div class="card">
+<div class="top"><span class="h">За 30 дней по видам</span></div>
+<div class="kind"><span class="n">Бег</span><span class="bar"><i style="width: 100%; background: var(--ac)"></i></span><span class="v">1 ч · 9,8 км</span></div>
+<div class="kind"><span class="n">Гири</span><span class="bar"><i style="width: 80%; background: var(--ok)"></i></span><span class="v">50 мин</span></div>
+<div class="kind"><span class="n">Бокс</span><span class="bar"><i style="width: 50%; background: var(--or)"></i></span><span class="v">30 мин</span></div>
+<div class="kind"><span class="n">Силовая</span><span class="bar"><i style="width: 4%; background: var(--ac)"></i></span><span class="v">2 раза</span></div>
+</div>
+
+<div class="card">
+<div class="top"><span class="h">Недавние</span></div>
+<button class="row"><span class="dot" style="background: var(--ac)"></span><span class="mid"><b>Силовая</b><span>чт, 22 октября · Отжимания 3×15 · Планка 3×60 · …</span></span><span class="r"></span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+<button class="row"><span class="dot" style="background: var(--ok)"></span><span class="mid"><b>Гири</b><span>ср, 21 октября</span></span><span class="r">30 мин</span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+<button class="row"><span class="dot" style="background: var(--ac)"></span><span class="mid"><b>Бег</b><span>пн, 19 октября · 6:09 /км</span></span><span class="r">32 мин<small>5,2 км</small></span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"light":{"editor":"boolean","default":false},"$preview":{"width":375,"height":812}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { themeClass: this.props.light ? 'light' : '' };
+  }
+}
+</script>
+</body>
+</html>
