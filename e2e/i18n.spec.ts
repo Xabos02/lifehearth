@@ -116,11 +116,11 @@ test('английский: одно русское слово в разных �
 
   await openApp(page, '/more/health', { language: 'en' });
   await page.getByRole('button', { name: 'Log a workout' }).click();
-  await page.getByRole('button', { name: 'Add another exercise' }).click();
+  await page.getByRole('button', { name: 'Add another type' }).click();
   await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(2);
   await page.getByRole('button', { name: 'From template' }).click();
   await page.getByRole('button', { name: 'New template' }).click();
-  await page.getByRole('button', { name: 'Add another exercise' }).last().click();
+  await page.getByRole('button', { name: 'Add another type' }).last().click();
   await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(4);
   await expect(page.getByRole('button', { name: 'Clear', exact: true })).toHaveCount(0);
 });

@@ -1,18 +1,19 @@
-import { useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { Sheet } from '../../components/ui/Sheet';
-import { Chip } from '../../components/ui/Chip';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
 import { GTrash as Trash2, GPlus } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
-import { getLang, t } from '../../lib/i18n';
-import type { WorkoutTemplate, WorkoutTemplateItem, WorkoutType } from '../../db/types';
-import { WORKOUT_KINDS, workoutKind } from './workouts';
+import { t } from '../../lib/i18n';
+import type { WorkoutTemplate, WorkoutTemplateItem } from '../../db/types';
+import { workoutKind } from './workouts';
 import { addTemplate, removeTemplate } from './templateRepo';
+import { ItemFields } from './ItemFields';
+import { newItem, savedFromItem, type Item } from './workoutItem';
 
 interface Props {
   open: boolean;
@@ -74,34 +75,31 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
 function summarize(items: WorkoutTemplateItem[]): string {
   const minutes = items.reduce((s, i) => s + i.minutes, 0);
   const names = items.map((i) => (i.type === 'custom' ? (i.customLabel ?? '') : t(workoutKind(i.type).label)));
-  return `${names.join(', ')} · ${minutes} ${t('мин')}`;
+  // Минуты по желанию: шаблон из одних упражнений не пишет «0 мин».
+  return minutes > 0 ? `${names.join(', ')} · ${minutes} ${t('мин')}` : names.join(', ');
 }
 
-interface Row {
-  key: string;
-  type: WorkoutType;
-  minutes: string;
-}
-
-let rowSeq = 0;
-function newRow(): Row {
-  rowSeq++;
-  return { key: `r${rowSeq}`, type: 'run', minutes: String(workoutKind('run').defaultMinutes) };
-}
-
+/** Новый шаблон — те же поля вида, что в форме тренировки (ItemFields):
+ *  свои упражнения, упражнения с подходами внутри вида, минуты и км по
+ *  желанию. Обязательно только название. */
 function TemplateBuilder({ onDone }: { onDone: () => void }) {
   const [name, setName] = useState('');
-  const [rows, setRows] = useState<Row[]>([newRow()]);
+  // Шаблон стартует с пустых минут: время тут по желанию, а подставленные
+  // «45 мин» силовой пришлось бы стирать в каждом шаблоне из упражнений.
+  const [items, setItems] = useState<Item[]>(() => [newItem('strength', '')]);
+  const savingRef = useRef(false);
 
-  const canSave = name.trim().length > 0 && rows.some((r) => Math.round(Number(r.minutes) || 0) > 0);
+  const canSave = name.trim().length > 0 && items.length > 0;
 
   async function save() {
-    if (!canSave) return;
-    const items: WorkoutTemplateItem[] = rows
-      .filter((r) => Math.round(Number(r.minutes) || 0) > 0)
-      .map((r) => ({ type: r.type, customLabel: null, customColor: null, minutes: Math.round(Number(r.minutes) || 0), distanceKm: null }));
-    await addTemplate(name.trim(), items);
-    onDone();
+    if (!canSave || savingRef.current) return;
+    savingRef.current = true;
+    try {
+      await addTemplate(name.trim(), items.map(savedFromItem));
+      onDone();
+    } finally {
+      savingRef.current = false;
+    }
   }
 
   return (
@@ -109,57 +107,29 @@ function TemplateBuilder({ onDone }: { onDone: () => void }) {
       <Field label={t('Название шаблона')}>
         <Input value={name} onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder={t('Например, «День ног»')} />
       </Field>
-      {rows.map((row, idx) => (
-        <div key={row.key} className="space-y-2 rounded-2xl border border-lh-border-strong p-3">
-          <div className="flex flex-wrap gap-2">
-            {WORKOUT_KINDS.map((k) => (
-              <Chip
-                key={k.value}
-                active={row.type === k.value}
-                onClick={() => setRows((prev) => prev.map((r) => (r.key === row.key ? { ...r, type: k.value } : r)))}
-              >
-                {t(k.label)}
-              </Chip>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <Field label={t('Минут')} className="flex-1">
-              <Input
-                inputMode="numeric"
-                value={row.minutes}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setRows((prev) => prev.map((r) => (r.key === row.key ? { ...r, minutes: e.target.value.replace(/[^\d]/g, '') } : r)))
-                }
-                placeholder="30"
-              />
-            </Field>
-            {rows.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}
-                className={`mt-5 p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
-                // «Убрать» — омоним: в словаре «Clear» (снять срок задачи),
-                // здесь убирается строка вида — английская ветка явная.
-                aria-label={getLang() === 'en' ? 'Remove' : 'Убрать'}
-              >
-                <Trash2 size={ICON.base} />
-              </button>
-            )}
-          </div>
-          {idx === rows.length - 1 && (
-            <button
-              type="button"
-              onClick={() => setRows((prev) => [...prev, newRow()])}
-              className={`flex items-center gap-1 text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
-            >
-              <GPlus size={ICON.inline} /> {t('Добавить ещё вид')}
-            </button>
-          )}
-        </div>
+      {items.map((it, idx) => (
+        <ItemFields
+          key={it.key}
+          item={it}
+          index={idx}
+          removable={items.length > 1}
+          onRemove={() => setItems((prev) => prev.filter((x) => x.key !== it.key))}
+          onChange={(patch) => setItems((prev) => prev.map((x) => (x.key === it.key ? { ...x, ...patch } : x)))}
+        />
       ))}
-      <Button className="w-full" disabled={!canSave} onClick={() => void save()}>
-        {t('Сохранить шаблон')}
-      </Button>
+      <button
+        type="button"
+        onClick={() => setItems((prev) => [...prev, newItem('strength', '')])}
+        className={`flex items-center gap-1 rounded-full border border-dashed border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
+      >
+        <GPlus size={ICON.inline} /> {t('Добавить ещё вид')}
+      </button>
+      <div>
+        <Button className="w-full" disabled={!canSave} onClick={() => void save()}>
+          {t('Сохранить шаблон')}
+        </Button>
+        <p className="mt-1.5 text-center text-xs text-lh-text-secondary">{t('Сохраняется и без минут и км')}</p>
+      </div>
     </div>
   );
 }

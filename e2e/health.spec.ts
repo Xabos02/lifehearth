@@ -1,5 +1,5 @@
 import { test, expect, openApp } from './fixtures';
-import { addDaysKey, todayKey, weekStartKey } from '../src/lib/dates';
+import { addDaysKey, todayKey } from '../src/lib/dates';
 
 // Раздел «Здоровье» (задача 14): спорт-календарь, ритм «через день», цель
 // недели, замеры, импорт CSV.
@@ -74,27 +74,35 @@ test('цель недели меняется кнопками и пережив�
   await expect(page.getByTestId('weekly-goal')).toHaveText('4');
 });
 
-test('месяц и неделя переключаются; тренировка задним числом ставится на выбранный день', async ({ page }) => {
+test('дни и месяц переключаются; тренировка задним числом ставится на выбранный день', async ({ page }) => {
+  // Среда середины месяца: позавчера — в этом же месяце и в той же сетке.
+  await page.clock.setFixedTime(new Date('2026-09-16T12:00:00'));
   await openApp(page, '/more/health');
-  await page.getByRole('button', { name: 'Месяц' }).click();
-  await expect(page.getByTestId('workout-month')).toBeVisible();
-  await page.getByRole('button', { name: 'Неделя' }).click();
-  await expect(page.getByTestId('workout-week')).toBeVisible();
+  const wheel = page.getByTestId('workout-week');
+  // Все дни, а не только видимые читалке: ей открыт один выбранный.
+  const days = wheel.locator('button');
+  // Правый край барабана — сегодня, и он выбран: в будущее лента не крутится.
+  await expect(days.last()).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Сегодня', exact: true })).toHaveCount(0);
 
-  // Выбираем первый день показанной недели (понедельник) и добавляем на него.
-  const monday = page.getByTestId('workout-week').getByRole('button').first();
-  const mondayLabel = (await monday.getAttribute('aria-label')) ?? '';
-  await monday.click();
+  // Позавчера: нажатие докручивает ленту, выбор уходит, когда она встала.
+  const before = days.nth(-3);
+  const label = ((await before.getAttribute('aria-label')) ?? '').split(',')[0];
+  await before.click();
+  await expect(days.nth(-3)).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('wheel-caption')).toContainText('позавчера');
+  // Выбор доезжает до экрана через 120 мс после остановки ленты — ждём его.
+  await expect(page.getByRole('heading', { name: '14 сентября, понедельник' })).toBeVisible();
   await page.getByRole('button', { name: '+ Тренировка' }).click();
   await page.getByRole('button', { name: 'Сохранить' }).click();
-  await expect(page.getByTestId('workout-week').getByRole('button').first()).toHaveAttribute(
-    'aria-label',
-    new RegExp(mondayLabel.split(',')[0] + '.*тренировок: 1'),
-  );
-  // Кольцо видит понедельник: он в этой же неделе.
-  await expect(page.getByTestId('sport-status')).toContainText('1/3');
+  await expect(days.nth(-3)).toHaveAttribute('aria-label', new RegExp(label + '.*тренировок: 1'));
 
-  // В месячной сетке у понедельника тоже точка, а стрелка уводит в прошлый месяц и обратно.
+  // «Сегодня» возвращает ленту на правый край.
+  await page.getByRole('button', { name: 'Сегодня', exact: true }).click();
+  await expect(days.last()).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Сегодня', exact: true })).toHaveCount(0);
+
+  // В месячной сетке у того дня тоже точка, а стрелка уводит в прошлый месяц и обратно.
   await page.getByRole('button', { name: 'Месяц' }).click();
   await expect(page.getByTestId('workout-month').getByRole('button', { name: /тренировок: 1/ })).toHaveCount(1);
   const title = page.locator('h2.text-lg').first();
@@ -104,14 +112,10 @@ test('месяц и неделя переключаются; тренировк�
   await page.getByRole('button', { name: 'Следующий месяц' }).click();
   await expect(title).toHaveText(thisMonth);
 
-  // Будущие дни выбрать нельзя: тренировку туда не записать.
-  await page.getByRole('button', { name: 'Неделя' }).click();
-  await page.getByRole('button', { name: 'Следующая неделя' }).click();
-  const nextMonday = addDaysKey(weekStartKey(todayKey()), 7);
-  const cells = page.getByTestId('workout-week').getByRole('button');
-  await expect(cells.first()).toBeDisabled();
-  await expect(cells.first()).toHaveAttribute('aria-label', /ещё не наступил/);
-  expect(nextMonday > todayKey()).toBe(true);
+  // День, выбранный в сетке, — центр барабана после возврата к «Дням».
+  await page.getByTestId('workout-month').getByRole('button', { name: new RegExp('^' + label) }).click();
+  await page.getByRole('button', { name: 'Дни' }).click();
+  await expect(days.nth(-3)).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('занятие из двух видов — одна тренировка: в подписи дня и после правки одного вида', async ({ page }) => {
@@ -131,15 +135,18 @@ test('занятие из двух видов — одна тренировка:
   // Правка минут одного вида выводила его из занятия (groupId → null), и
   // «тренировок за месяц» становилось 2.
   await page.getByRole('button', { name: /^Растяжка/ }).first().click();
-  await page.getByPlaceholder('30').fill('25');
+  await page.getByPlaceholder('по желанию').first().fill('25');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Растяжка.*25 мин/ }).first()).toBeVisible();
   await expect(monthTile.locator('p').first()).toHaveText('1');
 
-  const groups = await page.evaluate(async () => {
+  const rows = await page.evaluate(async () => {
     const { db } = await import('/src/db/db.ts');
-    return (await db.workouts.toArray()).map((w) => w.groupId);
+    return (await db.workouts.toArray()).map((w) => ({ groupId: w.groupId, type: w.type, minutes: w.minutes }));
   });
+  const groups = rows.map((r) => r.groupId);
+  // Минуты по виду подставляются при смене вида: у силовой — её 45, а не 30 бега.
+  expect(rows.find((r) => r.type === 'strength')?.minutes).toBe(45);
   expect(groups).toHaveLength(2);
   expect(groups[0]).toBeTruthy();
   expect(groups[1]).toBe(groups[0]);

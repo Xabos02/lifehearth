@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Линейка дат — вариант Б</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.scr{--bg:#08080f;--sf:#18181f;--sf2:#22222d;--ac:#c9a84c;--tx:#f0eee8;--tx2:rgba(240,238,232,.52);--tx3:rgba(240,238,232,.25);--bd:rgba(255,255,255,.07);--bds:rgba(240,238,232,.15);--ok:oklch(0.80 0.16 158);--or:oklch(0.66 0.19 45);--pu:oklch(0.67 0.21 300)}
+.scr.light{--bg:oklch(0.975 0.005 280);--sf:#fff;--sf2:oklch(0.955 0.006 282);--ac:oklch(0.495 0.0996 87.4);--tx:oklch(0.26 0.022 284);--tx2:oklch(0.52 0.022 282);--tx3:oklch(0.26 0.022 284 / .45);--bd:oklch(0 0 0 / .07);--bds:oklch(0 0 0 / .14);--ok:oklch(0.495 0.16 158);--pu:oklch(0.56 0.18 292)}
+.scr{width:375px;height:812px;overflow:hidden;background:var(--bg);font-family:'Inter',-apple-system,system-ui,sans-serif;font-size:17px;color:var(--tx);-webkit-font-smoothing:antialiased;box-sizing:border-box;padding:20px 17px;display:flex;flex-direction:column;gap:17px}
+.ttl{margin:0;font-size:34px;font-weight:300;letter-spacing:-.01em}
+.seg{display:flex;border-radius:14px;background:var(--sf2);border:1px solid var(--bd);padding:4px}
+.seg span{flex:1;text-align:center;border-radius:10px;padding:10px 4px;font-size:14.9px;font-weight:500;color:var(--tx2)}
+.seg span.on{background:var(--ac);color:var(--bg)}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:17px;padding:17px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
+.big{margin:0;font-size:21px;font-weight:300;line-height:1.2}
+.big small{display:block;font-size:12.75px;font-weight:500;color:var(--tx2);letter-spacing:.02em}
+.today{border:1px solid var(--bds);background:none;color:var(--ac);font:inherit;font-size:14.9px;font-weight:500;border-radius:99px;padding:6px 14px;min-height:36px}
+.wheel{position:relative;margin:10px -17px 0;height:92px}
+.needle{position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--ac);border-radius:2px;pointer-events:none;z-index:2;opacity:.9}
+.needle::before{content:'';position:absolute;top:-1px;left:-5px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--ac)}
+.rail{position:relative;display:flex;height:92px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;-webkit-mask-image:linear-gradient(90deg,transparent,#000 16%,#000 84%,transparent);mask-image:linear-gradient(90deg,transparent,#000 16%,#000 84%,transparent)}
+.rail::-webkit-scrollbar{display:none}
+.pad{flex:0 0 148.5px}
+.day{flex:0 0 44px;height:92px;scroll-snap-align:center;border:0;background:none;color:var(--tx);font:inherit;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;padding:10px 0 0;position:relative}
+.day small{font-size:11.9px;font-weight:500;color:var(--tx2)}
+.day b{font-size:17px;font-weight:500;font-variant-numeric:tabular-nums}
+.day.sel b{color:var(--ac);font-weight:700}
+.dots{display:flex;gap:3px;height:6px}
+.dots i{display:block;width:6px;height:6px;border-radius:99px}
+.tk{position:absolute;bottom:6px;left:50%;width:1.5px;margin-left:-.75px;background:var(--tx3);border-radius:1px}
+.tk.s{height:9px}
+.tk.l{height:18px;background:var(--tx2)}
+.mlab{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);font-size:10.2px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--tx2);white-space:nowrap}
+.mini{display:flex;justify-content:flex-end;margin-top:12px}
+.mini .seg{width:170px}
+.h{padding:0 4px;font-size:12.75px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--tx2)}
+.row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd)}
+.row:last-child{border-bottom:0}
+.dot{width:10px;height:10px;border-radius:99px;flex-shrink:0}
+.mid{flex:1;min-width:0}
+.mid b{display:block;font-weight:500}
+.mid span{display:block;font-size:12.75px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r{font-size:14.9px;font-variant-numeric:tabular-nums}
+.empty{padding:6px 4px 2px;font-size:14.9px;color:var(--tx2)}
+</style>
+</helmet>
+<div class="scr {{themeClass}}">
+<h1 class="ttl">Здоровье</h1>
+<div class="seg"><span class="on">Спорт</span><span>Замеры</span></div>
+
+<div class="card">
+<div class="top">
+<p class="big">{{selLabel}}<small>{{selRel}}</small></p>
+<sc-if value="{{notToday}}" hint-placeholder-val="{{ false }}"><button class="today" onClick="{{toToday}}">Сегодня</button></sc-if>
+</div>
+<div class="wheel" onPointerDown="{{unlock}}" onTouchEnd="{{unlock}}">
+<div class="needle"></div>
+<div class="rail" ref="{{setRail}}" onScroll="{{onScroll}}">
+<div class="pad"></div>
+<sc-for list="{{days}}" as="d" hint-placeholder-count="9">
+<button class="{{d.cls}}" style="{{d.style}}" onClick="{{d.pick}}" aria-label="{{d.aria}}"><small>{{d.wd}}</small><b>{{d.num}}</b><span class="dots"><sc-for list="{{d.dots}}" as="c" hint-placeholder-count="0"><i style="{{c.st}}"></i></sc-for></span><sc-if value="{{d.first}}" hint-placeholder-val="{{ false }}"><span class="mlab">{{d.mon}}</span></sc-if><span class="{{d.tick}}"></span></button>
+</sc-for>
+<div class="pad"></div>
+</div>
+</div>
+<div class="mini"><div class="seg"><span class="on">Дни</span><span>Месяц</span></div></div>
+</div>
+
+<div class="card">
+<div class="top" style="min-height: 32px"><span class="h">{{listTitle}}</span><span style="color: var(--ac); font-size: 14.9px; font-weight: 500">+ Тренировка</span></div>
+<sc-if value="{{hasList}}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{list}}" as="w" hint-placeholder-count="1">
+<div class="row"><span class="dot" style="{{w.st}}"></span><span class="mid"><b>{{w.label}}</b><span>{{w.sub}}</span></span><span class="r">{{w.min}}</span></div>
+</sc-for>
+</sc-if>
+<sc-if value="{{noList}}" hint-placeholder-val="{{ false }}"><p class="empty">Тренировок не отмечено.</p></sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"light":{"editor":"boolean","default":false},"$preview":{"width":375,"height":812}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.ITEM = 44;
+    this.N = 120;
+    this.days = this.buildDays();
+    this.state = { scroll: (this.N - 1) * this.ITEM, idx: this.N - 1 };
+    this.lastIdx = this.N - 1;
+    this.rail = null;
+    this.placed = false;
+    this.lastTick = 0;
+    this.setRail = (el) => {
+      this.rail = el;
+      if (el && !this.placed) {
+        this.placed = true;
+        el.scrollLeft = (this.N - 1) * this.ITEM;
+      }
+    };
+    this.onScroll = (e) => {
+      const sl = e.currentTarget.scrollLeft;
+      const idx = Math.max(0, Math.min(this.N - 1, Math.round(sl / this.ITEM)));
+      if (idx !== this.lastIdx) {
+        this.lastIdx = idx;
+        this.tick();
+      }
+      this.setState({ scroll: sl, idx: idx });
+    };
+    this.unlock = () => { this.ensureAudio(); };
+    this.toToday = () => { this.goTo(this.N - 1); };
+  }
+
+  buildDays() {
+    const WD = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+    const MON = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    const KIND = { run: 'var(--ac)', kb: 'var(--ok)', str: 'var(--ac)', st: 'var(--pu)', box: 'var(--or)' };
+    const SEED = this.seed();
+    const now = new Date();
+    const out = [];
+    for (let i = 0; i < this.N; i++) {
+      const back = this.N - 1 - i;
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - back);
+      const list = SEED[back] || [];
+      const first = d.getDate() === 1;
+      out.push({
+        date: d,
+        back: back,
+        wd: WD[d.getDay()],
+        num: String(d.getDate()),
+        first: first,
+        mon: MON[d.getMonth()],
+        tick: d.getDay() === 1 || first ? 'tk l' : 'tk s',
+        dots: list.slice(0, 3).map((w) => ({ st: { background: KIND[w[0]] } })),
+      });
+    }
+    return out;
+  }
+
+  seed() {
+    return {
+      1: [['kb', 'Гири', '30 мин', 'Махи 3×20 · нормально']],
+      3: [['run', 'Бег', '32 мин', '5,2 км · 6:09 /км']],
+      5: [['str', 'Силовая', '', 'Отжимания 3×15 · Планка 3×60 · Колесо 2×10'], ['st', 'Растяжка', '15 мин', '']],
+      8: [['box', 'Бокс', '30 мин', '']],
+      10: [['run', 'Бег', '28 мин', '4,6 км · 6:05 /км']],
+      12: [['kb', 'Гири', '30 мин', '']],
+      15: [['run', 'Бег', '35 мин', '5,8 км']],
+      17: [['str', 'Силовая', '', 'Отжимания 3×15']],
+    };
+  }
+
+  goTo(i) {
+    this.ensureAudio();
+    if (this.rail) this.rail.scrollTo({ left: i * this.ITEM, behavior: 'smooth' });
+  }
+
+  ensureAudio() {
+    try {
+      if (!this.ac) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        this.ac = new AC();
+        const len = Math.floor(this.ac.sampleRate * 0.03);
+        const buf = this.ac.createBuffer(1, len, this.ac.sampleRate);
+        const ch = buf.getChannelData(0);
+        for (let k = 0; k < len; k++) ch[k] = (Math.random() * 2 - 1) * Math.pow(1 - k / len, 6);
+        this.noise = buf;
+      }
+      if (this.ac.state !== 'running') this.ac.resume();
+      return this.ac;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  tick() {
+    const ac = this.ac;
+    if (!ac || ac.state !== 'running') return;
+    const t = ac.currentTime;
+    if (t - this.lastTick < 0.018) return;
+    this.lastTick = t;
+    const src = ac.createBufferSource();
+    src.buffer = this.noise;
+    const bp = ac.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 3600;
+    bp.Q.value = 0.8;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.45, t + 0.0008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
+    src.connect(bp);
+    bp.connect(g);
+    g.connect(ac.destination);
+    src.start(t);
+    src.stop(t + 0.03);
+    const o = ac.createOscillator();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(2400, t);
+    o.frequency.exponentialRampToValueAtTime(1500, t + 0.01);
+    const g2 = ac.createGain();
+    g2.gain.setValueAtTime(0.0001, t);
+    g2.gain.exponentialRampToValueAtTime(0.08, t + 0.0008);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.012);
+    o.connect(g2);
+    g2.connect(ac.destination);
+    o.start(t);
+    o.stop(t + 0.02);
+  }
+
+  renderVals() {
+    const ITEM = this.ITEM;
+    const scroll = this.state.scroll;
+    const idx = this.state.idx;
+    const GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    const LONG = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+    const KIND = { run: 'var(--ac)', kb: 'var(--ok)', str: 'var(--ac)', st: 'var(--pu)', box: 'var(--or)' };
+    const days = this.days.map((d, i) => {
+      const off = (i * ITEM - scroll) / ITEM;
+      const a = Math.min(Math.abs(off), 5);
+      return {
+        wd: d.wd,
+        num: d.num,
+        dots: d.dots,
+        first: d.first,
+        mon: d.mon,
+        tick: d.tick,
+        cls: i === idx ? 'day sel' : 'day',
+        aria: d.num + ' ' + GEN[d.date.getMonth()] + (i === idx ? ', выбрано' : ''),
+        style: { opacity: Math.max(0.3, 1 - a * 0.15).toFixed(2) },
+        pick: () => this.goTo(i),
+      };
+    });
+    const sel = this.days[idx];
+    const back = sel.back;
+    const rel = back === 0 ? 'сегодня' : back === 1 ? 'вчера' : back === 2 ? 'позавчера' : String(sel.date.getFullYear());
+    const day = LONG[sel.date.getDay()];
+    const label = day.charAt(0).toUpperCase() + day.slice(1) + ', ' + sel.date.getDate() + ' ' + GEN[sel.date.getMonth()];
+    const list = (this.seed()[back] || []).map((w) => ({ st: { background: KIND[w[0]] }, label: w[1], min: w[2], sub: w[3] }));
+    return {
+      themeClass: this.props.light ? 'light' : '',
+      days: days,
+      setRail: this.setRail,
+      onScroll: this.onScroll,
+      unlock: this.unlock,
+      toToday: this.toToday,
+      notToday: back !== 0,
+      selLabel: label,
+      selRel: rel,
+      listTitle: back === 0 ? 'Сегодня' : sel.date.getDate() + ' ' + GEN[sel.date.getMonth()],
+      list: list,
+      hasList: list.length > 0,
+      noList: list.length === 0,
+    };
+  }
+}
+</script>
+</body>
+</html>

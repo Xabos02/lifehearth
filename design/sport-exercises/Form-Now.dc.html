@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Запись тренировки — как сейчас</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 375px; height: 812px; overflow: hidden; background: #08080f">
+<img src="{{shot}}" alt="Снимок приложения: форма «Новая тренировка», вид «Бег», 30 минут" style="display: block; width: 375px; height: 812px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"light":{"editor":"boolean","default":false},"$preview":{"width":375,"height":812}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { shot: this.props.light ? 'shots/form-now-light.webp' : 'shots/form-now-dark.webp' };
+  }
+}
+</script>
+</body>
+</html>
