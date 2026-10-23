@@ -172,6 +172,8 @@ function recurrenceLabel(r: Task['recurrence']): string | undefined {
       return 'ежемесячно';
     case 'yearly':
       return 'ежегодно';
+    case 'manual':
+      return 'вручную';
   }
 }
 

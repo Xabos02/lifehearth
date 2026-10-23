@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Задачи — как сейчас</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.sub{height:30px;box-sizing:border-box;margin:0;padding:10px 16px 0;font-size:12px;line-height:16px;color:#a9a7a3}
+img{display:block}
+</style>
+</helmet>
+<div style="width: 400px; height: 2448px; background: #08080f; font-family: -apple-system, system-ui, sans-serif">
+  <p style="height: 44px; box-sizing: border-box; margin: 0; padding: 16px 16px 0; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: #f0eee8">Задачи — как сейчас</p>
+  <p class="sub">Тёмная, 375 — отметил «Генеральную уборку»: копия с датой</p>
+  <img src="shots/dark-now-375-section.webp" alt="Секция «Дом» после отметки — тёмная, 375" style="width: 343px; height: 743px">
+  <p class="sub">Экран целиком: тост «Повторится 24 октября»</p>
+  <img src="shots/dark-now-375-screen.webp" alt="Экран задач с тостом — тёмная, 375" style="width: 375px; height: 812px">
+  <p class="sub">Светлая, 375</p>
+  <img src="shots/light-now-375-section.webp" alt="Секция «Дом» после отметки — светлая, 375" style="width: 343px; height: 743px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":400,"height":2448}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

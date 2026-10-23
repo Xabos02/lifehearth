@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Б: без зачёркивания + слово «Запустить»</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.sub{height:30px;box-sizing:border-box;margin:0;padding:10px 16px 0;font-size:12px;line-height:16px;color:#a9a7a3}
+img{display:block}
+</style>
+</helmet>
+<div style="width: 400px; height: 3920px; background: #08080f; font-family: -apple-system, system-ui, sans-serif">
+  <p style="height: 44px; box-sizing: border-box; margin: 0; padding: 16px 16px 0; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: #f0eee8">Б: без зачёркивания + слово «Запустить»</p>
+  <p class="sub">Тёмная, 375 — «Запустить все» словом под списком</p>
+  <img src="shots/dark-b-375-section.webp" alt="Вариант Б — тёмная, 375" style="width: 343px; height: 939px">
+  <p class="sub">— 320: названия ломаются по слогам</p>
+  <img src="shots/dark-b-320-section.webp" alt="Вариант Б — тёмная, 320" style="width: 288px; height: 1050px">
+  <p class="sub">Отметил «Постирать и погладить» — тост, задача на месте</p>
+  <img src="shots/dark-b-375-screen.webp" alt="Вариант Б — экран с тостом" style="width: 375px; height: 812px">
+  <p class="sub">Светлая, 375</p>
+  <img src="shots/light-b-375-section.webp" alt="Вариант Б — светлая, 375" style="width: 343px; height: 939px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":400,"height":3920}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

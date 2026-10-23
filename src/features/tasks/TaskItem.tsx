@@ -12,13 +12,14 @@ import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { remove, update } from '../../db/repo';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
-import { addDaysKey, formatDueDate, formatRu, todayKey } from '../../lib/dates';
+import { addDaysKey, formatDueDate, formatRu, toKey, todayKey } from '../../lib/dates';
 import { formatDueRange } from '../../lib/taskDates';
 import { describeRecurrence } from '../../lib/recurrence';
 import { t } from '../../lib/i18n';
-import { skipTask, toggleTask } from './taskActions';
+import { isSleeping, launchTasks, skipTask, toggleTask } from './taskActions';
 import { ICON } from '../../components/ui/icons';
 import {
+  GRepeat as RepeatG,
   GSnowflake as Snowflake,
 } from '../../components/ui/glyphs';
 
@@ -34,6 +35,13 @@ function addMinutesToTime(hhmm: string, add: number): string {
   const [h, m] = hhmm.split(':').map(Number);
   const total = (((h * 60 + m + add) % 1440) + 1440) % 1440;
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/** «сегодня» / «вчера» / «20 октября» — день отметки в середине фразы. */
+function doneOn(iso: string): string {
+  const key = toKey(new Date(iso));
+  const d = formatDueDate(key);
+  return d === formatRu(key) ? d : d.toLowerCase();
 }
 
 const ACTIONS_WIDTH = 152; // ширина блока действий слева (две кнопки)
@@ -57,6 +65,7 @@ export const TaskItem = memo(function TaskItem({
   onDragStart,
   isDragSource = false,
   hideProject = false,
+  launchable = false,
 }: {
   task: Task;
   project?: Project | null;
@@ -68,9 +77,15 @@ export const TaskItem = memo(function TaskItem({
   isDragSource?: boolean;
   /** Скрыть метку проекта — на TasksPage задача уже под заголовком проекта. */
   hideProject?: boolean;
+  /** ↻ у спящей задачи ручного повтора — только в живом списке «Задач»: там
+   *  она стоит на своём месте. В приглушённых списках («Сделано» на «Сегодня»,
+   *  opacity-60) кнопка теряет контраст, а запуск — дело проекта. */
+  launchable?: boolean;
 }) {
   const toast = useToast();
   const done = Boolean(task.completedAt);
+  // Спит: ручной повтор отмечен и ждёт, когда его запустят снова.
+  const sleeping = launchable && isSleeping(task);
   // Где включён drag — глушим нативное выделение/лупу/callout iOS, иначе
   // удержание шлёт строке pointercancel и перенос срывается.
   const draggable = Boolean(onDragStart);
@@ -150,6 +165,7 @@ export const TaskItem = memo(function TaskItem({
   const handleToggle = async () => {
     setDx(0);
     const next = await toggleTask(task);
+    if (!done && task.recurrence?.type === 'manual') toast(t('Сделано · запустите снова, когда пора'));
     // «Завтра» и «Сегодня» приходят с заглавной — в середине фразы строчная.
     if (next) {
       const d = formatDueDate(next);
@@ -166,7 +182,9 @@ export const TaskItem = memo(function TaskItem({
     void update(db.tasks, task.id, { dueDate, startDate });
     // Переносим и пуш-напоминание (иначе оно осталось бы на сегодня, а завтра
     // не сработало бы). scheduleReminder сам снимет пуш, если времени нет.
-    void scheduleReminder({ ...task, dueDate });
+    // Отмеченной — никакого: спящая ручная задача стоит в живом списке, и
+    // свайп по ней иначе ставил бы пуш о сделанном.
+    if (!done) void scheduleReminder({ ...task, dueDate });
     toast(t('Перенесено на завтра'));
   };
 
@@ -174,7 +192,8 @@ export const TaskItem = memo(function TaskItem({
     setDx(0);
     await skipTask(task);
     toast(
-      task.recurrence
+      // Ручной повтор пропускается как разовая задача (skipTask).
+      task.recurrence && task.recurrence.type !== 'manual'
         ? t('Пропущено · к следующему повтору')
         : t('Пропущено · перенесено на сегодня'),
     );
@@ -409,6 +428,11 @@ export const TaskItem = memo(function TaskItem({
                     : ''}
                 </span>
               )}
+              {sleeping && task.completedAt && (
+                <span>
+                  {t('сделано {date}', { date: doneOn(task.completedAt) })}
+                </span>
+              )}
               {task.skippedCount ? (
                 <span className="text-warning">
                   {t('пропущено')}
@@ -459,6 +483,23 @@ export const TaskItem = memo(function TaskItem({
             </div>
           )}
         </div>
+        {sleeping && (
+          // Запуск — круглая кнопка справа, как «Разморозить» у замороженных:
+          // строка спящей задачи той же высоты, что обычная (канва
+          // design/manual-repeat, вариант А).
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              // Свайп и удержание тоже кончаются кликом — это не тап по ↻.
+              if (drag.current.longPressed || drag.current.moved) return;
+              void launchTasks([task]).then(() => toast(t('Задача запущена')));
+            }}
+            aria-label={t('Запустить снова')}
+            className={`flex size-9 shrink-0 items-center justify-center self-center rounded-full bg-lh-accent-dim text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
+          >
+            <RepeatG size={ICON.action} />
+          </button>
+        )}
         {overdue && (
           // Кнопка пропуска — В КОНЦЕ строки, а не перед чекбоксом.
           //

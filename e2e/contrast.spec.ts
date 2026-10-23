@@ -535,6 +535,26 @@ test('задачи: цель переноса — AA в обеих темах', 
   expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
 });
 
+test('задачи: спящая задача ручного повтора и ↻ на золотой подложке — AA в обеих темах', async ({ page }) => {
+  await openApp(page, '/tasks');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    await db.projects.put({ ...base('p1'), name: 'Дом', color: '#5b7cfa', emoji: '📁', sortOrder: 1000, archivedAt: null, parentId: null } as never);
+    await db.tasks.put({
+      ...base('mr1'), title: 'Генеральная уборка', notes: '', projectId: 'p1', goalId: null, priority: 0,
+      dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: now, checklist: [],
+      recurrence: { type: 'manual' }, tags: [], sortOrder: 1000,
+    } as never);
+  });
+  await page.goto('/tasks');
+  const sec = page.locator('section[data-drop-key="p1"]');
+  await expect(sec.getByRole('button', { name: 'Запустить снова' })).toBeVisible();
+  const bad = await scanRoots(page, 'спящая задача', async () => [sec]);
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+});
+
 // Кнопки, перекрашенные через className, проигрывали классу варианта Button:
 // классы склеиваются строкой, оба в одном слое, и побеждает тот, что ниже в
 // собранном CSS. «Исключить» (primary) выходила белым по золоту — 2.29:1,

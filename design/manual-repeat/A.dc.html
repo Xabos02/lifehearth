@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>А: отмечена на месте + круглая кнопка</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.sub{height:30px;box-sizing:border-box;margin:0;padding:10px 16px 0;font-size:12px;line-height:16px;color:#a9a7a3}
+img{display:block}
+</style>
+</helmet>
+<div style="width: 400px; height: 3462px; background: #08080f; font-family: -apple-system, system-ui, sans-serif">
+  <p style="height: 44px; box-sizing: border-box; margin: 0; padding: 16px 16px 0; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: #f0eee8">А: отмечена на месте + круглая кнопка</p>
+  <p class="sub">Тёмная, 375 — «Запустить все» значком ↻ в шапке</p>
+  <img src="shots/dark-a-375-section.webp" alt="Вариант А — тёмная, 375" style="width: 343px; height: 786px">
+  <p class="sub">— 320</p>
+  <img src="shots/dark-a-320-section.webp" alt="Вариант А — тёмная, 320" style="width: 288px; height: 898px">
+  <p class="sub">Отметил «Постирать и погладить» — тост, задача на месте</p>
+  <img src="shots/dark-a-375-screen.webp" alt="Вариант А — экран с тостом" style="width: 375px; height: 812px">
+  <p class="sub">Светлая, 375</p>
+  <img src="shots/light-a-375-section.webp" alt="Вариант А — светлая, 375" style="width: 343px; height: 786px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":400,"height":3462}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

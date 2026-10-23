@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Редактор: где «Вручную»</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.sub{height:30px;box-sizing:border-box;margin:0;padding:10px 16px 0;font-size:12px;line-height:16px;color:#a9a7a3}
+.head{height:44px;box-sizing:border-box;margin:0;padding:20px 16px 0;font-size:13px;font-weight:600;color:#f0eee8}
+img{display:block}
+</style>
+</helmet>
+<div style="width: 400px; height: 2052px; background: #08080f; font-family: -apple-system, system-ui, sans-serif">
+  <p style="height: 44px; box-sizing: border-box; margin: 0; padding: 16px 16px 0; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: #f0eee8">Редактор: где «Вручную»</p>
+  <p class="head">Шестым сегментом «Вручную» — на 320 вылезает на 27 px</p>
+  <p class="sub">Тёмная, 320</p>
+  <img src="shots/dark-editor-word-320.webp" alt="«Вручную» шестым сегментом — тёмная, 320" style="width: 320px; height: 162px">
+  <p class="sub">Тёмная, 375 — помещается</p>
+  <img src="shots/dark-editor-word-375.webp" alt="«Вручную» шестым сегментом — тёмная, 375" style="width: 375px; height: 162px">
+  <p class="sub">Светлая, 320</p>
+  <img src="shots/light-editor-word-320.webp" alt="«Вручную» шестым сегментом — светлая, 320" style="width: 320px; height: 162px">
+  <p class="head">1) «Сам» — влезает, высота та же</p>
+  <p class="sub">Тёмная, 320</p>
+  <img src="shots/dark-editor-sam-320.webp" alt="«Сам» — тёмная, 320" style="width: 320px; height: 162px">
+  <p class="sub">Тёмная, 375</p>
+  <img src="shots/dark-editor-sam-375.webp" alt="«Сам» — тёмная, 375" style="width: 375px; height: 162px">
+  <p class="sub">Светлая, 320</p>
+  <img src="shots/light-editor-sam-320.webp" alt="«Сам» — светлая, 320" style="width: 320px; height: 162px">
+  <p class="head">2) Две строки по три — слова целиком, +44 px</p>
+  <p class="sub">Тёмная, 320</p>
+  <img src="shots/dark-editor-grid-320.webp" alt="Две строки — тёмная, 320" style="width: 320px; height: 206px">
+  <p class="sub">Тёмная, 375</p>
+  <img src="shots/dark-editor-grid-375.webp" alt="Две строки — тёмная, 375" style="width: 375px; height: 206px">
+  <p class="sub">Светлая, 320</p>
+  <img src="shots/light-editor-grid-320.webp" alt="Две строки — светлая, 320" style="width: 320px; height: 206px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":400,"height":2052}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

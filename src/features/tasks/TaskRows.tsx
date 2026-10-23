@@ -99,6 +99,7 @@ export function TaskCard({
             onDragStart={onDragStart}
             isDragSource={draggingId === task.id}
             hideProject
+            launchable={!muted}
           />
         </Fragment>
       ))}
