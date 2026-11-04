@@ -733,11 +733,12 @@ export class FamilyRoom extends DurableObject {
           }
         }
       }
-      // Любой сигнал, кроме недоставленного offer, снимает страховку alarm'а:
-      // доставленный offer — адресат онлайн, его клиент сам покажет исход;
-      // cancel — missed уже ушёл строкой выше; answer/decline/busy/hangup —
-      // адресат уже в приложении, «пропущенный» не нужен.
-      if (msg.call && (msg.kind !== 'offer' || delivered)) {
+      // Любой сигнал, кроме offer, снимает страховку alarm'а: cancel — missed
+      // уже ушёл строкой выше; answer/accepted/decline/busy/hangup — адресат уже
+      // в приложении, «пропущенный» не нужен. Доставленный offer её больше не
+      // снимает: иначе сокет, то живой, то замолчавший, давал бы новый пуш
+      // «Входящий звонок» на каждое замолкание.
+      if (msg.call && msg.kind !== 'offer') {
         this.sql.exec('DELETE FROM meta WHERE k=?', `callpend:${msg.call}`);
       }
       return;

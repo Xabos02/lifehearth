@@ -312,6 +312,7 @@ class FamilyEngine {
     this.awaitingPong = false;
     this.pingTimer = setInterval(() => {
       if (sock.readyState !== WebSocket.OPEN) return;
+      if (this.probeTimer) return; // пинг пробы ещё в пути — его судит проба
       if (this.awaitingPong) {
         // Предыдущий пинг остался без ответа — соединение мёртвое.
         this.dropSocket?.();
@@ -337,7 +338,9 @@ class FamilyEngine {
     }
     this.probeTimer = setTimeout(() => {
       this.probeTimer = null;
-      if (this.ws === sock && this.awaitingPong) this.dropSocket?.();
+      if (this.ws !== sock || !this.awaitingPong) return;
+      this.dropSocket?.();
+      void this.connect(); // сразу, без паузы переподключения: идёт звонок или возврат в приложение
     }, PROBE_MS);
   }
   private stopPing() {
