@@ -31,7 +31,7 @@ export function CallDiagSheet({ open, onClose }: { open: boolean; onClose: () =>
                     ? `${t('сервер отказал')} · ${d.turnDetail ?? ''}`
                     : d.turn === 'network-error'
                       ? t('сеть не пустила запрос')
-                      : t('сервер вернул только STUN')
+                      : `${t('сервер вернул только STUN')}${d.turnDetail ? ` · ${d.turnDetail}` : ''}`
             }
             bad={d.turn !== 'ok'}
           />

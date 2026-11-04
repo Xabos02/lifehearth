@@ -31,6 +31,15 @@ import { reconnectDelay } from './reconnectDelay';
 import { WORKER_WS_URL as WS_URL } from '../workerUrl';
 import { hasConsent } from '../consent';
 const PING_MS = 25_000;
+// Срок ответа на проверочный пинг при возврате в приложение (см. probe).
+const PROBE_MS = 5_000;
+
+/** Запрос при подключении не висит дольше 10 с. Пока он висит, connect()
+ *  закрыт для повторов — на заглохшей сети это минута без связи, а значит и
+ *  без звонков. Старый Safari без AbortSignal.timeout живёт как раньше. */
+function connectDeadline(): { signal?: AbortSignal } {
+  return typeof AbortSignal.timeout === 'function' ? { signal: AbortSignal.timeout(10_000) } : {};
+}
 // Сколько символов dataURL безопасно уходит одним WS-фреймом. Лимит фрейма —
 // 1 МиБ, а полезная нагрузка раздувается шифрованием и JSON примерно в 1,33
 // раза; 600 КиБ символов оставляют запас.
@@ -42,7 +51,8 @@ type ConnState = 'offline' | 'connecting' | 'online';
 type Channel = 'msg' | 'task' | 'member' | 'key';
 
 // Сигнал звонка (WebRTC): эфемерный, проходит через WS, в БД не пишется.
-export type SignalKind = 'offer' | 'answer' | 'ice' | 'decline' | 'hangup' | 'busy' | 'cancel';
+// 'accepted' — «трубку сняли», уходит по нажатию, раньше ответа.
+export type SignalKind = 'offer' | 'answer' | 'ice' | 'decline' | 'hangup' | 'busy' | 'cancel' | 'accepted';
 export interface SignalFrame {
   from: string | null;
   to: string | null;
@@ -149,6 +159,10 @@ class FamilyEngine {
   // см. reconnectDelay. Обнуляется, как только сервер сказал ready.
   private reconnectAttempt = 0;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private probeTimer: ReturnType<typeof setTimeout> | null = null;
+  // Бросить текущий сокет как мёртвый и сразу начать новый. Событие закрытия
+  // у мёртвого соединения может прийти очень нескоро — его не ждём.
+  private dropSocket: (() => void) | null = null;
   // Ждём ли ответ на последний пинг. Признак «замороженного» сокета: он
   // OPEN, отправка не падает, но собеседника на том конце уже нет.
   private awaitingPong = false;
@@ -300,23 +314,41 @@ class FamilyEngine {
       if (sock.readyState !== WebSocket.OPEN) return;
       if (this.awaitingPong) {
         // Предыдущий пинг остался без ответа — соединение мёртвое.
-        this.awaitingPong = false;
-        try {
-          sock.close();
-        } catch {
-          /* уже закрывается — переподключение поднимет обработчик onclose */
-        }
+        this.dropSocket?.();
         return;
       }
       this.awaitingPong = true;
       sock.send('{"t":"ping"}');
     }, PING_MS);
   }
+
+  /** «Жив ли сокет» — прямо сейчас, не дожидаясь сторожа. OPEN ещё не
+   *  значит живой: после фона iOS или смены сети он молча мёртв, а сторож
+   *  заметит это через 25–50 с — дольше, чем звонит входящий, и всё, что
+   *  ушло в такой сокет (ответ на звонок), пропадает. Зовётся из connect():
+   *  возврат в приложение, появление сети, начало звонка. */
+  private probe(sock: WebSocket) {
+    if (this.probeTimer) return;
+    this.awaitingPong = true;
+    try {
+      sock.send('{"t":"ping"}');
+    } catch {
+      /* уже закрывается — новое поднимет обработчик закрытия */
+    }
+    this.probeTimer = setTimeout(() => {
+      this.probeTimer = null;
+      if (this.ws === sock && this.awaitingPong) this.dropSocket?.();
+    }, PROBE_MS);
+  }
   private stopPing() {
     this.awaitingPong = false;
     if (this.pingTimer) {
       clearInterval(this.pingTimer);
       this.pingTimer = null;
+    }
+    if (this.probeTimer) {
+      clearTimeout(this.probeTimer);
+      this.probeTimer = null;
     }
   }
 
@@ -492,7 +524,15 @@ class FamilyEngine {
     // одновременных connect() (visibilitychange+focus при возврате в PWA) оба
     // пройдут проверку и откроют по сокету на одну группу.
     if (this.connecting) return;
-    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
+    // Уже открыт — проверяем, что живой (см. probe), а не верим на слово. Но
+    // только после ready: до него сервер ещё шлёт историю, и ответ на пинг
+    // встаёт за ней в очередь — на медленной сети не уложился бы в срок, и
+    // проверка рвала бы рабочее соединение по кругу.
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      if (this.state === 'online') this.probe(this.ws);
+      return;
+    }
+    if (this.ws?.readyState === WebSocket.CONNECTING) return;
     this.connecting = true;
     this.setState('connecting');
     try {
@@ -606,28 +646,38 @@ class FamilyEngine {
           }
         }
       };
-      sock.onclose = (ev: CloseEvent) => {
+      const gone = (code?: number) => {
         if (this.ws !== sock) return; // закрылся осиротевший сокет — актуальный не трогаем
         // 4403 — сервер закрыл соединение исключённому. Реконнект бессмыслен:
         // токен уже сменили, а нового ключа нам не положат.
-        if (ev.code === 4403) {
+        if (code === 4403) {
           this.wantConnected = false;
           void patchFamilyConfig(this.familyId, { removedAt: new Date().toISOString() });
         }
         // 4404 — владелец удалил группу целиком. Тоже не переподключаемся,
         // но причина другая, и баннер должен сказать правду, а не «вас исключили».
-        if (ev.code === 4404) {
+        if (code === 4404) {
           this.wantConnected = false;
           void patchFamilyConfig(this.familyId, { groupDeletedAt: new Date().toISOString() });
         }
         this.ws = null;
+        this.dropSocket = null;
         this.connecting = false;
         this.stopPing();
         this.setPresence([]);
         this.setState('offline');
         this.scheduleReconnect();
       };
+      sock.onclose = (ev: CloseEvent) => gone(ev.code);
       sock.onerror = () => sock.close();
+      this.dropSocket = () => {
+        try {
+          sock.close();
+        } catch {
+          /* уже закрывается */
+        }
+        gone();
+      };
     } catch {
       this.connecting = false;
       this.setState('offline');
@@ -657,6 +707,7 @@ class FamilyEngine {
       method: 'POST',
       headers: answer ? { ...auth, 'Content-Type': 'application/json' } : auth,
       ...(answer ? { body: JSON.stringify(answer) } : {}),
+      ...connectDeadline(),
     });
   }
 
@@ -672,6 +723,7 @@ class FamilyEngine {
       method: 'POST',
       headers: { ...auth, 'Content-Type': 'application/json' },
       body: JSON.stringify({ memberId: c.selfMemberId }),
+      ...connectDeadline(),
     });
     if (!res.ok) return null; // сервер ещё не умеет задачи — идём прежним путём
     const { challenge } = (await res.json()) as {
@@ -743,6 +795,7 @@ class FamilyEngine {
     this.setPresence([]);
     this.ws?.close();
     this.ws = null;
+    this.dropSocket = null;
     this.setState('offline');
   }
 

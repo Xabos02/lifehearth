@@ -1,7 +1,26 @@
 import { useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { callManager } from '../../lib/family/familyCall';
 
 const CHECK_INTERVAL = 15 * 60 * 1000; // проверять обновление раз в 15 мин
+
+// Обновление — только вне звонка: перезагрузка посреди разговора убивала
+// соединение без единого сигнала собеседнику. К перезагрузке ведут два пути:
+// свой controllerchange ниже и обработчик самого плагина (в autoUpdate он
+// перезагружает страницу на 'activated' сам, если не передать onNeedReload).
+// Оба идут сюда, и новая версия ждёт конца звонка.
+const inCall = () => callManager.getSnapshot().status !== 'idle';
+let reloading = false;
+function reloadWhenIdle() {
+  if (reloading) return;
+  reloading = true;
+  if (!inCall()) return window.location.reload();
+  const unsub = callManager.subscribe(() => {
+    if (inCall()) return;
+    unsub();
+    window.location.reload();
+  });
+}
 
 /**
  * Тихое авто-обновление PWA (registerType: 'autoUpdate'). Новый service worker
@@ -13,9 +32,14 @@ const CHECK_INTERVAL = 15 * 60 * 1000; // проверять обновлени�
  */
 export function ReloadPrompt() {
   useRegisterSW({
+    onNeedReload: reloadWhenIdle,
     onRegisteredSW(_url, registration) {
       if (!registration) return;
-      const check = () => registration.update().catch(() => {});
+      // Во время звонка не проверяем вовсе: установка новой версии тянет
+      // кэш по той же сети, что и разговор, и кончается перезагрузкой.
+      const check = () => {
+        if (!inCall()) registration.update().catch(() => {});
+      };
       check(); // сразу при запуске
       setInterval(check, CHECK_INTERVAL);
       // при возврате в приложение (из фона/другой вкладки) — проверить снова
@@ -31,15 +55,12 @@ export function ReloadPrompt() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     let hadController = !!navigator.serviceWorker.controller;
-    let refreshing = false;
     const onChange = () => {
       if (!hadController) {
         hadController = true; // первая установка — без перезагрузки
         return;
       }
-      if (refreshing) return;
-      refreshing = true;
-      window.location.reload();
+      reloadWhenIdle();
     };
     navigator.serviceWorker.addEventListener('controllerchange', onChange);
     return () => navigator.serviceWorker.removeEventListener('controllerchange', onChange);

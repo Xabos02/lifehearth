@@ -440,3 +440,41 @@ describe('подтверждение личности при подключен�
     expect(bound, 'сервер принял неверный ответ').toBe(false);
   });
 });
+
+describe('звонок адресату с замороженным приложением', () => {
+  // iOS замораживает приложение в фоне, а его сокет на сервере живёт ещё
+  // долго. Раньше приглашение в такой сокет считалось доставленным — и пуш
+  // «Входящий звонок» не уходил: телефон молчал, звонок проходил мимо.
+  it('приглашение в молчащий сокет не считается доставленным — уходит пуш', async () => {
+    const { room, addSocket } = makeRoom();
+    const caller = addSocket('mom');
+    caller.serializeAttachment({ memberId: 'mom', at: Date.now() });
+    const callee = addSocket('vlad');
+    callee.serializeAttachment({ memberId: 'vlad', at: Date.now() - 60_000 }); // последний пинг — минуту назад
+    const offer = (call: string) =>
+      room.webSocketMessage(caller, JSON.stringify({ type: 'signal', to: 'vlad', call, kind: 'offer', data: 'x' }));
+    const pending = () =>
+      (room.sql.exec("SELECT k FROM meta WHERE k LIKE 'callpend:%'").toArray() as { k: string }[]).map((r) => r.k);
+
+    await offer('c1');
+    expect(callee.sent.some((f) => f.includes('"kind":"offer"')), 'кадр всё равно отдан — вдруг жив').toBe(true);
+    expect(pending(), 'дозвон без пуша').toEqual(['callpend:c1']);
+
+    // Живое приложение само покажет входящий — пуш ему не нужен.
+    callee.serializeAttachment({ memberId: 'vlad', at: Date.now() });
+    await offer('c2');
+    expect(pending()).toEqual(['callpend:c1']);
+  });
+
+  it('трубку сняли на телефоне — второе устройство того же участника перестаёт звонить', async () => {
+    const { room, addSocket } = makeRoom();
+    const caller = addSocket('mom');
+    const phone = addSocket('vlad');
+    const mac = addSocket('vlad');
+    await room.webSocketMessage(phone, JSON.stringify({ type: 'signal', to: 'mom', call: 'c1', kind: 'accepted', data: null }));
+    const stop = mac.sent.map((f) => JSON.parse(f)).find((f) => f.kind === 'cancel');
+    expect(stop, 'второе устройство звонит дальше').toMatchObject({ from: 'mom', to: 'vlad', call: 'c1' });
+    expect(phone.sent.some((f) => f.includes('"cancel"')), 'отбой ответившему').toBe(false);
+    expect(caller.sent.some((f) => f.includes('"accepted"'))).toBe(true);
+  });
+});
