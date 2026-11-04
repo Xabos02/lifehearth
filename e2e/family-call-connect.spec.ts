@@ -165,6 +165,20 @@ async function expectTalking(...pages: Page[]) {
   }
 }
 
+/** Сколько аудиопакетов принято — счётчик накопительный, поэтому «звук идёт
+ *  сейчас» проверяется ростом от замера к замеру. */
+async function packets(p: Page): Promise<number> {
+  return p.evaluate(async () => {
+    const { callManager } = await import('/src/lib/family/familyCall.ts');
+    const pc = (callManager as unknown as { pc: RTCPeerConnection | null }).pc;
+    let n = 0;
+    (await pc?.getStats())?.forEach((s: RTCStats & { kind?: string; packetsReceived?: number }) => {
+      if (s.type === 'inbound-rtp' && s.kind === 'audio') n = s.packetsReceived ?? 0;
+    });
+    return n;
+  });
+}
+
 async function snapshot(p: Page) {
   return p.evaluate(async () => {
     const { callManager } = await import('/src/lib/family/familyCall.ts');
@@ -276,10 +290,10 @@ test.describe('звонок между двумя телефонами', () => {
 
     await mom.getByRole('button', { name: 'Позвонить: Влад' }).click();
     await expect(vlad.getByText('Входящий звонок')).toBeVisible({ timeout: 15_000 });
-    await mom.clock.fastForward(40_000); // у мамы дозвон почти истёк
+    await mom.clock.fastForward(35_000); // у мамы дозвон почти истёк
     await vlad.getByRole('button', { name: 'Ответить' }).click();
     await expect(mom.getByText('Соединение…')).toBeVisible({ timeout: 10_000 });
-    await mom.clock.fastForward(10_000); // срок дозвона позади, ответ ещё в пути
+    await mom.clock.fastForward(15_000); // срок дозвона позади, ответ ещё в пути
 
     expect((await snapshot(mom)).endReason).not.toBe('Не ответили');
     expect(relay.kinds(MOM.id)).not.toContain('cancel');
@@ -350,7 +364,12 @@ test.describe('звонок между двумя телефонами', () => {
     });
     await expect.poll(async () => (await ufrag(mom)).state, { timeout: 10_000 }).toBe('stable');
     expect((await ufrag(mom)).remote).not.toBe(before.remote);
-    await expectTalking(mom, vlad);
+    // И звук после переигровки идёт дальше, а не только шёл до неё.
+    for (const p of [mom, vlad]) {
+      const was = await packets(p);
+      await expect.poll(() => packets(p), { timeout: 10_000 }).toBeGreaterThan(was + 10);
+    }
+    await expect(mom.getByText('На связи')).toBeVisible();
   });
 
   test('связь пропала насовсем — через срок восстановления обе стороны знают об этом', async ({ browser }) => {
@@ -378,6 +397,7 @@ test.describe('звонок между двумя телефонами', () => {
 
     await expect.poll(async () => (await snapshot(vlad)).endReason).toBe('Связь не восстановилась');
     expect(relay.kinds(VLAD.id)).toContain('hangup'); // маме сказали, а не бросили
+    await expect.poll(async () => (await snapshot(mom)).endReason).toBe('Звонок завершён');
     const diag = await vlad.evaluate(async () => (await import('/src/lib/family/familyCall.ts')).getCallDiag());
     expect(diag?.reason).toBe('Связь не восстановилась');
   });

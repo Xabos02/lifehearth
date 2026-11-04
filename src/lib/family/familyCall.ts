@@ -390,9 +390,16 @@ class CallManager {
   private async holdScreen() {
     try {
       if (this.wakeLock || !('wakeLock' in navigator)) return;
-      this.wakeLock = await navigator.wakeLock.request('screen');
-      this.wakeLock.addEventListener('release', () => {
-        this.wakeLock = null;
+      const wl = await navigator.wakeLock.request('screen');
+      // Звонок кончился, пока система выдавала блокировку (мгновенное «Нет
+      // связи», отказ в микрофоне) — иначе экран не гас бы до ухода из приложения.
+      if (this.snap.status === 'idle' || this.snap.status === 'ended') {
+        void wl.release().catch(() => {});
+        return;
+      }
+      this.wakeLock = wl;
+      wl.addEventListener('release', () => {
+        if (this.wakeLock === wl) this.wakeLock = null;
       });
     } catch {
       /* платформа не даёт — не критично, звонок продолжается */
@@ -593,6 +600,7 @@ class CallManager {
   private async restartIce(pc: RTCPeerConnection) {
     if (this.restarting) return; // вторая переигровка поверх первой спутала бы описания
     this.restarting = true;
+    this.clearResend(); // копии прошлой переигровки больше не нужны
     const delay = RESTART_BACKOFF_MS[Math.min(this.restartAttempt, RESTART_BACKOFF_MS.length - 1)];
     this.restartAttempt++;
     try {
@@ -648,7 +656,9 @@ class CallManager {
     // приглашение повторят через пару секунд.
     if (this.pc !== pc || pc.signalingState !== 'stable' || !pc.remoteDescription) return;
     if (iceUfrag(sdp.sdp) === iceUfrag(pc.remoteDescription.sdp)) {
-      if (pc.localDescription?.type === 'answer') void this.signal('answer', { sdp: pc.localDescription });
+      if (pc.localDescription?.type === 'answer') {
+        void this.signal('answer', { sdp: pc.localDescription, re: iceUfrag(pc.remoteDescription.sdp) });
+      }
       return;
     }
     const gen = this.gen;
@@ -660,7 +670,7 @@ class CallManager {
       if (this.gen !== gen || this.pc !== pc) return;
       await this.waitIce(pc);
       if (this.gen !== gen || this.pc !== pc) return;
-      void this.signal('answer', { sdp: pc.localDescription });
+      void this.signal('answer', { sdp: pc.localDescription, re: iceUfrag(sdp.sdp) });
     } catch {
       /* описание отвергнуто или pc закрыт — восстановление ведёт другая сторона */
     }
@@ -804,8 +814,12 @@ class CallManager {
       stream = await this.getMic();
     } catch {
       // hangup, а не decline: «трубку сняли» уже ушло, и звонящий отказ после
-      // ответа не принимает (см. decline в onSignal).
-      void this.signal('hangup', null);
+      // ответа не принимает (см. decline в onSignal). Синхронно, до end():
+      // this.signal() читает поля после await, а end() их уже обнулил бы.
+      if (this.peerId && this.callId) {
+        sendSignal(familyId, { to: this.peerId, call: this.callId, kind: 'hangup', data: null });
+        this.finished.set(this.callId, 'hangup');
+      }
       this.end('Нет доступа к микрофону');
       return;
     }
@@ -825,7 +839,7 @@ class CallManager {
       if (this.gen !== gen) return this.abortLocal(pc, stream);
       await this.waitIce(pc);
       if (this.gen !== gen) return this.abortLocal(pc, stream);
-      void this.signal('answer', { sdp: pc.localDescription });
+      void this.signal('answer', { sdp: pc.localDescription, re: iceUfrag(offer.sdp.sdp) });
     } catch {
       // Раньше исключение (чужой ключ, отвергнутое описание) молча держало
       // «Соединение…» 25 секунд и сваливало вину на сеть.
@@ -1057,7 +1071,7 @@ class CallManager {
         this.diagRemote[t] = (this.diagRemote[t] ?? 0) + 1;
       }
       const gen = this.gen;
-      const name = await this.peerName(f.from);
+      const name = await this.peerName(f.from).catch(() => t('Участник'));
       // Пока читали имя, звонящий мог уже отменить: его «отбой» из той же
       // пачки обработан раньше. Без этой проверки оставался призрак —
       // звонит, а «Ответить» ничего не делает.
@@ -1099,8 +1113,12 @@ class CallManager {
       // не проверяем). Копия уже принятого ответа — мимо.
       const pc = this.pc;
       if (!pc || !f.data || pc.signalingState !== 'have-local-offer') return;
-      const ans = await decryptJSON<{ sdp: RTCSessionDescriptionInit }>(c.familyKey, f.data);
+      const ans = await decryptJSON<{ sdp: RTCSessionDescriptionInit; re?: string }>(c.familyKey, f.data);
       if (this.pc !== pc || pc.signalingState !== 'have-local-offer') return; // снесён/заменён, пока расшифровывали
+      // Ответ на прошлую переигровку, пришедший, когда уже ушла следующая, —
+      // не наш: учётки разошлись бы, и проверки маршрутов не сошлись. (re
+      // ставят новые версии; у старых его нет — принимаем как раньше.)
+      if (ans.re && ans.re !== iceUfrag(pc.localDescription?.sdp)) return;
       try {
         await pc.setRemoteDescription(withOpusTuning(ans.sdp));
       } catch {
@@ -1146,7 +1164,9 @@ class CallManager {
       // телефона — и раньше этим рвал идущий разговор.
       if (this.snap.status === 'outgoing') this.end(f.kind === 'decline' ? 'Отклонено' : 'Занято');
     } else if (f.kind === 'hangup' || f.kind === 'cancel') {
-      this.end(this.snap.status === 'incoming' ? 'Пропущенный звонок' : 'Звонок завершён');
+      // 'idle' — входящий ещё не успел показаться: для человека это тоже пропущенный.
+      const ringing = this.snap.status === 'incoming' || this.snap.status === 'idle';
+      this.end(ringing ? 'Пропущенный звонок' : 'Звонок завершён');
     }
   }
 
