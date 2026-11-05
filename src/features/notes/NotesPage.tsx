@@ -143,7 +143,10 @@ function NoteRow({
   // начинается с собственного текста, прежняя безусловная обрезка оставляла
   // карточку без превью вовсе.
   const lines = text.split('\n');
-  const preview = (lines[0]?.trim() === title.trim() ? lines.slice(1).join(' ') : text).trim();
+  // startsWith, а не равенство: заголовок режется на 300 символов, и у
+  // длинной первой строки (например, строки вставленной таблицы) он никогда
+  // не совпадал целиком — в карточке под заголовком шло его же начало.
+  const preview = (lines[0]?.trim().startsWith(title.trim()) ? lines.slice(1).join(' ') : text).trim();
 
   const holdRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const heldRef = useRef(false);

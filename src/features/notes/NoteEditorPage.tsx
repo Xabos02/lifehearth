@@ -37,8 +37,9 @@ import {
   setCaretAtOffset,
 } from './editorDom';
 import { isRefused, shouldCapitalize, type CapitalizeMemo } from '../../lib/autocapitalize';
-import { closestChecklistItem, hitCheckbox, toggleChecklist, toggleItem } from './checklist';
+import { closestChecklistItem, DONE_ATTR, hitCheckbox, toggleChecklist, toggleItem } from './checklist';
 import { sanitizeNoteHtml } from './sanitize';
+import { clipboardHtmlToNoteHtml, plainTextToNoteHtml } from './pasteHtml';
 import { NoteAttachments } from './NoteAttachments';
 import { MAX_FILE_BYTES, formatFileSize, groupNoteAttachments, planNoteFileChunks } from '../../lib/noteFiles';
 import { ImageTooLargeError, MAX_INPUT_BYTES, compressImage } from '../../lib/image';
@@ -235,7 +236,15 @@ export function NoteEditorPage() {
         // контент (без HTML-тегов) конвертируем в HTML и помечаем dirty — он
         // один раз пересохранится в новом формате, а не сломается при правке.
         const looksHtml = /<\/?[a-z][^>]*>/i.test(raw);
-        if (looksHtml || !raw) {
+        // Markdown-ом считаем только то, в чём есть markdown: заголовок,
+        // маркер списка, цитата, **жирный**, ссылка. Иначе под конвертацию
+        // попадала ОБЫЧНАЯ заметка из одной строки — у неё тегов нет вовсе
+        // (первая строка хранится «голой», это и есть заголовок), и при
+        // следующем открытии marked заворачивал её в <p>: заголовок переставал
+        // быть заголовком, а «5 * 3 * 2» превращалось в курсив.
+        const looksMarkdown =
+          /^\s{0,3}(?:#{1,6} |[-*+] |\d+\. |> )/m.test(raw) || /\*\*|__|\[[^\]]+\]\(/.test(raw);
+        if (looksHtml || !raw || !looksMarkdown) {
           // Санитайз и на входе в DOM: innerHTML исполняет <img onerror> и
           // грузит внешние src из подложенного файла копии или старой версии.
           editorRef.current.innerHTML = sanitizeNoteHtml(raw);
@@ -517,8 +526,22 @@ export function NoteEditorPage() {
     }
     const host = anchor instanceof Element ? anchor : anchor.parentElement;
     if (host?.closest('li')) {
+      // Внутри настоящего списка нумерацию ведёт браузер. Но делит он пункт
+      // ВМЕСТЕ С АТРИБУТАМИ: новый пункт чек-листа приезжал уже отмеченным —
+      // зачёркнутым и серым, а прогресс в списке показывал «2 из 2» на
+      // незакрытом деле. Снимаем отметку с пункта, в котором каретка окажется
+      // после деления.
+      const done = closestChecklistItem(anchor);
+      if (done?.getAttribute(DONE_ATTR) === '1') {
+        requestAnimationFrame(() => {
+          const next = closestChecklistItem(document.getSelection()?.anchorNode ?? null);
+          if (!next || next === done) return;
+          next.removeAttribute(DONE_ATTR);
+          touch();
+        });
+      }
       keepCaretVisible();
-      return; // внутри настоящего списка нумерацию ведёт браузер
+      return;
     }
     // Блок текущей строки — ближайший предок, чей родитель сам редактор
     // (строки contentEditable — это <div>; первая строка — голые текст-узлы).
@@ -573,6 +596,10 @@ export function NoteEditorPage() {
       if (!el) return;
       const existing = (el.innerText ?? '').trim();
       el.appendChild(document.createTextNode((existing ? ' ' : '') + text));
+      // Голый текст в конце корня редактор рисует заголовочным кеглем —
+      // продиктованное ложилось в заметку 24-м жирным. normalizeEditor
+      // заворачивает его в обычную строку.
+      normalizeEditor(el);
       touch();
     },
     [touch],
@@ -752,23 +779,36 @@ export function NoteEditorPage() {
           e.preventDefault();
           const html = e.clipboardData.getData('text/html');
           const text = e.clipboardData.getData('text/plain');
-          // Простой текст — БУКВАЛЬНО: раньше он шёл в insertHTML сырым, и
-          // символы разметки из буфера (ответы ИИ полны «a<b», «&amp;»,
-          // числовых сущностей) интерпретировались: куски текста глотались,
-          // сущности превращались в кашу символов, переносы строк слипались
-          // (\n для HTML — пробел). Экранируем и переводим \n в <br> руками.
-          const literal = text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\n/g, '<br>');
-          const clean = html ? sanitizeNoteHtml(html) : literal;
+          // Разбор — в pasteHtml: таблица из Excel/WPS/Numbers даёт строку на
+          // строку, заголовки статьи остаются заголовками, простой текст
+          // вставляется буквально (символы разметки, переносы, отступы).
+          // Пустой разбор (в буфере была только внешняя картинка или
+          // служебная обёртка) — не повод вставить ничего: берём простой текст.
+          const fromHtml = html ? clipboardHtmlToNoteHtml(html) : '';
+          const clean = fromHtml || plainTextToNoteHtml(text);
+          if (!clean) {
+            // Текста в буфере нет вовсе — значит там картинка: скриншот,
+            // снимок из «Фото», картинка, скопированная со страницы. Она
+            // приходит файлом, а не разметкой, и раньше вставка такого буфера
+            // не делала РОВНО НИЧЕГО. Картинка — последняя попытка, а не
+            // первая: лист Excel кладёт в буфер и картинку тоже, и начни мы с
+            // неё — вместо строк таблицы в заметку легла бы её фотография.
+            const img = Array.from(e.clipboardData.files).find((f) => f.type.startsWith('image/'));
+            if (!img || !editorRef.current) return;
+            caretBeforePickRef.current = caretOffset(editorRef.current);
+            void addPhoto(img);
+            return;
+          }
           document.execCommand('insertHTML', false, clean);
           // Вставленная разметка приносит свои <div>/<p>, и первая строка
           // оказывается внутри блока — то есть перестаёт быть заголовком.
           // Из мессенджера (только plain text) этого не видно, из браузера и
           // документов — видно всегда.
           if (editorRef.current) normalizeEditor(editorRef.current);
+          // Скроллится не редактор, а контейнер страницы: без этого каретка
+          // после вставки остаётся за экраном (а внизу её ещё и накрывает
+          // панель форматирования), и следующий набор идёт вслепую.
+          keepCaretVisible();
           touch();
         }}
         onPointerDown={(e) => {
