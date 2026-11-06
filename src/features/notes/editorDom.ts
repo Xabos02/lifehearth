@@ -129,10 +129,96 @@ export function unwrapLeadingBlock(root: HTMLElement): boolean {
   return true;
 }
 
+/** Блоки, которые сбрасывают стиль заголовка (см. index.css). */
+const BLOCK_TAGS = new Set(['DIV', 'P', 'UL', 'OL', 'H1', 'H2', 'BLOCKQUOTE', 'PRE', 'LI']);
+
+/** Завернуть «голый» текст, оказавшийся ПОСЛЕ первого блока.
+ *
+ *  Заголовок заметки — это ведущий голый текст. Но база .note-editor красит
+ *  заголовочным кеглем ЛЮБОЙ голый текст в корне, где бы он ни лежал. Такой
+ *  текст появляется сам собой: голосовой ввод дописывает узел в конец корня,
+ *  вставка в середину заголовка выносит его хвост за вставленные блоки. В
+ *  обоих случаях посреди заметки оказывалась строка 24-м жирным кеглем, и
+ *  убрать её можно было только стерев и набрав заново.
+ *
+ *  Ведущий текст не трогаем: это и есть заголовок. */
+export function wrapStrayText(root: HTMLElement): boolean {
+  let seenBlock = false;
+  let changed = false;
+  let run: ChildNode[] = [];
+  const flushRun = () => {
+    if (run.length === 0) return;
+    const div = document.createElement('div');
+    run[0]!.before(div);
+    for (const n of run) div.appendChild(n);
+    run = [];
+    changed = true;
+  };
+  for (const node of Array.from(root.childNodes)) {
+    if (node.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has((node as Element).tagName)) {
+      flushRun();
+      seenBlock = true;
+      continue;
+    }
+    if (!seenBlock) continue;
+    // Пробельный узел между блоками — не строка, а форматирование разметки.
+    if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() === '') continue;
+    run.push(node);
+  }
+  flushRun();
+  return changed;
+}
+
+/** Разнести блоки, попавшие ВНУТРЬ пункта списка, по отдельным пунктам.
+ *
+ *  Вставка многострочного текста кладёт в каретку строки блоками. Если каретка
+ *  стояла в пункте списка, все они оказывались внутри ОДНОГО <li>: список из 22
+ *  товаров становился одним пунктом высотой в экран. Человек ждёт 22 пункта —
+ *  так ведут себя заметки в iOS. */
+export function splitBlocksInListItems(root: HTMLElement): boolean {
+  let changed = false;
+  for (const li of Array.from(root.querySelectorAll('li'))) {
+    const blocks = Array.from(li.children).filter((c) => c.tagName === 'DIV' || c.tagName === 'P');
+    let anchor: Element = li;
+    for (const block of blocks) {
+      const next = document.createElement('li');
+      while (block.firstChild) next.appendChild(block.firstChild);
+      block.remove();
+      anchor.after(next);
+      anchor = next;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+/** Снять инлайн-стили, навешанные браузером.
+ *
+ *  execCommand('insertHTML') в Chrome «сохраняет вид» вставляемого куска: он
+ *  берёт вычисленный стиль того места, где собирает фрагмент, — а корень
+ *  редактора здесь нарисован стилем ЗАГОЛОВКА — и вешает его инлайном. Первая
+ *  строка вставки оказывалась 24-м жирным посреди тела заметки, и до
+ *  перезагрузки это не лечилось: санитайз срезает style лишь при сохранении,
+ *  то есть на экране и в базе было разное.
+ *
+ *  Своих инлайн-стилей у заметки нет вовсе (их не пропускает санитайз), так
+ *  что снимать можно все. */
+export function stripInlineStyles(root: HTMLElement): boolean {
+  const styled = Array.from(root.querySelectorAll('[style]'));
+  for (const el of styled) el.removeAttribute('style');
+  return styled.length > 0;
+}
+
 /** Привести структуру к инварианту, сохранив позицию каретки. */
 export function normalizeEditor(root: HTMLElement): boolean {
   const offset = caretOffset(root);
-  const changed = unwrapLeadingBlock(root);
+  // Порядок важен: сначала разворот ведущего блока (он смотрит на первый узел
+  // корня), потом разбивка пунктов, и только потом заворачивание того, что
+  // осталось голым в корне.
+  let changed = stripInlineStyles(root);
+  changed = unwrapLeadingBlock(root) || changed;
+  changed = splitBlocksInListItems(root) || changed;
+  changed = wrapStrayText(root) || changed;
   if (changed && offset !== null) setCaretAtOffset(root, offset);
   return changed;
 }
