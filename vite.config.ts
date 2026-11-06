@@ -15,7 +15,10 @@ export default defineConfig(({ command }) => ({
     // wrangler). Vitest подхватывал их и показывал «12 failed» — за этим
     // шумом не было видно, что два наших теста не запускаются вовсе.
     // .playwright — снимки экрана, они гоняются playwright'ом.
-    exclude: ['**/node_modules/**', 'dist/**', 'e2e/**', '.playwright/**'],
+    // .claude/** — рабочие копии параллельных сессий (worktree) внутри
+    // репозитория: vitest подхватывал их тесты как свои и показывал «226
+    // failed» из чужих веток.
+    exclude: ['**/node_modules/**', 'dist/**', 'e2e/**', '.playwright/**', '.claude/**'],
   },
   plugins: [
     react(),
