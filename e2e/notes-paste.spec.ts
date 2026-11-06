@@ -358,6 +358,137 @@ test.describe('вставка не исполняет чужой код', () => 
   });
 });
 
+// ───────────────────────── ссылки ─────────────────────────
+
+// Ссылка приезжает в заметку из трёх мест сразу: со страницы, из письма и из
+// Google Документов. До 06.11.2026 тега <a> не было в списке разрешённых, и
+// адрес снимался молча — оставалось слово «подключиться» без того, куда оно
+// ведёт. Это не дефект разбора, а отсутствовавшая возможность.
+test.describe('ссылка из буфера остаётся ссылкой', () => {
+  test('адрес сохраняется и переживает перезагрузку заметки', async ({ page }) => {
+    await newNote(page);
+    await paste(
+      page,
+      'Созвон: подключиться',
+      `<p>Созвон: <a href="https://meet.google.com/abc-defg-hij">подключиться</a></p>`,
+    );
+    const link = page.locator('.note-editor a[href]');
+    await expect(link).toHaveAttribute('href', 'https://meet.google.com/abc-defg-hij');
+    await expect(link).toHaveText('подключиться');
+    // Перезагрузка — настоящая проверка: содержимое идёт через автосохранение
+    // и ВТОРОЙ санитайз, и адрес мог бы потеряться именно там.
+    await page.waitForTimeout(1200);
+    const url = page.url();
+    await page.goto(url);
+    await expect(page.locator('.note-editor a[href]')).toHaveAttribute(
+      'href',
+      'https://meet.google.com/abc-defg-hij',
+      { timeout: 7000 },
+    );
+  });
+
+  test('почта и телефон тоже остаются ссылками', async ({ page }) => {
+    await newNote(page);
+    await paste(
+      page,
+      'Счёт на buh@zavod.ru, склад +7 495 123-45-67',
+      `<p>Счёт на <a href="mailto:buh@zavod.ru">buh@zavod.ru</a>, склад <a href="tel:+74951234567">+7 495 123-45-67</a></p>`,
+    );
+    await expect(page.locator('.note-editor a[href]')).toHaveCount(2);
+  });
+
+  test('адрес ссылки прошёл — внешняя картинка по-прежнему нет', async ({ page }) => {
+    // Главная расплата за ссылки: ALLOWED_URI_REGEXP у DOMPurify проверяет
+    // значение ЛЮБОГО атрибута, и, чтобы пустить href с http(s), он обязан
+    // пускать http(s) и в src. То есть конфиг внешнюю картинку больше не
+    // держит — держит её только хук afterSanitizeAttributes. Этот тест и есть
+    // страж того хука: снимите его — и в заметку поедут трекинг-пиксели.
+    await newNote(page);
+    await paste(
+      page,
+      'Тариф',
+      `<p><a href="https://example.com/tariff">Тариф</a> <img src="https://evil.example/pixel.png"></p>`,
+    );
+    await expect(page.locator('.note-editor a[href]')).toHaveAttribute('href', 'https://example.com/tariff');
+    await expect(page.locator('.note-editor img')).toHaveCount(0);
+  });
+
+  // Жест открытия — выбор Влада 06.11.2026 из трёх вариантов на канве
+  // design/notes-links: тап открывает, как в Apple Notes.
+  test('тап по ссылке открывает её и не ставит каретку внутрь', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __opened: string[] }).__opened = [];
+      window.open = ((url: string) => {
+        (window as unknown as { __opened: string[] }).__opened.push(url);
+        return {} as Window;
+      }) as typeof window.open;
+    });
+    await newNote(page);
+    await paste(
+      page,
+      'Созвон: подключиться',
+      `<p>Созвон: <a href="https://meet.google.com/abc-defg-hij">подключиться</a></p>`,
+    );
+    // Каретку сначала уводим в начало строки: после вставки она остаётся в
+    // конце вставленного, то есть уже внутри ссылки, и проверка ниже была бы
+    // зелёной сама по себе.
+    await page.evaluate(() => {
+      const ed = document.querySelector('.note-editor') as HTMLElement;
+      const r = document.createRange();
+      r.setStart(ed.firstChild!, 0);
+      r.collapse(true);
+      const sel = getSelection()!;
+      sel.removeAllRanges();
+      sel.addRange(r);
+    });
+    await page.locator('.note-editor a[href]').tap();
+    expect(await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened))
+      .toEqual(['https://meet.google.com/abc-defg-hij']);
+    // Каретка внутрь ссылки не прыгнула. Держит её preventDefault на mousedown:
+    // на тапе пальцем он приходит последним, уже совместимостью, и именно он
+    // ставит каретку (на pointerdown это не отменить — он неотменяем, пока
+    // touch-action разрешает прокрутку). Снимите ту строку — тест покраснеет.
+    const inLink = await page.evaluate(() => {
+      const sel = getSelection();
+      if (!sel || sel.rangeCount === 0) return false;
+      const n = sel.anchorNode;
+      const el = n instanceof Element ? n : n?.parentElement;
+      return !!el?.closest('a[href]');
+    });
+    expect(inLink).toBe(false);
+  });
+
+  test('прокрутка, начатая со ссылки, никуда не уводит', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __opened: string[] }).__opened = [];
+      window.open = ((url: string) => {
+        (window as unknown as { __opened: string[] }).__opened.push(url);
+        return {} as Window;
+      }) as typeof window.open;
+    });
+    await newNote(page);
+    await paste(page, 'ссылка', `<p>Строка <a href="https://example.com/a">ссылка</a> дальше</p>`);
+    const link = page.locator('.note-editor a[href]');
+    const box = (await link.boundingBox())!;
+    const x = Math.round(box.x + box.width / 2);
+    const y = Math.round(box.y + box.height / 2);
+    await link.dispatchEvent('pointerdown', { bubbles: true, clientX: x, clientY: y, pointerId: 1, isPrimary: true });
+    await link.dispatchEvent('pointerup', { bubbles: true, clientX: x, clientY: y - 80, pointerId: 1, isPrimary: true });
+    expect(await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened)).toEqual([]);
+  });
+
+  test('ссылка с чужим протоколом теряет адрес, но не текст', async ({ page }) => {
+    await newNote(page);
+    await paste(
+      page,
+      'тут',
+      `<p>до <a href="javascript:alert(1)">тут</a> <a href="file:///etc/passwd">файл</a> после</p>`,
+    );
+    await expect(page.locator('.note-editor a[href]')).toHaveCount(0);
+    await expect(page.locator('.note-editor')).toContainText('до тут файл после');
+  });
+});
+
 // ───────────────────────── быстрый захват ─────────────────────────
 
 test.describe('экран «Захват»', () => {

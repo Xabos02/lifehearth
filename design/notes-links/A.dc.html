@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>А: тап по ссылке открывает её</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.sub{height:30px;box-sizing:border-box;margin:0;padding:10px 16px 0;font-size:12px;line-height:16px;color:#a9a7a3}
+img{display:block}
+</style>
+</helmet>
+<div style="width: 400px; height: 2016px; background: #08080f; font-family: -apple-system, system-ui, sans-serif">
+  <p style="height: 44px; box-sizing: border-box; margin: 0; padding: 16px 16px 0; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: #f0eee8">А: тап по ссылке открывает её</p>
+  <p class="sub">Тёмная, 393</p>
+  <img src="shots/a-dark-393.webp" alt="Тёмная, 393" style="width: 361px; height: 411px">
+  <p class="sub">Светлая, 393</p>
+  <img src="shots/a-light-393.webp" alt="Светлая, 393" style="width: 361px; height: 411px">
+  <p class="sub">Тёмная, 320</p>
+  <img src="shots/a-dark-320.webp" alt="Тёмная, 320" style="width: 288px; height: 505px">
+  <p class="sub">Светлая, 320</p>
+  <img src="shots/a-light-320.webp" alt="Светлая, 320" style="width: 288px; height: 505px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":400,"height":2016}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
