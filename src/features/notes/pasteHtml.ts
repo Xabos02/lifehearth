@@ -25,6 +25,7 @@
 import DOMPurify from 'dompurify';
 import { SANITIZE, sanitizeNoteHtml } from './sanitize';
 import { CHECKLIST_CLASS, DONE_ATTR } from './checklist';
+import { splitByAddress } from './linkify';
 
 /** Разделитель колонок: два неразрывных пробела.
  *
@@ -467,14 +468,28 @@ export function clipboardHtmlToNoteHtml(html: string): string {
  *  Буквально — значит символы разметки показываются как символы («a<b»,
  *  «&amp;», «<script>»), перенос строки остаётся переносом, а отступы и
  *  табуляция не схлопываются в один пробел. */
+/** Строка простого текста → разметка заметки.
+ *
+ *  Адрес здесь распознаётся сам: мессенджеры кладут в буфер только text/plain,
+ *  и ссылка, присланная в переписке, приезжала бы голым текстом — хотя рядом
+ *  такая же ссылка со страницы остаётся ссылкой. Разметки, из которой можно
+ *  было бы взять href, в таком буфере нет вовсе, поэтому адрес ищется в самом
+ *  тексте (linkify.ts: домен без протокола — только со зоной из списка). */
+function plainLine(l: string): string {
+  return splitByAddress(l)
+    .map((piece) => {
+      const t = esc(piece.text)
+        .replace(/\t/g, CELL_GAP)
+        .replace(/ {2,}/g, (m) => '\u00A0'.repeat(m.length - 1) + ' ');
+      return piece.href ? `<a href="${esc(piece.href)}">${t}</a>` : t;
+    })
+    .join('');
+}
+
 export function plainTextToNoteHtml(text: string): string {
   const raw = text.replace(/\r\n?/g, '\n');
   // Хвостовой перенос есть почти в каждом буфере (Excel, терминал, редактор
   // кода) и означает конец последней строки, а не пустую строку после неё.
-  const lines = raw.replace(/\n$/, '').split('\n').map((l) =>
-    esc(l)
-      .replace(/\t/g, CELL_GAP)
-      .replace(/ {2,}/g, (m) => '\u00A0'.repeat(m.length - 1) + ' '),
-  );
+  const lines = raw.replace(/\n$/, '').split('\n').map(plainLine);
   return lines.map((l, i) => (i === 0 ? l : `<div>${l === '' ? '<br>' : l}</div>`)).join('');
 }

@@ -39,6 +39,7 @@ import {
 import { isRefused, shouldCapitalize, type CapitalizeMemo } from '../../lib/autocapitalize';
 import { closestChecklistItem, DONE_ATTR, hitCheckbox, toggleChecklist, toggleItem } from './checklist';
 import { sanitizeNoteHtml } from './sanitize';
+import { linkifyIn } from './linkify';
 import { clipboardHtmlToNoteHtml, plainTextToNoteHtml } from './pasteHtml';
 import { NoteAttachments } from './NoteAttachments';
 import { MAX_FILE_BYTES, formatFileSize, groupNoteAttachments, planNoteFileChunks } from '../../lib/noteFiles';
@@ -223,8 +224,31 @@ export function NoteEditorPage() {
       document.execCommand('insertText', false, ev.data!.toUpperCase());
       capMemo.current = { char: ev.data!, offset: caretOffset(el) ?? -1, undone: false };
     };
+    // Набранный адрес становится ссылкой по пробелу и по переносу строки —
+    // как в Apple Notes. На `input`, а не на `beforeinput`: ждём, пока пробел
+    // уже встанет, иначе каретка оказалась бы ВНУТРИ новой ссылки и всё
+    // набранное дальше приклеивалось бы к ней.
+    //
+    // Обходим весь редактор, а не только слово под кареткой: после переноса
+    // строки каретка уже в новом блоке, а дописанный адрес остался в
+    // предыдущем. Обход дешевле разбора «где именно каретка» и к тому же
+    // подбирает адрес, набранный раньше. Текст при этом не меняется ни на
+    // символ — только оборачивается, поэтому смещение каретки остаётся верным.
+    const onInput = (e: Event) => {
+      const ev = e as InputEvent;
+      const kind = ev.inputType;
+      if (kind === 'insertText' ? ev.data !== ' ' : kind !== 'insertParagraph' && kind !== 'insertLineBreak') {
+        return;
+      }
+      const at = caretOffset(el);
+      if (linkifyIn(el) && at !== null) setCaretAtOffset(el, at);
+    };
     el.addEventListener('beforeinput', onBeforeInput);
-    return () => el.removeEventListener('beforeinput', onBeforeInput);
+    el.addEventListener('input', onInput);
+    return () => {
+      el.removeEventListener('beforeinput', onBeforeInput);
+      el.removeEventListener('input', onInput);
+    };
   }, []);
 
   useEffect(() => {
@@ -876,6 +900,10 @@ export function NoteEditorPage() {
         }}
         onBlur={() => {
           clearTimeout(timerRef.current);
+          // Адрес, набранный последним словом, пробела за собой не оставил —
+          // по нему живое распознавание не сработало. Ловим его здесь: уходя,
+          // человек уже ничего не набирает, и каретку возвращать некуда.
+          if (editorRef.current) linkifyIn(editorRef.current);
           void flush();
         }}
       />
