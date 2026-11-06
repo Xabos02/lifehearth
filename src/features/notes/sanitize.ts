@@ -28,6 +28,15 @@ import { CHECKLIST_CLASS } from './checklist';
  *  и в копию. */
 const INLINE_IMAGE = /^data:image\/(?:jpeg|png|gif|webp);base64,/i;
 
+/** Протоколы, с которыми ссылка остаётся ссылкой.
+ *
+ *  Проверяется, как и картинка, ДВАЖДЫ. ALLOWED_URI_REGEXP у DOMPurify один
+ *  на все атрибуты: чтобы пропустить href, он обязан пропускать и http(s) —
+ *  а значит сам по себе он уже не защищает src картинки. Поэтому href
+ *  отдельно сверяется в хуке: «javascript:», «data:», «file:» и прочее,
+ *  что прошло бы по общему списку, тут отваливается. */
+const LINK_URL = /^(?:https?:|mailto:|tel:)/i;
+
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   if (!(node instanceof Element)) return;
   // Картинка не со встроенным изображением — уже не картинка, а пустая рамка
@@ -37,6 +46,12 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
     node.remove();
     return;
   }
+  // Ссылка не по человеческому протоколу — уже не ссылка. Сам тег оставляем
+  // (его текст — часть заметки), снимаем только адрес: без href это обычный
+  // текст и по виду (красит .note-editor a[href]), и по поведению.
+  if (node.tagName === 'A' && !LINK_URL.test(node.getAttribute('href') ?? '')) {
+    node.removeAttribute('href');
+  }
   if (!node.hasAttribute('class')) return;
   const keep = node.tagName === 'UL' && node.classList.contains(CHECKLIST_CLASS);
   if (keep) node.setAttribute('class', CHECKLIST_CLASS);
@@ -45,16 +60,18 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 
 export const SANITIZE = {
   ALLOWED_TAGS: ['p', 'div', 'br', 'b', 'strong', 'i', 'em', 'u', 's', 'strike',
-    'ul', 'ol', 'li', 'h1', 'h2', 'span', 'blockquote', 'img'],
+    'ul', 'ol', 'li', 'h1', 'h2', 'span', 'blockquote', 'img', 'a'],
   // start — у нумерованного списка, начатого не с единицы: без него «5. 6. 7.»
   // из документа молча перенумеровывались с первого пункта.
-  ALLOWED_ATTR: ['class', 'data-done', 'src', 'alt', 'start'],
-  // Единственный URI-атрибут в списке — src у <img>, и он принимает ТОЛЬКО
-  // встроенную картинку (сжатый JPEG dataURL, как фото в чате и «Местах»).
-  // Дефолтный фильтр DOMPurify data: не пускает вовсе, а внешние http(s)-
-  // картинки не пускаем мы: заметка офлайн-PWA не должна тянуть чужие URL
-  // (трекинг-пиксели из вставленного веба, битые картинки без сети).
-  ALLOWED_URI_REGEXP: INLINE_IMAGE,
+  ALLOWED_ATTR: ['class', 'data-done', 'src', 'alt', 'start', 'href'],
+  // URI-атрибутов в списке два: src у <img> — только встроенная картинка
+  // (сжатый JPEG dataURL, как фото в чате и «Местах»), href у <a> — только
+  // http(s)/mailto/tel. Регексп у DOMPurify один на оба, поэтому он — лишь
+  // первое, широкое сито: по нему http(s) проходит ВЕЗДЕ, в том числе в src.
+  // Внешние картинки заметка не пускает (трекинг-пиксели из вставленного
+  // веба, битые картинки без сети), и отсекает их теперь только хук
+  // afterSanitizeAttributes выше — он же держит href в своих протоколах.
+  ALLOWED_URI_REGEXP: /^(?:https?:|mailto:|tel:)|^data:image\/(?:jpeg|png|gif|webp);base64,/i,
   // ALLOWED_URI_REGEXP у DOMPurify проверяет значение ЛЮБОГО атрибута, не
   // только ссылочного: без этой строки start="5" у списка не проходил
   // («5» — не data:image) и тихо пропадал. class и alt спасает собственный

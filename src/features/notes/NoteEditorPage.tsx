@@ -65,6 +65,23 @@ function deriveTitle(text: string): string {
   return '';
 }
 
+/** Открыть ссылку из заметки.
+ *
+ *  Страница — новой вкладкой: заметка остаётся открытой, возврат к ней —
+ *  одним движением. Почта и телефон — через location: их адрес браузер
+ *  отдаёт системе и своего окна для них не заводит, а window.open на таком
+ *  адресе в части браузеров оставляет пустую вкладку. Через location же
+ *  уходит и страница, которой не дал открыться блокировщик окон.
+ *
+ *  Протокол здесь НЕ проверяем, и это намеренно: в DOM редактора содержимое
+ *  попадает только через sanitizeNoteHtml (три места выше), а его хук уже
+ *  снял href со всем, кроме http(s)/mailto/tel. Вторая проверка тут
+ *  создавала бы вид, что сюда может прийти что-то ещё. */
+function openLink(href: string): void {
+  if (/^https?:/i.test(href) && window.open(href, '_blank', 'noopener,noreferrer')) return;
+  window.location.href = href;
+}
+
 function ToolBtn({
   onClick,
   label,
@@ -359,6 +376,9 @@ export function NoteEditorPage() {
   // Куда смотрела каретка в момент нажатия кнопки: системный пикер уводит
   // фокус, и к возвращению выбранного файла выделение уже потеряно.
   const caretBeforePickRef = useRef<number | null>(null);
+  // Нажатие, начавшееся на ссылке: открываем его на pointerup и только если
+  // палец не уехал — иначе прокрутка, начатая со ссылки, уводила бы в браузер.
+  const linkTapRef = useRef<{ href: string; x: number; y: number } | null>(null);
 
   // id заметки для живого запроса вложений. routeId, а не savedIdRef: ref не
   // реактивен, а после первого сохранения новая заметка получает настоящий
@@ -812,6 +832,19 @@ export function NoteEditorPage() {
           touch();
         }}
         onPointerDown={(e) => {
+          linkTapRef.current = null;
+          // Тап по ссылке открывает её — как в Apple Notes (выбор Влада
+          // 06.11.2026, канва design/notes-links). Здесь только запоминаем
+          // нажатие: открываем на pointerup, когда уже видно, тап это или
+          // начало прокрутки. Каретку отсюда НЕ удержать — на тапе пальцем
+          // Chromium шлёт pointerdown неотменяемым (прокрутка по touch-action
+          // разрешена), и preventDefault тут ничего не делает; её держит
+          // onMouseDown ниже.
+          const a = (e.target as Element | null)?.closest?.('a[href]');
+          if (a instanceof HTMLAnchorElement) {
+            linkTapRef.current = { href: a.getAttribute('href')!, x: e.clientX, y: e.clientY };
+            return;
+          }
           // Тап по галочке переключает пункт. Ловим на pointerdown, а не на
           // click: click внутри contenteditable уже переставил каретку, и
           // отменять это поздно — экран дёргается.
@@ -820,6 +853,21 @@ export function NoteEditorPage() {
           e.preventDefault();
           toggleItem(li);
           touch();
+        }}
+        onMouseDown={(e) => {
+          // Каретку внутрь ссылки ставит именно mousedown — на тапе пальцем он
+          // приходит следом за pointerup, уже совместимостью. Без этой строки
+          // поверх уходящего в браузер экрана успевала вылезти клавиатура.
+          if ((e.target as Element | null)?.closest?.('a[href]')) e.preventDefault();
+        }}
+        onPointerUp={(e) => {
+          const tap = linkTapRef.current;
+          linkTapRef.current = null;
+          if (!tap) return;
+          // Палец уехал — это была прокрутка, начатая со строки со ссылкой.
+          // 10px: порог, после которого браузер и сам считает жест протяжкой.
+          if (Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) return;
+          openLink(tap.href);
         }}
         onKeyDown={handleEditorKeyDown}
         onInput={() => {

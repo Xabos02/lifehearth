@@ -167,6 +167,12 @@ function renderInline(node: Node): string {
   for (const m of styleTags(node)) marks.add(m);
   let html = inner;
   for (const m of marks) html = `<${m}>${html}</${m}>`;
+  // Ссылка. Раньше анкер шёл обычным инлайном: текст оставался, адрес молча
+  // пропадал — со страницы, из письма и из документа приезжало «тариф» без
+  // того, куда «тариф» ведёт. Протокол проверять тут не нужно: href с
+  // «javascript:» и прочим снял хук санитайза ещё на входе (sanitize.ts).
+  const href = tag === 'A' ? node.getAttribute('href') : null;
+  if (href) html = `<a href="${esc(href)}">${html}</a>`;
   return html;
 }
 
