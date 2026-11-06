@@ -11,7 +11,12 @@ import { DurableObject } from 'cloudflare:workers';
 import { buildPushRequest } from './webpush.js';
 
 const TICKET_TTL_MS = 30_000;
-const CALL_PENDING_TTL_MS = 32_000; // 30с ринга + буфер: после этого недобитый дозвон = «пропущенный»
+const CALL_PENDING_TTL_MS = 47_000; // 45с ринга (RING_TIMEOUT_MS в familyCall.ts) + буфер: после этого недобитый дозвон = «пропущенный»
+// Сокет без пинга дольше этого — уже не «онлайн» для звонка. Клиент пингует
+// раз в 25 с; приложение в фоне (iOS его замораживает) пинговать перестаёт,
+// а соединение на стороне сервера живёт ещё долго. Раньше приглашение в
+// такой сокет считалось доставленным — и пуш «Входящий звонок» не уходил.
+const SOCKET_STALE_MS = 40_000;
 const BACKFILL_PAGE = 500;
 const MSG_RETENTION_DAYS = 180;
 const MSG_RETENTION_MAX = 5000;
@@ -76,6 +81,12 @@ export class FamilyRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.sql = ctx.storage.sql;
+    // Пинг отвечается без пробуждения объекта, а время последнего пинга по
+    // каждому сокету видно — по нему звонок отличает живое приложение от
+    // замороженного (см. SOCKET_STALE_MS и isFresh).
+    if (typeof ctx.setWebSocketAutoResponse === 'function') {
+      ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('{"t":"ping"}', '{"t":"pong"}'));
+    }
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS items (
         seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -404,7 +415,7 @@ export class FamilyRoom extends DurableObject {
     // ICE-серверы для звонков: STUN всегда бесплатен; TURN-креды генерим из
     // Cloudflare Realtime, если заданы секреты (иначе остаёмся на STUN).
     if (path.endsWith('/turn') && request.method === 'GET') {
-      return this.json({ iceServers: await this.iceServers() });
+      return this.json(await this.iceServers());
     }
 
     if (path.endsWith('/push-sub') && request.method === 'POST') {
@@ -572,6 +583,10 @@ export class FamilyRoom extends DurableObject {
       return;
     }
     if (msg.t === 'ping') {
+      // Сюда пинг доходит, только если автоответ недоступен (см. конструктор):
+      // тогда время пинга кладём в сокет сами.
+      const att = ws.deserializeAttachment();
+      if (att) ws.serializeAttachment({ ...att, at: Date.now() });
       ws.send('{"t":"pong"}'); // heartbeat — держит соединение живым
       return;
     }
@@ -586,7 +601,7 @@ export class FamilyRoom extends DurableObject {
         ws.close(4403, 'removed');
         return;
       }
-      ws.serializeAttachment({ memberId, bound: prior?.bound === true });
+      ws.serializeAttachment({ memberId, bound: prior?.bound === true, at: Date.now() });
       if (memberId) {
         this.sql.exec(
           'INSERT INTO members (member_id, joined_at) VALUES (?, ?) ON CONFLICT(member_id) DO NOTHING',
@@ -686,7 +701,8 @@ export class FamilyRoom extends DurableObject {
         if (msg.to && a?.memberId !== msg.to) continue;
         try {
           sock.send(frame);
-          delivered = true;
+          // Замороженный сокет кадр примет и промолчит — это не доставка.
+          if (this.isFresh(sock)) delivered = true;
         } catch {
           /* сокет закрывается */
         }
@@ -703,15 +719,37 @@ export class FamilyRoom extends DurableObject {
       if (!delivered && msg.kind === 'cancel' && msg.to) {
         this.ctx.waitUntil(this.pushMissedCall(msg.to, msg.call));
       }
-      // Любой сигнал, кроме недоставленного offer, снимает страховку alarm'а:
-      // доставленный offer — адресат онлайн, его клиент сам покажет исход;
-      // cancel — missed уже ушёл строкой выше; answer/decline/busy/hangup —
-      // адресат уже в приложении, «пропущенный» не нужен.
-      if (msg.call && (msg.kind !== 'offer' || delivered)) {
+      // Трубку сняли на одном устройстве — остальные устройства того же
+      // участника (синхронизация копирует его на все) перестают звонить. От
+      // имени звонящего: для них это его «отбой».
+      if (msg.kind === 'accepted' && from && msg.call) {
+        const stop = JSON.stringify({ type: 'signal', from: msg.to ?? null, to: from, call: msg.call, kind: 'cancel', data: null });
+        for (const sock of this.ctx.getWebSockets()) {
+          if (sock === ws || sock.deserializeAttachment()?.memberId !== from) continue;
+          try {
+            sock.send(stop);
+          } catch {
+            /* сокет закрывается */
+          }
+        }
+      }
+      // Любой сигнал, кроме offer, снимает страховку alarm'а: cancel — missed
+      // уже ушёл строкой выше; answer/accepted/decline/busy/hangup — адресат уже
+      // в приложении, «пропущенный» не нужен. Доставленный offer её больше не
+      // снимает: иначе сокет, то живой, то замолчавший, давал бы новый пуш
+      // «Входящий звонок» на каждое замолкание.
+      if (msg.call && msg.kind !== 'offer') {
         this.sql.exec('DELETE FROM meta WHERE k=?', `callpend:${msg.call}`);
       }
       return;
     }
+  }
+
+  /** Пинговал ли сокет недавно — то есть стоит ли за ним живое приложение. */
+  isFresh(ws) {
+    const pinged = this.ctx.getWebSocketAutoResponseTimestamp?.(ws)?.getTime() ?? 0;
+    const since = ws.deserializeAttachment()?.at ?? 0;
+    return Date.now() - Math.max(pinged, since) < SOCKET_STALE_MS;
   }
 
   roomName() {
@@ -821,12 +859,18 @@ export class FamilyRoom extends DurableObject {
   //      бесплатно, без карты);
   //   3) без секретов — только STUN (анонимный Open Relay мёртв — проверено).
   // Медиа шифруется SRTP — ретранслятор содержимого не видит.
+  //
+  // Без ретранслятора в ответе лежит и причина (turnError): раньше «нет
+  // секретов», «Cloudflare ответил 401» и «Cloudflare недоступен» выглядели на
+  // телефоне одинаково — «сервер вернул только STUN». Только статус, без
+  // адреса запроса: в адресе Metered лежит ключ.
   async iceServers() {
     // Один STUN, а не два: браузер опрашивает ВСЕ сконфигурированные серверы,
     // и лишний удлиняет сбор кандидатов (предупреждение в документации
     // Nextcloud Talk; у Firefox известны зависания сбора на 12-13 секунд).
     // Google-STUN убран — Cloudflare отдаёт свой в том же ответе.
     const servers = [{ urls: 'stun:stun.cloudflare.com:3478' }];
+    let turnError = 'not-configured';
     const keyId = this.env.TURN_KEY_ID;
     const apiToken = this.env.TURN_KEY_API_TOKEN;
     if (keyId && apiToken) {
@@ -846,11 +890,14 @@ export class FamilyRoom extends DurableObject {
           const data = await r.json();
           if (data.iceServers) {
             servers.push(...orderTurn(data.iceServers));
-            return servers;
+            return { iceServers: servers };
           }
+          turnError = 'cloudflare: empty';
+        } else {
+          turnError = `cloudflare: HTTP ${r.status}`;
         }
       } catch {
-        /* Cloudflare TURN недоступен — пробуем Metered ниже */
+        turnError = 'cloudflare: network'; // пробуем Metered ниже
       }
     }
     const meteredDomain = this.env.METERED_DOMAIN;
@@ -862,13 +909,19 @@ export class FamilyRoom extends DurableObject {
         );
         if (r.ok) {
           const list = await r.json();
-          if (Array.isArray(list) && list.length) servers.push(...list);
+          if (Array.isArray(list) && list.length) {
+            servers.push(...list);
+            return { iceServers: servers };
+          }
+          turnError = 'metered: empty';
+        } else {
+          turnError = `metered: HTTP ${r.status}`;
         }
       } catch {
-        /* Metered недоступен — остаёмся на STUN */
+        turnError = 'metered: network'; // остаёмся на STUN
       }
     }
-    return servers;
+    return { iceServers: servers, turnError };
   }
 
   // Пуш о входящем звонке участнику, которого нет онлайн (WS мёртв). Один на
@@ -895,7 +948,7 @@ export class FamilyRoom extends DurableObject {
       familyId: this.familyIdMeta(),
       call: true,
       tag: 'family-call:' + (callId || this.familyIdMeta() || 'all'),
-    }, 10); // короткий TTL: опоздавший «звонит» после конца ринга не нужен
+    }, 40); // TTL в пределах ринга (45 с): опоздавший «звонит» после его конца не нужен
   }
 
   // «Пропущенный звонок»: тот же tag — на Android заменяет карточку «звонит».

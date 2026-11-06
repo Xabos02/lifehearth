@@ -18,11 +18,23 @@ import { t } from '../i18n';
 
 import { WORKER_URL } from '../workerUrl';
 import { STUN_FALLBACK } from '../consent';
-const RING_TIMEOUT_MS = 30_000;
+// 45, а не 30 секунд: закрытое приложение будит пуш, и пока человек его
+// открыл, а сокет поднялся, полминуты дозвона почти кончались — отвечали в
+// последние секунды или уже в «Пропущенный». Тот же срок у сервера
+// (CALL_PENDING_TTL_MS в worker/src/familyRoom.js).
+const RING_TIMEOUT_MS = 45_000;
 // Сколько ждём самовосстановления после 'disconnected' до ICE-restart.
 // 6 секунд: короткие провалы мобильной сети укладываются, а человек ещё не
 // решил, что связь умерла.
 const RECOVERY_GRACE_MS = 6_000;
+// Общий срок восстановления — у обеих сторон. Раньше его не было: сторона,
+// которой не досталось переигрывать, сдавалась на первом 'failed' молча, а
+// инициатор, не дождавшись ответа, висел в «Восстанавливаю связь…» до
+// ручного сброса и на перезвон отвечал «Занято».
+const RECOVERY_DEADLINE_MS = 40_000;
+// /family/turn без ответа не держит звонок: заглохшая сеть ждала бы
+// встроенного таймаута браузера — десятки секунд.
+const ICE_FETCH_TIMEOUT_MS = 5_000;
 // Сколько раз пытаемся переиграть соединение, прежде чем признать поражение,
 // и с какой паузой. Числа — из клиента LiveKit: без паузы повтор приходится
 // на момент, когда сеть ещё не вернулась, и попытка сгорает впустую.
@@ -58,6 +70,18 @@ export interface CallSnapshot {
  *  между createOffer/createAnswer и setLocal/RemoteDescription. */
 function withOpusTuning(d: RTCSessionDescriptionInit | null): RTCSessionDescriptionInit {
   return { type: d?.type ?? 'offer', sdp: tuneOpusSdp(d?.sdp) };
+}
+
+interface IceResult {
+  servers: RTCIceServer[];
+  turn: CallDiag['turn'];
+  detail?: string;
+}
+
+/** ICE-учётка описания. У повтора того же приглашения она прежняя, у
+ *  переигровки соединения после обрыва — новая: так их и различаем. */
+function iceUfrag(sdp: string | undefined): string | undefined {
+  return /^a=ice-ufrag:(\S+)/m.exec(sdp ?? '')?.[1];
 }
 
 /** Что произошло со связью на этом устройстве — для экрана «Почему не вышло».
@@ -143,6 +167,11 @@ class CallManager {
   // чем доставляется offer). Раньше они молча отбрасывались по несовпадению
   // call-id — а это первые и самые быстрые relay-кандидаты.
   private earlyCandidates = new Map<string, RTCIceCandidateInit[]>();
+  // Законченные звонки → что мы сказали собеседнику напоследок (decline/hangup)
+  // или null. Звонящий шлёт приглашение повторами, и хвост повторов приходит
+  // уже после конца: раньше он звонил заново как новый звонок, а потерянный
+  // «Отклонить» оставлял звонящего звать до таймаута.
+  private finished = new Map<string, SignalKind | null>();
 
   // Факты для диагностики — заполняются по ходу звонка.
   private diagTurn: CallDiag['turn'] = 'empty';
@@ -151,6 +180,11 @@ class CallManager {
   private diagRemote: Record<string, number> = {};
   private diagIceErrors: string[] = [];
   private restartAttempt = 0; // сколько попыток восстановления уже сделано
+  private restarting = false; // переигровка в пути — вторую поверх не начинаем
+  private failedGen = -1; // звонок, который уже сдаётся: второй fail() разбор не перезапишет
+  // Ретранслятор для входящего берём, пока звонит: к «Ответить» он уже на руках,
+  // и ответ уходит на секунду раньше.
+  private icePrefetch: Promise<IceResult> | null = null;
 
   // Громкая связь.
   // iOS/Safari: Audio Session API — type 'play-and-record' ведёт звук «к уху»
@@ -177,6 +211,7 @@ class CallManager {
   private resendTimer: ReturnType<typeof setInterval> | null = null;
   private dismissTimer: ReturnType<typeof setTimeout> | null = null;
   private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  private deadlineTimer: ReturnType<typeof setTimeout> | null = null;
   // Возврат в приложение: iOS мог заглушить/убить микрофон в фоне — оживляем.
   private visHandler: (() => void) | null = null;
 
@@ -185,6 +220,11 @@ class CallManager {
     const onVis = () => {
       if (document.visibilityState !== 'visible') return;
       void this.recoverMicIfDead();
+      // Уход в фон отбирает блокировку экрана, а 'connected' при возврате
+      // заново не наступает — без этого экран гас у уха, и iOS морозил связь.
+      if (this.snap.status !== 'idle' && this.snap.status !== 'ended') void this.holdScreen();
+      // Система могла поставить звук собеседника на паузу (звонок GSM, Siri).
+      if (this.audioEl?.srcObject) void this.audioEl.play().catch(() => {});
     };
     document.addEventListener('visibilitychange', onVis);
     this.visHandler = onVis;
@@ -234,10 +274,34 @@ class CallManager {
     this.clearConnTimeout();
     this.connTimer = setTimeout(() => {
       this.connTimer = null;
-      if (this.snap.status === 'connecting') {
-        this.end('Не удалось соединиться — сеть не пропускает звонок');
-      }
+      // Самая частая неудача — и раньше единственная без разбора на экране
+      // «Почему звонок не вышел».
+      if (this.snap.status === 'connecting') this.fail('Не удалось соединиться — сеть не пропускает звонок');
     }, 25_000);
+  }
+
+  /** Звонок кончается не по воле человека: записать разбор, сказать
+   *  собеседнику (раньше он узнавал об этом только по своему таймеру, а
+   *  то и не узнавал вовсе) и закрыть. Повторный вызов того же звонка —
+   *  мимо: второй разбор, снятый уже без соединения, затёр бы первый. */
+  private fail(reason: string) {
+    if (this.failedGen === this.gen || this.snap.status === 'idle' || this.snap.status === 'ended') return;
+    this.failedGen = this.gen;
+    if (this.familyId && this.peerId && this.callId) {
+      sendSignal(this.familyId, { to: this.peerId, call: this.callId, kind: 'hangup', data: null });
+      this.finished.set(this.callId, 'hangup');
+    }
+    const gen = this.gen;
+    void this.writeDiag(reason).finally(() => {
+      if (this.gen === gen) this.end(reason);
+    });
+  }
+
+  private clearRingTimer() {
+    if (this.ringTimer) {
+      clearTimeout(this.ringTimer);
+      this.ringTimer = null;
+    }
   }
   private clearConnTimeout() {
     if (this.connTimer) {
@@ -289,23 +353,20 @@ class CallManager {
 
   /** ICE-серверы с воркера. Раньше любая осечка молча уходила в STUN-only —
    *  а без TURN звонок с мобильной сети (CGNAT у операторов) не соединится
-   *  вовсе. Теперь причина осечки записывается в диагностику. */
-  private async fetchIce(familyId: string): Promise<RTCIceServer[]> {
+   *  вовсе. Причина осечки возвращается вместе со списком: в разбор её
+   *  кладёт звонок, а переигровка по ней решает, менять ли серверы. */
+  private async fetchIce(familyId: string): Promise<IceResult> {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), ICE_FETCH_TIMEOUT_MS);
     try {
       const c = await getFamilyConfig(familyId);
-      if (!c) {
-        this.diagTurn = 'no-config';
-        return DEFAULT_ICE;
-      }
+      if (!c) return { servers: DEFAULT_ICE, turn: 'no-config' };
       const r = await fetch(`${WORKER_URL}/family/turn?familyId=${familyId}`, {
         headers: { Authorization: `Bearer ${c.familyToken}` },
+        signal: ctl.signal,
       });
-      if (!r.ok) {
-        this.diagTurn = 'http-error';
-        this.diagTurnDetail = `HTTP ${r.status}`;
-        return DEFAULT_ICE;
-      }
-      const d = (await r.json()) as { iceServers?: RTCIceServer[] };
+      if (!r.ok) return { servers: DEFAULT_ICE, turn: 'http-error', detail: `HTTP ${r.status}` };
+      const d = (await r.json()) as { iceServers?: RTCIceServer[]; turnError?: string };
       const list = Array.isArray(d.iceServers) && d.iceServers.length ? d.iceServers : null;
       // «TURN получен» — это не просто ответ 200, а наличие turn:-адреса:
       // один STUN в ответе на мобильной сети бесполезен.
@@ -313,12 +374,13 @@ class CallManager {
         const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
         return urls.some((u) => typeof u === 'string' && u.startsWith('turn'));
       });
-      this.diagTurn = hasTurn ? 'ok' : 'empty';
-      return list ?? DEFAULT_ICE;
+      if (hasTurn) return { servers: list!, turn: 'ok' };
+      // Почему без ретранслятора — сервер говорит сам (нет ключей, отказ Cloudflare).
+      return { servers: list ?? DEFAULT_ICE, turn: 'empty', detail: d.turnError ? String(d.turnError).slice(0, 60) : undefined };
     } catch (e) {
-      this.diagTurn = 'network-error';
-      this.diagTurnDetail = String(e).slice(0, 120);
-      return DEFAULT_ICE;
+      return { servers: DEFAULT_ICE, turn: 'network-error', detail: String(e).slice(0, 120) };
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -328,9 +390,16 @@ class CallManager {
   private async holdScreen() {
     try {
       if (this.wakeLock || !('wakeLock' in navigator)) return;
-      this.wakeLock = await navigator.wakeLock.request('screen');
-      this.wakeLock.addEventListener('release', () => {
-        this.wakeLock = null;
+      const wl = await navigator.wakeLock.request('screen');
+      // Звонок кончился, пока система выдавала блокировку (мгновенное «Нет
+      // связи», отказ в микрофоне) — иначе экран не гас бы до ухода из приложения.
+      if (this.snap.status === 'idle' || this.snap.status === 'ended') {
+        void wl.release().catch(() => {});
+        return;
+      }
+      this.wakeLock = wl;
+      wl.addEventListener('release', () => {
+        if (this.wakeLock === wl) this.wakeLock = null;
       });
     } catch {
       /* платформа не даёт — не критично, звонок продолжается */
@@ -341,15 +410,6 @@ class CallManager {
     const wl = this.wakeLock;
     this.wakeLock = null;
     if (wl) void wl.release().catch(() => {});
-  }
-
-  /** Мобильный интернет? Знание неточное (браузеры отдают тип сети не все и
-   *  не всегда), поэтому используется только как подсказка для выбора
-   *  relay-only — при неизвестном типе ведём себя как раньше. */
-  private cellular(): boolean {
-    const c = (navigator as Navigator & { connection?: { type?: string; effectiveType?: string } })
-      .connection;
-    return c?.type === 'cellular';
   }
 
   /** Тип ICE-кандидата из SDP-строки: host | srflx | relay | prflx. */
@@ -413,17 +473,18 @@ class CallManager {
   }
 
   private async createPc(familyId: string): Promise<RTCPeerConnection> {
-    const iceServers = await this.fetchIce(familyId);
+    const ice = await (this.icePrefetch ?? this.fetchIce(familyId));
+    this.icePrefetch = null;
+    this.diagTurn = ice.turn;
+    this.diagTurnDetail = ice.detail;
+    // Только ретранслятором на сотовой сети («relay only», как у Jitsi) больше
+    // не ходим. Единственный ретранслятор — Cloudflare, а до него из
+    // российских сетей связь не гарантирована (с июня 2025 провайдеры режут
+    // соединения с Cloudflare): не пробился он — и у звонка не оставалось ни
+    // одного маршрута. Со всеми маршрутами ретранслятор всё равно выигрывает
+    // там, где прямой путь не встаёт, просто прямой тоже остаётся в игре.
     const pc = new RTCPeerConnection({
-      iceServers,
-      // Сотовая сеть почти всегда за симметричным CGNAT: прямой путь там не
-      // встанет никогда, а перебор host/srflx-пар — это и есть те самые
-      // «долгие секунды» перед обрывом. Идём сразу через ретранслятор.
-      // Тот же приём у Jitsi (forceTurnRelay). Трафик аудио 1:1 — около
-      // 40 МБ в час, при бесплатном лимите 1000 ГБ это ничего не стоит.
-      ...(this.cellular() && this.diagTurn === 'ok'
-        ? { iceTransportPolicy: 'relay' as RTCIceTransportPolicy }
-        : {}),
+      iceServers: ice.servers,
       // Один транспорт на всё соединение: дефолт 'balanced' собирает
       // отдельные наборы кандидатов на каждый медиапоток и удлиняет сбор.
       bundlePolicy: 'max-bundle',
@@ -460,27 +521,17 @@ class CallManager {
         this.clearResend();
         this.clearConnTimeout();
         this.clearRecovery();
-        if (this.ringTimer) {
-          clearTimeout(this.ringTimer);
-          this.ringTimer = null;
-        }
+        this.clearRingTimer();
         if (this.snap.reconnecting) this.set({ reconnecting: false });
         this.restartAttempt = 0; // связь ожила — счётчик попыток с чистого листа
         void this.holdScreen();
         if (this.snap.status !== 'active') this.set({ status: 'active', startedAt: Date.now() });
-      } else if (s === 'disconnected') {
+      } else if (s === 'disconnected' || s === 'failed') {
         // Мобильная сеть роняет соединение на секунды (лифт, переход
-        // вышки, WiFi↔LTE) и сама поднимает. Раньше этот статус
+        // вышки, WiFi↔LTE) и сама поднимает. Раньше 'disconnected'
         // игнорировался и через мгновение прилетал 'failed' — звонок
         // умирал там, где связь восстановилась бы сама.
-        this.beginRecovery(pc);
-      } else if (s === 'failed') {
-        if (this.canRestart()) {
-          this.set({ reconnecting: true });
-          void this.restartIce(pc);
-          return;
-        }
-        void this.writeDiag('Соединение потеряно').finally(() => this.end('Соединение потеряно'));
+        this.beginRecovery(pc, s === 'failed');
       }
     };
     for (const t of this.localStream?.getTracks() ?? []) pc.addTrack(t, this.localStream!);
@@ -488,24 +539,28 @@ class CallManager {
     return pc;
   }
 
-  /** Пауза на самовосстановление после 'disconnected'. Не убиваем звонок
-   *  сразу: браузер сам перебирает пары. Не вернулись за окно — идём в
-   *  ICE-restart через штатный переход в 'failed'. */
-  private beginRecovery(pc: RTCPeerConnection) {
+  /** Связь пропала. Обе стороны ждут одного общего срока: переигрывает
+   *  инициатор, второй держит звонок и отвечает на его приглашение — даже
+   *  если инициатор вернётся через полминуты (iOS морозит приложение в
+   *  фоне). После 'disconnected' сначала пауза: браузер сам перебирает пары;
+   *  'failed' — переигрываем сразу. */
+  private beginRecovery(pc: RTCPeerConnection, failed: boolean) {
+    if (!this.snap.reconnecting) this.set({ reconnecting: true });
+    if (!this.deadlineTimer) {
+      this.deadlineTimer = setTimeout(() => {
+        this.deadlineTimer = null;
+        if (this.pc === pc && pc.connectionState !== 'connected') this.fail('Связь не восстановилась');
+      }, RECOVERY_DEADLINE_MS);
+    }
+    if (!this.isRecoveryInitiator()) return; // восстановление ведёт другая сторона
+    if (failed) {
+      if (this.canRestart()) void this.restartIce(pc);
+      return;
+    }
     if (this.recoveryTimer) return;
-    this.set({ reconnecting: true });
     this.recoveryTimer = setTimeout(() => {
       this.recoveryTimer = null;
-      if (this.pc !== pc) return;
-      if (pc.connectionState === 'disconnected') {
-        if (this.canRestart()) {
-          void this.restartIce(pc);
-        } else if (this.isRecoveryInitiator()) {
-          // Попытки исчерпаны — дальше тянуть бессмысленно.
-          void this.writeDiag('Связь не восстановилась').finally(() => this.end('Связь не восстановилась'));
-        }
-        // Не инициатор — ждём: восстановление ведёт другая сторона.
-      }
+      if (this.pc === pc && pc.connectionState === 'disconnected' && this.canRestart()) void this.restartIce(pc);
     }, RECOVERY_GRACE_MS);
   }
 
@@ -513,6 +568,10 @@ class CallManager {
     if (this.recoveryTimer) {
       clearTimeout(this.recoveryTimer);
       this.recoveryTimer = null;
+    }
+    if (this.deadlineTimer) {
+      clearTimeout(this.deadlineTimer);
+      this.deadlineTimer = null;
     }
   }
 
@@ -539,6 +598,9 @@ class CallManager {
    *  паузой (0 → 0.3 → 1.2 → 2.7 → 4.8 с, как в клиенте LiveKit): мгновенный
    *  повтор в момент, когда сеть ещё не вернулась, просто сжигает попытку. */
   private async restartIce(pc: RTCPeerConnection) {
+    if (this.restarting) return; // вторая переигровка поверх первой спутала бы описания
+    this.restarting = true;
+    this.clearResend(); // копии прошлой переигровки больше не нужны
     const delay = RESTART_BACKOFF_MS[Math.min(this.restartAttempt, RESTART_BACKOFF_MS.length - 1)];
     this.restartAttempt++;
     try {
@@ -547,13 +609,17 @@ class CallManager {
       if (this.gen !== gen || this.pc !== pc) return;
       // Свежие ICE-серверы: за время разговора креды могли протухнуть, а
       // ретранслятор нужен именно сейчас. setConfiguration меняет их без
-      // разрыва соединения.
-      const iceServers = await this.fetchIce(this.familyId ?? '');
+      // разрыва соединения. Но только на рабочие: обрыв часто и есть «нет
+      // сети», запрос падает, и раньше живой ретранслятор менялся на голый
+      // STUN как раз тогда, когда без него не обойтись.
+      const ice = await this.fetchIce(this.familyId ?? '');
       if (this.gen !== gen || this.pc !== pc) return;
-      try {
-        pc.setConfiguration({ ...pc.getConfiguration(), iceServers });
-      } catch {
-        /* смена конфигурации не поддержана — идём со старыми серверами */
+      if (ice.turn === 'ok') {
+        try {
+          pc.setConfiguration({ ...pc.getConfiguration(), iceServers: ice.servers });
+        } catch {
+          /* смена конфигурации не поддержана — идём со старыми серверами */
+        }
       }
       pc.restartIce();
       const offer = withOpusTuning(await pc.createOffer({ iceRestart: true }));
@@ -562,10 +628,51 @@ class CallManager {
       if (this.gen !== gen || this.pc !== pc) return;
       await this.waitIce(pc);
       if (this.gen !== gen || this.pc !== pc) return;
-      void this.signal('offer', { sdp: pc.localDescription });
-      this.armConnTimeout();
+      // Повторяем, пока не придёт ответ, — как первое приглашение. Одно
+      // приглашение уходило в сокет, который сам ещё переподключался после
+      // того же обрыва, и пропадало.
+      const send = () => void this.signal('offer', { sdp: pc.localDescription });
+      send();
+      this.clearResend();
+      this.resendTimer = setInterval(send, OFFER_RESEND_MS);
+      if (this.snap.status === 'connecting') this.armConnTimeout();
     } catch {
-      void this.writeDiag('Соединение потеряно').finally(() => this.end('Соединение потеряно'));
+      this.fail('Соединение потеряно');
+    } finally {
+      this.restarting = false;
+    }
+  }
+
+  /** Приглашение в звонке, где мы уже ответили. Та же ICE-учётка — это
+   *  повтор: наш ответ до звонящего не дошёл (сокет переподключался в момент
+   *  ответа), и без повтора он звал бы, а мы ждали, пока оба не сдадутся.
+   *  Новая учётка — собеседник переигрывает соединение после обрыва: отвечаем
+   *  на неё так же, как на первое приглашение. */
+  private async onRepeatOffer(key: CryptoKey, data: string) {
+    const pc = this.pc;
+    if (!pc) return;
+    const { sdp } = await decryptJSON<{ sdp: RTCSessionDescriptionInit }>(key, data);
+    // Свой ответ ещё собирается (accept не дошёл до конца) — не вмешиваемся:
+    // приглашение повторят через пару секунд.
+    if (this.pc !== pc || pc.signalingState !== 'stable' || !pc.remoteDescription) return;
+    if (iceUfrag(sdp.sdp) === iceUfrag(pc.remoteDescription.sdp)) {
+      if (pc.localDescription?.type === 'answer') {
+        void this.signal('answer', { sdp: pc.localDescription, re: iceUfrag(pc.remoteDescription.sdp) });
+      }
+      return;
+    }
+    const gen = this.gen;
+    try {
+      await pc.setRemoteDescription(withOpusTuning(sdp));
+      if (this.gen !== gen || this.pc !== pc) return;
+      await this.drainCandidates();
+      await pc.setLocalDescription(withOpusTuning(await pc.createAnswer()));
+      if (this.gen !== gen || this.pc !== pc) return;
+      await this.waitIce(pc);
+      if (this.gen !== gen || this.pc !== pc) return;
+      void this.signal('answer', { sdp: pc.localDescription, re: iceUfrag(sdp.sdp) });
+    } catch {
+      /* описание отвергнуто или pc закрыт — восстановление ведёт другая сторона */
     }
   }
 
@@ -610,6 +717,9 @@ class CallManager {
     // Статус — СИНХРОННО до любого await: иначе двойной тап «позвонить» прошёл бы
     // guard выше дважды и поднял бы два звонка (два микрофона/pc). Имя дозагрузим.
     this.set({ status: 'outgoing', familyId, peerId, peerName: '', muted: false, startedAt: null, endReason: null });
+    // Экран не гаснет уже на дозвоне: погасший экран iOS морозит приложение
+    // раньше, чем кто-то ответит.
+    void this.holdScreen();
     connectFamily(familyId);
     this.familyId = familyId;
     this.peerId = peerId;
@@ -646,16 +756,25 @@ class CallManager {
     this.localStream = stream;
     void this.probeSpeaker();
     this.armMicRecovery();
-    const pc = await this.createPc(familyId);
-    if (this.gen !== gen) return this.abortLocal(pc, stream);
-    await pc.setLocalDescription(withOpusTuning(await pc.createOffer()));
-    if (this.gen !== gen) return this.abortLocal(pc, stream);
-    await this.waitIce(pc);
-    if (this.gen !== gen) return this.abortLocal(pc, stream);
+    let pc: RTCPeerConnection;
+    try {
+      pc = await this.createPc(familyId);
+      if (this.gen !== gen) return this.abortLocal(pc, stream);
+      await pc.setLocalDescription(withOpusTuning(await pc.createOffer()));
+      if (this.gen !== gen) return this.abortLocal(pc, stream);
+      await this.waitIce(pc);
+      if (this.gen !== gen) return this.abortLocal(pc, stream);
+    } catch {
+      // Раньше исключение здесь оставляло «Вызов…» на весь дозвон.
+      if (this.gen === gen) this.fail('Ошибка');
+      return;
+    }
     const sendOffer = () => void this.signal('offer', { sdp: pc.localDescription });
     sendOffer();
     this.resendTimer = setInterval(sendOffer, OFFER_RESEND_MS);
     this.ringTimer = setTimeout(() => {
+      this.ringTimer = null;
+      if (this.snap.status !== 'outgoing') return; // трубку уже сняли
       // cancel — синхронно и напрямую (не this.signal: end() обнулит поля до
       // его await). Недоставленный cancel сервер превратит в «пропущенный звонок».
       if (this.familyId && this.peerId && this.callId) {
@@ -675,13 +794,18 @@ class CallManager {
     stopRingtone();
     this.clearCallNotifications(this.callId);
     this.set({ status: 'connecting' }); // синхронно до await — дедуп двойного «Принять»
+    // Звонящему — сразу «трубку сняли», до микрофона и сбора маршрутов: эти
+    // секунды раньше шли в зачёт его дозвона, и ответ на последних секундах
+    // он сбрасывал как «Не ответили». Старые версии сигнал пропускают молча.
+    void this.signal('accepted', null);
+    void this.holdScreen();
     this.armConnTimeout();
     const gen = this.gen;
     const familyId = this.familyId;
     const pendingOffer = this.pendingOffer; // захватываем: end() обнулит this.pendingOffer
     const c = await getFamilyConfig(familyId);
     if (!c) {
-      this.end('Ошибка');
+      this.fail('Ошибка');
       return;
     }
     if (this.gen !== gen) return;
@@ -689,7 +813,13 @@ class CallManager {
     try {
       stream = await this.getMic();
     } catch {
-      void this.signal('decline', null);
+      // hangup, а не decline: «трубку сняли» уже ушло, и звонящий отказ после
+      // ответа не принимает (см. decline в onSignal). Синхронно, до end():
+      // this.signal() читает поля после await, а end() их уже обнулил бы.
+      if (this.peerId && this.callId) {
+        sendSignal(familyId, { to: this.peerId, call: this.callId, kind: 'hangup', data: null });
+        this.finished.set(this.callId, 'hangup');
+      }
       this.end('Нет доступа к микрофону');
       return;
     }
@@ -697,23 +827,30 @@ class CallManager {
     this.localStream = stream;
     void this.probeSpeaker();
     this.armMicRecovery();
-    const offer = await decryptJSON<{ sdp: RTCSessionDescriptionInit }>(c.familyKey, pendingOffer);
-    if (this.gen !== gen) return this.abortLocal(null, stream);
-    const pc = await this.createPc(familyId);
-    if (this.gen !== gen) return this.abortLocal(pc, stream);
-    await pc.setRemoteDescription(withOpusTuning(offer.sdp));
-    if (this.gen !== gen) return this.abortLocal(pc, stream);
-    await this.drainCandidates();
-    await pc.setLocalDescription(withOpusTuning(await pc.createAnswer()));
-    if (this.gen !== gen) return this.abortLocal(pc, stream);
-    await this.waitIce(pc);
-    if (this.gen !== gen) return this.abortLocal(pc, stream);
-    void this.signal('answer', { sdp: pc.localDescription });
+    try {
+      const offer = await decryptJSON<{ sdp: RTCSessionDescriptionInit }>(c.familyKey, pendingOffer);
+      if (this.gen !== gen) return this.abortLocal(null, stream);
+      const pc = await this.createPc(familyId);
+      if (this.gen !== gen) return this.abortLocal(pc, stream);
+      await pc.setRemoteDescription(withOpusTuning(offer.sdp));
+      if (this.gen !== gen) return this.abortLocal(pc, stream);
+      await this.drainCandidates();
+      await pc.setLocalDescription(withOpusTuning(await pc.createAnswer()));
+      if (this.gen !== gen) return this.abortLocal(pc, stream);
+      await this.waitIce(pc);
+      if (this.gen !== gen) return this.abortLocal(pc, stream);
+      void this.signal('answer', { sdp: pc.localDescription, re: iceUfrag(offer.sdp.sdp) });
+    } catch {
+      // Раньше исключение (чужой ключ, отвергнутое описание) молча держало
+      // «Соединение…» 25 секунд и сваливало вину на сеть.
+      if (this.gen === gen) this.fail('Ошибка');
+    }
   }
 
   decline(): void {
     if (this.familyId && this.peerId && this.callId) {
       sendSignal(this.familyId, { to: this.peerId, call: this.callId, kind: 'decline', data: null });
+      this.finished.set(this.callId, 'decline');
     }
     this.end('Отклонено');
   }
@@ -721,12 +858,9 @@ class CallManager {
   hangup(): void {
     const outgoing = this.snap.status === 'outgoing';
     if (this.familyId && this.peerId && this.callId) {
-      sendSignal(this.familyId, {
-        to: this.peerId,
-        call: this.callId,
-        kind: outgoing ? 'cancel' : 'hangup',
-        data: null,
-      });
+      const kind = outgoing ? 'cancel' : 'hangup';
+      sendSignal(this.familyId, { to: this.peerId, call: this.callId, kind, data: null });
+      this.finished.set(this.callId, kind);
     }
     this.end(outgoing ? 'Отменено' : 'Звонок завершён');
   }
@@ -833,6 +967,10 @@ class CallManager {
         return; // маршрут не сменился — состояние кнопки не трогаем
       }
       this.set({ speakerOn: wantOn });
+      // По спецификации Audio Session тип 'playback' завершает захват
+      // микрофона; живёт ли так WebKit — не проверено. Если трек умер,
+      // поднимаем новый сразу, а не при следующем возврате в приложение.
+      void this.recoverMicIfDead();
       return;
     }
     if (this.speakerMode === 'sinkId') {
@@ -895,18 +1033,28 @@ class CallManager {
     if (f.to && f.to !== c.selfMemberId) return; // не мне (страховка; сервер уже таргетит)
 
     if (f.kind === 'offer') {
-      // Повтор offer текущего входящего — просто обновим SDP.
-      if (this.snap.status === 'incoming' && this.callId === f.call) {
-        this.pendingOffer = f.data;
+      // Тот же звонок. Сверяем по callId, а не по статусу: статус ставится
+      // после await, и пачка копий приглашения (телефон проснулся и получил
+      // всё накопленное разом) проходила проверку «свободен» каждая —
+      // с собственным таймером пропущенного, который потом рвал разговор.
+      if (this.callId === f.call) {
+        if (!this.pc) this.pendingOffer = f.data; // ещё звонит — свежий SDP
+        else if (f.data) await this.onRepeatOffer(c.familyKey, f.data);
         return;
       }
-      // Занят другим звонком — вежливо отказываем.
-      const busy = this.snap.status !== 'idle' && this.snap.status !== 'ended';
-      if (busy && this.callId !== f.call) {
+      if (this.finished.has(f.call)) {
+        // Хвост повторов законченного звонка. Наш последний ответ мог
+        // потеряться — повторяем его, чтобы звонящий перестал звать.
+        const kind = this.finished.get(f.call);
+        if (kind) sendSignal(familyId, { to: f.from, call: f.call, kind, data: null });
+        return;
+      }
+      // Занят другим звонком — вежливо отказываем. callId занят раньше
+      // статуса (тот ставится после await), поэтому смотрим на оба.
+      if (this.callId || (this.snap.status !== 'idle' && this.snap.status !== 'ended')) {
         sendSignal(familyId, { to: f.from, call: f.call, kind: 'busy', data: null });
         return;
       }
-      if (busy) return;
       this.cancelDismiss();
       this.familyId = familyId;
       this.peerId = f.from;
@@ -915,12 +1063,27 @@ class CallManager {
       this.selfId = c.selfMemberId ?? null;
       this.pendingOffer = f.data;
       // Кандидаты, обогнавшие это приглашение, — в очередь текущего звонка.
+      // И в разбор: без них «Маршруты собеседника: нет» винило его сторону.
       this.pendingCandidates = this.earlyCandidates.get(f.call) ?? [];
       this.earlyCandidates.clear();
-      const name = await this.peerName(f.from);
+      for (const cand of this.pendingCandidates) {
+        const t = this.candType(cand.candidate);
+        this.diagRemote[t] = (this.diagRemote[t] ?? 0) + 1;
+      }
+      const gen = this.gen;
+      const name = await this.peerName(f.from).catch(() => t('Участник'));
+      // Пока читали имя, звонящий мог уже отменить: его «отбой» из той же
+      // пачки обработан раньше. Без этой проверки оставался призрак —
+      // звонит, а «Ответить» ничего не делает.
+      if (this.gen !== gen || this.callId !== f.call) return;
+      this.icePrefetch = this.fetchIce(familyId);
       this.set({ status: 'incoming', familyId, peerId: f.from, peerName: name, muted: false, startedAt: null, endReason: null });
       startRingtone();
-      this.ringTimer = setTimeout(() => this.end('Пропущенный звонок'), RING_TIMEOUT_MS);
+      this.clearRingTimer();
+      this.ringTimer = setTimeout(() => {
+        this.ringTimer = null;
+        if (this.snap.status === 'incoming' && this.callId === f.call) this.end('Пропущенный звонок');
+      }, RING_TIMEOUT_MS);
       return;
     }
 
@@ -945,19 +1108,30 @@ class CallManager {
     }
 
     if (f.kind === 'answer') {
-      if (this.role !== 'caller' || !this.pc || !f.data) return;
+      // Ответ нужен, только пока ждём его на своё приглашение — первое или
+      // переигровку после обрыва (её может вести и отвечавший, поэтому роль
+      // не проверяем). Копия уже принятого ответа — мимо.
       const pc = this.pc;
-      this.clearResend();
-      const ans = await decryptJSON<{ sdp: RTCSessionDescriptionInit }>(c.familyKey, f.data);
-      if (this.pc !== pc) return; // звонок снесён/заменён, пока расшифровывали
+      if (!pc || !f.data || pc.signalingState !== 'have-local-offer') return;
+      const ans = await decryptJSON<{ sdp: RTCSessionDescriptionInit; re?: string }>(c.familyKey, f.data);
+      if (this.pc !== pc || pc.signalingState !== 'have-local-offer') return; // снесён/заменён, пока расшифровывали
+      // Ответ на прошлую переигровку, пришедший, когда уже ушла следующая, —
+      // не наш: учётки разошлись бы, и проверки маршрутов не сошлись. (re
+      // ставят новые версии; у старых его нет — принимаем как раньше.)
+      if (ans.re && ans.re !== iceUfrag(pc.localDescription?.sdp)) return;
       try {
         await pc.setRemoteDescription(withOpusTuning(ans.sdp));
       } catch {
-        return; // pc закрыт во время await
+        return; // pc закрыт или ответ отвергнут — повтор приглашения добудет новый
       }
       if (this.pc !== pc) return;
+      this.clearResend();
       await this.drainCandidates();
       if (this.snap.status === 'outgoing') {
+        // Трубку сняли — дальше решает таймер соединения, а не дозвона.
+        // Иначе ответ на последних секундах ринга обрывался как «Не ответили»,
+        // пока маршрут ещё искался.
+        this.clearRingTimer();
         this.set({ status: 'connecting' });
         this.armConnTimeout();
       }
@@ -966,7 +1140,9 @@ class CallManager {
       const { candidate } = await decryptJSON<{ candidate: RTCIceCandidateInit }>(c.familyKey, f.data);
       const t = this.candType(candidate.candidate);
       this.diagRemote[t] = (this.diagRemote[t] ?? 0) + 1;
-      if (this.pc && this.pc.remoteDescription) {
+      // Пока ждём ответ на переигровку, описание собеседника ещё старое —
+      // его новые маршруты оно отвергнет. Придерживаем до ответа.
+      if (this.pc && this.pc.remoteDescription && this.pc.signalingState !== 'have-local-offer') {
         try {
           await this.pc.addIceCandidate(candidate);
         } catch {
@@ -975,12 +1151,22 @@ class CallManager {
       } else {
         this.pendingCandidates.push(candidate);
       }
-    } else if (f.kind === 'decline') {
-      this.end('Отклонено');
-    } else if (f.kind === 'busy') {
-      this.end('Занято');
+    } else if (f.kind === 'accepted') {
+      if (this.snap.status === 'outgoing') {
+        // Трубку сняли — дозвон окончен, дальше решает таймер соединения.
+        this.clearRingTimer();
+        this.set({ status: 'connecting' });
+        this.armConnTimeout();
+      }
+    } else if (f.kind === 'decline' || f.kind === 'busy') {
+      // Только пока звоним. Тот же участник на втором устройстве (синхронизация
+      // копирует его в группе) мог нажать «Отклонить» уже после ответа с
+      // телефона — и раньше этим рвал идущий разговор.
+      if (this.snap.status === 'outgoing') this.end(f.kind === 'decline' ? 'Отклонено' : 'Занято');
     } else if (f.kind === 'hangup' || f.kind === 'cancel') {
-      this.end(this.snap.status === 'incoming' ? 'Пропущенный звонок' : 'Звонок завершён');
+      // 'idle' — входящий ещё не успел показаться: для человека это тоже пропущенный.
+      const ringing = this.snap.status === 'incoming' || this.snap.status === 'idle';
+      this.end(ringing ? 'Пропущенный звонок' : 'Звонок завершён');
     }
   }
 
@@ -1005,14 +1191,21 @@ class CallManager {
     // его прикрывает missed-пуш от alarm'а. Несостоявшийся звонок (нет
     // микрофона, нет связи) не пишется: «пропущенный» у собеседника значил бы,
     // что ему звонили.
+    // Трубку сняли, но связь не встала — тоже не пишется: «пропущенный» в
+    // ленте сказал бы, что не ответили, а ответили.
     if (this.role === 'caller' && this.familyId && reason !== 'Нет доступа к микрофону' && reason !== 'Нет связи с сервером') {
       const dur = this.snap.startedAt ? Date.now() - this.snap.startedAt : null;
-      void sendSystemMessage(
-        this.familyId,
-        dur ? { kind: 'call', sec: Math.max(1, Math.floor(dur / 1000)) } : { kind: 'callMissed' },
-      );
+      if (dur) void sendSystemMessage(this.familyId, { kind: 'call', sec: Math.max(1, Math.floor(dur / 1000)) });
+      else if (this.snap.status === 'outgoing') void sendSystemMessage(this.familyId, { kind: 'callMissed' });
     }
     this.gen++; // инвалидирует любой in-flight setup (getMic/createPc/waitIce)
+    this.icePrefetch = null;
+    if (this.callId && !this.finished.has(this.callId)) this.finished.set(this.callId, null);
+    // ponytail: помним последние 20 звонков — хвост повторов живёт секунды.
+    for (const id of this.finished.keys()) {
+      if (this.finished.size <= 20) break;
+      this.finished.delete(id);
+    }
     stopRingtone();
     this.clearCallNotifications(this.callId);
     this.clearResend();
@@ -1022,6 +1215,14 @@ class CallManager {
     this.releaseScreen();
     this.restartAttempt = 0;
     this.earlyCandidates.clear();
+    // Разбор этого звонка уже записан — следующий начинает с чистого листа.
+    // Раньше счётчики копились от звонка к звонку, и «Отказы ретранслятора»
+    // могли показывать позавчерашние.
+    this.diagTurn = 'empty';
+    this.diagTurnDetail = undefined;
+    this.diagLocal = {};
+    this.diagRemote = {};
+    this.diagIceErrors = [];
     // Вернуть системной аудиосессии обычный режим (iOS).
     {
       const as = this.audioSession();
