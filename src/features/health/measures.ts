@@ -1,8 +1,7 @@
-import { isValid } from 'date-fns';
 import { db } from '../../db/db';
 import { createWithId, remove, update } from '../../db/repo';
 import type { MetricLog } from '../../db/types';
-import { addDaysKey, fromKey } from '../../lib/dates';
+import { addDaysKey, isDateKey } from '../../lib/dates';
 import { updateSettings } from '../../hooks/useSettings';
 import { getLang } from '../../lib/i18n';
 
@@ -47,13 +46,6 @@ export function measureDef(key: MeasureKey): MeasureDef {
   return MEASURES.find((m) => m.key === key)!;
 }
 
-/** День замера — 'YYYY-MM-DD', который есть в календаре. Стёртое поле даты
- *  отдаёт '', и оно проходило «не позже сегодня» ('' меньше любой даты):
- *  запись без дня потом роняла вкладку в format(). */
-export function isDayKey(s: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) && isValid(fromKey(s));
-}
-
 /** Метрика под замер существует и жива; вернуть её id. */
 async function ensureMetric(def: MeasureDef): Promise<string> {
   const have = await db.metrics.get(def.id);
@@ -96,7 +88,9 @@ export async function logMeasure(key: MeasureKey, date: string, value: number): 
   // Границы — от опечаток, не медицинские: «796» из профиля с недобранной
   // запятой в дневник не попадает.
   if (!Number.isFinite(value) || value < def.min || value > def.max) return;
-  if (!isDayKey(date)) return;
+  // Стёртое поле даты отдаёт '' — оно меньше любой даты и проходило «не позже
+  // сегодня»; запись без дня потом роняла вкладку в format().
+  if (!isDateKey(date)) return;
   const metricId = await ensureMetric(def);
   const v = Number(value.toFixed(def.decimals));
   const id = measureLogId(metricId, date);
@@ -147,7 +141,7 @@ export function measureTrend(logs: MetricLog[], today: string, windowDays = 30):
   for (const l of logs) {
     // Запись без дня форма успела сохранить до проверки — у людей она уже в
     // базе. Пропускаем, иначе вкладка падает при каждом открытии.
-    if (l.deletedAt || l.date > today || !isDayKey(l.date)) continue;
+    if (l.deletedAt || l.date > today || !isDateKey(l.date)) continue;
     const have = byDate.get(l.date);
     if (!have || l.updatedAt > have.updatedAt) byDate.set(l.date, l);
   }

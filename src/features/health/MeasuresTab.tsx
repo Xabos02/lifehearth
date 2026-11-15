@@ -6,13 +6,12 @@ import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { getLang, t } from '../../lib/i18n';
-import { formatRu, todayKey } from '../../lib/dates';
+import { formatRu, isDateKey, todayKey } from '../../lib/dates';
 import type { MetricLog } from '../../db/types';
 import { useLoaded } from '../../hooks/useLoaded';
 import {
   MEASURES,
   formatMeasure,
-  isDayKey,
   logMeasure,
   measureDef,
   measureLogId,
@@ -205,7 +204,7 @@ function MeasureForm({ measure, onClose }: { measure: MeasureKey; onClose: () =>
   const v2 = num(raw2);
   const okRange = (v: number, d: MeasureDef) => Number.isFinite(v) && v >= d.min && v <= d.max;
   const canSave =
-    raw !== '' && okRange(v1, def) && (!isBp || (raw2 !== '' && okRange(v2, measureDef('bpDia')))) && isDayKey(day) && day <= todayKey();
+    raw !== '' && okRange(v1, def) && (!isBp || (raw2 !== '' && okRange(v2, measureDef('bpDia')))) && isDateKey(day) && day <= todayKey();
   // Замер за выбранный день уже есть — его можно удалить (ошибочный «784»).
   const existing = useLiveQuery(() => db.metricLogs.get(measureLogId(def.id, day)), [def.id, day]);
   const hasExisting = Boolean(existing && !existing.deletedAt);
