@@ -120,6 +120,7 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
     >
       <PushBanner />
 
+      {groups.length > 0 && <h2 className="lh-section mb-2 px-1">{groups.length > 1 ? t('Группы') : t('Группа')}</h2>}
       <div className="space-y-3">
         {groups.map((c) => {
           const s = sums[c.familyId];
@@ -154,8 +155,8 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
         })}
       </div>
 
-      <h2 className="mt-6 mb-1 px-1 text-sm font-semibold text-lh-text-secondary">{t('Личные')}</h2>
-      <div className="-mx-4">
+      <h2 className="lh-section mt-6 mb-2 px-1">{t('Личные')}</h2>
+      <div className="card">
         {personal.map((c, i) => {
           const partner = partnerOf(c, members);
           return (
@@ -174,14 +175,14 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
         <button
           type="button"
           onClick={() => setNewOpen(true)}
-          className="flex min-h-16 w-full items-center gap-3 px-4 text-left active:bg-lh-surface-2"
+          className="flex min-h-16 w-full items-center gap-3 pl-4 text-left active:bg-lh-surface-2"
         >
           {/* Пунктир — знак «пустого места под чат»; подпись рядом говорит то же
               словами, так что рамка декоративная и контраст 3:1 ей не нужен. */}
           <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-dashed border-lh-border-strong text-lh-accent">
             <GPlus size={ICON.header} />
           </span>
-          <span className="text-base font-medium text-lh-accent">{t('Новый личный чат')}</span>
+          <span className={`flex min-h-16 flex-1 items-center text-base text-lh-accent ${personal.length > 0 ? 'border-t border-lh-border' : ''}`}>{t('Новый личный чат')}</span>
         </button>
       </div>
 
@@ -284,9 +285,16 @@ function PushBanner() {
   }
 
   return (
-    <div className="mb-3 flex items-center gap-2 rounded-xl bg-lh-accent-dim px-3 py-2 text-sm">
-      <GBellRing size={ICON.action} className="shrink-0 text-lh-accent" />
-      <span className="min-w-0 flex-1">{t('Уведомления')}</span>
+    // Макет «Семья»: карточка с плиткой колокольчика, заголовок и пояснение,
+    // действие золотом справа.
+    <div className="card mb-5 flex items-center gap-3 p-4">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-accent-dim text-lh-accent">
+        <GBellRing size={ICON.action} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm">{t('Уведомления выключены')}</span>
+        <span className="block text-xs text-lh-text-secondary">{t('Вы не узнаете о сообщениях и звонках')}</span>
+      </span>
       <button onClick={() => void enable()} className={`shrink-0 font-semibold text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}>
         {t('Включить')}
       </button>

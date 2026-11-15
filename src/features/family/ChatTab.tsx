@@ -532,10 +532,12 @@ function MessageRow({
             className={`relative cursor-pointer select-none overflow-hidden transition-shadow active:opacity-80 ${
               jumbo
                 ? 'bg-transparent px-1 py-0'
-                : `rounded-[1.15rem] shadow-[0_1px_2px_-1px_rgb(0_0_0/0.25)] ${m.image ? 'p-[3px]' : 'px-3 py-1.5'} ${
+                : // Макет чата: свои — золото без тени, чужие — поверхность
+                  // карточки с тонкой рамкой; хвостик — малый радиус угла.
+                  `rounded-[1.15rem] ${m.image ? 'p-[3px]' : 'px-3.5 py-2'} ${
                     own
                       ? `bg-lh-accent text-lh-bg ${groupEnd ? 'rounded-br-[0.4rem]' : ''}`
-                      : `bg-lh-surface-2 text-lh-text-primary ${groupEnd ? 'rounded-bl-[0.4rem]' : ''}`
+                      : `border border-lh-border bg-lh-surface text-lh-text-primary ${groupEnd ? 'rounded-bl-[0.4rem]' : ''}`
                   }`
             } ${highlight ? 'ring-2 ring-frost' : ''}`}
           >

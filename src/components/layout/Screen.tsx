@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { markFillScreen } from '../../lib/ui/fillScreen';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
+import { useNavLayout } from '../../hooks/useNavLayout';
 import {
   GChevronLeft as ChevronLeft,
 } from '../../components/ui/glyphs';
@@ -122,7 +123,7 @@ function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void
 
 export function Screen({
   title,
-  backTo,
+  backTo: backToProp,
   onBack,
   backLabel,
   right,
@@ -136,6 +137,13 @@ export function Screen({
   titlePressHint,
   children,
 }: Props) {
+  // Раздел, вынесенный в нижнее меню, — экран первого уровня: стрелка «‹ Ещё»
+  // у него вводила бы в заблуждение (по умолчанию так у «Семьи»). Решает
+  // текущая раскладка меню — человек может поменять её в «Разделах».
+  const { bottom } = useNavLayout();
+  const { pathname } = useLocation();
+  const backTo =
+    backToProp === '/home' && bottom.some((sec) => !sec.anchor && sec.to === pathname) ? undefined : backToProp;
   // Пока такой экран открыт, баннер установки не показывается: прокрутки,
   // вместе с которой он уезжал бы, здесь нет.
   useEffect(() => (fill ? markFillScreen() : undefined), [fill]);

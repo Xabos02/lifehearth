@@ -1643,6 +1643,10 @@ export const EN: Record<string, string> = {
   // === Цели над списком задач ===
   'Цель достигнута': 'Goal achieved',
   'Все цели': 'All goals',
+  'Тема': 'Theme',
+  'Группы': 'Groups',
+  'Уведомления выключены': 'Notifications are off',
+  'Вы не узнаете о сообщениях и звонках': "You won't know about messages and calls",
   'Папки': 'Folders',
   '{n} на сегодня': '{n} for today',
   'Привяжите задачи': 'Link tasks to it',
