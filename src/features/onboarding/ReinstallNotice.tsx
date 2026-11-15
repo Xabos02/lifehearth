@@ -20,6 +20,7 @@ import { INSTALL_URL, REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
 import { HIT_SLOP_44, HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
+import { Haptic } from '../../components/ui/Haptic';
 
 /**
  * Одноразовое окно о смене имени и значка (Life Hub → LifeHearth).
@@ -170,6 +171,7 @@ export function ReinstallNotice() {
                 className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-lh-surface-2 text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
                 {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
+                <Haptic />
               </button>
             </div>
           </div>

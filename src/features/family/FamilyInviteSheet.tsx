@@ -15,6 +15,7 @@ import { formatInviteWord } from '../../lib/crypto';
 import { formatRu } from '../../lib/dates';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { Haptic } from '../../components/ui/Haptic';
 
 interface Props {
   familyId: string;
@@ -75,6 +76,7 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
           <Button variant="secondary" className="flex-1" onClick={copyCode}>
             {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
             {copied ? t('Скопировано') : t('Скопировать код')}
+            <Haptic />
           </Button>
           <Button variant="secondary" className="flex-1" onClick={saveFile}>
             <Download size={ICON.base} />

@@ -74,6 +74,7 @@ import { isAlive, snippetOf } from './chats';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
 import { confirmAction } from '../../components/ui/confirmStore';
+import { Haptic } from '../../components/ui/Haptic';
 
 // Палитра быстрых реакций — как в WhatsApp/Telegram, шесть базовых.
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
@@ -1084,13 +1085,16 @@ export function ChatTab({ familyId }: { familyId: string }) {
   }
 
   async function copyText(m: FamilyMessage) {
-    setActionMsg(null);
+    // Шторка закрывается ПОСЛЕ копирования: тактильный щелчок (Haptic)
+    // переключается уже после обработчика, и кнопка к этому моменту должна
+    // ещё стоять в документе.
     try {
       await navigator.clipboard.writeText(m.text);
       toast(t('Скопировано'));
     } catch {
       toast(t('Не удалось скопировать. Выделите текст вручную'));
     }
+    setActionMsg(null);
   }
 
   async function toggleReaction(m: FamilyMessage, emoji: string) {
@@ -1699,6 +1703,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               >
                 <Copy size={ICON.base} className="text-lh-accent" />
                 {t('Копировать')}
+                <Haptic />
               </button>
             )}
             {actionMsg.senderMemberId === selfId && !actionMsg.image && !actionMsg.audio && !actionMsg.file && (

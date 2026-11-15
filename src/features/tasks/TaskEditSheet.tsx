@@ -41,6 +41,7 @@ import { usePomodoroActions } from '../focus/pomodoro';
 import { ICON } from '../../components/ui/icons';
 import { isSleeping, scheduleNext } from './taskActions';
 import { confirmAction } from '../../components/ui/confirmStore';
+import { Haptic } from '../../components/ui/Haptic';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'manual';
 type PriorityStr = '0' | '1' | '2' | '3';
@@ -539,6 +540,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <Copy size={ICON.inline} />
+              {title.length > 0 && <Haptic />}
             </button>
           </div>
           <div className="flex items-start gap-2">
@@ -573,6 +575,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <Copy size={ICON.inline} />
+              {notes.length > 0 && <Haptic />}
             </button>
           </div>
           <div className="flex items-start gap-2">
