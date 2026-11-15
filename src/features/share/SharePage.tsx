@@ -10,6 +10,7 @@ import { AutoGrowTextarea } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { create } from '../../db/repo';
+import { newSortOrder } from '../tasks/taskActions';
 import { parseQuickTask } from '../../lib/nlDate';
 // Тот же разбор, что у вставки в редакторе заметок: своя копия здесь не знала
 // про переносы Windows (\r\n), табуляцию между колонками и отступы — текст,
@@ -79,7 +80,7 @@ export function SharePage() {
         checklist: [],
         recurrence: null,
         tags: p.tags,
-        sortOrder: Date.now(),
+        sortOrder: newSortOrder(p.priority),
       });
       toast(t('Задача создана'));
       navigate('/tasks');

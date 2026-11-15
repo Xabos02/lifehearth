@@ -1,10 +1,18 @@
-import type { Recurrence, Task } from '../../db/types';
+import type { Priority, Recurrence, Task } from '../../db/types';
 import { db } from '../../db/db';
 import { create, now, remove, uid, update } from '../../db/repo';
 import { nextOccurrence } from '../../lib/recurrence';
 import { nextWindowStart } from '../../lib/taskDates';
 import { todayKey } from '../../lib/dates';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
+
+/** Порядок новой задачи в её списке: обычная встаёт в конец, с высоким
+ *  приоритетом — на самый верх. Отрицательное число меньше любого порядка,
+ *  что раздают создание (Date.now()) и перенос ((i+1)*1000), а из нескольких
+ *  поднятых выше стоит поднятая позже. Поднимаем один раз, в момент выбора:
+ *  дальше задачу можно утащить куда угодно, и следующее сохранение её не
+ *  вернёт наверх. */
+export const newSortOrder = (priority: Priority): number => (priority === 3 ? -Date.now() : Date.now());
 
 /**
  * Переключение выполненности задачи.
