@@ -1,4 +1,5 @@
 import type { Workout, WorkoutType } from '../../db/types';
+import { isDateKey, todayKey, toKey } from '../../lib/dates';
 
 // Импорт тренировок из CSV — то, что реально можно «подтянуть из других
 // приложений» веб-приложению: Apple Health для него закрыт, Strava с 2026
@@ -23,6 +24,17 @@ export interface ParseResult {
   skipped: number;
 }
 
+/** Текст файла: UTF-8, а если байты в него не складываются — Windows-1251.
+ *  В ней «CSV» сохраняет русский Excel, и чтение как UTF-8 превращало
+ *  заголовки в «�» — колонки не находились, файл «без тренировок». */
+export function decodeCsv(buf: ArrayBuffer): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch {
+    return new TextDecoder('windows-1251').decode(buf);
+  }
+}
+
 /** Разбить CSV на строки и ячейки: кавычки, запятые внутри кавычек, ; как
  *  разделитель у русского Excel. */
 export function splitCsv(text: string): string[][] {
@@ -42,7 +54,9 @@ export function splitCsv(text: string): string[][] {
       } else cell += c;
       continue;
     }
-    if (c === '"') quoted = true;
+    // Кавычки открывают только ячейку: «5" shoes» в своей таблице иначе
+    // уводил в кавычки весь хвост файла, и строки пропадали без следа.
+    if (c === '"' && cell.trim() === '') quoted = true;
     else if (c === sep) {
       row.push(cell);
       cell = '';
@@ -88,9 +102,22 @@ const MONTHS: Record<string, number> = {
   янв: 1, фев: 2, мар: 3, апр: 4, мая: 5, май: 5, июн: 6, июл: 7, авг: 8, сен: 9, окт: 10, ноя: 11, дек: 12,
 };
 
+// Отметка времени с поясом: '2026-09-10T22:30:00Z', '…+03:00'.
+const ZONED = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+
 /** 'YYYY-MM-DD' из строки даты; null — не разобрано. */
 export function parseDate(raw: string): string | null {
   const s = raw.trim();
+  const key = dateKeyOf(s);
+  // Дня, которого нет в календаре (31.02, «9/25/2026» месяцем вперёд), не
+  // берём: запись с ним роняла «Спорт» и «Сегодня» — format бросает RangeError.
+  if (!key || !isDateKey(key)) return null;
+  // С поясом — это момент, а не день: 22:30Z — уже 01:30 следующего дня по
+  // Москве. День берём местный, как у записей, отмеченных руками.
+  return ZONED.test(s) ? toKey(new Date(s)) : key;
+}
+
+function dateKeyOf(s: string): string | null {
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); // ISO, с временем или без
   if (m) return `${m[1]}-${m[2]}-${m[3]}`;
   m = s.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})/); // 10.09.2026, 10/09/2026 (день первым)
@@ -110,8 +137,9 @@ export function parseDate(raw: string): string | null {
 
 /** Минуты из «5400» (секунды у Strava/Garmin), «1:30:00», «45:00», «45» (минуты),
  *  «45 мин». Число без единиц больше 300 считается секундами: тренировок дольше
- *  пяти часов не бывает, а Strava пишет ровно секунды. */
-export function parseDuration(raw: string): number | null {
+ *  пяти часов не бывает, а Strava пишет ровно секунды. seconds — колонка, где
+ *  голое число всегда секунды (у Strava): там и 240 — это 4 минуты. */
+export function parseDuration(raw: string, seconds = false): number | null {
   const s = raw.trim().toLowerCase().replace(',', '.');
   if (!s) return null;
   let m = s.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
@@ -122,7 +150,7 @@ export function parseDuration(raw: string): number | null {
   if (m) {
     const n = +m[1];
     if (m[2]) return Math.round(n);
-    return n > 300 ? Math.round(n / 60) : Math.round(n);
+    return seconds || n > 300 ? Math.round(n / 60) : Math.round(n);
   }
   m = s.match(/^(\d+(?:\.\d+)?)\s*(ч|h|hr|hours?)$/);
   if (m) return Math.round(+m[1] * 60);
@@ -143,8 +171,9 @@ export function parseDistance(raw: string): number | null {
 
 const TYPE_WORDS: [WorkoutType, string[]][] = [
   ['run', ['run', 'бег', 'jog', 'пробежка', 'trail']],
-  ['walk', ['walk', 'hike', 'ходьба', 'прогулка', 'поход']],
-  ['bike', ['ride', 'bike', 'cycl', 'вело']],
+  // hiking/biking — у Garmin: «hike»/«bike» в них подстрокой не входят.
+  ['walk', ['walk', 'hike', 'hiking', 'ходьба', 'прогулка', 'поход']],
+  ['bike', ['ride', 'bike', 'biking', 'cycl', 'вело']],
   ['swim', ['swim', 'плав']],
   ['boxing', ['box', 'бокс', 'kickbox', 'mma']],
   ['kettlebell', ['kettle', 'гир']],
@@ -161,7 +190,7 @@ export function parseType(raw: string): WorkoutType {
 }
 
 /** Разобрать текст CSV в список тренировок. Первая строка — заголовок. */
-export function parseWorkoutsCsv(text: string): ParseResult {
+export function parseWorkoutsCsv(text: string, today: string = todayKey()): ParseResult {
   const table = splitCsv(text.replace(/^\uFEFF/, ''));
   if (table.length < 2) return { rows: [], skipped: 0 };
   const header = table[0];
@@ -173,12 +202,17 @@ export function parseWorkoutsCsv(text: string): ParseResult {
     note: findColumn(header, COLUMNS.note),
   };
   if (ci.date < 0 || ci.duration < 0) return { rows: [], skipped: table.length - 1 };
+  // Время Strava — всегда секунды: иначе короткая запись в 240 с читалась
+  // как 240 минут, по порогу «больше 300 — секунды».
+  const inSeconds = ['moving time', 'elapsed time'].includes(header[ci.duration].trim().toLowerCase());
   const rows: ParsedWorkout[] = [];
   let skipped = 0;
   for (const cells of table.slice(1)) {
     const date = parseDate(cells[ci.date] ?? '');
-    const minutes = parseDuration(cells[ci.duration] ?? '');
-    if (!date || minutes === null || minutes <= 0) {
+    const minutes = parseDuration(cells[ci.duration] ?? '', inSeconds);
+    // Позже сегодня — нет, как и в форме (max=сегодня): неделя засчитывала
+    // такую запись заранее, а после правки её было не сохранить.
+    if (!date || date > today || minutes === null || minutes <= 0) {
       skipped++;
       continue;
     }
@@ -191,7 +225,7 @@ export function parseWorkoutsCsv(text: string): ParseResult {
 }
 
 type DupKey = Pick<Workout, 'date' | 'type' | 'minutes' | 'distanceKm'>;
-const dupKey = (w: DupKey) =>
+export const dupKey = (w: DupKey) =>
   `${w.date}|${w.type}|${w.minutes}|${w.distanceKm == null ? '' : Math.round(w.distanceKm)}`;
 
 /** Убрать из разобранного то, что уже есть: та же дата, вид, минуты и
@@ -199,8 +233,11 @@ const dupKey = (w: DupKey) =>
  *  вечер 7 км — разные записи). Файл выгрузки обычно содержит всё с начала
  *  времён, а импортируют его не раз. В existing передавать ВСЮ таблицу, с
  *  удалёнными: иначе удалённая рукой запись воскресает при следующем импорте. */
-export function withoutDuplicates(rows: ParsedWorkout[], existing: DupKey[]): ParsedWorkout[] {
-  const seen = new Set(existing.map(dupKey));
+export function withoutDuplicates(rows: ParsedWorkout[], existing: (DupKey & Pick<Workout, 'importKey'>)[]): ParsedWorkout[] {
+  // Импортированная запись помнит ключ своей строки файла: поправленные
+  // минуты по текущим полям уже не совпадали, и повтор файла возвращал
+  // исходную копию второй записью.
+  const seen = new Set(existing.flatMap((w) => (w.importKey ? [w.importKey, dupKey(w)] : [dupKey(w)])));
   const out: ParsedWorkout[] = [];
   for (const r of rows) {
     const key = dupKey(r);

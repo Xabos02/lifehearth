@@ -613,6 +613,60 @@ test('шторки спорта, семейная задача, экран пр�
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
 });
 
+// Шаблоны тренировок (15.11.2026, канва design/sport-templates): чипы и ссылка
+// в карточке дня, список с карандашом, редактор со свёрнутыми видами,
+// раскрытое упражнение (числа, чипы единиц, стрелки порядка) и барабан
+// общего времени. Обход по адресам видит вкладку без шаблонов, шторки — тапом.
+test('шаблоны тренировок: карточка дня, список, редактор, барабан — не меньше 44 и не налезают', async ({ page }) => {
+  const bad: string[] = [];
+  const check = async (where: string, root?: string) => {
+    for (const b of await small(page, root)) bad.push(`${where}: ${b}`);
+    for (const o of await overlapsOn(page, root)) bad.push(`${where}: ${o}`);
+  };
+  await openApp(page, '/more/health');
+  await page.evaluate(async () => {
+    const { addTemplate } = await import('/src/features/health/templateRepo.ts');
+    const kind = (type: string, minutes: number, exercises: object[]) => ({ type, customLabel: null, customColor: null, minutes, distanceKm: null, exercises });
+    await addTemplate({
+      name: 'Тренировка А — сила и удар',
+      totalMinutes: 70,
+      note: 'Запас 1–2 повтора',
+      items: [
+        kind('strength', 45, [
+          { name: 'Подтягивания с поясом', sets: 4, reps: 6, repsTo: 8, weight: '+10–15 кг', rest: '2 мин', note: 'Разминка 1×5–6' },
+          { name: 'Брусья с поясом', sets: 4, reps: 8, repsTo: 10, weight: '+15–20 кг', rest: '2 мин' },
+          { name: 'Face Pulls', sets: 3, reps: 15 },
+        ]),
+        kind('boxing', 11, [{ name: 'Раунд 1', sets: null, reps: 3, unit: 'min', rest: '1 мин' }]),
+      ],
+    } as never);
+    for (const name of ['Тренировка Б — взрыв и серийность', 'Контрольный день']) {
+      await addTemplate({ name, items: [kind('strength', 0, [])] } as never);
+    }
+  });
+  await expect(page.getByRole('button', { name: 'По шаблону: Контрольный день' })).toBeVisible();
+  await check('карточка дня с шаблонами');
+
+  await page.getByTestId('day-templates').getByRole('button', { name: 'Шаблоны', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Изменить шаблон «Контрольный день»' })).toBeVisible();
+  await check('список шаблонов', SHEET);
+
+  await page.getByRole('button', { name: 'Изменить шаблон «Тренировка А — сила и удар»' }).click();
+  await expect(page.getByTestId('exercise-row')).toHaveCount(4);
+  await check('редактор шаблона, свёрнут', SHEET);
+  await page.getByRole('button', { name: /^Общее время/ }).click();
+  await expect(page.getByTestId('duration-wheel')).toBeVisible();
+  await check('барабан общего времени', SHEET);
+  // Среднее упражнение: обе стрелки порядка активны.
+  await page.getByTestId('exercise-row').nth(1).click();
+  await expect(page.getByRole('button', { name: 'Опустить упражнение' })).toBeEnabled();
+  await check('раскрытое упражнение', SHEET);
+  await page.getByRole('button', { name: /^Вид: Бокс/ }).click();
+  await check('раскрытый вид', SHEET);
+
+  expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
+});
+
 // Список чатов «Семьи»: строки чатов, «Общие задачи», «Новый личный чат» и
 // кнопка шапки. Обход SCREENS видит семью пустой (экран подключения), поэтому
 // список засеивается здесь; «Новый чат» — шторка, её мерим отдельно.

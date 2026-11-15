@@ -19,6 +19,17 @@ export function fromKey(key: string): Date {
   return startOfDay(parse(key, DATE_KEY_FORMAT, new Date()));
 }
 
+/** Ключ дня, который есть в календаре: '2026-02-31' и '2026-25-09' — нет.
+ *  fromKey делает из такого Invalid Date, а format на нём бросает RangeError. */
+export function isDateKey(key: string): boolean {
+  // Без date-fns: проверка идёт по каждой тренировке на каждом кадре раздела,
+  // а разбор строки библиотекой на выгрузке Strava за годы — это десятки мс.
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!m) return false;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return d.getFullYear() === +m[1] && d.getMonth() === +m[2] - 1 && d.getDate() === +m[3];
+}
+
 export function todayKey(): string {
   return toKey(new Date());
 }

@@ -408,6 +408,7 @@ async function pullPage(
   // Задачи, пришедшие с другого устройства, — их напоминание сводится после
   // транзакции: внутри неё сетевой запрос оборвал бы транзакцию Dexie.
   const taskChanges: { before: Row | undefined; after: Row }[] = [];
+  let weightIn = false;
   if (decoded.length) {
     const tables = [...new Set(decoded.map((d) => d.name))].map((name) => db.table(name));
     // Сбой ХРАНИЛИЩА пропускать нельзя: там не применится ничего, и сдвинутый
@@ -429,11 +430,25 @@ async function pullPage(
         remoteApplied.set(`${name}:${obj.id}`, obj.updatedAt);
         applied++;
         if (name === 'tasks') taskChanges.push({ before: local, after: obj });
+        if (name === 'metricLogs' && obj.metricId === 'health:weight') weightIn = true;
       }
     });
   }
   for (const { before, after } of taskChanges) {
     void reconcileIncomingReminder(before as never, after as never).catch(() => {});
+  }
+  // Вес с другого устройства — и в профиль: копию последнего замера там
+  // читают «Главная» и ИМТ, а настройки не синхронизируются. Только по весу:
+  // по сну или пульсу пересчёт стёр бы вес профиля, заведённый до дневника.
+  // Импорт ленивый — как у consent.ts: модуль раздела тянет за собой repo,
+  // а тот этот файл. Сбой глушим: замер уже записан, копия догонит со
+  // следующей записью веса, а ронять из-за неё обмен нельзя.
+  if (weightIn) {
+    try {
+      await (await import('../features/health/measures')).syncProfileWeight();
+    } catch {
+      /* профиль догонит дневник со следующей записью веса */
+    }
   }
 
   // Сервер без нового курсора (ещё не обновился) nextAfter не отдаёт — тогда

@@ -1,13 +1,12 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { format } from 'date-fns';
 import { db } from '../../db/db';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
-import { t } from '../../lib/i18n';
-import { dateLocale, fromKey, todayKey } from '../../lib/dates';
+import { getLang, t } from '../../lib/i18n';
+import { formatRu, isDateKey, todayKey } from '../../lib/dates';
 import type { MetricLog } from '../../db/types';
 import { useLoaded } from '../../hooks/useLoaded';
 import {
@@ -28,6 +27,9 @@ import { confirmAction } from '../../components/ui/confirmStore';
  *  карточке: верхнее и нижнее вводятся вместе, показываются через дробь. */
 export function MeasuresTab() {
   const today = todayKey();
+  // Порядок «день месяц» — по языку (PROTOCOL §7.7): с фиксированным 'd MMM'
+  // английский показывал «16 Sep» вместо «Sep 16».
+  const ru = getLang() === 'ru';
   const logs = useLiveQuery(() => db.metricLogs.toArray(), []);
   const loaded = useLoaded(logs);
   const [editing, setEditing] = useState<MeasureKey | null>(null);
@@ -75,7 +77,7 @@ export function MeasuresTab() {
         sub={
           sleep.last
             ? t('среднее за неделю · последний {when}: {v}', {
-                when: format(fromKey(sleep.last.date), 'd MMM', { locale: dateLocale() }),
+                when: formatRu(sleep.last.date, ru ? 'd MMM' : 'MMM d'),
                 v: hours(sleep.last.value),
               })
             : t('Замеров пока нет')
@@ -99,7 +101,7 @@ export function MeasuresTab() {
       <MeasureCard
         def={{ ...measureDef('bpSys'), title: t('Давление') }}
         value={sys.last && dia.last ? `${Math.round(sys.last.value)} / ${Math.round(dia.last.value)}` : null}
-        sub={sys.last ? format(fromKey(sys.last.date), 'd MMMM', { locale: dateLocale() }) : t('Замеров пока нет')}
+        sub={sys.last ? formatRu(sys.last.date) : t('Замеров пока нет')}
         series={sys.series.map((p) => p.value)}
         onAdd={() => setEditing('bpSys')}
       />
@@ -116,9 +118,9 @@ export function MeasuresTab() {
                 ? tr.deltaPrev !== null
                   ? t('{d} к прошлому · {when}', {
                       d: signed(tr.deltaPrev, 0),
-                      when: format(fromKey(tr.last.date), 'd MMM yyyy', { locale: dateLocale() }),
+                      when: formatRu(tr.last.date, ru ? 'd MMM yyyy' : 'MMM d, yyyy'),
                     })
-                  : format(fromKey(tr.last.date), 'd MMMM yyyy', { locale: dateLocale() })
+                  : formatRu(tr.last.date, ru ? 'd MMMM yyyy' : 'MMMM d, yyyy')
                 : t('Замеров пока нет')
             }
             series={[]}
@@ -203,7 +205,7 @@ function MeasureForm({ measure, onClose }: { measure: MeasureKey; onClose: () =>
   const v2 = num(raw2);
   const okRange = (v: number, d: MeasureDef) => Number.isFinite(v) && v >= d.min && v <= d.max;
   const canSave =
-    raw !== '' && okRange(v1, def) && (!isBp || (raw2 !== '' && okRange(v2, measureDef('bpDia')))) && day <= todayKey();
+    raw !== '' && okRange(v1, def) && (!isBp || (raw2 !== '' && okRange(v2, measureDef('bpDia')))) && isDateKey(day) && day <= todayKey();
   // Замер за выбранный день уже есть — его можно удалить (ошибочный «784»).
   const existing = useLiveQuery(() => db.metricLogs.get(measureLogId(def.id, day)), [def.id, day]);
   const hasExisting = Boolean(existing && !existing.deletedAt);
@@ -274,13 +276,18 @@ function MeasureForm({ measure, onClose }: { measure: MeasureKey; onClose: () =>
 }
 
 function signed(n: number, decimals = 1): string {
-  const s = Math.abs(n).toFixed(decimals).replace('.', ',');
+  const abs = Math.abs(n).toFixed(decimals);
+  // Разделитель по языку, как в formatMeasure.
+  const s = getLang() === 'ru' ? abs.replace('.', ',') : abs;
   return n > 0 ? `+${s}` : n < 0 ? `−${s}` : s;
 }
 
 function hours(h: number): string {
-  const whole = Math.floor(h);
-  const min = Math.round((h - whole) * 60);
+  // До минут округляется вся длительность, а не остаток отдельно: среднее
+  // 6,995 ч давало «6 ч 60 м» вместо «7 ч».
+  const total = Math.round(h * 60);
+  const whole = Math.floor(total / 60);
+  const min = total % 60;
   return min === 0 ? `${whole} ${t('ч')}` : `${whole} ${t('ч')} ${min} ${t('м')}`;
 }
 
