@@ -44,7 +44,11 @@ jobs:
 
   e2e:
     name: Браузерные тесты
-    runs-on: ubuntu-latest
+    # Не ubuntu-latest: с ноября 2026 он указывает на 26.04, а Playwright 1.56
+    # её не знает — «Playwright does not support chromium on ubuntu26.04-x64»,
+    # все три части падали на установке браузера, и вместе с ними деплой.
+    # Снять закрепление — вместе с обновлением Playwright до версии с 26.04.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       # Полный прогон идёт около девяти минут в один поток (в CI workers=1,
