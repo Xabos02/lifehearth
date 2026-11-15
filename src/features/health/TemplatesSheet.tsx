@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
+import { AutoGrowTextarea, FIELD_CAPTION, Field, Input } from '../../components/ui/Input';
 import { GPencil, GPlus } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
@@ -178,7 +178,7 @@ function TemplateEditor({
             <Input value={name} onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder={t('Например, «День ног»')} maxLength={60} />
           </Field>
           <label className="flex w-28 shrink-0 flex-col">
-            <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('Время')}</span>
+            <span className={FIELD_CAPTION}>{t('Время')}</span>
             <button
               type="button"
               onClick={() => {

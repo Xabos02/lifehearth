@@ -93,7 +93,8 @@ test('быстрый уход из профиля не стирает авата
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Аня К');
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await new Promise((r) => setTimeout(r, 50));
-    document.querySelector<HTMLAnchorElement>('a[aria-label="Назад"]')!.click();
+    // Стрелка подписана разделом: «Назад: Главная».
+    document.querySelector<HTMLAnchorElement>('a[aria-label^="Назад"]')!.click();
   });
 
   const read = () =>
