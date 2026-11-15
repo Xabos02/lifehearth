@@ -1,10 +1,15 @@
-import { useRef, useState, type PointerEvent } from 'react';
+import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
+  AudioWaveform,
+  Bell,
   BellOff,
+  Clock,
+  Coffee,
   ListChecks,
   Maximize2,
   SkipForward,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   GChevronRight as ChevronRight,
@@ -20,7 +25,6 @@ import { alive } from '../../db/repo';
 import { t } from '../../lib/i18n';
 import { Screen } from '../../components/layout/Screen';
 import { Sheet } from '../../components/ui/Sheet';
-import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
 import {
   formatClock,
@@ -29,7 +33,6 @@ import {
   type Phase,
 } from './pomodoro';
 import { ICON } from '../../components/ui/icons';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ALARM_OPTIONS, alarmOption, type AlarmType } from './alarms';
 import { NOISE_OPTIONS, noiseLabel } from './noise';
 import { SoundPickerSheet } from './SoundPickerSheet';
@@ -83,19 +86,11 @@ function savePresets(list: Preset[]): void {
 }
 
 const R = 130;
-const STROKE = 12;
+const STROKE = 8;
+const RING_HIT = 24; // допуск касания от оси дорожки (в единицах viewBox)
 const CIRC = 2 * Math.PI * R;
 const MAX_MIN = 90; // базовый максимум круга (растёт под бо́льшие значения)
 const STEP_MIN = 5; // шаг при перетаскивании кольца
-
-
-// Пара степперов в ряд физически не влезает на узкий телефон: min-content одного
-// степпера ≈ 178px (p-3 + две кнопки 44px + поле + gap), пары с gap-3 — ≈ 370px,
-// а колонка контента это (ширина вьюпорта − 34px). На 320–390px правый степпер
-// уезжал за экран вместе с кнопкой «+», и из-за overflow-x:hidden у #app-scroll
-// до неё нельзя было доскроллить — длительность перерыва не менялась в принципе.
-// Ниже 400px строим степперы столбиком: каждому достаётся вся ширина.
-const STEPPER_PAIR = 'flex flex-col gap-3 min-[400px]:flex-row';
 
 /** Поле числа: шаг ±1 кнопками и ввод любого значения. Длительности — без
  *  верхнего предела; у кругов до длинного перерыва предел есть (max). */
@@ -105,8 +100,11 @@ function DurationStepper({
   onChange,
   unit = 'минут',
   max = Infinity,
+  hint,
 }: {
   label: string;
+  /** Пояснение под подписью — для неочевидных настроек. */
+  hint?: string;
   value: number;
   onChange: (v: number) => void;
   /** Подпись единицы для читалки: «Фокус, минут» / «Кругов до него, штук». */
@@ -124,19 +122,21 @@ function DurationStepper({
     setText(String(value));
   }
 
-  // Кнопки ± — size-11 (46.75px при базовых 17px), это минимум 44×44 по HIG;
-  // поле растягивается на остаток (min-w-0), поэтому степпер сжимается по ширине
-  // родителя, а не задаёт ему жёсткий min-content. flex-1 нужен только в ряду —
-  // в колонке степпер и так растянут по ширине (align-items: stretch).
+  // Ряд карточки «подпись · − число +». Кнопки ± — size-11 (минимум 44×44 по
+  // HIG), поле фиксированной ширины; подпись сжимается и переносится (min-w-0),
+  // поэтому на 320px ряд не выталкивает «+» за край экрана.
   return (
-    <div className="min-w-0 rounded-2xl bg-lh-surface-2 p-3 min-[400px]:flex-1">
-      <p className="mb-2 text-center text-xs text-lh-text-secondary">{label}</p>
-      <div className="flex items-center justify-between gap-1">
+    <div className="flex min-h-[52px] items-center gap-1.5 px-4 py-1.5">
+      <span className="min-w-0 flex-1 pr-1">
+        <span className="block">{label}</span>
+        {hint && <span className="block text-xs leading-snug text-lh-text-secondary">{hint}</span>}
+      </span>
+      <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"
           aria-label={t('{label}: меньше', { label })}
           onClick={() => onChange(Math.max(1, value - 1))}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-lh-border-strong text-lg text-lh-text-secondary active:scale-90"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-lg text-lh-text-primary active:scale-90"
         >
           −
         </button>
@@ -163,14 +163,14 @@ function DurationStepper({
           }}
           // text-2xl! — с `!`: правило полей font-size: 16px (iOS, index.css)
           // лежит вне слоёв и без него оставило бы цифры 16px.
-          className="min-w-0 flex-1 rounded-lg bg-transparent text-center text-2xl! font-extralight tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-lh-accent/60"
+          className="w-14 rounded-lg bg-transparent text-center text-2xl! font-extralight tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-lh-accent/60"
         />
         <button
           type="button"
           aria-label={t('{label}: больше', { label })}
           onClick={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-lh-border-strong text-lg text-lh-text-secondary active:scale-90 disabled:opacity-40"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-lg text-lh-text-primary active:scale-90 disabled:opacity-40"
         >
           +
         </button>
@@ -209,14 +209,10 @@ function PresetForm({
       </div>
       <div>
         <p className="mb-2 px-1 text-sm font-medium text-lh-text-secondary">{t('Длительность (мин)')}</p>
-        <div className={STEPPER_PAIR}>
+        <div className="divide-y divide-lh-border overflow-hidden rounded-2xl bg-lh-surface-2/60">
           <DurationStepper label={t('Фокус')} value={work} onChange={setWork} />
           <DurationStepper label={t('Перерыв')} value={brk} onChange={setBrk} />
-        </div>
-        <div className={`mt-3 ${STEPPER_PAIR}`}>
           <DurationStepper label={t('Длинный перерыв')} value={long} onChange={setLong} />
-          {/* Добор половины строки только в ряду; в колонке пустой блок не нужен. */}
-          <div className="hidden min-[400px]:block min-[400px]:flex-1" />
         </div>
       </div>
       <button
@@ -238,19 +234,58 @@ function PresetForm({
   );
 }
 
-/** Строка карточки «Звуки»: подпись, текущее значение, шеврон. */
-function SoundRow({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
+/** Строка карточки «Звуки»: значок, подпись, текущее значение, шеврон. */
+function SoundRow({
+  icon: Icon,
+  label,
+  value,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-11 w-full items-center justify-between gap-3 border-b border-lh-border py-2.5 text-left active:opacity-70"
+      className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2.5 text-left active:bg-lh-surface-2"
     >
-      <span>{label}</span>
-      <span className="flex items-center gap-1 text-lh-text-secondary">
-        {value}
-        <ChevronRight size={ICON.base} />
+      <Icon size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+      <span className="min-w-0 flex-1">{label}</span>
+      <span className="flex min-w-0 items-center gap-1 text-lh-text-secondary">
+        <span className="truncate">{value}</span>
+        <ChevronRight size={ICON.base} className="shrink-0" />
       </span>
+    </button>
+  );
+}
+
+/** Вторичная кнопка управления таймером: круг 48px и подпись под ним. */
+function ControlButton({
+  label,
+  onClick,
+  disabled,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="flex w-20 flex-col items-center gap-1.5 pt-3 text-lh-text-secondary active:opacity-70 disabled:opacity-40"
+    >
+      <span className="flex size-12 items-center justify-center rounded-full border border-lh-border bg-lh-surface text-lh-text-primary">
+        {children}
+      </span>
+      <span className="text-center text-xs leading-tight">{label}</span>
     </button>
   );
 }
@@ -265,12 +300,12 @@ function CycleDots({ done, total, color }: { done: number; total: number; color:
       aria-label={t('Круг {n} из {total}', { n: String(Math.min(done + 1, total)), total: String(total) })}
       data-testid="cycle-dots"
       data-done={done}
-      className="mb-4 flex items-center gap-2"
+      className="mt-3 flex items-center gap-1.5"
     >
       {Array.from({ length: total }, (_, i) => (
         <span
           key={i}
-          className="size-2.5 rounded-full"
+          className="size-2 rounded-full"
           style={
             i < done
               ? { background: color }
@@ -413,7 +448,7 @@ export function FocusPage() {
     // с каждой стороны). Раньше угол считался от любого касания, и тап по
     // цифрам в центре — самое естественное место «а что тут» — переставлял
     // длительность: 25 → 55 минут одним пальцем.
-    if (Math.abs(distFromCenter(e.clientX, e.clientY) - R) > STROKE * 2) return;
+    if (Math.abs(distFromCenter(e.clientX, e.clientY) - R) > RING_HIT) return;
     dragging.current = true;
     gestureMax.current = Math.max(MAX_MIN, p.workMin);
     try {
@@ -432,18 +467,42 @@ export function FocusPage() {
   };
 
   return (
-    <Screen title={t('Фокус')} backTo="/home">
-      <div className="flex flex-col items-center" style={FOCUS_VARS}>
-        <p className="mb-2 text-sm font-semibold" style={{ color: accentColor }}>
-          {t(PHASE_LABEL[p.phase])}
-        </p>
-        <CycleDots done={p.cycle.done} total={p.cycle.total} color={accentColor} />
+    <Screen
+      title={t('Фокус')}
+      backTo="/home"
+      right={
+        // На весь экран — как в Focus To-Do: только круг и время, экран не гаснет.
+        <button
+          type="button"
+          onClick={() => setFullscreen(true)}
+          aria-label={t('На весь экран')}
+          className="flex size-11 items-center justify-center rounded-full text-lh-text-secondary active:opacity-60"
+        >
+          <Maximize2 size={ICON.header} />
+        </button>
+      }
+    >
+      <div className="flex flex-col gap-6" style={FOCUS_VARS}>
+        <section className="flex flex-col items-center pt-2">
+        {/* Фаза — указатель, а не переключатель: фазы сменяет сам таймер. */}
+        <div className="flex items-center gap-1 rounded-full border border-lh-border bg-lh-surface p-1 text-xs">
+          {(['work', 'break', 'long'] as Phase[]).map((ph) => (
+            <span
+              key={ph}
+              className={`flex h-8 items-center rounded-full px-3.5 ${
+                p.phase === ph ? 'bg-lh-surface-2 font-semibold text-lh-text-primary' : 'text-lh-text-secondary'
+              }`}
+            >
+              {t(PHASE_LABEL[ph])}
+            </span>
+          ))}
+        </div>
 
-        <div className="relative">
+        <div className="relative mt-6">
           <svg
             ref={svgRef}
             viewBox="0 0 300 300"
-            className="w-64 max-w-[72vw]"
+            className="w-[248px] max-w-[72vw]"
             style={{ touchAction: idleWork ? 'none' : 'auto' }}
             onPointerDown={onRingDown}
             onPointerMove={onRingMove}
@@ -474,7 +533,7 @@ export function FocusPage() {
               <circle
                 cx={handleX}
                 cy={handleY}
-                r={13}
+                r={11}
                 fill={accentColor}
                 stroke="var(--lh-bg)"
                 strokeWidth={3}
@@ -482,78 +541,112 @@ export function FocusPage() {
             )}
           </svg>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-5xl font-extralight tabular-nums tracking-tight">
+            <span className="text-xs uppercase tracking-[.08em] text-lh-text-secondary">
+              {idleWork ? t('Длительность') : t('Осталось')}
+            </span>
+            <span className="mt-1 text-5xl font-light leading-none tabular-nums tracking-tight">
               {formatClock(p.remainingMs)}
             </span>
-            {p.taskTitle ? (
-              <span className="mt-1 max-w-[60%] truncate text-sm text-lh-text-secondary">{p.taskTitle}</span>
-            ) : idleWork ? (
-              <span className="mt-1 text-xs text-lh-text-secondary">{t('крутите кольцо ↻')}</span>
-            ) : null}
+            <CycleDots done={p.cycle.done} total={p.cycle.total} color={accentColor} />
+            <span className="mt-1.5 text-xs tabular-nums text-lh-text-secondary">
+              {idleWork
+                ? t('крутите кольцо ↻')
+                : t('Круг {n} из {total}', { n: String(Math.min(p.cycle.done + 1, p.cycle.total)), total: String(p.cycle.total) })}
+            </span>
           </div>
         </div>
 
-        {/* На весь экран — как в Focus To-Do: только круг и время, экран не гаснет. */}
-        <button
-          type="button"
-          onClick={() => setFullscreen(true)}
-          className={`mt-3 flex items-center gap-1.5 rounded-full border border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-text-secondary active:opacity-70 ${HIT_SLOP_44}`}
-        >
-          <Maximize2 size={ICON.inline} /> {t('На весь экран')}
-        </button>
-
-        <div className="mt-8 flex items-center gap-4">
+        <div className="mt-6 flex items-start justify-center gap-6">
+          <ControlButton label={t('Сбросить')} onClick={p.reset}>
+            <RotateCcw size={ICON.action} />
+          </ControlButton>
           <button
-            onClick={p.reset}
-            aria-label={t('Сбросить')}
-            className="flex size-12 items-center justify-center rounded-full border border-lh-border-strong text-lh-text-secondary active:scale-90"
-          >
-            <RotateCcw size={ICON.header} />
-          </button>
-          <button
+            type="button"
             onClick={p.running ? p.toggle : () => (p.active ? p.toggle() : p.start())}
             aria-label={p.running ? t('Пауза') : t('Старт')}
-            style={{
-              backgroundImage: 'linear-gradient(150deg, var(--focus-accent-fill), var(--focus-accent-2-fill))',
-              boxShadow: 'var(--shadow-focus)',
-            }}
-            className="flex size-20 items-center justify-center rounded-full text-white active:scale-90"
+            className="flex w-20 flex-col items-center gap-1.5 text-lh-text-primary active:opacity-80"
           >
-            {p.running ? <Pause size={ICON.hero} fill="currentColor" /> : <Play size={ICON.hero} fill="currentColor" className="ml-1" />}
+            <span
+              className="flex size-[72px] items-center justify-center rounded-full bg-lh-accent text-lh-bg"
+              style={{ boxShadow: 'var(--shadow-focus)' }}
+            >
+              {p.running ? <Pause size={ICON.hero} fill="currentColor" /> : <Play size={ICON.hero} fill="currentColor" className="ml-1" />}
+            </span>
+            <span className="text-xs font-semibold">{p.running ? t('Пауза') : t('Старт')}</span>
           </button>
-          <button
+          <ControlButton
+            label={isWork ? t('Завершить круг') : t('Пропустить перерыв')}
             onClick={p.skip}
             disabled={!p.active}
-            aria-label={isWork ? t('Завершить круг') : t('Пропустить перерыв')}
-            className="flex size-12 items-center justify-center rounded-full border border-lh-border-strong text-lh-text-secondary active:scale-90 disabled:opacity-40"
           >
-            <SkipForward size={ICON.header} />
-          </button>
+            <SkipForward size={ICON.action} />
+          </ControlButton>
         </div>
+        </section>
 
         {/* Выбор задачи фокуса */}
         <button
+          type="button"
           onClick={() => setPickerOpen(true)}
-          className="card mt-8 flex w-full items-center gap-3 px-4 py-3 active:opacity-80"
+          className="card flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-80"
         >
-          <ListChecks size={ICON.header} className="shrink-0 text-lh-accent" />
-          <span className={`min-w-0 flex-1 truncate text-left ${p.taskTitle ? '' : 'text-lh-text-secondary'}`}>
-            {p.taskTitle || t('Выбрать задачу')}
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
+            <ListChecks size={ICON.base} />
           </span>
-          <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs text-lh-text-secondary">{t('Задача для фокуса')}</span>
+            <span className={`mt-0.5 block truncate ${p.taskTitle ? '' : 'text-lh-text-secondary'}`}>
+              {p.taskTitle || t('Выбрать задачу')}
+            </span>
+          </span>
+          {p.taskTitle ? (
+            <span className="shrink-0 text-sm text-lh-accent">{t('Сменить')}</span>
+          ) : (
+            <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+          )}
         </button>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="card p-4">
+            <p className="text-2xl font-extralight leading-none tabular-nums">{p.completedToday}</p>
+            <p className="mt-2 text-xs text-lh-text-secondary">{t('кругов сегодня')}</p>
+          </div>
+          <div className="card p-4">
+            <p className="text-2xl font-extralight leading-none tabular-nums">{formatFocusTime(p.focusMinToday)}</p>
+            <p className="mt-2 text-xs text-lh-text-secondary">{t('фокуса сегодня')}</p>
+          </div>
+        </div>
+
+        {/* Без уведомлений конец круга в свёрнутом приложении проходит молча —
+            таймер это переживёт, человек нет. Тот же баннер, что в семейном чате. */}
+        {!pushOn && (
+          <div className="flex w-full items-center gap-3 rounded-2xl border border-warning/30 bg-warning/[0.07] px-4 py-2 text-xs leading-snug">
+            <BellOff size={ICON.base} className="shrink-0 text-warning" />
+            <span className="min-w-0 flex-1 text-lh-text-primary">
+              {t('Уведомления выключены — о конце круга в свёрнутом приложении не узнать.')}
+            </span>
+            <button
+              type="button"
+              onClick={() => void enableFocusPush()}
+              className="flex h-11 shrink-0 items-center px-1 text-sm font-semibold text-lh-accent active:opacity-60"
+            >
+              {t('Включить')}
+            </button>
+          </div>
+        )}
 
         {/* Звуки одной карточкой — по скринам Focus To-Do: мелодии конца
             фокуса и конца перерыва разные, у каждой громкость, шум отдельно.
             Списки открываются шитом: пятнадцать мелодий чипами не влезают. */}
-        <div className="mt-6 w-full">
-          <p className="mb-2 px-1 text-sm font-medium text-lh-text-secondary">{t('Звуки')}</p>
-          <div className="card px-4">
-            <SoundRow label={t('Конец фокуса')} value={t(alarmOption(p.alarmWork).label)} onClick={() => setSoundSheet('work')} />
-            <SoundRow label={t('Конец перерыва')} value={t(alarmOption(p.alarmBreak).label)} onClick={() => setSoundSheet('break')} />
-            <SoundRow label={t('Фоновый шум')} value={t(noiseLabel(p.sound))} onClick={() => setSoundSheet('noise')} />
-            <div className="flex items-center justify-between gap-3 py-1.5">
-              <span className="min-w-0">
+        <section>
+          <h2 className="lh-section mb-2.5 px-1">{t('Звуки')}</h2>
+          <div className="card divide-y divide-lh-border">
+            <SoundRow icon={Bell} label={t('Конец фокуса')} value={t(alarmOption(p.alarmWork).label)} onClick={() => setSoundSheet('work')} />
+            <SoundRow icon={Coffee} label={t('Конец перерыва')} value={t(alarmOption(p.alarmBreak).label)} onClick={() => setSoundSheet('break')} />
+            <SoundRow icon={AudioWaveform} label={t('Фоновый шум')} value={t(noiseLabel(p.sound))} onClick={() => setSoundSheet('noise')} />
+            <div className="flex min-h-[52px] items-center gap-3 px-4 py-2">
+              <Clock size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+              <span className="min-w-0 flex-1">
                 <span className="block">{t('Предупредить за 5 минут')}</span>
                 <span className="block text-xs text-lh-text-secondary">{t('Уведомление до конца фокуса')}</span>
               </span>
@@ -563,80 +656,70 @@ export function FocusPage() {
           <p className="mt-1.5 px-1 text-xs leading-snug text-lh-text-secondary">
             {t('Мелодии звучат, пока приложение открыто. В свёрнутом — стандартный сигнал уведомления.')}
           </p>
-        </div>
+        </section>
 
-        <div className="mt-6 w-full">
-          <p className="mb-2 px-1 text-sm font-medium text-lh-text-secondary">{t('Длительность (мин)')}</p>
-          <div className={STEPPER_PAIR}>
+        <section>
+          <h2 className="lh-section mb-2.5 px-1">{t('Длительность (мин)')}</h2>
+          <div className="card divide-y divide-lh-border">
             <DurationStepper label={t('Фокус')} value={p.workMin} onChange={p.setWorkMin} />
             <DurationStepper label={t('Перерыв')} value={p.breakMin} onChange={p.setBreakMin} />
-          </div>
-          <div className={`mt-3 ${STEPPER_PAIR}`}>
             <DurationStepper label={t('Длинный перерыв')} value={p.longMin} onChange={p.setLongMin} />
             {/* Было застывшей фразой «после каждых 4 фокусов» — число кругов
                 до длинного перерыва теперь своё, как и длительности. */}
-            <DurationStepper label={t('Кругов до него')} value={p.longAfter} onChange={p.setLongAfter} unit="штук" max={8} />
+            <DurationStepper
+              label={t('Кругов до него')}
+              hint={t('После скольких кругов — длинный перерыв')}
+              value={p.longAfter}
+              onChange={p.setLongAfter}
+              unit="штук"
+              max={8}
+            />
           </div>
-          <div className="mb-2 mt-5 flex items-center justify-between px-1">
-            <p className="text-sm font-medium text-lh-text-secondary">{t('Шаблоны')}</p>
+        </section>
+
+        <section>
+          <div className="mb-1 flex items-center justify-between px-1">
+            <h2 className="lh-section">{t('Шаблоны')}</h2>
             <button
+              type="button"
               onClick={() => setManaging((v) => !v)}
-              className={`text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
+              className="flex h-11 items-center text-sm text-lh-accent active:opacity-60"
             >
               {managing ? t('Готово') : t('Изменить')}
             </button>
           </div>
-          <ChipRow>
-            {presets.map((pr) => (
-              <Chip
-                key={pr.id}
-                active={
-                  !managing && pr.work === p.workMin && pr.break === p.breakMin && pr.long === p.longMin
-                }
-                onClick={() => (managing ? openEditPreset(pr) : applyPreset(pr))}
-              >
-                <span className="flex max-w-[12rem] items-center gap-1">
-                  {managing && <Pencil size={ICON.inline} className="shrink-0" />}
-                  <span className="truncate">{pr.name}</span>
-                </span>
-              </Chip>
-            ))}
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+            {presets.map((pr) => {
+              const active = !managing && pr.work === p.workMin && pr.break === p.breakMin && pr.long === p.longMin;
+              return (
+                <button
+                  key={pr.id}
+                  type="button"
+                  aria-pressed={managing ? undefined : active}
+                  onClick={() => (managing ? openEditPreset(pr) : applyPreset(pr))}
+                  className={`flex min-h-11 shrink-0 flex-col items-start rounded-xl border px-4 py-2.5 text-left active:opacity-80 ${
+                    active ? 'border-lh-accent bg-lh-accent-dim' : 'border-lh-border bg-lh-surface'
+                  }`}
+                >
+                  <span className={`flex max-w-[12rem] items-center gap-1 text-sm ${active ? 'font-semibold text-lh-accent' : ''}`}>
+                    {managing && <Pencil size={ICON.inline} className="shrink-0" />}
+                    <span className="truncate">{pr.name}</span>
+                  </span>
+                  <span className="text-2xs tabular-nums text-lh-text-secondary">
+                    {t('длинный {n} мин', { n: String(pr.long) })}
+                  </span>
+                </button>
+              );
+            })}
             <button
+              type="button"
               onClick={openNewPreset}
-              className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-text-secondary active:opacity-70 ${HIT_SLOP_44}`}
+              className="flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-dashed border-lh-border-strong px-4 py-2.5 text-sm text-lh-text-secondary active:opacity-70"
             >
-              <Plus size={ICON.inline} /> {t('Шаблон')}
+              <Plus size={ICON.inline} /> {t('Новый шаблон')}
             </button>
-          </ChipRow>
-        </div>
-
-        <div className="mt-8 flex w-full gap-3">
-          <div className="flex-1 rounded-2xl bg-lh-surface-2 p-3 text-center">
-            <p className="text-2xl font-extralight">{p.completedToday}</p>
-            <p className="text-xs text-lh-text-secondary">{t('кругов сегодня')}</p>
           </div>
-          <div className="flex-1 rounded-2xl bg-lh-surface-2 p-3 text-center">
-            <p className="text-2xl font-extralight">{formatFocusTime(p.focusMinToday)}</p>
-            <p className="text-xs text-lh-text-secondary">{t('фокуса сегодня')}</p>
-          </div>
-        </div>
-
-        {/* Без уведомлений конец круга в свёрнутом приложении проходит молча —
-            таймер это переживёт, человек нет. Тот же баннер, что в семейном чате. */}
-        {!pushOn && (
-          <div className="mt-3 flex w-full items-start gap-2 rounded-xl border border-lh-border bg-lh-bg px-3 py-2.5 text-sm leading-snug">
-            <BellOff size={ICON.base} className="mt-0.5 shrink-0 text-warning" />
-            <span className="min-w-0 flex-1 text-lh-text-secondary">
-              {t('Уведомления выключены — о конце круга в свёрнутом приложении не узнать.')}{' '}
-              <button
-                onClick={() => void enableFocusPush()}
-                className={`font-semibold text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
-              >
-                {t('Включить')}
-              </button>
-            </span>
-          </div>
-        )}
+        </section>
       </div>
 
       <Sheet open={pickerOpen} onClose={() => setPickerOpen(false)} title={t('Задача для фокуса')}>
