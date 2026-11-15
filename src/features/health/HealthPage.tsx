@@ -8,11 +8,12 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { t } from '../../lib/i18n';
 import { todayKey } from '../../lib/dates';
 import { useLoaded } from '../../hooks/useLoaded';
-import type { Workout } from '../../db/types';
+import type { Workout, WorkoutTemplate } from '../../db/types';
 import { SportTab } from './SportTab';
 import type { Scale } from './WorkoutCalendar';
 import { MeasuresTab } from './MeasuresTab';
 import { WorkoutSheet } from './WorkoutSheet';
+import { TemplatesSheet } from './TemplatesSheet';
 
 type Tab = 'sport' | 'health';
 
@@ -22,19 +23,26 @@ export function HealthPage() {
   const [tab, setTab] = useState<Tab>('sport');
   const [selected, setSelected] = useState(todayKey());
   const [scale, setScale] = useState<Scale>('week');
-  const [sheet, setSheet] = useState<{ open: boolean; workout: Workout | null; date: string }>({
+  const [sheet, setSheet] = useState<{ open: boolean; workout: Workout | null; date: string; template: WorkoutTemplate | null }>({
     open: false,
     workout: null,
     date: todayKey(),
+    template: null,
   });
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   // Сырое значение и «загружено ли» — раздельно: иначе на первом кадре у
   // человека с сотней тренировок мелькало «Первая тренировка сегодня?».
   const rows = useLiveQuery(() => db.workouts.toArray(), []);
   const loaded = useLoaded(rows);
   const workouts = alive(rows ?? []);
 
-  const openNew = (date: string) => setSheet({ open: true, workout: null, date });
-  const openEdit = (w: Workout) => setSheet({ open: true, workout: w, date: w.date });
+  const openNew = (date: string) => setSheet({ open: true, workout: null, date, template: null });
+  const openEdit = (w: Workout) => setSheet({ open: true, workout: w, date: w.date, template: null });
+  // По шаблону — на выбранный день: чип в карточке дня и выбор в списке.
+  const openTemplate = (tpl: WorkoutTemplate) => {
+    setTemplatesOpen(false);
+    setSheet({ open: true, workout: null, date: selected, template: tpl });
+  };
   const close = () => setSheet((s) => ({ ...s, open: false }));
 
   return (
@@ -57,6 +65,8 @@ export function HealthPage() {
             onSelect={setSelected}
             onEdit={openEdit}
             onAddFor={openNew}
+            onTemplate={openTemplate}
+            onTemplates={() => setTemplatesOpen(true)}
             scale={scale}
             onScale={setScale}
           />
@@ -65,7 +75,8 @@ export function HealthPage() {
         <MeasuresTab />
       )}
       {tab === 'sport' && loaded && <Fab onClick={() => openNew(selected)} label={t('Отметить тренировку')} />}
-      <WorkoutSheet open={sheet.open} onClose={close} workout={sheet.workout} date={sheet.date} />
+      <WorkoutSheet open={sheet.open} onClose={close} workout={sheet.workout} date={sheet.date} template={sheet.template} />
+      <TemplatesSheet open={templatesOpen} onClose={() => setTemplatesOpen(false)} onPick={openTemplate} />
     </Screen>
   );
 }

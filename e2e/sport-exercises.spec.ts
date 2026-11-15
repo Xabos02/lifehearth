@@ -33,6 +33,12 @@ test('шаблон из упражнений без минут: сохраняе
   ]);
 
   await tpl.click();
+  // Упражнение из шаблона читается строкой (канва design/sport-templates, Б);
+  // тап раскрывает её для правки.
+  const line = page.getByTestId('exercise-row');
+  await expect(line).toContainText('Отжимания');
+  await expect(line).toContainText('3 × 15');
+  await line.click();
   await expect(page.getByLabel('Название упражнения')).toHaveValue('Отжимания');
   // Сегодня сделал на подход больше — правка в тренировке, не в шаблоне.
   await page.getByLabel('Подходов').fill('4');
@@ -49,6 +55,8 @@ test('шаблон из упражнений без минут: сохраняе
   await page.getByRole('button', { name: 'Силовая', exact: true }).click();
   await page.getByRole('button', { name: '+ Отжимания' }).click();
   // 4, а не 3 из шаблона: подсказка берёт подходы с последней тренировки.
+  await expect(page.getByTestId('exercise-row')).toContainText('4 × 15');
+  await page.getByTestId('exercise-row').click();
   await expect(page.getByLabel('Подходов')).toHaveValue('4');
   await expect(page.getByLabel('Повторов')).toHaveValue('15');
 });

@@ -1,9 +1,9 @@
 import { format } from 'date-fns';
 import { t } from '../../lib/i18n';
 import { addDaysKey, dateLocale, fromKey, weekStartKey } from '../../lib/dates';
-import type { Workout } from '../../db/types';
-import { resolveKind } from './workouts';
-import type { TodayAdvice } from './workoutStats';
+import type { Workout, WorkoutTemplate } from '../../db/types';
+import { resolveKind, workoutKind } from './workouts';
+import { formatMinutes, type TodayAdvice } from './workoutStats';
 
 // Слова раздела «Спорт», общие для вкладки и строки на «Сегодня».
 
@@ -46,4 +46,13 @@ export function lastLine(last: Workout | null, today: string): string {
   return last
     ? t('Последняя — {when}, {what}', { when: relativeDay(last.date, today), what: describeWorkout(last) })
     : t('Отметьте первую — и календарь начнёт считать ритм.');
+}
+
+/** «Бег, Силовая, Бокс · 1 ч 10 м» — строка под названием шаблона. Виды без
+ *  повторов; время — общее по плану, а если его не задали — сумма минут
+ *  видов; совсем без минут — одни виды, «0 мин» не пишем. */
+export function templateSummary(tpl: Pick<WorkoutTemplate, 'items' | 'totalMinutes'>): string {
+  const names = [...new Set(tpl.items.map((i) => (i.type === 'custom' ? (i.customLabel ?? '') : t(workoutKind(i.type).label))))];
+  const minutes = tpl.totalMinutes || tpl.items.reduce((sum, i) => sum + i.minutes, 0);
+  return minutes > 0 ? `${names.join(', ')} · ${formatMinutes(minutes, t)}` : names.join(', ');
 }

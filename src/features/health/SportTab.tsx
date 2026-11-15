@@ -10,7 +10,7 @@ import { useToast } from '../../components/ui/toastContext';
 import { t, tPlural } from '../../lib/i18n';
 import { addDaysKey, dateLocale, fromKey, todayKey } from '../../lib/dates';
 import { updateSettings, useSettings } from '../../hooks/useSettings';
-import type { Workout } from '../../db/types';
+import type { Workout, WorkoutTemplate } from '../../db/types';
 import { DEFAULT_WEEKLY_GOAL, EFFORT_LABELS, PACE_TYPES, resolveKind } from './workouts';
 import {
   avgIntervalDays,
@@ -30,6 +30,7 @@ import { formatExercises } from './exercises';
 import { WorkoutCalendar, type Scale } from './WorkoutCalendar';
 import { parseWorkoutsCsv, withoutDuplicates } from './importWorkouts';
 import { importParsed } from './workoutRepo';
+import { useTemplates } from './templateRepo';
 
 interface Props {
   workouts: Workout[];
@@ -37,17 +38,22 @@ interface Props {
   onSelect: (date: string) => void;
   onEdit: (w: Workout) => void;
   onAddFor: (date: string) => void;
+  /** Тренировка по шаблону на выбранный день — чип в карточке дня. */
+  onTemplate: (tpl: WorkoutTemplate) => void;
+  /** Открыть список шаблонов: выбрать, изменить, завести новый. */
+  onTemplates: () => void;
   scale: Scale;
   onScale: (scale: Scale) => void;
 }
 
 /** Вкладка «Спорт»: что сегодня по ритму, календарь, сводки, недавние. */
-export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale, onScale }: Props) {
+export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTemplate, onTemplates, scale, onScale }: Props) {
   const today = todayKey();
   const settings = useSettings();
   const goal = settings.workoutWeeklyGoal ?? DEFAULT_WEEKLY_GOAL;
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
+  const templates = useTemplates();
 
   const advice = todayAdvice(workouts, today, goal);
   const last = lastWorkout(workouts, today);
@@ -155,8 +161,43 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
         {selectedList.length === 0 ? (
           <p className="px-1 text-sm text-lh-text-secondary">{t('Тренировок не отмечено.')}</p>
         ) : (
-          selectedList.map((w) => <WorkoutRow key={w.id} w={w} onClick={() => onEdit(w)} />)
+          // Своя обёртка: «последняя строка без линии» считается среди строк,
+          // а не среди всего, что лежит в карточке ниже.
+          <div>
+            {selectedList.map((w) => (
+              <WorkoutRow key={w.id} w={w} onClick={() => onEdit(w)} />
+            ))}
+          </div>
         )}
+        {/* Шаблоны — там же, где день (канва design/sport-templates): чип
+            открывает запись на выбранный день уже заполненной. Раньше до них
+            было три касания через «Новую тренировку». */}
+        <div className="mt-3 border-t border-lh-border pt-1" data-testid="day-templates">
+          <div className="flex min-h-11 items-center justify-between">
+            <span className="px-1 text-sm text-lh-text-secondary">{templates.length > 0 ? t('По шаблону') : t('Шаблонов пока нет')}</span>
+            <button type="button" onClick={onTemplates} className="flex min-h-11 items-center gap-0.5 text-sm font-medium text-lh-accent active:opacity-60">
+              {t('Шаблоны')}
+              <ChevronRight size={ICON.inline} />
+            </button>
+          </div>
+          {templates.length > 0 && (
+            <div className="flex flex-wrap gap-2 pb-1">
+              {templates.map((tpl) => (
+                // Высота 44 самой кнопкой, а не невидимой зоной: зону обрезал
+                // бы overflow, которым длинное название режется многоточием.
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => onTemplate(tpl)}
+                  aria-label={t('По шаблону: {name}', { name: tpl.name })}
+                  className="flex min-h-11 max-w-full items-center rounded-full border border-lh-border-strong bg-lh-surface-2 px-3.5 text-sm font-medium text-lh-text-primary active:scale-95"
+                >
+                  <span className="truncate">{tpl.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       <div className="flex gap-3">
