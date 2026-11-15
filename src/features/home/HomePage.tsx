@@ -199,7 +199,7 @@ export function HomePage() {
   const settingsSection = SECTION_BY_ID.get('settings');
 
   return (
-    <Screen title={t('Главная')}>
+    <Screen title={t('Ещё')}>
       <div className="space-y-5">
         <div className="space-y-3">
           <ProfileCard />

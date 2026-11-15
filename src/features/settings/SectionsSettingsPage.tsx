@@ -381,7 +381,7 @@ export function SectionsSettingsPage() {
     <div className="my-1 flex items-center gap-2 px-1" aria-hidden={false}>
       <span className="h-px flex-1 bg-lh-border-strong" />
       <span className="shrink-0 lh-section">
-        {t('выше — панель · ниже — «Главная»')}
+        {t('выше — панель · ниже — «Ещё»')}
       </span>
       <span className="h-px flex-1 bg-lh-border-strong" />
     </div>
@@ -396,7 +396,7 @@ export function SectionsSettingsPage() {
     <div className="my-1 flex items-center gap-2 px-1" aria-hidden={false}>
       <span className="h-px flex-1 border-t border-dashed border-lh-border-strong" />
       <span className="shrink-0 lh-section">
-        {t('на «Главной» — за кнопкой «Показать ещё»')}
+        {t('в «Ещё» — за кнопкой «Показать ещё»')}
       </span>
       <span className="h-px flex-1 border-t border-dashed border-lh-border-strong" />
     </div>
@@ -405,7 +405,7 @@ export function SectionsSettingsPage() {
   return (
     <Screen title={t('Настроить разделы')} backTo="/more/settings">
       <p className="mb-4 px-1 text-sm leading-relaxed text-lh-text-secondary">
-        {t('Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Главной») — задержите строку пальцем и перетащите. Номер у раздела — его место в списке «Главной»: первые {home} видны сразу, остальные — за кнопкой «Показать ещё».', { n: MAX_BOTTOM, home: HOME_VISIBLE_STEP })}
+        {t('Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Ещё») — задержите строку пальцем и перетащите. Номер у раздела — его место в списке «Ещё»: первые {home} видны сразу, остальные — за кнопкой «Показать ещё».', { n: MAX_BOTTOM, home: HOME_VISIBLE_STEP })}
       </p>
 
       <div data-zone="enabled" className="mb-6 space-y-2">

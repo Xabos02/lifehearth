@@ -104,9 +104,9 @@ export function computeNavLayout(
   }
 
   return {
-    // Якорь ПЕРВЫМ: «Главная» — вход в приложение, а не остаток. Порядок
+    // Якорь ПОСЛЕДНИМ: «Ещё» замыкает панель (редизайн 15.11.2026). Порядок
     // остальных вкладок человек задаёт сам.
-    bottom: [anchorId, ...bottomIds],
+    bottom: [...bottomIds, anchorId],
     more: moreIds,
     hidden: [...hiddenSet],
   };

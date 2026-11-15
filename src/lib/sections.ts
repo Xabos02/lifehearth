@@ -7,7 +7,7 @@ import {
   GTasks as ListTodo,
   GNotes as NotebookText,
   GFamily as Users,
-  GHome as House,
+  GMore as MoreHorizontal,
   GCalendar as CalendarDays,
   GSparkle as Sparkles,
   GTimer as Timer,
@@ -158,7 +158,10 @@ export const SECTIONS: Section[] = [
   // ряд. Теперь это «Главная»: профиль, состояние данных, все разделы и
   // настройки в одном месте. Стоит первой вкладкой, а не последней, потому что
   // это точка входа, а не хвост списка.
-  { id: 'home', label: 'Главная', to: '/home', icon: House, end: true, anchor: true },
+  // Редизайн «Ember Gold» (15.11.2026): якорь снова «Ещё» и стоит ПОСЛЕДНИМ —
+  // нижнее меню «Сегодня · Задачи · Заметки · Семья · Ещё» с подписями. Экран
+  // тот же (/home): профиль, состояние данных, все разделы и настройки.
+  { id: 'home', label: 'Ещё', to: '/home', icon: MoreHorizontal, end: true, anchor: true },
 ];
 
 export const SECTION_BY_ID = new Map<string, Section>(SECTIONS.map((s) => [s.id, s]));
@@ -194,7 +197,9 @@ export const HOME_VISIBLE_STEP = 5;
 // имел ссылки в интерфейсе — попасть на него можно было только вводом адреса.
 // «Семья» никуда не делась, она в списке «Главной» и возвращается в панель
 // одним движением через «Настроить разделы».
-export const DEFAULT_BOTTOM: SectionId[] = ['today', 'tasks', 'notes', 'calendar'];
+// Редизайн 15.11.2026: «Семья» снова в панели (утверждённый эталон), а
+// «Календарь» открывается кнопкой в шапке «Задач» и из «Ещё».
+export const DEFAULT_BOTTOM: SectionId[] = ['today', 'tasks', 'notes', 'family'];
 
 /** id «Главная» — единственный жёсткий якорь панели (последний слот). */
 export const ANCHOR_ID: SectionId = 'home';
