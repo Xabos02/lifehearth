@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { Screen } from '../../components/layout/Screen';
@@ -17,11 +17,38 @@ import { shownWorkouts } from './workoutRepo';
 
 type Tab = 'sport' | 'health';
 
+/** Перерисовка на смене суток: «сегодня» считается при рендере, и без неё
+ *  открытая с вечера страница утром показывала вчерашний день как «Сегодня».
+ *  ponytail: опрос раз в минуту и сразу при возврате в приложение, а не
+ *  таймер до полуночи — длинный таймер в фоне и во сне телефона сдвигается;
+ *  открытый экран до минуты после полуночи ещё может показывать прежний день. */
+function useDayRollover() {
+  const [, setDay] = useState(todayKey);
+  useEffect(() => {
+    const roll = () => setDay(todayKey());
+    const id = window.setInterval(roll, 60_000);
+    document.addEventListener('visibilitychange', roll);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', roll);
+    };
+  }, []);
+}
+
 /** Раздел «Здоровье»: спорт (календарь тренировок, ритм, сводки) и замеры.
  *  Задача 14 набора 10.09.2026; канва «Здоровье и спорт», design/health/. */
 export function HealthPage() {
   const [tab, setTab] = useState<Tab>('sport');
-  const [selected, setSelected] = useState(todayKey());
+  // Выбранный день; null — «сегодня», какое оно сейчас. Иначе день, открытый
+  // вечером, переживал полночь, и «Отметить тренировку» молча записывала
+  // тренировку на вчера. Выбор сегодняшнего дня тоже идёт за сутками.
+  useDayRollover();
+  const [picked, setPicked] = useState<string | null>(null);
+  const selected = picked ?? todayKey();
+  const setSelected = (key: string) => setPicked(key === todayKey() ? null : key);
+  // Дата для формы — на нажатии, а не из рендера: до минуты после полуночи
+  // экран ещё прежний, а запись уже должна уйти на новые сутки.
+  const selectedNow = () => picked ?? todayKey();
   const [scale, setScale] = useState<Scale>('week');
   const [sheet, setSheet] = useState<{ open: boolean; workout: Workout | null; date: string; template: WorkoutTemplate | null }>({
     open: false,
@@ -43,7 +70,7 @@ export function HealthPage() {
   // По шаблону — на выбранный день: чип в карточке дня и выбор в списке.
   const openTemplate = (tpl: WorkoutTemplate) => {
     setTemplatesOpen(false);
-    setSheet({ open: true, workout: null, date: selected, template: tpl });
+    setSheet({ open: true, workout: null, date: selectedNow(), template: tpl });
   };
   const close = () => setSheet((s) => ({ ...s, open: false }));
 
@@ -76,7 +103,7 @@ export function HealthPage() {
       ) : (
         <MeasuresTab />
       )}
-      {tab === 'sport' && loaded && <Fab onClick={() => openNew(selected)} label={t('Отметить тренировку')} />}
+      {tab === 'sport' && loaded && <Fab onClick={() => openNew(selectedNow())} label={t('Отметить тренировку')} />}
       <WorkoutSheet open={sheet.open} onClose={close} workout={sheet.workout} date={sheet.date} template={sheet.template} />
       <TemplatesSheet open={templatesOpen} onClose={() => setTemplatesOpen(false)} onPick={openTemplate} />
     </Screen>

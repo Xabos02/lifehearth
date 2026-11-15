@@ -85,13 +85,12 @@ test('дни и месяц переключаются; тренировка за
   await expect(days.last()).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Сегодня', exact: true })).toHaveCount(0);
 
-  // Позавчера: нажатие докручивает ленту, выбор уходит, когда она встала.
+  // Позавчера: нажатие сразу выбирает день и докручивает ленту.
   const before = days.nth(-3);
   const label = ((await before.getAttribute('aria-label')) ?? '').split(',')[0];
   await before.click();
   await expect(days.nth(-3)).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('wheel-caption')).toContainText('позавчера');
-  // Выбор доезжает до экрана через 120 мс после остановки ленты — ждём его.
   await expect(page.getByRole('heading', { name: '14 сентября, понедельник' })).toBeVisible();
   await page.getByRole('button', { name: '+ Тренировка' }).click();
   await page.getByRole('button', { name: 'Сохранить' }).click();
@@ -116,6 +115,48 @@ test('дни и месяц переключаются; тренировка за
   await page.getByTestId('workout-month').getByRole('button', { name: new RegExp('^' + label) }).click();
   await page.getByRole('button', { name: 'Дни' }).click();
   await expect(days.nth(-3)).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('тап по дню барабана и сразу «Отметить тренировку» — форма открывается на этот день', async ({ page }) => {
+  // Подпись под барабаном меняется сразу, а выбор раньше уходил наверх только
+  // после остановки ленты (~0,4 с): форма с плавающей кнопки открывалась на
+  // прежний день, и тренировка молча записывалась на сегодня.
+  await page.clock.setFixedTime(new Date('2026-11-15T12:00:00'));
+  await openApp(page, '/more/health');
+  const wheel = page.getByTestId('workout-week');
+  await expect(wheel.locator('button').last()).toHaveAttribute('aria-pressed', 'true');
+  // Оба тапа внутри страницы, через 30 мс: два клика Playwright под нагрузкой
+  // расходятся дольше, чем доезжает лента, и ошибка бы не проявилась.
+  await wheel.evaluate(async (el) => {
+    const days = el.querySelectorAll('button');
+    days[days.length - 4].click();
+    await new Promise((r) => setTimeout(r, 30));
+    (document.querySelector('button[aria-label="Отметить тренировку"]') as HTMLElement).click();
+  });
+  await expect(page.locator('input[type="date"]')).toHaveValue('2026-11-12');
+});
+
+test('после полуночи невыбранный день сам становится новым «сегодня»', async ({ page }) => {
+  // PWA открыта с вечера, утром её возвращают: выбранный день стоял на
+  // вчерашнем, экран звал его «Сегодня», а форма записывала тренировку на вчера.
+  // Запас в час: openApp под нагрузкой идёт секунды, полночь не наступит раньше.
+  await page.clock.install({ time: new Date('2026-09-16T23:00:00') });
+  await openApp(page, '/more/health');
+  const caption = page.getByTestId('wheel-caption');
+  await expect(caption).toHaveText('Среда, 16 сентября · сегодня');
+
+  // Экран сам переходит на новые сутки. Полтора часа: строка «01:30» у
+  // Playwright — минута тридцать.
+  await page.clock.fastForward('01:30:00');
+  await expect(caption).toHaveText('Четверг, 17 сентября · сегодня');
+  await expect(page.getByRole('heading', { name: 'Сегодня', exact: true })).toBeVisible();
+
+  // И ещё до перерисовки форма — на новых сутках: часы перескочили без
+  // таймеров, экран прежний.
+  await page.clock.setSystemTime(new Date('2026-09-18T00:00:10'));
+  await expect(caption).toHaveText('Четверг, 17 сентября · сегодня');
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  await expect(page.locator('input[type="date"]')).toHaveValue('2026-09-18');
 });
 
 test('занятие из двух видов — одна тренировка: в подписи дня и после правки одного вида', async ({ page }) => {

@@ -104,3 +104,22 @@ test('барабан дат: щелчок на каждом пройденном
   await page.keyboard.press('ArrowLeft');
   await expect(page.getByRole('heading', { name: '12 сентября, суббота' })).toBeVisible();
 });
+
+test('барабан дат: три стрелки подряд без пауз — три дня, ни одна не теряется', async ({ page }) => {
+  // Следующий день считался от дня под полосой, а он меняется, только когда
+  // лента проходит середину шага: быстрые нажатия целились в тот же день.
+  await page.clock.setFixedTime(new Date('2026-09-16T12:00:00'));
+  await openApp(page, '/more/health');
+  const wheel = page.getByTestId('workout-week');
+  await wheel.locator('button[aria-pressed="true"]').focus();
+  // Каждое нажатие — своей задачей, как настоящие: три page.keyboard.press под
+  // нагрузкой расходятся дольше, чем доезжает лента, и ошибка бы не проявилась.
+  await page.evaluate(async () => {
+    for (let i = 0; i < 3; i++) {
+      document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  });
+  await expect(page.getByTestId('wheel-caption')).toHaveText('Воскресенье, 13 сентября');
+  await expect(page.getByRole('heading', { name: '13 сентября, воскресенье' })).toBeVisible();
+});
