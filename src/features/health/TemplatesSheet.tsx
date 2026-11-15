@@ -10,7 +10,7 @@ import type { WorkoutTemplate } from '../../db/types';
 import { addTemplate, removeTemplate, updateTemplate, useTemplates, type TemplateDraft } from './templateRepo';
 import { ItemFields } from './ItemFields';
 import { DurationWheel } from './DurationWheel';
-import { itemFromSaved, newItem, savedFromItem, type Item } from './workoutItem';
+import { itemFromSaved, kindPending, newItem, savedFromItem, type Item } from './workoutItem';
 import { formatMinutes } from './workoutStats';
 import { templateSummary } from './workoutText';
 import { unlockTick } from './tick';
@@ -124,7 +124,7 @@ function TemplateEditor({
     totalMinutes: total > 0 ? total : undefined,
     note: note.trim() || undefined,
   };
-  const canSave = draft.name.length > 0 && items.length > 0;
+  const canSave = draft.name.length > 0 && items.length > 0 && !kindPending(items);
 
   // «Изменено» — по тому, что уйдёт в запись, а не по касаниям: раскрыл и
   // свернул строку — шаблон тот же, вопроса при закрытии нет.

@@ -75,8 +75,17 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
     () => workouts.filter((w) => w.date === selected).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [workouts, selected],
   );
+  // Записи — свежие первыми, а виды одного занятия — в порядке ввода, как в
+  // карточке дня: их метки идут подряд по миллисекунде (addWorkoutSession).
   const recent = useMemo(
-    () => [...workouts].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 8),
+    () =>
+      [...workouts]
+        .sort(
+          (a, b) =>
+            b.date.localeCompare(a.date) ||
+            (a.groupId && a.groupId === b.groupId ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt)),
+        )
+        .slice(0, 8),
     [workouts],
   );
 

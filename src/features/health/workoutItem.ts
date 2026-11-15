@@ -37,7 +37,14 @@ export interface Item {
    *  импорт («Другое» — лыжи 12,5 км). Поле показываем и км сохраняем, пока
    *  вид не сменили: иначе правка «как прошло» молча стирала дистанцию. */
   keepsDistance: boolean;
+  /** Набрано в «+ Своё», но ещё не добавлено; null — поле закрыто. Живёт в
+   *  строке, а не внутри поля: сохранение должно его видеть. */
+  newKind: string | null;
 }
+
+/** Название своего вида набрано, а «Добавить» не нажата — сохранять нельзя:
+ *  иначе запись молча уходила с прежним видом, а название пропадало. */
+export const kindPending = (items: Item[]) => items.some((it) => !!it.newKind?.trim());
 
 let keySeq = 0;
 const nextKey = (prefix: string) => `${prefix}${++keySeq}`;
@@ -57,6 +64,7 @@ export function newItem(type: WorkoutType = 'run', minutes?: string): Item {
     exercises: [],
     collapsed: false,
     keepsDistance: false,
+    newKind: null,
   };
 }
 
@@ -74,6 +82,7 @@ export function itemFromSaved(src: WorkoutTemplateItem, collapsed = false): Item
     exercises: (src.exercises ?? []).map((e) => exerciseRow(e)),
     collapsed,
     keepsDistance: src.distanceKm != null && !kindOfItem(src).hasDistance,
+    newKind: null,
   };
 }
 

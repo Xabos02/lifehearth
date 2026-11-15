@@ -14,7 +14,7 @@ import { addWorkout, addWorkoutSession, removeWorkout, updateWorkout, type Worko
 import { addTemplate } from './templateRepo';
 import { TemplatesSheet } from './TemplatesSheet';
 import { ItemFields } from './ItemFields';
-import { itemFromSaved, newItem, savedFromItem, type Item } from './workoutItem';
+import { itemFromSaved, kindPending, newItem, savedFromItem, type Item } from './workoutItem';
 
 interface Props {
   open: boolean;
@@ -72,7 +72,8 @@ function WorkoutForm({
 
   // Минуты по желанию (задача 38): вид без времени — тоже тренировка.
   const validDay = /^\d{4}-\d{2}-\d{2}$/.test(day) && day <= todayKey();
-  const canSave = validDay && items.length > 0;
+  const pending = kindPending(items);
+  const canSave = validDay && items.length > 0 && !pending;
 
   function updateItem(key: string, patch: Partial<Item>) {
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
@@ -182,7 +183,8 @@ function WorkoutForm({
         <button
           type="button"
           onClick={() => void saveAsTemplate()}
-          className={`w-full text-center text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
+          disabled={pending}
+          className={`w-full text-center text-sm font-medium text-lh-accent active:opacity-70 disabled:opacity-40 ${HIT_SLOP_44}`}
         >
           {t('Сделать из этого набора шаблон')}
         </button>

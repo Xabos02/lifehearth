@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react';
+import type { ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
@@ -13,7 +13,7 @@ import type { WorkoutExercise, WorkoutType } from '../../db/types';
 import { WORKOUT_KINDS } from './workouts';
 import { addExerciseDef } from './exerciseDefRepo';
 import { cleanExercises, exerciseSuggestions, formatAmount, UNIT_OPTIONS } from './exercises';
-import { exerciseRow, kindOfItem, type ExerciseRow, type Item } from './workoutItem';
+import { exerciseRow, kindOfItem, savedFromItem, type ExerciseRow, type Item } from './workoutItem';
 import { formatMinutes } from './workoutStats';
 
 // Один вид внутри формы тренировки и шаблона: вид, минуты, км, упражнения.
@@ -28,12 +28,16 @@ import { formatMinutes } from './workoutStats';
 // названиями («Подтягива…») читалась плохо.
 
 const digits = (v: string, max: number) => v.replace(/[^\d]/g, '').slice(0, max);
-/** Дробное число: цифры и один разделитель. Второй («5,2,1») поле принимало,
- *  а запись выходила без километров — молча. */
+/** Дробное число: до 4 цифр, один разделитель и до 2 знаков после — как
+ *  хранится. Второй разделитель («5,2,1») поле принимало, а запись выходила
+ *  без километров — молча; без предела 400 цифр записывались как Infinity.
+ *  Минуты — тоже дробью: сохранение её округляет, а `digits` вырезал
+ *  разделитель и склеивал «30.5» в 305 минут. */
 const decimal = (v: string) => {
   const s = v.replace(/[^\d.,]/g, '');
   const i = s.search(/[.,]/);
-  return i < 0 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/[.,]/g, '');
+  if (i < 0) return s.slice(0, 4);
+  return s.slice(0, Math.min(i, 4)) + s[i] + s.slice(i + 1).replace(/[.,]/g, '').slice(0, 2);
 };
 
 const NUM =
@@ -65,14 +69,14 @@ export function ItemFields({
       ws.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
       return [...alive(ws), ...alive(tpls).flatMap((tpl) => tpl.items)];
     }, []) ?? [];
-  const [addingCustom, setAddingCustom] = useState(false);
-  const [customInput, setCustomInput] = useState('');
   const kind = kindOfItem(item);
   // Своё название — данные человека: не переводим.
   const kindName = item.type === 'custom' ? kind.label : t(kind.label);
   const hasDistance = kind.hasDistance || item.keepsDistance;
+  // Минуты — те, что уйдут в запись: «30,5» читается как 31, а не пропадает.
+  const minutes = savedFromItem(item).minutes;
   const summary = [
-    Number(item.minutes) > 0 ? formatMinutes(Number(item.minutes), t) : null,
+    minutes > 0 ? formatMinutes(minutes, t) : null,
     hasDistance && item.distance ? `${item.distance} ${t('км')}` : null,
   ]
     .filter(Boolean)
@@ -87,12 +91,11 @@ export function ItemFields({
   }
 
   async function confirmCustom() {
-    const name = customInput.trim();
+    const name = item.newKind?.trim();
     if (!name) return;
     const def = await addExerciseDef(name);
     pickType('custom', def.label, def.color);
-    setAddingCustom(false);
-    setCustomInput('');
+    onChange({ newKind: null });
   }
 
   const setRows = (exercises: ExerciseRow[]) => onChange({ exercises });
@@ -159,20 +162,22 @@ export function ItemFields({
                 {d.label}
               </Chip>
             ))}
-            <Chip active={addingCustom} onClick={() => setAddingCustom((v) => !v)}>
+            {/* Закрыли поле — передумали: набранное уходит вместе с ним, иначе
+                скрытый текст держал бы «Сохранить» выключенной. */}
+            <Chip active={item.newKind !== null} onClick={() => onChange({ newKind: item.newKind === null ? '' : null })}>
               + {t('Своё')}
             </Chip>
           </div>
-          {addingCustom && (
+          {item.newKind !== null && (
             <div className="flex gap-2">
               <Input
-                value={customInput}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setCustomInput(e.target.value)}
-                onClear={() => setCustomInput('')}
+                value={item.newKind}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ newKind: e.target.value })}
+                onClear={() => onChange({ newKind: '' })}
                 // «Своё» — новый вид, а не упражнение внутри вида: подписи не путать.
                 placeholder={t('Название вида')}
               />
-              <Button className="shrink-0" disabled={!customInput.trim()} onClick={() => void confirmCustom()}>
+              <Button className="shrink-0" disabled={!item.newKind.trim()} onClick={() => void confirmCustom()}>
                 {t('Добавить')}
               </Button>
             </div>
@@ -183,7 +188,7 @@ export function ItemFields({
               <Input
                 inputMode="numeric"
                 value={item.minutes}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ minutes: digits(e.target.value, 4), minutesTouched: true })}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ minutes: decimal(e.target.value), minutesTouched: true })}
                 onClear={() => onChange({ minutes: '', minutesTouched: true })}
                 placeholder={t('по желанию')}
               />

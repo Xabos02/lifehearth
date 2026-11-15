@@ -32,7 +32,9 @@ export function HealthPage() {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   // Сырое значение и «загружено ли» — раздельно: иначе на первом кадре у
   // человека с сотней тренировок мелькало «Первая тренировка сегодня?».
-  const rows = useLiveQuery(() => db.workouts.toArray(), []);
+  // По времени записи, а не по id (случайный uuid): виды одного занятия идут
+  // в порядке ввода и в точках дня, и в списках (addWorkoutSession).
+  const rows = useLiveQuery(async () => (await db.workouts.toArray()).sort((a, b) => a.createdAt.localeCompare(b.createdAt)), []);
   const loaded = useLoaded(rows);
   const workouts = shownWorkouts(rows ?? []);
 

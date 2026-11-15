@@ -152,6 +152,102 @@ test('занятие из двух видов — одна тренировка:
   expect(groups[1]).toBe(groups[0]);
 });
 
+test('виды занятия — в порядке ввода: в карточке дня и в «Недавних»', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  // Первый вид — бег по умолчанию, дальше по одному.
+  for (const [i, name] of ['Силовая', 'Растяжка', 'Гири'].entries()) {
+    await page.getByRole('button', { name: 'Добавить ещё вид', exact: true }).click();
+    await page.getByRole('button', { name, exact: true }).nth(i + 1).click();
+  }
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+
+  // У всех видов занятия была одна метка времени, и список вставал по
+  // случайному id: «Растяжка, Бег, Силовая».
+  const order = ['Бег', 'Силовая', 'Растяжка', 'Гири'];
+  for (const heading of ['Сегодня', 'Недавние']) {
+    const rows = page
+      .locator('section', { has: page.getByRole('heading', { name: heading, exact: true }) })
+      .getByRole('button', { name: new RegExp(`^(${order.join('|')})`) });
+    await expect(rows).toHaveCount(4);
+    expect((await rows.allInnerTexts()).map((s) => s.split('\n')[0])).toEqual(order);
+  }
+  // Точки дня в ленте — первые три вида, тоже по вводу: бег, силовая, растяжка.
+  const dots = page.getByTestId('workout-week').locator('button').last().locator('span.rounded-full');
+  expect(await dots.evaluateAll((els) => els.map((e) => (e as HTMLElement).style.background))).toEqual([
+    'var(--lh-accent)',
+    'var(--focus-accent)',
+    'var(--app-accent-2)',
+  ]);
+});
+
+test('числа в форме: «30.5» минут — 31, а не 305; у км предел, лишний разделитель не стирает км', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  // Бег по умолчанию: первое поле — минуты, второе — км.
+  const minutes = page.getByPlaceholder('по желанию').first();
+  const km = page.getByPlaceholder('по желанию').nth(1);
+
+  // Разделитель вырезался, цифры склеивались: «30.5» становилось 305 минутами.
+  await minutes.fill('');
+  await minutes.pressSequentially('30.5');
+  await expect(minutes).toHaveValue('30.5');
+  await km.fill('5,2,1');
+  await expect(km).toHaveValue('5,21');
+  // Без предела 400 цифр записывались как Infinity — «Infinity км» на экране.
+  await km.fill('1' + '0'.repeat(400));
+  await expect(km).toHaveValue('1000');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+
+  const stored = await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    return (await db.workouts.toArray()).map((w) => ({ minutes: w.minutes, km: w.distanceKm }));
+  });
+  expect(stored).toEqual([{ minutes: 31, km: 1000 }]);
+});
+
+test('свой вид без «Добавить»: сохранить нельзя, пока набранное название не добавлено', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  const save = page.getByRole('button', { name: 'Сохранить', exact: true });
+  const asTemplate = page.getByRole('button', { name: 'Сделать из этого набора шаблон' });
+  const custom = page.getByRole('button', { name: '+ Своё' });
+
+  // Раньше «Сохранить» молча записывала бег, а «Йога» пропадала.
+  await custom.click();
+  await page.getByPlaceholder('Название вида').fill('Йога');
+  await expect(save).toBeDisabled();
+  await expect(asTemplate).toBeDisabled();
+  // Закрыли поле — передумали: набранное уходит, сохранять снова можно.
+  await custom.click();
+  await expect(save).toBeEnabled();
+  await custom.click();
+  await expect(page.getByPlaceholder('Название вида')).toHaveValue('');
+
+  await page.getByPlaceholder('Название вида').fill('Йога');
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Йога', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(save).toBeEnabled();
+  await save.click();
+
+  const stored = await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    return (await db.workouts.toArray()).map((w) => ({ type: w.type, label: w.customLabel }));
+  });
+  expect(stored).toEqual([{ type: 'custom', label: 'Йога' }]);
+
+  // Редактор шаблона — те же поля вида и то же правило.
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  await page.getByRole('button', { name: 'Из шаблона' }).click();
+  await page.getByRole('button', { name: 'Новый шаблон' }).click();
+  await page.getByPlaceholder('Например, «День ног»').fill('Утро');
+  const saveTemplate = page.getByRole('button', { name: 'Сохранить шаблон' });
+  await expect(saveTemplate).toBeEnabled();
+  await page.getByRole('button', { name: '+ Своё' }).last().click();
+  await page.getByPlaceholder('Название вида').last().fill('Пилатес');
+  await expect(saveTemplate).toBeDisabled();
+});
+
 test('замер веса: карточка показывает значение, второй за день заменяет первый', async ({ page }) => {
   await openApp(page, '/more/health');
   await page.getByRole('button', { name: 'Замеры' }).click();
