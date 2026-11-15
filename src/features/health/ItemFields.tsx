@@ -137,7 +137,9 @@ export function ItemFields({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={() => onChange({ collapsed: !item.collapsed })}
+          // Свернули вид — поле «+ Своё» закрывается вместе с набранным: скрытый
+          // текст держал бы «Сохранить» выключенной без видимой причины.
+          onClick={() => onChange(item.collapsed ? { collapsed: false } : { collapsed: true, newKind: null })}
           aria-expanded={!item.collapsed}
           // Имя с приставкой: голое «Силовая» совпадало бы с чипом вида ниже.
           aria-label={[t('Вид: {name}', { name: kindName }), summary].filter(Boolean).join(', ')}

@@ -670,3 +670,18 @@ test('целые поля упражнения: вставка «12,5» — эт
   await expect(page.getByLabel('Повторы, до')).toHaveValue('15');
 });
 
+test('подписи «Название шаблона» и «Время» стоят в одну линию, поля — одной высоты', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await openTemplates(page);
+  await page.getByRole('button', { name: 'Новый шаблон' }).click();
+  const m = await page.evaluate(() => {
+    const cap = (txt: string) => [...document.querySelectorAll('span')].find((el) => el.textContent === txt)!.getBoundingClientRect();
+    const input = document.querySelector<HTMLInputElement>('input[placeholder^="Например"]')!.getBoundingClientRect();
+    const btn = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('Общее время'))!.getBoundingClientRect();
+    return { caps: cap('Название шаблона').top - cap('Время').top, heights: input.height - btn.height, tops: input.top - btn.top };
+  });
+  expect(Math.abs(m.caps)).toBeLessThan(0.6);
+  expect(Math.abs(m.heights)).toBeLessThan(0.6);
+  expect(Math.abs(m.tops)).toBeLessThan(0.6);
+});
+

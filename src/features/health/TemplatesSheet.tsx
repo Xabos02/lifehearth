@@ -164,11 +164,14 @@ function TemplateEditor({
   return (
     <div className="space-y-4 pb-2">
       <div>
-        <div className="flex items-end gap-2">
+        {/* Колонки одной высоты: кнопка времени тянется под поле названия,
+            иначе она на пиксель выше, и подписи встают не в линию. */}
+        <div className="flex gap-2">
           <Field label={t('Название шаблона')} className="min-w-0 flex-1">
             <Input value={name} onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder={t('Например, «День ног»')} maxLength={60} />
           </Field>
-          <Field label={t('Время')} className="w-28 shrink-0">
+          <label className="flex w-28 shrink-0 flex-col">
+            <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('Время')}</span>
             <button
               type="button"
               onClick={() => {
@@ -178,13 +181,13 @@ function TemplateEditor({
               }}
               aria-expanded={wheelOpen}
               aria-label={total > 0 ? t('Общее время: {time}', { time: formatDuration(total) }) : t('Общее время: не задано')}
-              className={`flex w-full items-center justify-center rounded-lh-btn border bg-lh-surface-2 px-2 py-3 tabular-nums transition-[border-color,box-shadow] active:opacity-80 ${
+              className={`flex min-h-11 w-full flex-1 items-center justify-center rounded-lh-btn border bg-lh-surface-2 px-2 tabular-nums transition-[border-color,box-shadow] active:opacity-80 ${
                 wheelOpen ? 'border-lh-accent-border ring-2 ring-lh-accent-dim' : 'border-lh-border'
               } ${total > 0 ? 'text-lh-text-primary' : 'text-lh-text-secondary'}`}
             >
               {total > 0 ? formatDuration(total) : '—'}
             </button>
-          </Field>
+          </label>
         </div>
         {wheelOpen && (
           <div className="mt-2.5">
