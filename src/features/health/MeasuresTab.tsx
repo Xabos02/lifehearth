@@ -5,7 +5,9 @@ import { db } from '../../db/db';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { Gauge, HeartPulse, Moon, Weight, type LucideIcon } from 'lucide-react';
+import { ICON } from '../../components/ui/icons';
+import { GPlus as Plus } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
 import { dateLocale, fromKey, todayKey } from '../../lib/dates';
 import type { MetricLog } from '../../db/types';
@@ -51,8 +53,9 @@ export function MeasuresTab() {
   if (!loaded) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <MeasureCard
+        icon={Weight}
         def={measureDef('weight')}
         value={weight.last ? formatMeasure(weight.last.value, measureDef('weight')) : null}
         sub={
@@ -69,6 +72,7 @@ export function MeasuresTab() {
         onAdd={() => setEditing('weight')}
       />
       <MeasureCard
+        icon={Moon}
         def={measureDef('sleep')}
         value={sleep.avg7 !== null ? hours(sleep.avg7) : null}
         unitOverride=""
@@ -83,7 +87,10 @@ export function MeasuresTab() {
         series={sleep.series.map((p) => p.value)}
         onAdd={() => setEditing('sleep')}
       />
+      <div className="grid grid-cols-2 gap-3">
       <MeasureCard
+        compact
+        icon={HeartPulse}
         def={measureDef('pulse')}
         value={pulse.last ? formatMeasure(pulse.last.value, measureDef('pulse')) : null}
         sub={
@@ -97,17 +104,21 @@ export function MeasuresTab() {
         onAdd={() => setEditing('pulse')}
       />
       <MeasureCard
+        compact
+        icon={Gauge}
         def={{ ...measureDef('bpSys'), title: t('Давление') }}
         value={sys.last && dia.last ? `${Math.round(sys.last.value)} / ${Math.round(dia.last.value)}` : null}
         sub={sys.last ? format(fromKey(sys.last.date), 'd MMMM', { locale: dateLocale() }) : t('Замеров пока нет')}
         series={sys.series.map((p) => p.value)}
         onAdd={() => setEditing('bpSys')}
       />
-      <h2 className="px-1 pt-2 lh-section">{t('Из анализов')}</h2>
+      </div>
+      <h2 className="px-1 pt-3 lh-section">{t('Из анализов')}</h2>
+      <div className="card divide-y divide-lh-border">
       {([hb, fer] as const).map((tr, i) => {
         const def = measureDef(i === 0 ? 'hemoglobin' : 'ferritin');
         return (
-          <MeasureCard
+          <LabRow
             key={def.key}
             def={def}
             value={tr.last ? formatMeasure(tr.last.value, def) : null}
@@ -121,11 +132,11 @@ export function MeasuresTab() {
                   : format(fromKey(tr.last.date), 'd MMMM yyyy', { locale: dateLocale() })
                 : t('Замеров пока нет')
             }
-            series={[]}
             onAdd={() => setEditing(def.key)}
           />
         );
       })}
+      </div>
       <p className="px-1 text-xs leading-snug text-lh-text-secondary">
         {t('Замеры вводятся руками: Apple Health веб-приложению закрыт. Второй замер за день заменяет первый. Норм приложение не знает — их сверяйте с бланком лаборатории.')}
       </p>
@@ -139,55 +150,118 @@ export function MeasuresTab() {
 
 function MeasureCard({
   def,
+  icon: Icon,
   value,
   unitOverride,
   sub,
   series,
   onAdd,
+  compact = false,
 }: {
   def: MeasureDef;
+  icon: LucideIcon;
   value: string | null;
   unitOverride?: string;
   sub: string;
   series: number[];
   onAdd: () => void;
+  compact?: boolean;
 }) {
   const unit = unitOverride ?? def.unit;
+  const addButton = (
+    <button
+      type="button"
+      onClick={onAdd}
+      className={`inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 px-3.5 text-sm text-lh-accent active:opacity-60 ${compact ? 'mt-3 w-full' : ''}`}
+    >
+      {t('+ замер')}
+    </button>
+  );
+  const head = (
+    <>
+      <h2 className="flex items-center gap-2 text-xs text-lh-text-secondary">
+        <Icon size={ICON.inline} className="shrink-0" />
+        {t(def.title)}
+      </h2>
+      <p className={`mt-1 font-light leading-tight tabular-nums ${compact ? 'text-2xl' : 'text-3xl'}`}>
+        {value ?? '—'}
+        {value && unit ? <span className="ml-1 text-sm text-lh-text-secondary">{t(unit)}</span> : null}
+      </p>
+    </>
+  );
+
+  if (compact) {
+    return (
+      <section className="card flex min-w-0 flex-col p-4" data-testid={`measure-${def.key}`}>
+        {head}
+        <p className="mt-1.5 text-2xs leading-snug text-lh-text-secondary">{sub}</p>
+        <div className="mt-auto">
+          {series.length >= 2 && <Sparkline values={series} className="mt-3 h-7 w-full" />}
+          {addButton}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="card p-4" data-testid={`measure-${def.key}`}>
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="lh-section">{t(def.title)}</h2>
-          <p className="mt-0.5 text-2xl font-extralight leading-tight tabular-nums">
-            {value ?? '—'}
-            {value && unit ? <span className="ml-1 text-sm font-medium text-lh-text-secondary">{t(unit)}</span> : null}
-          </p>
-          <p className="mt-0.5 text-xs text-lh-text-secondary">{sub}</p>
-        </div>
-        <button
-          type="button"
-          onClick={onAdd}
-          className={`shrink-0 rounded-full border border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
-        >
-          {t('+ замер')}
-        </button>
+        <div className="min-w-0">{head}</div>
+        {series.length >= 2 && <Sparkline values={series} dot className="mt-1 h-12 w-[120px] shrink-0" />}
       </div>
-      {series.length >= 2 && <Sparkline values={series} color={def.color} />}
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-lh-border pt-3">
+        <p className="min-w-0 text-xs text-lh-text-secondary">{sub}</p>
+        {addButton}
+      </div>
     </section>
   );
 }
 
-/** Линия тренда без осей: достаточно увидеть направление. */
-function Sparkline({ values, color }: { values: number[]; color: string }) {
+/** Строка показателя из анализов: значение справа, тап — новый замер. */
+function LabRow({ def, value, sub, onAdd }: { def: MeasureDef; value: string | null; sub: string; onAdd: () => void }) {
+  return (
+    <div className="flex items-center gap-3 py-2 pl-4 pr-2" data-testid={`measure-${def.key}`}>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate">{t(def.title)}</span>
+        <span className="block text-xs text-lh-text-secondary">{sub}</span>
+      </span>
+      <span className="shrink-0 text-right tabular-nums">
+        {value ?? '—'}
+        {value && def.unit ? <span className="ml-1 text-xs text-lh-text-secondary">{t(def.unit)}</span> : null}
+      </span>
+      <button
+        type="button"
+        onClick={onAdd}
+        aria-label={`${t('+ замер')}: ${t(def.title)}`}
+        className="flex size-11 shrink-0 items-center justify-center rounded-xl text-lh-accent active:opacity-60"
+      >
+        <Plus size={ICON.action} />
+      </button>
+    </div>
+  );
+}
+
+/** Линия тренда без осей: достаточно увидеть направление. Цвет — золото
+ *  интерфейса, точка отмечает последний замер. */
+function Sparkline({ values, className, dot = false }: { values: number[]; className: string; dot?: boolean }) {
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = max - min || 1;
-  const pts = values
-    .map((v, i) => `${(i / (values.length - 1)) * 300},${34 - ((v - min) / span) * 30}`)
-    .join(' ');
+  const xy = values.map((v, i) => [(i / (values.length - 1)) * 120, 44 - ((v - min) / span) * 40] as const);
+  const pts = xy.map(([x, y]) => `${x},${y}`).join(' ');
+  const [lx, ly] = xy[xy.length - 1];
   return (
-    <svg viewBox="0 0 300 36" preserveAspectRatio="none" className="mt-2 h-9 w-full" aria-hidden>
-      <polyline fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={pts} />
+    <svg viewBox="-3 0 126 48" preserveAspectRatio="none" className={className} aria-hidden>
+      <polyline
+        fill="none"
+        stroke="var(--lh-accent)"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+        points={pts}
+      />
+      {dot && <circle cx={lx} cy={ly} r="2.5" fill="var(--lh-accent)" />}
     </svg>
   );
 }
