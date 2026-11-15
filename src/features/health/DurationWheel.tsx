@@ -118,11 +118,14 @@ function WheelColumn({
     unlockTick();
   };
 
-  // Клавиатура: Tab входит на выбранном числе, стрелки листают по делению.
+  // Клавиатура: Tab входит на выбранном числе, стрелки листают по делению —
+  // от значения, а не от строки под полосой: та меняется, только когда колесо
+  // проедет полшага, и быстрые нажатия терялись.
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
     e.preventDefault();
-    const j = Math.min(values.length - 1, Math.max(0, center + (e.key === 'ArrowDown' ? 1 : -1)));
+    const at = Math.max(0, values.indexOf(value));
+    const j = Math.min(values.length - 1, Math.max(0, at + (e.key === 'ArrowDown' ? 1 : -1)));
     pick(j);
     (railRef.current?.querySelectorAll('button')[j] as HTMLElement | undefined)?.focus({ preventScroll: true });
   };

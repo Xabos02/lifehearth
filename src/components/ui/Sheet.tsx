@@ -63,6 +63,30 @@ export function Sheet({ open, onClose, title, children }: Props) {
     active: boolean;
   } | null>(null);
 
+  // Панель въезжает четверть секунды и принимала касания уже в пути: второй
+  // тап двойного касания по кнопке, открывшей шторку, попадал в её содержимое
+  // — убирал вид из формы тренировки, раскрывал строку. До конца въезда клики
+  // по содержимому панели гасим.
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!open) return;
+    settled.current = false;
+    // Страховка: без анимации («Уменьшение движения») animationend не придёт.
+    const id = window.setTimeout(() => {
+      settled.current = true;
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [open]);
+
+  // Клавиатура поднимает панель и на свою высоту срезает её снизу: поле в
+  // фокусе, стоявшее у нижнего края длинной формы, оказывалось под краем —
+  // печатаешь и не видишь. Докручиваем панель к нему.
+  useEffect(() => {
+    if (keyboardInset <= 0) return;
+    const el = document.activeElement;
+    if (el instanceof HTMLElement && panelRef.current?.contains(el)) el.scrollIntoView({ block: 'nearest' });
+  }, [keyboardInset]);
+
   // При открытии сбрасываем прокрутку шита наверх — формы открываются с верха,
   // а не «доскроленными» вниз (баг iOS с автофокусом/восстановлением скролла).
   useEffect(() => {
@@ -186,6 +210,17 @@ export function Sheet({ open, onClose, title, children }: Props) {
       />
       <div
         ref={panelRef}
+        // Только свой въезд: animationend всплывает и от анимаций внутри панели.
+        onAnimationEnd={(e) => {
+          if (e.target === e.currentTarget) settled.current = true;
+        }}
+        // Гасим только клики по содержимому панели: затемнение ведёт свой счёт
+        // касаний («первый тап убирает клавиатуру, второй закрывает»).
+        onClickCapture={(e) => {
+          if (settled.current) return;
+          e.stopPropagation();
+          e.preventDefault();
+        }}
         // overscroll-none, а не contain: оба не дают прокрутке перетечь на
         // страницу ПОД панелью, но contain оставлял пружину внутри неё —
         // долистал форму до конца, потянул дальше, и края окна отъезжали.

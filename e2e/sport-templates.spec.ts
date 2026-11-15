@@ -618,3 +618,42 @@ test('подсказка упражнения берёт подходы с по�
   await expect(page.getByTestId('exercise-row')).toContainText('5 × 15');
 });
 
+// ——— Находки живых сценариев второго круга (15.11.2026) ———
+
+test('двойной тап по чипу шаблона: второй тап не попадает во въезжающую форму', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await seedTemplate(page, { ...TEMPLATE_A, name: 'Тренировка А — сила, удар и кардио на всю неделю' });
+  const chip = page.getByRole('button', { name: /^По шаблону: Тренировка А/ });
+  await chip.scrollIntoViewIfNeeded();
+  const box = (await chip.boundingBox())!;
+  // Оба края чипа: под правым во въезжающей форме оказывалось «Убрать» вида,
+  // под левым — заголовок вида и строка упражнения.
+  for (const x of [box.x + box.width - 12, box.x + 40]) {
+    await page.touchscreen.tap(x, box.y + box.height / 2);
+    await page.waitForTimeout(120);
+    await page.touchscreen.tap(x, box.y + box.height / 2);
+    await expect(page.getByRole('heading', { name: 'Новая тренировка' })).toBeVisible();
+    await expect(page.getByTestId('workout-kind')).toHaveCount(3);
+    await expect(page.getByTestId('exercise-editor')).toHaveCount(0);
+    await expect(page.locator(`${SHEET} [aria-expanded="true"]`)).toHaveCount(0);
+    await page.locator(SHEET).getByRole('button', { name: 'Закрыть' }).click();
+    await expect(page.locator(SHEET)).toHaveCount(0);
+  }
+});
+
+test('барабан: три быстрые стрелки подряд — три деления', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await openTemplates(page);
+  await page.getByRole('button', { name: 'Новый шаблон' }).click();
+  await page.getByRole('button', { name: 'Общее время: не задано' }).click();
+  const minutes = page.getByTestId('duration-wheel').locator('[role=group]').nth(1);
+  await minutes.locator('button[aria-pressed="true"]').focus();
+  // Три нажатия без пауз, каждое своей задачей — как автоповтор клавиши.
+  await page.evaluate(() => {
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })), 0);
+    }
+  });
+  await expect(page.getByRole('button', { name: 'Общее время: 15 мин' })).toBeVisible();
+});
+

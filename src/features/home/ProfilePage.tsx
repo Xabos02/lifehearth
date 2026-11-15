@@ -98,7 +98,14 @@ export function ProfilePage() {
   const formRef = useRef(form);
   formRef.current = form;
 
+  // Поля, которые человек менял в этом черновике, — в профиль пишутся только
+  // они. Вес теперь приходит и синком (sync.ts): черновик, начатый до него,
+  // иначе вернул бы в профиль и в дневник прежнее число, которого никто не
+  // вводил, — и оно ушло бы обратно на все устройства.
+  const touched = useRef(new Set<keyof typeof form>());
+
   const set = (patch: Partial<typeof form>) => {
+    for (const k of Object.keys(patch)) touched.current.add(k as keyof typeof form);
     const next = { ...form, ...patch };
     setDraft(next);
     clearTimeout(saveTimer.current);
@@ -110,16 +117,18 @@ export function ProfilePage() {
 
   async function commit(f: typeof form) {
     saveTimer.current = undefined;
+    const dirty = touched.current;
+    touched.current = new Set();
     const weightKg = parseNumber(f.weightKg);
-    const before = await patchProfile({
-      name: f.name.trim() || undefined,
-      birthDate: f.birthDate || null,
-      heightCm: parseNumber(f.heightCm),
-      weightKg,
-    });
+    const patch: UserProfile = {};
+    if (dirty.has('name')) patch.name = f.name.trim() || undefined;
+    if (dirty.has('birthDate')) patch.birthDate = f.birthDate || null;
+    if (dirty.has('heightCm')) patch.heightCm = parseNumber(f.heightCm);
+    if (dirty.has('weightKg')) patch.weightKg = weightKg;
+    const before = await patchProfile(patch);
     // Вес из профиля — в дневник замеров («Здоровье»), чтобы источник был
     // один: раньше «Главная» показывала профильное число, а раздел — своё.
-    if (weightKg != null && weightKg !== before?.weightKg && weightKg >= 20 && weightKg <= 300) {
+    if (dirty.has('weightKg') && weightKg != null && weightKg !== before?.weightKg && weightKg >= 20 && weightKg <= 300) {
       await logMeasure('weight', todayKey(), weightKg);
     }
     setDraft(null);

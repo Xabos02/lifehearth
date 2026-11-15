@@ -1,7 +1,7 @@
 import { db } from '../../db/db';
 import { createWithId, remove, update } from '../../db/repo';
 import type { MetricLog } from '../../db/types';
-import { addDaysKey, isDateKey } from '../../lib/dates';
+import { addDaysKey, isDateKey, todayKey } from '../../lib/dates';
 import { updateSettings } from '../../hooks/useSettings';
 import { getLang } from '../../lib/i18n';
 
@@ -114,7 +114,12 @@ export async function removeMeasureLog(id: string): Promise<void> {
  *  (sync.ts) — раньше синк профиль не трогал, и «Главная» с ИМТ оставались
  *  на прежнем числе. Нет замеров — нет и веса. */
 export async function syncProfileWeight(): Promise<void> {
-  const logs = (await db.metricLogs.where('metricId').equals(measureDef('weight').id).toArray()).filter((l) => !l.deletedAt);
+  // Те же замеры, что видит вкладка (measureTrend): без записей с битым или
+  // будущим днём — синк привозит их с устройств в другом часовом поясе.
+  const today = todayKey();
+  const logs = (await db.metricLogs.where('metricId').equals(measureDef('weight').id).toArray()).filter(
+    (l) => !l.deletedAt && isDateKey(l.date) && l.date <= today,
+  );
   const latest = logs.sort((a, b) => b.date.localeCompare(a.date))[0];
   const s = await db.settings.get('app');
   await updateSettings({ profile: { ...s?.profile, weightKg: latest ? latest.value : null } });
