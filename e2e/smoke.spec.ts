@@ -52,10 +52,12 @@ test('«Женские дни» скрыты по умолчанию, но вк�
   await expect(page.getByText('Женские дни')).toBeVisible();
 });
 
-test('календарь есть в нижней панели', async ({ page }) => {
+test('до календаря можно дойти: вкладка «Ещё» ведёт в него', async ({ page }) => {
   // Раньше экран существовал, но ссылки на него не было нигде — регрессия,
   // которая тихо возвращается при любой правке раскладки по умолчанию.
+  // С редизайна календарь не в нижней панели, а в списке разделов «Ещё».
   await openApp(page);
   const bar = page.locator('nav').last();
-  await expect(bar.getByRole('link', { name: /Календарь/ })).toBeVisible();
+  await bar.getByRole('link', { name: /Ещё/ }).click();
+  await expect(page.locator('main a[href="/calendar"]').first()).toBeVisible();
 });

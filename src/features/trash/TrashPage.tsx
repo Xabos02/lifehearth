@@ -9,6 +9,7 @@ import { SECTION_BY_ID } from '../../lib/sections';
 import {
   GTrash as Trash2,
   GRepeat as RotateCcw,
+  GTimer,
 } from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
 import type { Table } from 'dexie';
@@ -144,8 +145,11 @@ export function TrashPage() {
         />
       ) : (
         <div className="space-y-4">
-          <div className="card p-4 text-sm leading-relaxed text-lh-text-secondary">
-            {t('Здесь удалённые записи. Их можно восстановить или удалить навсегда.')}
+          <div className="card flex items-start gap-3 p-4">
+            <GTimer size={ICON.base} aria-hidden className="mt-0.5 shrink-0 text-lh-accent" />
+            <p className="text-sm leading-relaxed text-lh-text-secondary">
+              {t('Здесь удалённые записи. Их можно восстановить или удалить навсегда.')}
+            </p>
           </div>
           <div className="card divide-y divide-lh-border">
             {entries.map((entry) => {
@@ -156,10 +160,15 @@ export function TrashPage() {
                   data-testid={`trash-${entry.id}`}
                   className="flex items-center gap-3 px-4 py-3"
                 >
-                  <Icon size={ICON.base} className="mt-0.5 shrink-0 self-start text-lh-text-secondary" />
+                  <span
+                    aria-hidden
+                    className="flex size-9 shrink-0 items-center justify-center self-start rounded-lg bg-lh-surface-2 text-lh-text-secondary"
+                  >
+                    <Icon size={ICON.base} />
+                  </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{entry.title || t('Без названия')}</p>
-                    <p className="text-sm text-lh-text-secondary">
+                    <p className="break-words leading-snug">{entry.title || t('Без названия')}</p>
+                    <p className="mt-0.5 text-xs text-lh-text-secondary">
                       {t('удалено {date}', { date: formatRu(entry.deletedAt.slice(0, 10)) })}
                     </p>
                   </div>
