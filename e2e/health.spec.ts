@@ -275,6 +275,65 @@ test('удалённый последний замер веса снимает �
     .toBeNull();
 });
 
+test('замер без даты не сохраняется, а записанный раньше не роняет «Замеры»', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await page.getByRole('button', { name: 'Замеры' }).click();
+  await page.getByTestId('measure-sleep').getByRole('button', { name: '+ замер' }).click();
+  // Стёртое поле даты отдаёт '' (в Chromium хватает одного Backspace), а ''
+  // проходило проверку «не позже сегодня».
+  await page.getByLabel('Когда').fill('');
+  await page.getByPlaceholder('7', { exact: true }).fill('7');
+  await expect(page.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
+
+  // Такую запись форма успела сохранить до проверки — у людей она уже лежит
+  // в базе. Вкладка её пропускает, а не падает при каждом открытии.
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    await db.metricLogs.put({ id: 'health:sleep:', createdAt: now, updatedAt: now, deletedAt: null, metricId: 'health:sleep', date: '', value: 7 });
+  });
+  await page.goto('/more/health');
+  await page.getByRole('button', { name: 'Замеры' }).click();
+  await expect(page.getByTestId('measure-sleep')).toContainText('Замеров пока нет');
+});
+
+test('среднее сна округляется до минут целиком: 7 и 6,99 — «7 ч», а не «6 ч 60 м»', async ({ page }) => {
+  const today = '2026-09-16';
+  await page.clock.setFixedTime(new Date(`${today}T12:00:00`));
+  await openApp(page, '/more/health');
+  await page.evaluate(async ([d0, d1]) => {
+    const { logMeasure } = await import('/src/features/health/measures.ts');
+    await logMeasure('sleep', d0, 7);
+    await logMeasure('sleep', d1, 6.99);
+  }, [today, addDaysKey(today, -1)]);
+  await page.getByRole('button', { name: 'Замеры' }).click();
+  await expect(page.getByTestId('measure-sleep').locator('p').first()).toHaveText('7 ч');
+});
+
+test('«Замеры» по-английски: дроби с точкой, дата — «месяц день»', async ({ page }) => {
+  const today = '2026-09-16';
+  await page.clock.setFixedTime(new Date(`${today}T12:00:00`));
+  await openApp(page, '/more/health', { language: 'en' });
+  await page.evaluate(async ([d0, d3]) => {
+    const { logMeasure } = await import('/src/features/health/measures.ts');
+    await logMeasure('weight', d3, 79.6);
+    await logMeasure('weight', d0, 78.4);
+    await logMeasure('sleep', d0, 7.5);
+    await logMeasure('bpSys', d0, 120);
+    await logMeasure('bpDia', d0, 80);
+    await logMeasure('hemoglobin', d3, 125);
+    await logMeasure('hemoglobin', d0, 130);
+    await logMeasure('ferritin', d0, 50);
+  }, [today, addDaysKey(today, -3)]);
+  await page.getByRole('button', { name: 'Measurements' }).click();
+  await expect(page.getByTestId('measure-weight')).toContainText('78.4');
+  await expect(page.getByTestId('measure-weight')).toContainText('−1.2 over 30 days · 7-day average 79.0');
+  await expect(page.getByTestId('measure-sleep')).toContainText('last Sep 16');
+  await expect(page.getByTestId('measure-bpSys')).toContainText('September 16');
+  await expect(page.getByTestId('measure-hemoglobin')).toContainText('+5 vs previous · Sep 16, 2026');
+  await expect(page.getByTestId('measure-ferritin')).toContainText('September 16, 2026');
+});
+
 test('масштаб «Месяц» переживает переход на «Замеры» и обратно', async ({ page }) => {
   await openApp(page, '/more/health');
   await page.getByRole('button', { name: 'Месяц' }).click();

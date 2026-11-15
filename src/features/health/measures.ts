@@ -1,8 +1,10 @@
+import { isValid } from 'date-fns';
 import { db } from '../../db/db';
 import { createWithId, remove, update } from '../../db/repo';
 import type { MetricLog } from '../../db/types';
-import { addDaysKey } from '../../lib/dates';
+import { addDaysKey, fromKey } from '../../lib/dates';
 import { updateSettings } from '../../hooks/useSettings';
+import { getLang } from '../../lib/i18n';
 
 // Замеры вкладки «Здоровье»: вес, сон, пульс покоя, давление.
 //
@@ -43,6 +45,13 @@ export const MEASURES: MeasureDef[] = [
 
 export function measureDef(key: MeasureKey): MeasureDef {
   return MEASURES.find((m) => m.key === key)!;
+}
+
+/** День замера — 'YYYY-MM-DD', который есть в календаре. Стёртое поле даты
+ *  отдаёт '', и оно проходило «не позже сегодня» ('' меньше любой даты):
+ *  запись без дня потом роняла вкладку в format(). */
+export function isDayKey(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) && isValid(fromKey(s));
 }
 
 /** Метрика под замер существует и жива; вернуть её id. */
@@ -87,6 +96,7 @@ export async function logMeasure(key: MeasureKey, date: string, value: number): 
   // Границы — от опечаток, не медицинские: «796» из профиля с недобранной
   // запятой в дневник не попадает.
   if (!Number.isFinite(value) || value < def.min || value > def.max) return;
+  if (!isDayKey(date)) return;
   const metricId = await ensureMetric(def);
   const v = Number(value.toFixed(def.decimals));
   const id = measureLogId(metricId, date);
@@ -138,7 +148,9 @@ export interface MeasureTrend {
 export function measureTrend(logs: MetricLog[], today: string, windowDays = 30): MeasureTrend {
   const byDate = new Map<string, MetricLog>();
   for (const l of logs) {
-    if (l.deletedAt || l.date > today) continue;
+    // Запись без дня форма успела сохранить до проверки — у людей она уже в
+    // базе. Пропускаем, иначе вкладка падает при каждом открытии.
+    if (l.deletedAt || l.date > today || !isDayKey(l.date)) continue;
     const have = byDate.get(l.date);
     if (!have || l.updatedAt > have.updatedAt) byDate.set(l.date, l);
   }
@@ -158,7 +170,9 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-/** «78,4» — число с нужным числом знаков и запятой. */
+/** «78,4» / «78.4» — число с нужным числом знаков, разделитель по языку
+ *  (PROTOCOL §7.7): в английском запятая читается как разделитель тысяч. */
 export function formatMeasure(value: number, def: MeasureDef): string {
-  return value.toFixed(def.decimals).replace('.', ',');
+  const s = value.toFixed(def.decimals);
+  return getLang() === 'ru' ? s.replace('.', ',') : s;
 }
