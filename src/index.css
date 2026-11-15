@@ -649,9 +649,11 @@ select {
      первую ВИЗУАЛЬНУЮ строку, поэтому длинный заголовок обрывался, а перенос
      выглядел как тело. Теперь крупным/жирным становится весь ведущий текст —
      заголовок переносится целиком, без ограничения в одну строку. */
-  font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.35;
+  /* Макет редактора: заголовок 26/600, трекинг −0.3px. */
+  font-size: 1.625rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
 }
 /* Тело заметки — блоки после заголовка: обычный размер и насыщенность. */
 .note-editor div,
@@ -663,7 +665,8 @@ select {
 .note-editor blockquote {
   font-size: 17px;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.55;
+  letter-spacing: normal;
 }
 .note-editor:empty::before {
   content: attr(data-placeholder);
@@ -755,10 +758,11 @@ select {
   margin: 0.6em 0 0.2em;
 }
 .note-editor blockquote {
-  margin: 0.4em 0;
-  padding-left: 0.9em;
-  border-left: 3px solid var(--app-accent);
-  color: var(--app-muted);
+  margin: 0.6em 0;
+  padding-left: 1em;
+  border-left: 2px solid var(--app-accent);
+  color: var(--lh-text-secondary);
+  font-weight: 300;
 }
 /* Ссылка в тексте заметки. Золото — тот же токен, которым набраны ссылочные
    подписи в интерфейсе, и в обеих темах он подобран как ЦВЕТ ТЕКСТА

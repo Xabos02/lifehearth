@@ -758,7 +758,7 @@ export function NoteEditorPage() {
       {/* Дата изменения по центру над текстом — фирменная строка Apple Notes:
           тихий факт вместо интерфейса, живёт прямо в листе заметки. */}
       {editedAt && (
-        <p className="mb-2 text-center text-xs text-lh-text-secondary">
+        <p className="mb-4 text-center text-2xs tabular-nums text-lh-text-secondary">
           {format(
             new Date(editedAt),
             getLang() === 'ru' ? "d MMMM yyyy 'г'., HH:mm" : 'MMMM d, yyyy · HH:mm',

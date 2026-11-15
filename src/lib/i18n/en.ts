@@ -44,6 +44,11 @@ export const EN: Record<string, string> = {
   'Сохранить': 'Save',
   'Отмена': 'Cancel',
   'Отменить': 'Undo',
+  'Доброе утро': 'Good morning',
+  'Добрый день': 'Good afternoon',
+  'Добрый вечер': 'Good evening',
+  'Доброй ночи': 'Good night',
+  '{done} из {total} готово': '{done} of {total} done',
   // Редизайн 15.11.2026: шит подтверждения и плашка «Вернуть».
   'Выйти': 'Leave',
   'Вернуть': 'Undo',
@@ -1637,6 +1642,9 @@ export const EN: Record<string, string> = {
 
   // === Цели над списком задач ===
   'Цель достигнута': 'Goal achieved',
+  'Все цели': 'All goals',
+  'Папки': 'Folders',
+  '{n} на сегодня': '{n} for today',
   'Привяжите задачи': 'Link tasks to it',
   'Осталось {n}': '{n} left',
   'Пройдено {v}%': '{v}% done',

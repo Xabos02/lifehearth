@@ -30,6 +30,12 @@ interface Props {
   right?: ReactNode;
   /** подзаголовок под title (например, дата) */
   subtitle?: string;
+  /** Строка НАД заголовком — дата на «Сегодня» (макет: дата мелко, крупно —
+   *  приветствие). */
+  eyebrow?: string;
+  /** Скрытое начало заголовка для диктора и поиска по экрану: визуально
+   *  приветствие, а по смыслу экран — «Сегодня». */
+  titleHiddenPrefix?: string;
   /** контент занимает всю высоту (для чата): сам скроллится внутри, без резерва снизу */
   fill?: boolean;
   /** Минималистичная шапка: заголовок в одну строку обычным кеглем.
@@ -121,6 +127,8 @@ export function Screen({
   backLabel,
   right,
   subtitle,
+  eyebrow,
+  titleHiddenPrefix,
   fill = false,
   compact = false,
   titleLead,
@@ -203,6 +211,7 @@ export function Screen({
           <div className={`min-w-0 flex-1 ${compact ? '' : 'pt-1'}`}>
             {/* Пустой заголовок — законный случай (редактор заметки): пустой h1
                 не рендерим, он раздувал бы шапку. */}
+            {eyebrow && !compact && <p className="mb-1 text-sm text-lh-text-secondary">{eyebrow}</p>}
             {title && (
               <h1
                 className={
@@ -211,6 +220,7 @@ export function Screen({
                     : 'lh-heading line-clamp-2 break-words max-[359px]:text-[7.5vw]'
                 }
               >
+                {titleHiddenPrefix && <span className="sr-only">{titleHiddenPrefix}. </span>}
                 {title}
               </h1>
             )}
