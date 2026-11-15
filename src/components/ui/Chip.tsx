@@ -1,13 +1,18 @@
 import type { ReactNode } from 'react';
 import { HIT_SLOP_44 } from './hitSlop';
+import { Haptic } from './Haptic';
 
 interface Props {
   active?: boolean;
   onClick?: () => void;
+  /** Тап сейчас ничего не меняет (выбранный вариант единственного выбора) или
+   *  ведёт в шторку — накладка пропускает его, щелчка нет (PROTOCOL §6.4).
+   *  Чипам-переключателям не нужен: повторный тап у них снимает выбор. */
+  hapticOff?: boolean;
   children: ReactNode;
 }
 
-export function Chip({ active = false, onClick, children }: Props) {
+export function Chip({ active = false, onClick, hapticOff, children }: Props) {
   return (
     <button
       onClick={onClick}
@@ -23,6 +28,8 @@ export function Chip({ active = false, onClick, children }: Props) {
       }`}
     >
       {children}
+      {/* Чип выбора щёлкает, как сегмент (§6.4). */}
+      {onClick && <Haptic off={hapticOff} />}
     </button>
   );
 }

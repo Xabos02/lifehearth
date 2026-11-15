@@ -10,6 +10,7 @@ import { alive } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
+import { Haptic } from '../../components/ui/Haptic';
 import { useToast } from '../../components/ui/toastContext';
 import { formatDueDate } from '../../lib/dates';
 import { formatDueRange } from '../../lib/taskDates';
@@ -173,6 +174,8 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
               : t('без срока')}
           </span>
         </span>
+        {/* Отметка строки — щёлкает, как TaskCheck (PROTOCOL §6.4). */}
+        <Haptic />
       </button>
     );
   }

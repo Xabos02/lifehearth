@@ -9,6 +9,7 @@ import {
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
+import { Haptic } from '../../components/ui/Haptic';
 import { hashPin } from '../../lib/crypto';
 import { isUnlocked, lockCycleSection, subscribeLock } from './lockState';
 import { CycleLock } from './CycleLock';
@@ -60,6 +61,9 @@ function ToggleRow({
       >
         {checked && <Check size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
       </span>
+      {/* Щёлкает, как общий Switch (PROTOCOL §6.4); у выключенной строки тап
+          ничего не меняет — накладки нет. */}
+      {!disabled && <Haptic />}
     </button>
   );
 }

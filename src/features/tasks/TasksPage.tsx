@@ -51,6 +51,7 @@ import { GoalsProgress } from './GoalsProgress';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
 import { autoScrollStep } from './autoScroll';
+import { buzz } from '../../lib/feedback';
 import {
   NONE,
   FROZEN,
@@ -440,6 +441,7 @@ export function TasksPage() {
     // body.touchAction: первый снявшийся вернёт пустое значение, второй —
     // запомненное 'none', и прокрутка всего приложения умрёт до перезагрузки.
     if (activePointerRef.current !== null) return;
+    buzz(); // «взял» — только Android, PROTOCOL §6.4
     activePointerRef.current = at.pointerId;
     pointerRef.current = at; // стартовая позиция пальца — «призрак» из неё, не из угла
     startXRef.current = at.x; // от неё же считается сдвиг, решающий уровень
@@ -514,6 +516,7 @@ export function TasksPage() {
 
   const onDragStart = useCallback((task: Task, at: { x: number; y: number; pointerId: number }) => {
     if (activePointerRef.current !== null) return; // один жест за раз, см. выше
+    buzz(); // «взял» — только Android; второй палец отбит строкой выше (PROTOCOL §6.4)
     activePointerRef.current = at.pointerId;
     const key = task.projectId ?? NONE;
     dropKeyRef.current = key;
@@ -688,6 +691,7 @@ export function TasksPage() {
         // Dexie тогда нечего: лишний updatedAt расходится синком на другие
         // устройства и выглядит как перестановка, которой не было.
         if (orderChanged) {
+          buzz(); // «положил» на новое место — только Android, PROTOCOL §6.4
           const prevSortOrder = new Map(targetTasks.map((task) => [task.id, task.sortOrder]));
           const writes: { id: string; changes: Partial<Task> }[] = [];
           order.forEach((id, i) => {
@@ -891,6 +895,7 @@ export function TasksPage() {
           ? (childrenRef.current.get(parent) ?? [])
           : projectsRef.current;
         const last = siblings.reduce((m, x) => Math.max(m, x.sortOrder), 0);
+        buzz(); // «положил» — только Android, PROTOCOL §6.4
         void update(db.projects, dp.id, { parentId: parent, sortOrder: last + 1000 });
         const name = parent
           ? projectsRef.current.find((x) => x.id === parent)?.name
@@ -915,6 +920,7 @@ export function TasksPage() {
               const order = (i + 1) * 1000;
               if (cur && cur.sortOrder !== order) writes.push({ id, changes: { sortOrder: order } });
             });
+            buzz(); // «положил» — только Android, PROTOCOL §6.4
             void updateMany(db.projects, writes);
             toast(t('Порядок проектов обновлён'));
           }
@@ -939,6 +945,7 @@ export function TasksPage() {
               const order = (i + 1) * 1000;
               if (cur && cur.sortOrder !== order) writes.push({ id, changes: { sortOrder: order } });
             });
+            buzz(); // «положил» — только Android, PROTOCOL §6.4
             void updateMany(db.projects, writes);
             toast(t('Порядок подпроектов обновлён'));
           }
@@ -1361,7 +1368,7 @@ export function TasksPage() {
       {tagOptions.length > 0 && (
         <div className="mb-4">
           <ChipRow>
-            <Chip active={activeTag === null} onClick={() => setActiveTag(null)}>
+            <Chip active={activeTag === null} hapticOff={activeTag === null} onClick={() => setActiveTag(null)}>
               {t('Все теги')}
             </Chip>
             {tagOptions.map((tag) => (

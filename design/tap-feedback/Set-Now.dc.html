@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Настройки — как сейчас</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.sub{height:30px;box-sizing:border-box;margin:0;padding:9px 16px 0;font-size:12px;line-height:16px;color:#b3b1ab}
+img{display:block}
+</style>
+</helmet>
+<div style="width: 393px; height: 622px; background: #08080f; font-family: -apple-system, system-ui, 'Inter', sans-serif">
+  <p class="sub">Тёмная тема — выключателя отклика нет</p>
+  <img src="shots/set-dark-now.webp" alt="Настройки, раздел «Оформление» в тёмной теме: тема и язык" style="width: 393px; height: 273px">
+  <p class="sub">Светлая тема</p>
+  <img src="shots/set-light-now.webp" alt="Настройки, раздел «Оформление» в светлой теме: тема и язык" style="width: 393px; height: 273px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":393,"height":622}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

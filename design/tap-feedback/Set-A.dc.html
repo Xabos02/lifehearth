@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>А и В: один выключатель «Отклик на касания»</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.sub{height:30px;box-sizing:border-box;margin:0;padding:9px 16px 0;font-size:12px;line-height:16px;color:#b3b1ab}
+img{display:block}
+</style>
+</helmet>
+<div style="width: 393px; height: 876px; background: #08080f; font-family: -apple-system, system-ui, 'Inter', sans-serif">
+  <p class="sub">Тёмная тема — одна строка под «Языком», включено по умолчанию</p>
+  <img src="shots/set-dark-a.webp" alt="Настройки в тёмной теме: под строкой «Язык» строка «Отклик на касания» с включённым переключателем и пояснением под карточкой" style="width: 393px; height: 400px">
+  <p class="sub">Светлая тема</p>
+  <img src="shots/set-light-a.webp" alt="Настройки в светлой теме: строка «Отклик на касания» с включённым переключателем и пояснением под карточкой" style="width: 393px; height: 400px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":393,"height":876}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

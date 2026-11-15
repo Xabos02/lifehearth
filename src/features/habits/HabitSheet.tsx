@@ -13,6 +13,7 @@ import { freezeHabit, unfreezeHabit } from './habitRepo';
 import type { Habit, HabitSchedule } from '../../db/types';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { useToast } from '../../components/ui/toastContext';
+import { Haptic } from '../../components/ui/Haptic';
 
 type SchedType = 'daily' | 'weekdays';
 type Mode = 'check' | 'count';
@@ -193,6 +194,8 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
                 }`}
               >
                 {t(label)}
+                {/* День-флажок: тап ставит или снимает — щёлкает (PROTOCOL §6.4). */}
+                <Haptic />
               </button>
             );
           })}

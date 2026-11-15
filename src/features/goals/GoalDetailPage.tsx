@@ -34,6 +34,7 @@ import { GoalEditSheet } from './GoalEditSheet';
 import { IconButton } from '../../components/ui/IconButton';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
+import { Haptic } from '../../components/ui/Haptic';
 
 const KIND_ICONS: Record<LearningKind, LucideIcon> = {
   book: Book,
@@ -211,6 +212,9 @@ export function GoalDetailPage() {
                 className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 active:opacity-70"
               >
                 <Minus size={ICON.base} />
+                {/* Шаг прогресса щёлкает (PROTOCOL §6.4); на нуле тап ничего
+                    не меняет, и накладка его пропускает. */}
+                <Haptic off={current <= 0} />
               </button>
               <Input
                 type="number"
@@ -236,6 +240,7 @@ export function GoalDetailPage() {
                 className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 active:opacity-70"
               >
                 <Plus size={ICON.base} />
+                <Haptic />
               </button>
             </div>
           </div>

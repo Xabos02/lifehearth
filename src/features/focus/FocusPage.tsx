@@ -36,6 +36,8 @@ import { SoundPickerSheet } from './SoundPickerSheet';
 import { FocusFullscreen } from './FocusFullscreen';
 import { FOCUS_VARS } from './focusVars';
 import { Switch } from '../../components/ui/Switch';
+import { Haptic } from '../../components/ui/Haptic';
+import { playTick, unlockTick } from '../health/tick';
 import { enablePush, isStandalone, pushEnabled, pushPaused, pushSupported } from '../../lib/push';
 import { useConsent } from '../../lib/consent';
 import { useToast } from '../../components/ui/toastContext';
@@ -139,6 +141,9 @@ function DurationStepper({
           className="flex size-11 shrink-0 items-center justify-center rounded-full border border-lh-border-strong text-lg text-lh-text-secondary active:scale-90"
         >
           −
+          {/* Шаг меняет значение — щёлкает (PROTOCOL §6.4); на единице тап
+              ничего не меняет, и накладка его пропускает. */}
+          <Haptic off={value <= 1} />
         </button>
         <input
           type="text"
@@ -173,6 +178,9 @@ function DurationStepper({
           className="flex size-11 shrink-0 items-center justify-center rounded-full border border-lh-border-strong text-lg text-lh-text-secondary active:scale-90 disabled:opacity-40"
         >
           +
+          {/* У упора — off, а не убрать: значение пишется в состояние React,
+              и шаг, дошедший до упора, снял бы накладку раньше щелчка. */}
+          <Haptic off={value >= max} />
         </button>
       </div>
     </div>
@@ -381,6 +389,9 @@ export function FocusPage() {
   // Шкала кольца фиксируется на старте жеста: max = max(90, workMin) иначе
   // пересчитывался после первого же setWorkMin, и дуга скакала под пальцем.
   const gestureMax = useRef(MAX_MIN);
+  // Последнее значение под пальцем — щелчок только на смене шага: p.workMin
+  // в замыкании отстаёт от быстрых pointermove до перерисовки.
+  const lastMin = useRef(0);
 
   /** Расстояние касания от центра в единицах viewBox (300×300). */
   function distFromCenter(clientX: number, clientY: number): number {
@@ -404,6 +415,12 @@ export function FocusPage() {
     const max = gestureMax.current;
     let minutes = Math.round(((deg / 360) * max) / STEP_MIN) * STEP_MIN;
     minutes = Math.max(STEP_MIN, Math.min(max, minutes));
+    // Каждый шаг кольца щёлкает, как барабан дат (PROTOCOL §6.4), — на смене
+    // минут, а не на каждом движении пальца.
+    if (minutes !== lastMin.current) {
+      lastMin.current = minutes;
+      playTick();
+    }
     p.setWorkMin(minutes);
   }
 
@@ -416,6 +433,10 @@ export function FocusPage() {
     if (Math.abs(distFromCenter(e.clientX, e.clientY) - R) > STROKE * 2) return;
     dragging.current = true;
     gestureMax.current = Math.max(MAX_MIN, p.workMin);
+    lastMin.current = p.workMin;
+    // Звук щелчка будит касание; на iPhone — только отпускание пальца,
+    // поэтому unlockTick ещё и в onRingUp: со второго жеста кольцо щёлкает.
+    unlockTick();
     try {
       svgRef.current?.setPointerCapture(e.pointerId);
     } catch {
@@ -428,6 +449,7 @@ export function FocusPage() {
     setFromPointer(e.clientX, e.clientY);
   };
   const onRingUp = () => {
+    if (dragging.current) unlockTick();
     dragging.current = false;
   };
 
@@ -593,6 +615,9 @@ export function FocusPage() {
                 active={
                   !managing && pr.work === p.workMin && pr.break === p.breakMin && pr.long === p.longMin
                 }
+                // Молчит выбранный шаблон и режим «Изменить» — там тап открывает
+                // шторку, это переход (PROTOCOL §6.4).
+                hapticOff={managing || (pr.work === p.workMin && pr.break === p.breakMin && pr.long === p.longMin)}
                 onClick={() => (managing ? openEditPreset(pr) : applyPreset(pr))}
               >
                 <span className="flex max-w-[12rem] items-center gap-1">

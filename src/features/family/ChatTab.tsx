@@ -75,6 +75,7 @@ import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
 import { confirmAction } from '../../components/ui/confirmStore';
 import { Haptic } from '../../components/ui/Haptic';
+import { buzz } from '../../lib/feedback';
 
 // Палитра быстрых реакций — как в WhatsApp/Telegram, шесть базовых.
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
@@ -357,6 +358,7 @@ function MessageRow({
     dx: 0,
     mode: 'idle' as 'idle' | 'swipe' | 'longpress' | 'skip',
     lastTapAt: 0,
+    replyBuzzed: false, // порог «ответить» уже отозвался в этом жесте
     onImage: false,
     lpTimer: null as ReturnType<typeof setTimeout> | null,
     tapTimer: null as ReturnType<typeof setTimeout> | null,
@@ -378,6 +380,7 @@ function MessageRow({
     g.current.mode = 'idle';
     g.current.x0 = e.clientX;
     g.current.y0 = e.clientY;
+    g.current.replyBuzzed = false;
     g.current.onImage = Boolean((e.target as Element).closest('img'));
     clearLp();
     g.current.lpTimer = setTimeout(() => {
@@ -391,11 +394,7 @@ function MessageRow({
       // прикрепляется. Между тем задержаться перед движением естественно:
       // сначала находишь нужное сообщение глазами, потом ведёшь.
       g.current.mode = 'longpress';
-      try {
-        navigator.vibrate?.(10);
-      } catch {
-        /* iOS игнорирует */
-      }
+      buzz(10); // «взял» — только Android, PROTOCOL §6.4
     }, LONG_PRESS_MS);
   }
 
@@ -423,6 +422,12 @@ function MessageRow({
     if (s.mode === 'swipe') {
       s.dx = Math.max(0, Math.min(SWIPE_REPLY_PX + 24, dx));
       setDragX(s.dx);
+      // Порог «ответить» пройден — короткая вибрация, раз за жест, только
+      // Android (PROTOCOL §6.4).
+      if (s.dx >= SWIPE_REPLY_PX && !s.replyBuzzed) {
+        s.replyBuzzed = true;
+        buzz();
+      }
     }
   }
 
@@ -454,6 +459,7 @@ function MessageRow({
         clearTimeout(s.tapTimer);
         s.tapTimer = null;
       }
+      buzz(); // реакция поставлена жестом — только Android, PROTOCOL §6.4
       onHeart(m); // двойной тап — быстрое ❤️
       return;
     }
@@ -652,6 +658,10 @@ function MessageRow({
                 {c.count > 1 && (
                   <span className={`tabular-nums ${c.mine ? 'text-lh-accent' : 'text-lh-text-secondary'}`}>{c.count}</span>
                 )}
+                {/* Чип ставит и снимает мою реакцию — щёлкает (PROTOCOL §6.4).
+                    fit: зоны 44 у чипа нет, а выступ накладки забрал бы тапы по
+                    низу пузыря в 4px над ним. */}
+                <Haptic fit />
               </button>
             ))}
           </div>
@@ -1098,9 +1108,11 @@ export function ChatTab({ familyId }: { familyId: string }) {
   }
 
   async function toggleReaction(m: FamilyMessage, emoji: string) {
-    setActionMsg(null);
+    // Шторка закрывается ПОСЛЕ записи реакции — как в copyText: щелчок Haptic
+    // приходит уже после обработчика, и кнопка должна ещё стоять в документе.
     const current = myReactions.get(m.clientMsgId);
     await sendReaction(familyId, m.clientMsgId, current === emoji ? '' : emoji);
+    setActionMsg(null);
   }
 
   async function doDelete(m: FamilyMessage) {
@@ -1685,6 +1697,8 @@ export function ChatTab({ familyId }: { familyId: string }) {
                     }`}
                   >
                     {emoji}
+                    {/* Реакция — переключатель: щёлкает (PROTOCOL §6.4). */}
+                    <Haptic />
                   </button>
                 ))}
               </div>

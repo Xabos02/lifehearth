@@ -4,6 +4,7 @@ import { UserRound } from 'lucide-react';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { Haptic } from '../../components/ui/Haptic';
 import { getLang, t } from '../../lib/i18n';
 
 /**
@@ -60,6 +61,8 @@ export function GenderGate() {
               }`}
             >
               {o.label}
+              {/* Радио щёлкает (PROTOCOL §6.4); выбранный вариант — нет. */}
+              <Haptic off={picked === o.value} />
             </button>
           ))}
         </div>

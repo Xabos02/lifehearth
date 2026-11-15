@@ -868,10 +868,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               край на 393px, а полоса прокрутки скрыта — догадаться нельзя. */}
           <div className="mt-2">
             <div className="flex flex-wrap gap-2">
-              <Chip active={dueDate === todayKey()} onClick={() => setDueDate(todayKey())}>
+              <Chip active={dueDate === todayKey()} hapticOff={dueDate === todayKey()} onClick={() => setDueDate(todayKey())}>
                 {t('Сегодня')}
               </Chip>
-              <Chip active={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>
+              <Chip active={dueDate === tomorrow} hapticOff={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>
                 {t('Завтра')}
               </Chip>
               <Chip
@@ -890,6 +890,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 {t('Период')}
               </Chip>
               <Chip
+                hapticOff={!dueDate && !dueTime && !startDate}
                 onClick={() => {
                   setDueDate(null);
                   setDueTime(null);

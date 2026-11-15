@@ -26,6 +26,8 @@ import {
   GRepeat as RotateCcw,
 } from '../../components/ui/glyphs';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { Haptic } from '../../components/ui/Haptic';
+import { buzz } from '../../lib/feedback';
 
 const LAYOUT_OPTS = { maxBottom: MAX_BOTTOM, defaultBottom: DEFAULT_BOTTOM, anchorId: ANCHOR_ID };
 
@@ -142,6 +144,7 @@ export function SectionsSettingsPage() {
       dropIndexRef.current = null;
       setPointer({ x: pressStartRef.current.x, y: pressStartRef.current.y });
       setDragId(id);
+      buzz(); // «взял» — только Android, PROTOCOL §6.4
       setDropIndex(null);
       const el = pressRowRef.current;
       if (el) {
@@ -204,6 +207,11 @@ export function SectionsSettingsPage() {
       const id = dragIdRef.current;
       const idx = dropIndexRef.current;
       if (id && idx != null) applyMove(id, idx);
+      // Раздел встал на новое место — короткая вибрация, только Android
+      // (PROTOCOL §6.4). Разметка до отрисовки ещё в старом порядке: idx равен
+      // прежнему номеру строки — отпустил там же, где взял, и молчим.
+      const cards = [...document.querySelectorAll('[data-zone="enabled"] [data-sid]')];
+      if (id && idx != null && idx !== cards.findIndex((c) => c.getAttribute('data-sid') === id)) buzz();
       resetDragState();
     };
     // Системный обрыв жеста (звонок, шторка уведомлений) — не то же самое,
@@ -340,7 +348,10 @@ export function SectionsSettingsPage() {
             // Тумблер — своё отдельное действие по нажатию: гасим всплытие,
             // иначе pointerdown по нему же запускал бы таймер переноса строки.
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => toggle(id)}
+            // Переключение уводит строку в другой список, а системный
+            // переключатель накладки щёлкает уже после обработчика: тем же
+            // тиком строка исчезла бы раньше щелчка (PROTOCOL §6.4).
+            onClick={() => setTimeout(() => toggle(id))}
             aria-label={hidden ? t('Включить раздел {name}', { name: t(sec.label) }) : t('Выключить раздел {name}', { name: t(sec.label) })}
             className={`h-6 w-11 shrink-0 rounded-full border transition-colors ${HIT_SLOP_44} ${
               hidden ? 'border-lh-border-strong bg-lh-surface-2' : 'border-transparent bg-lh-accent'
@@ -351,6 +362,7 @@ export function SectionsSettingsPage() {
                 hidden ? 'left-0.5' : 'left-[22px]'
               }`}
             />
+            <Haptic />
           </button>
         )}
       </div>

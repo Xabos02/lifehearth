@@ -19,6 +19,7 @@ import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/s
 import { RINGTONES, previewRingtone, type RingtoneKind } from '../../lib/family/ringtone';
 import { Screen } from '../../components/layout/Screen';
 import { Select } from '../../components/ui/Input';
+import { Haptic } from '../../components/ui/Haptic';
 import { useToast } from '../../components/ui/toastContext';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { db } from '../../db/db';
@@ -181,7 +182,12 @@ export function SettingsPage() {
     <Screen title={t('Настройки')} backTo="/home">
       <div className="space-y-6">
         <ConsentPausedBanner />
-        <Section title={t('Оформление')}>
+        <Section
+          title={t('Оформление')}
+          footnote={t(
+            'Лёгкий щелчок под пальцем, когда что-то переключаете или отмечаете. Барабаны щёлкают звуком — в беззвучном режиме он молчит.',
+          )}
+        >
           <div className="card">
             {/* Макет «Настройки»: тема — три плитки с мини-превью, выбранная
                 в золотой рамке. Цвета превью — декоративные образцы тем. */}
@@ -204,6 +210,9 @@ export function SettingsPage() {
                       <span className={`text-xs ${on ? 'font-semibold text-lh-text-primary' : 'text-lh-text-secondary'}`}>
                         {t(o.label)}
                       </span>
+                      {/* Смена темы щёлкает, как сегмент; тап по выбранной ничего не
+                          меняет — накладка пропускает его (PROTOCOL §6.4). */}
+                      <Haptic off={on} />
                     </button>
                   );
                 })}
@@ -231,6 +240,16 @@ export function SettingsPage() {
                 <option value="en">English</option>
               </Select>
             </div>
+            {/* Один выключатель на весь отклик (канва design/tap-feedback,
+                выбран А): тактильный щелчок, вибрация Android и щелчок
+                барабанов. Сам он тоже щёлкает — последний раз при выключении. */}
+            <Row label={t('Отклик на касания')}>
+              <Switch
+                checked={settings.tapFeedback !== false}
+                onChange={(on) => void updateSettings({ tapFeedback: on })}
+                label={t('Отклик на касания')}
+              />
+            </Row>
           </div>
         </Section>
 
