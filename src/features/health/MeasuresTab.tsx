@@ -20,6 +20,7 @@ import {
   type MeasureKey,
   type MeasureDef,
 } from './measures';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 /** Вкладка «Здоровье»: четыре замера с трендом за 30 дней. Дневник, не
  *  диагностика: числа и линия, без выводов. Давление — две метрики в одной
@@ -224,7 +225,7 @@ function MeasureForm({ measure, onClose }: { measure: MeasureKey; onClose: () =>
   };
 
   const del = async () => {
-    if (!window.confirm(t('Удалить замер за этот день?'))) return;
+    if (!(await confirmAction(t('Удалить замер за этот день?')))) return;
     await removeMeasureLog(measureLogId(def.id, day));
     if (isBp) await removeMeasureLog(measureLogId(measureDef('bpDia').id, day));
     onClose();

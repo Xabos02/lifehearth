@@ -13,6 +13,7 @@ import { t } from '../../lib/i18n';
 import type { PlaceItem, PlaceKind, PlaceStatus } from '../../db/types';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 // Уменьшает фото до ~1280px и пережимает в JPEG — чтобы dataURL в IndexedDB
 // весил сотни КБ, а не мегабайты с камеры телефона.
@@ -120,7 +121,7 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm(t('Удалить запись?'))) return;
+    if (!(await confirmAction(t('Удалить запись?')))) return;
     await remove(db.placeItems, item.id);
     onClose();
   };

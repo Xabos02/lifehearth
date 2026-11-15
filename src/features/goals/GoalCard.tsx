@@ -31,7 +31,7 @@ export function GoalCard({ goal }: { goal: Goal }) {
   return (
     <Link
       to={`/goals/${goal.id}`}
-      className="card flex items-center gap-3.5 p-4 transition-transform active:scale-[0.99]"
+      className="card flex items-start gap-4 p-4 transition-transform active:scale-[0.99]"
     >
       <ProgressRing value={value} color={goal.color} />
       <div className="min-w-0 flex-1">
@@ -48,12 +48,18 @@ export function GoalCard({ goal }: { goal: Goal }) {
         <p className="line-clamp-4 break-words text-base font-semibold min-[380px]:line-clamp-3">
           {goal.title}
         </p>
-        <p className="truncate text-sm text-lh-text-secondary">{label}</p>
-        {deadline && (
-          <p className={`text-xs ${deadline.danger ? 'text-danger' : 'text-lh-text-secondary'}`}>
-            {deadline.text}
-          </p>
-        )}
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <span className="rounded-lg bg-lh-surface-2 px-2 py-1 text-xs text-lh-text-secondary">
+            {label}
+          </span>
+          {deadline && (
+            <span
+              className={`rounded-lg bg-lh-surface-2 px-2 py-1 text-xs ${deadline.danger ? 'text-danger' : 'text-lh-text-secondary'}`}
+            >
+              {deadline.text}
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   );

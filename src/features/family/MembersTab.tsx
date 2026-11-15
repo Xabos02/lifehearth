@@ -33,6 +33,7 @@ import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { GroupAvatar, MemberAvatar } from './MemberAvatar';
 import { chatPath, isAlive } from './chats';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 /** Строка раздела «Группа» — текстом, без значков, как на артборде
  *  Group-Info: четыре действия читаются словами. */
@@ -104,9 +105,7 @@ export function MembersTab({
   }, [familyId, isOwner]);
 
   async function claim() {
-    if (!window.confirm(
-      t('Стать владельцем группы?\n\nВладелец — единственный, кто может исключать участников. Обратно передать владение нельзя, и второго владельца не будет. Берите, только если эту группу создали вы.'),
-    )) return;
+    if (!(await confirmAction({ title: t('Стать владельцем группы?\n\nВладелец — единственный, кто может исключать участников. Обратно передать владение нельзя, и второго владельца не будет. Берите, только если эту группу создали вы.'), confirmLabel: t('Стать владельцем'), danger: false }))) return;
     setClaiming(true);
     const ok = await claimOwnership(familyId);
     setClaiming(false);
@@ -117,7 +116,7 @@ export function MembersTab({
   async function leave() {
     // Правда целиком: leaveFamily стирает переписку с телефона, а события
     // «вышел» у протокола нет — остальные не узнают.
-    if (!window.confirm(t('Выйти из группы? Переписка и задачи удалятся с этого телефона. Остальные об этом не узнают, и их сообщения сюда больше не дойдут.'))) return;
+    if (!(await confirmAction({ title: t('Выйти из группы? Переписка и задачи удалятся с этого телефона. Остальные об этом не узнают, и их сообщения сюда больше не дойдут.'), confirmLabel: t('Выйти') }))) return;
     await leaveFamily(familyId);
     onLeft();
   }
@@ -125,7 +124,7 @@ export function MembersTab({
   async function removeGroup() {
     // Сервер стирает группу, но уже пришедшее остаётся на телефонах: у
     // остальных баннер так и говорит — «переписка на этом устройстве осталась».
-    if (!window.confirm(t('Удалить группу навсегда?\n\nСервер сотрёт её переписку и задачи, новых сообщений не будет ни у кого. То, что уже пришло на телефоны участников, там останется. Продолжить?'))) return;
+    if (!(await confirmAction({ title: t('Удалить группу навсегда?\n\nСервер сотрёт её переписку и задачи, новых сообщений не будет ни у кого. То, что уже пришло на телефоны участников, там останется. Продолжить?'), confirmLabel: t('Удалить группу') }))) return;
     try {
       await deleteFamily(familyId);
       onLeft();
@@ -161,8 +160,16 @@ export function MembersTab({
           <Button
             variant="ghost"
             className="border border-lh-accent-border"
-            onClick={() => {
-              if (partner && !window.confirm(t('Пригласить ещё одного человека? Чат станет общим: новый участник увидит всю переписку.'))) return;
+            onClick={async () => {
+              if (
+                partner &&
+                !(await confirmAction({
+                  title: t('Пригласить ещё одного человека? Чат станет общим: новый участник увидит всю переписку.'),
+                  confirmLabel: t('Пригласить'),
+                  danger: false,
+                }))
+              )
+                return;
               setInvite(true);
             }}
           >

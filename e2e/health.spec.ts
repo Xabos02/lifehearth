@@ -1,4 +1,4 @@
-import { test, expect, openApp } from './fixtures';
+import { test, expect, openApp, answerConfirm } from './fixtures';
 import { addDaysKey, todayKey } from '../src/lib/dates';
 
 // Раздел «Здоровье» (задача 14): спорт-календарь, ритм «через день», цель
@@ -318,8 +318,8 @@ test('импорт CSV из Strava добавляет тренировки и н
     '1,"Sep 1, 2026, 7:01:00 AM","Morning Run",Run,2100,5.21,1920',
     '2,"Sep 3, 2026, 6:02:11 PM","Gym",Weight Training,3300,,3300',
   ].join('\n');
-  page.on('dialog', (d) => void d.accept());
   await page.getByTestId('workout-csv').setInputFiles({ name: 'activities.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await answerConfirm(page, true);
   await expect.poll(async () =>
     page.evaluate(async () => {
       const { db } = await import('/src/db/db.ts');
@@ -358,15 +358,11 @@ test('импорт: несуществующая дата не записыва�
   await expect(page.getByTestId('sport-status')).toContainText('Последняя — 10 мая, гири');
 
   const csv = 'Date,Type,Minutes\n2026-11-10,Run,25\n9/25/2026,Run,30\n31.06.2026,Run,20\n2026-11-20,Run,30\n';
-  const asked: string[] = [];
-  page.on('dialog', (d) => {
-    asked.push(d.message());
-    void d.accept();
-  });
   await page.getByTestId('workout-csv').setInputFiles({ name: 'mine.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  const asked = await answerConfirm(page, true);
   await expect(page.getByText('Добавлено: 1 тренировка')).toBeVisible();
   // Месяц/день/год с днём > 12, 31 июня и дата позже сегодня — в «не разобрано».
-  expect(asked).toEqual(['Найдено записей: 1, новых: 1, не разобрано строк: 3. Добавить новые?']);
+  expect(asked).toContain('Найдено записей: 1, новых: 1, не разобрано строк: 3. Добавить новые?');
   const imported = await page.evaluate(async () => {
     const { db } = await import('/src/db/db.ts');
     return (await db.workouts.toArray()).filter((w) => w.source === 'import').map((w) => w.date);
@@ -379,8 +375,8 @@ test('импорт: CSV русского Excel в Windows-1251 читается'
   const text = 'Дата;Вид;Минуты\r\n01.09.2026;Бег;30\r\n02.09.2026;Силовая;45';
   // В 1251 кириллица А–я лежит в 0xC0–0xFF, остальное здесь — ASCII.
   const buffer = Buffer.from([...text].map((c) => (c >= 'А' && c <= 'я' ? c.charCodeAt(0) - 0x350 : c.charCodeAt(0))));
-  page.on('dialog', (d) => void d.accept());
   await page.getByTestId('workout-csv').setInputFiles({ name: 'Книга1.csv', mimeType: 'text/csv', buffer });
+  await answerConfirm(page, true);
   await expect
     .poll(() =>
       page.evaluate(async () => {
@@ -454,9 +450,9 @@ test('удалённый последний замер веса снимает �
   await page.getByPlaceholder('75').fill('78,4');
   await page.getByRole('button', { name: 'Сохранить' }).click();
   await expect(card).toContainText('78,4');
-  page.on('dialog', (d) => void d.accept());
   await card.getByRole('button', { name: '+ замер' }).click();
   await page.getByRole('button', { name: 'Удалить замер за этот день' }).click();
+  await answerConfirm(page, true);
   await expect(card).toContainText('Замеров пока нет');
   // Та же гонка, что выше: профиль догоняет дневник следующей записью.
   await expect

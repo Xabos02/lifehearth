@@ -4,7 +4,7 @@ import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
-import { create, now, remove, update } from '../../db/repo';
+import { create, now, remove, restore, update } from '../../db/repo';
 import { PRESET_COLORS } from '../../lib/colors';
 import { WEEKDAY_LABELS } from '../../lib/dates';
 import { isFrozenNow } from '../../lib/habits';
@@ -12,6 +12,7 @@ import { t } from '../../lib/i18n';
 import { freezeHabit, unfreezeHabit } from './habitRepo';
 import type { Habit, HabitSchedule } from '../../db/types';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { useToast } from '../../components/ui/toastContext';
 
 type SchedType = 'daily' | 'weekdays';
 type Mode = 'check' | 'count';
@@ -33,6 +34,7 @@ export function HabitSheet({ open, onClose, item }: Props) {
 }
 
 function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void }) {
+  const toast = useToast();
   const [name, setName] = useState(item?.name ?? '');
   const [emoji, setEmoji] = useState(item?.emoji ?? '✅');
   const [color, setColor] = useState(item?.color ?? PRESET_COLORS[0]);
@@ -109,9 +111,9 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm(t('Удалить привычку? История отметок тоже скроется.'))) return;
     await remove(db.habits, item.id);
     onClose();
+    toast(t('Привычка удалена'), { action: { label: t('Вернуть'), onClick: () => void restore(db.habits, item.id) } });
   };
 
   return (

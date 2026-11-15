@@ -13,6 +13,7 @@ import { SYMPTOM_GROUP_LABELS } from '../../lib/cycle/symptoms';
 import { formatRu } from '../../lib/dates';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 /** Шкала кровотечения. Пять значений вместо принятого у Apple и Google
  *  разделения на «поток» и «межменструальное кровотечение»: человеку проще
@@ -112,7 +113,7 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
   }
 
   async function clear() {
-    if (!window.confirm(t('Удалить все отметки за {date}?', { date: formatRu(date) }))) return;
+    if (!(await confirmAction(t('Удалить все отметки за {date}?', { date: formatRu(date) })))) return;
     await deleteDay(date);
     onClose();
   }

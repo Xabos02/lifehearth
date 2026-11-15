@@ -14,6 +14,7 @@ import { itemFromSaved, kindPending, newItem, savedFromItem, type Item } from '.
 import { formatDuration } from '../../lib/duration';
 import { templateSummary } from './workoutText';
 import { unlockTick } from './tick';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -44,16 +45,22 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
     dirty.current = false;
     setEditing(null);
   };
-  const close = () => {
+  const close = async () => {
     // Шаблон на тридцать упражнений набирают долго: случайный свайп вниз не
-    // должен стирать набранное молча (PROTOCOL §5.5).
-    if (editing && dirty.current && !window.confirm(t('Закрыть без сохранения?'))) return;
+    // должен стирать набранное молча (PROTOCOL §5.5). Вопрос — тот же, что у
+    // задачи (TaskEditSheet).
+    if (
+      editing &&
+      dirty.current &&
+      !(await confirmAction({ title: t('Закрыть без сохранения?'), confirmLabel: t('Закрыть без сохранения') }))
+    )
+      return;
     back();
     onClose();
   };
 
   return (
-    <Sheet open={open} onClose={close} title={editing === 'new' ? t('Новый шаблон') : editing ? t('Шаблон') : t('Шаблоны тренировок')}>
+    <Sheet open={open} onClose={() => void close()} title={editing === 'new' ? t('Новый шаблон') : editing ? t('Шаблон') : t('Шаблоны тренировок')}>
       <div ref={top} />
       {open && !editing && list && (
         <div className="space-y-2 pb-2">
@@ -156,7 +163,7 @@ function TemplateEditor({
 
   async function del() {
     if (!template) return;
-    if (!window.confirm(t('Удалить шаблон «{name}»? Записанные тренировки останутся.', { name: template.name }))) return;
+    if (!(await confirmAction({ title: t('Удалить шаблон «{name}»?', { name: template.name }), message: t('Записанные тренировки останутся.') }))) return;
     await removeTemplate(template.id);
     onDone();
   }

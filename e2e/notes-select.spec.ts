@@ -98,23 +98,24 @@ test('группа переезжает в папку через «Куда пе
   await expect(page.getByText('Покупки')).toHaveCount(0);
 });
 
-test('группа удаляется в Корзину одним подтверждением', async ({ page }) => {
+test('группа удаляется в Корзину без вопроса, плашка «Вернуть» отменяет', async ({ page }) => {
   await openApp(page, '/notes');
   await seed(page);
   await startSelect(page);
   await rowOf(page, 'Покупки').click();
   await rowOf(page, 'Книги').click();
 
-  let asked = '';
-  page.once('dialog', (d) => { asked = d.message(); void d.accept(); });
   await page.getByRole('button', { name: 'Удалить (2)' }).click();
 
   await expect(page.getByText('Покупки')).toHaveCount(0);
   await expect(page.getByText('Книги')).toHaveCount(0);
   await expect(page.getByText('Идеи')).toBeVisible();
-  expect(asked).toContain('2 заметки');
   // Мягко: записи с deletedAt, восстанавливаются из Корзины.
   await expect.poll(() => idsWhere(page, 'Boolean(n.deletedAt)')).toEqual(['n1', 'n3']);
+  // Плашка «Вернуть» снимает удаление с обеих разом.
+  await page.getByRole('button', { name: 'Вернуть', exact: true }).click();
+  await expect.poll(() => idsWhere(page, 'Boolean(n.deletedAt)')).toEqual([]);
+  await expect(page.getByText('Покупки')).toBeVisible();
 });
 
 test('смена уровня снимает выбор сама', async ({ page }) => {

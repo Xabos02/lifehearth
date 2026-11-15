@@ -1,4 +1,4 @@
-import { test, expect, openApp } from './fixtures';
+import { test, expect, openApp, answerConfirm } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // «Обучение»: то, что юнитом модели (lib/learningPace.test.ts) не поймать, —
@@ -60,9 +60,9 @@ test('удалённый материал закрывает свой экран
   await page.goto('/more/learning/l-del');
   await expect(page.getByRole('heading', { name: 'Удаляемая книга', exact: true })).toBeVisible();
 
-  page.on('dialog', (d) => void d.accept());
   await page.getByRole('button', { name: 'Изменить материал', exact: true }).click();
   await page.getByRole('button', { name: 'Удалить', exact: true }).click();
+  await answerConfirm(page, true);
 
   await expect(page).toHaveURL((url) => url.pathname === '/more/learning');
   await expect(page.getByRole('heading', { name: 'Обучение', exact: true })).toBeVisible();

@@ -73,6 +73,7 @@ import { useVoiceRecorder } from './useVoiceRecorder';
 import { isAlive, snippetOf } from './chats';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 // Палитра быстрых реакций — как в WhatsApp/Telegram, шесть базовых.
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
@@ -531,10 +532,12 @@ function MessageRow({
             className={`relative cursor-pointer select-none overflow-hidden transition-shadow active:opacity-80 ${
               jumbo
                 ? 'bg-transparent px-1 py-0'
-                : `rounded-[1.15rem] shadow-[0_1px_2px_-1px_rgb(0_0_0/0.25)] ${m.image ? 'p-[3px]' : 'px-3 py-1.5'} ${
+                : // Макет чата: свои — золото без тени, чужие — поверхность
+                  // карточки с тонкой рамкой; хвостик — малый радиус угла.
+                  `rounded-[1.15rem] ${m.image ? 'p-[3px]' : 'px-3.5 py-2'} ${
                     own
                       ? `bg-lh-accent text-lh-bg ${groupEnd ? 'rounded-br-[0.4rem]' : ''}`
-                      : `bg-lh-surface-2 text-lh-text-primary ${groupEnd ? 'rounded-bl-[0.4rem]' : ''}`
+                      : `border border-lh-border bg-lh-surface text-lh-text-primary ${groupEnd ? 'rounded-bl-[0.4rem]' : ''}`
                   }`
             } ${highlight ? 'ring-2 ring-frost' : ''}`}
           >
@@ -1100,7 +1103,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
     setActionMsg(null);
     // Спрашиваем: удаление необратимо и стирает сообщение у всех, а меню
     // открывается одиночным касанием — промахнуться легко.
-    if (!window.confirm(t('Удалить сообщение? Оно исчезнет у всех.'))) return;
+    if (!(await confirmAction(t('Удалить сообщение? Оно исчезнет у всех.')))) return;
     if (editingId === m.clientMsgId) {
       setEditingId(null);
       setText('');

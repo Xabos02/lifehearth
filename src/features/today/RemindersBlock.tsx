@@ -16,6 +16,7 @@ import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 /** Закреплённые напоминания на «Сегодня»: разделы по темам (Работа и т.п.),
  *  каждый сворачивается/разворачивается по ситуации. */
@@ -175,7 +176,7 @@ function SectionSheet({
 
   async function del() {
     if (!section) return;
-    if (!window.confirm(t('Удалить раздел вместе с его напоминаниями?'))) return;
+    if (!(await confirmAction(t('Удалить раздел вместе с его напоминаниями?')))) return;
     const its = await db.reminderItems.where('sectionId').equals(section.id).toArray();
     for (const it of its) await remove(db.reminderItems, it.id);
     await remove(db.reminderSections, section.id);

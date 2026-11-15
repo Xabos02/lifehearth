@@ -31,6 +31,7 @@ import { WorkoutCalendar, type Scale } from './WorkoutCalendar';
 import { decodeCsv, parseWorkoutsCsv, withoutDuplicates } from './importWorkouts';
 import { importParsed } from './workoutRepo';
 import { useTemplates } from './templateRepo';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   workouts: Workout[];
@@ -117,7 +118,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
       toast(t('Все записи из файла уже есть.'));
       return;
     }
-    if (!window.confirm(msg)) return;
+    if (!(await confirmAction({ title: msg, confirmLabel: t('Добавить'), danger: false }))) return;
     const n = await importParsed(fresh);
     toast(t('Добавлено: {n} {what}', { n, what: tPlural(n, ['тренировка', 'тренировки', 'тренировок']) }));
   };

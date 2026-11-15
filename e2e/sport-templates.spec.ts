@@ -1,4 +1,4 @@
-import { test, expect, openApp } from './fixtures';
+import { test, expect, openApp, answerConfirm } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // Шаблоны тренировок: добавление и правка (15.11.2026, канва
@@ -274,12 +274,8 @@ test('чип в карточке дня: тренировка по шаблон�
 test('закрытие редактора: без правок — молча, с правками — вопрос; удаление шаблона — обе ветки', async ({ page }) => {
   await openApp(page, '/more/health');
   await seedTemplate(page, TEMPLATE_A);
-  const dialogs: string[] = [];
-  let answer: 'accept' | 'dismiss' = 'dismiss';
-  page.on('dialog', (d) => {
-    dialogs.push(d.message());
-    void (answer === 'accept' ? d.accept() : d.dismiss());
-  });
+  // Подтверждения — шитом (ConfirmHost), не системным окном.
+  const confirmSheet = page.getByTestId('confirm-sheet');
   const edit = async () => {
     await openTemplates(page);
     await page.getByRole('button', { name: 'Изменить шаблон «Тренировка А»' }).click();
@@ -294,28 +290,28 @@ test('закрытие редактора: без правок — молча, �
   await page.getByRole('button', { name: /^Общее время/ }).click();
   await close.click();
   await expect(page.locator(SHEET)).toHaveCount(0);
-  expect(dialogs).toEqual([]);
+  await expect(confirmSheet).toHaveCount(0);
 
-  // С правкой: «Отмена» оставляет набранное, «ОК» закрывает без записи.
+  // С правкой: «Не сейчас» оставляет набранное, глагол закрывает без записи.
   await edit();
   await page.getByLabel('Название шаблона').fill('Другое имя');
-  await close.click();
-  expect(dialogs).toEqual(['Закрыть без сохранения?']);
+  await close.first().click();
+  expect(await answerConfirm(page, false)).toContain('Закрыть без сохранения?');
   await expect(page.getByLabel('Название шаблона')).toHaveValue('Другое имя');
-  answer = 'accept';
-  await close.click();
+  await close.first().click();
+  await answerConfirm(page, true);
   await expect(page.locator(SHEET)).toHaveCount(0);
   expect((await templates(page))[0].name).toBe('Тренировка А');
 
-  // Удаление: «Отмена» — шаблон на месте, «ОК» — список пуст, запись помечена.
-  dialogs.length = 0;
-  answer = 'dismiss';
+  // Удаление: «Не сейчас» — шаблон на месте, «Удалить» — список пуст, запись помечена.
   await edit();
-  await page.getByRole('button', { name: 'Удалить', exact: true }).click();
-  expect(dialogs).toEqual(['Удалить шаблон «Тренировка А»? Записанные тренировки останутся.']);
+  await page.locator(SHEET).getByRole('button', { name: 'Удалить', exact: true }).click();
+  const asked = await answerConfirm(page, false);
+  expect(asked).toContain('Удалить шаблон «Тренировка А»?');
+  expect(asked).toContain('Записанные тренировки останутся.');
   await expect(page.getByLabel('Название шаблона')).toBeVisible();
-  answer = 'accept';
-  await page.getByRole('button', { name: 'Удалить', exact: true }).click();
+  await page.locator(SHEET).getByRole('button', { name: 'Удалить', exact: true }).click();
+  await answerConfirm(page, true);
   await expect(page.locator(SHEET).getByText('Шаблонов пока нет.')).toBeVisible();
   const rows = await templates(page);
   expect(rows).toHaveLength(1);
@@ -516,14 +512,9 @@ test('барабан: время не на сетке видно верно и �
   await expect(cols.nth(0).locator('button[aria-pressed="true"]')).toHaveAttribute('aria-label', 'Часы: 1, выбрано');
   await expect(cols.nth(1).locator('button[aria-pressed="true"]')).toHaveAttribute('aria-label', 'Минуты: 0, выбрано');
   // Колёса не трогали — время то же, вопроса при закрытии нет.
-  let asked = false;
-  page.once('dialog', (d) => {
-    asked = true;
-    void d.accept();
-  });
   await page.locator(SHEET).getByRole('button', { name: 'Закрыть' }).click();
   await expect(page.locator(SHEET)).toHaveCount(0);
-  expect(asked).toBe(false);
+  await expect(page.getByTestId('confirm-sheet')).toHaveCount(0);
   expect((await templates(page))[0].totalMinutes).toBe(58);
 
   // Прокрутил и «Сохранить» через кадр — намного раньше прежней паузы в

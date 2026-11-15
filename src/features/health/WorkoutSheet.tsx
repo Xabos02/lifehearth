@@ -15,6 +15,7 @@ import { addTemplate } from './templateRepo';
 import { TemplatesSheet } from './TemplatesSheet';
 import { ItemFields } from './ItemFields';
 import { itemFromSaved, kindPending, newItem, savedFromItem, type Item } from './workoutItem';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -116,7 +117,7 @@ function WorkoutForm({
 
   const del = async () => {
     if (!workout) return;
-    if (!window.confirm(t('Удалить тренировку?'))) return;
+    if (!(await confirmAction(t('Удалить тренировку?')))) return;
     await removeWorkout(workout.id);
     onClose();
   };

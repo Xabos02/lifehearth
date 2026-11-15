@@ -10,7 +10,7 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PhotoViewer } from '../../components/ui/PhotoViewer';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
-import { remove, update } from '../../db/repo';
+import { remove, restore, update } from '../../db/repo';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
 import { addDaysKey, formatDueDate, formatRu, toKey, todayKey } from '../../lib/dates';
 import { formatDueRange } from '../../lib/taskDates';
@@ -200,10 +200,11 @@ export const TaskItem = memo(function TaskItem({
   };
 
   const handleDelete = () => {
-    if (window.confirm(t('Удалить задачу?'))) {
-      void cancelReminder(task.id, task.remindBefore != null);
-      void remove(db.tasks, task.id);
-    } else setDx(0);
+    // Без вопроса: удаление мягкое, и плашка «Вернуть» отменяет его одним
+    // касанием (макет: «Удалено · Вернуть» вместо системного confirm).
+    void cancelReminder(task.id, task.remindBefore != null);
+    void remove(db.tasks, task.id);
+    toast(t('Задача удалена'), { action: { label: t('Вернуть'), onClick: () => void restore(db.tasks, task.id) } });
   };
 
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -339,7 +340,7 @@ export const TaskItem = memo(function TaskItem({
         // gap-3, а не gap-2.5: зона касания чекбокса выходит за него на 11px,
         // и при зазоре 10px ложилась на миниатюру фото в строке (1px — но
         // сторож перекрытий считает честно).
-        className={`relative flex touch-pan-y items-start gap-3 bg-lh-surface px-4 py-2.5 ${
+        className={`relative flex touch-pan-y items-start gap-3 bg-lh-surface px-4 py-3 ${
           draggable ? 'select-none [-webkit-user-select:none] [-webkit-touch-callout:none]' : ''
         } ${isDragSource ? 'scale-[0.97] opacity-40' : ''}`}
         style={{
@@ -354,19 +355,21 @@ export const TaskItem = memo(function TaskItem({
         onPointerCancel={onUp}
         onClick={onClick}
       >
-        <span className={`w-1 shrink-0 self-stretch rounded-full ${PRIORITY_BAR[task.priority]}`} />
+        {/* Макет: приоритет — полоса у самого левого края карточки, а не
+            отдельная колонка внутри строки. */}
+        <span aria-hidden className={`absolute inset-y-3 left-0 w-1 rounded-r ${PRIORITY_BAR[task.priority]}`} />
         <TaskCheck checked={done} onChange={handleToggle} color={project?.color} />
         <div className="min-w-0 flex-1">
           {/* text-pretty + hyphens-auto: длинные слова переносятся по слогам с
               дефисом, а не прыгают целиком на новую строку, оставляя дыры. */}
           <p
             lang="ru"
-            className={`break-words text-pretty hyphens-auto font-medium ${done ? 'text-lh-text-secondary line-through' : ''}`}
+            className={`break-words text-pretty hyphens-auto leading-snug ${done ? 'text-lh-text-secondary line-through decoration-lh-text-tertiary' : ''}`}
           >
             {task.title}
           </p>
           {task.notes && (
-            <p className="mt-1 whitespace-pre-line break-words border-l-2 border-lh-border pl-2 font-mono text-xs leading-relaxed text-lh-text-primary/65">
+            <p className="mt-1 whitespace-pre-line break-words text-xs leading-relaxed text-lh-text-secondary">
               {task.notes}
             </p>
           )}

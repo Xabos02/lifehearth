@@ -9,6 +9,7 @@ import {
 import {
   GSearch as Search,
   GChevronLeft as ChevronLeft,
+  GChevronRight as ChevronRight,
   GCheck as Check,
   GNotes as NotebookText,
   GFolderPlus as FolderPlus,
@@ -24,7 +25,7 @@ import { IconButton } from '../../components/ui/IconButton';
 import { Sheet } from '../../components/ui/Sheet';
 import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
-import { alive, remove, update } from '../../db/repo';
+import { alive, remove, restore, update } from '../../db/repo';
 import type { Note, NoteFolder } from '../../db/types';
 import { formatRu, toKey } from '../../lib/dates';
 import { t, tPlur } from '../../lib/i18n';
@@ -98,8 +99,9 @@ function FolderRow({
       >
         {folder.emoji}
       </span>
-      <span className="min-w-0 flex-1 truncate font-medium">{folder.name}</span>
+      <span className="min-w-0 flex-1 break-words">{folder.name}</span>
       <span className="shrink-0 text-xs tabular-nums text-lh-text-secondary">{count}</span>
+      <ChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" aria-hidden />
     </button>
   );
 }
@@ -117,7 +119,10 @@ function NoteRow({
   selecting = false,
   selected = false,
   onToggle,
+  tile = false,
 }: {
+  /** Плитка закреплённой заметки (макет: две в ряд, превью в несколько строк). */
+  tile?: boolean;
   note: Note;
   onOpen: () => void;
   onDelete: () => void;
@@ -199,7 +204,7 @@ function NoteRow({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-lh-card shadow-[var(--shadow-card)]">
+    <div className={`relative overflow-hidden rounded-lh-card ${tile ? 'h-full' : ''}`}>
       {/* Кнопку рендерим ТОЛЬКО при свайпе. В покое (dx=0) её нет в DOM —
           значит ничему просвечивать в скруглённых углах карточки (на iOS
           overflow:hidden не клипает строку с transform, и красный угол торчал
@@ -222,7 +227,7 @@ function NoteRow({
         // select-none — саму подсветку.
         role={selecting ? 'checkbox' : undefined}
         aria-checked={selecting ? selected : undefined}
-        className={`card relative flex touch-pan-y items-start gap-2 p-4 select-none [-webkit-touch-callout:none] [-webkit-user-select:none] ${
+        className={`card relative flex touch-pan-y items-start gap-2 p-4 select-none ${tile ? 'h-full' : ''} [-webkit-touch-callout:none] [-webkit-user-select:none] ${
           selecting && selected ? 'ring-1 ring-lh-accent/45' : ''
         }`}
         style={{
@@ -247,9 +252,22 @@ function NoteRow({
             {selected && <Check size={ICON.inline} strokeWidth={STROKE_STRONG} />}
           </span>
         )}
-        {note.pinned && <Pin size={ICON.inline} className="mt-1 shrink-0 text-lh-accent" fill="currentColor" />}
+        {note.pinned && !tile && <Pin size={ICON.inline} className="mt-1 shrink-0 text-lh-accent" fill="currentColor" />}
+        {tile ? (
+          <div className="flex min-h-36 min-w-0 flex-1 flex-col">
+            <p className="line-clamp-3 break-words text-sm font-semibold leading-snug">{title}</p>
+            {progress ? (
+              <p className="mt-2 text-xs tabular-nums text-lh-text-secondary">
+                {t('{done} из {total}', { done: progress.done, total: progress.total })}
+              </p>
+            ) : (
+              preview && <p className="mt-2 line-clamp-5 break-words text-xs leading-relaxed text-lh-text-secondary">{preview}</p>
+            )}
+            <p className="mt-auto pt-3 text-2xs text-lh-text-secondary">{formatRu(toKey(new Date(note.updatedAt)))}</p>
+          </div>
+        ) : (
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 break-words font-semibold">{title}</p>
+          <p className="line-clamp-2 break-words leading-snug">{title}</p>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-lh-text-secondary">
             <span className="shrink-0">{formatRu(toKey(new Date(note.updatedAt)))}</span>
             {/* У списка задач важно не начало текста, а сколько осталось —
@@ -263,6 +281,7 @@ function NoteRow({
             )}
           </p>
         </div>
+        )}
       </div>
     </div>
   );
@@ -426,14 +445,16 @@ export function NotesPage() {
   };
 
   function del(note: Note) {
-    if (window.confirm(t('Удалить заметку?'))) void remove(db.notes, note.id);
+    void remove(db.notes, note.id);
+    toast(t('Заметка удалена'), { action: { label: t('Вернуть'), onClick: () => void restore(db.notes, note.id) } });
   }
 
-  const renderList = (items: Note[]) => (
-    <div className="flex flex-col gap-2">
+  const renderList = (items: Note[], tile = false) => (
+    <div className={tile ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2'}>
       {items.map((n) => (
         <NoteRow
           key={n.id}
+          tile={tile}
           note={n}
           onOpen={() => navigate(`/notes/${n.id}`)}
           onDelete={() => del(n)}
@@ -463,8 +484,11 @@ export function NotesPage() {
     <>
       {pinned.length > 0 && (
         <div className="mb-4">
-          <h2 className="lh-section mb-2 px-1">{t('Закреплённые')}</h2>
-          {renderList(pinned)}
+          <h2 className="lh-section mb-2 flex items-center gap-1.5 px-1">
+            <Pin size={ICON.inline} className="text-lh-accent" fill="currentColor" aria-hidden />
+            {t('Закреплённые')}
+          </h2>
+          {renderList(pinned, !selecting)}
         </div>
       )}
       {rest.length > 0 && (
@@ -501,9 +525,13 @@ export function NotesPage() {
   async function deleteSelected() {
     const ids = [...selected];
     if (ids.length === 0) return;
-    if (!window.confirm(t('Удалить {n}? Вернуть можно из Корзины.', { n: tPlur(ids.length, ['заметку', 'заметки', 'заметок']) }))) return;
     for (const id of ids) await remove(db.notes, id);
-    toast(t('Удалено: {n}. Вернуть можно из Корзины', { n: ids.length }));
+    toast(t('Удалено: {n}. Вернуть можно из Корзины', { n: ids.length }), {
+      action: {
+        label: t('Вернуть'),
+        onClick: () => void Promise.all(ids.map((id) => restore(db.notes, id))),
+      },
+    });
     exitSelect();
   }
 
@@ -586,6 +614,18 @@ export function NotesPage() {
             ? `${current.emoji} ${current.name}`
             : t('Заметки')
       }
+      subtitle={
+        // В режиме выбора подпись остаётся: без неё шапка становилась ниже
+        // и лента прыгала при входе в выбор.
+        !current && allNotes.length > 0
+          ? [
+              tPlur(allNotes.length, ['заметка', 'заметки', 'заметок']),
+              folders.length > 0 ? tPlur(folders.length, ['папка', 'папки', 'папок']) : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : undefined
+      }
       right={
         selecting ? (
           // h-9 — высота IconButton «⋯» обычного режима: без неё строку
@@ -638,7 +678,10 @@ export function NotesPage() {
       {/* Папки текущего уровня — и только когда не ищут: во время поиска нужен
           результат по всем заметкам, а не разбивка по хранилищам. */}
       {!q && levelFolders.length > 0 && (
-        <div className="card mb-4 divide-y divide-lh-border">
+        <h2 className="lh-section mb-2 px-1">{t('Папки')}</h2>
+      )}
+      {!q && levelFolders.length > 0 && (
+        <div className="card mb-5 divide-y divide-lh-border">
           {levelFolders.map((f, i) => (
             <Fragment key={f.id}>
               {reorderFolder && folderInsertIndex === i && <FolderDropLine />}

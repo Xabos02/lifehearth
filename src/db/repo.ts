@@ -89,6 +89,15 @@ export async function remove<T extends BaseEntity>(
   scheduleSyncSoon();
 }
 
+/** Отмена мягкого удаления — кнопка «Вернуть» в плашке после удаления. */
+export async function restore<T extends BaseEntity>(
+  table: Table<T, string>,
+  id: string,
+): Promise<void> {
+  await table.update(id, { deletedAt: null, updatedAt: now() } as unknown as UpdateSpec<T>);
+  scheduleSyncSoon();
+}
+
 /** Фильтр живых записей — применять после каждого чтения списком. */
 export function alive<T extends BaseEntity>(rows: T[]): T[] {
   return rows.filter((r) => !r.deletedAt);

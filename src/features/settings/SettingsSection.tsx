@@ -30,6 +30,15 @@ export function Section({
   );
 }
 
+/** Значок строки на плитке второго уровня (макет «Настройки»). */
+function IconTile({ icon: Icon }: { icon: ComponentType<{ size?: number | string; className?: string }> }) {
+  return (
+    <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-lh-surface-2">
+      <Icon size={ICON.action} className="text-lh-text-secondary" />
+    </span>
+  );
+}
+
 /** Строка настройки: название слева, значение или контрол справа.
  *
  *  Одна форма на весь экран — раньше строки были кто во что горазд: где-то
@@ -49,8 +58,8 @@ export function Row({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-11 flex-wrap items-center gap-2 border-t border-lh-border px-4 py-2.5 first:border-t-0">
-      {Icon && <Icon size={ICON.header} className="shrink-0 text-lh-text-secondary" />}
+    <div className="flex min-h-13 flex-wrap items-center gap-3 border-t border-lh-border px-4 py-2.5 first:border-t-0">
+      {Icon && <IconTile icon={Icon} />}
       <span className="flex-1">{label}</span>
       {value != null && <span className="shrink-0 text-sm text-lh-text-secondary">{value}</span>}
       {children}
@@ -77,9 +86,9 @@ export function LinkRow({
   return (
     <Link
       to={to}
-      className="flex min-h-11 items-center gap-2 border-t border-lh-border px-4 py-2.5 first:border-t-0 active:bg-lh-surface-2"
+      className="flex min-h-13 items-center gap-3 border-t border-lh-border px-4 py-2.5 first:border-t-0 active:bg-lh-surface-2"
     >
-      {Icon && <Icon size={ICON.header} className="shrink-0 text-lh-text-secondary" />}
+      {Icon && <IconTile icon={Icon} />}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {value != null && <span className="shrink-0 text-sm text-lh-text-secondary">{value}</span>}
       <ChevronRight size={ICON.action} className="shrink-0 text-lh-text-secondary" />
@@ -106,9 +115,9 @@ export function ButtonRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-11 w-full items-center gap-2 border-t border-lh-border px-4 py-2.5 text-left first:border-t-0 active:bg-lh-surface-2"
+      className="flex min-h-13 w-full items-center gap-3 border-t border-lh-border px-4 py-2.5 text-left first:border-t-0 active:bg-lh-surface-2"
     >
-      {Icon && <Icon size={ICON.header} className="shrink-0 text-lh-text-secondary" />}
+      {Icon && <IconTile icon={Icon} />}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <span className="shrink-0 text-sm font-semibold text-lh-accent">{action}</span>
     </button>

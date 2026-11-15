@@ -115,13 +115,13 @@ test.describe('удержание и перенос', () => {
   test('перенос строки выше черты кладёт раздел в нижнюю панель, вытесняя четвёртый', async ({ page }) => {
     await openApp(page, '/more/settings/sections');
 
-    // Исходно панель — «Сегодня, Задачи, Заметки, Календарь», «Семья» — первая
-    // строка списка «Главной», сразу под чертой.
+    // Исходно панель — «Сегодня, Задачи, Заметки, Семья» (редизайн), а
+    // «Календарь» — в списке раздела «Ещё», под чертой.
     const bar = page.locator('nav').last();
-    await expect(bar.getByRole('link', { name: /Календарь/ })).toBeVisible();
-    await expect(bar.getByRole('link', { name: /^Семья/ })).toHaveCount(0);
+    await expect(bar.getByRole('link', { name: /^Семья/ })).toBeVisible();
+    await expect(bar.getByRole('link', { name: /Календарь/ })).toHaveCount(0);
 
-    await hold(page, 'Семья');
+    await hold(page, 'Календарь');
     const today = page.locator('[data-zone="enabled"]').getByText('Сегодня', { exact: true }).first();
     const box = (await today.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y - 4, { steps: 6 });
@@ -129,19 +129,17 @@ test.describe('удержание и перенос', () => {
     await page.mouse.up();
     await page.waitForTimeout(300);
 
-    // «Семья» встала первой в панели, а «Календарь» — вытеснен под черту, в
-    // список «Главной»: в панели по-прежнему ровно MAX_BOTTOM разделов.
-    await expect(bar.getByRole('link', { name: /^Семья/ })).toBeVisible();
-    await expect(bar.getByRole('link', { name: /Календарь/ })).toHaveCount(0);
+    // «Календарь» встал первым в панели, а «Семья» — вытеснена под черту, в
+    // список «Ещё»: в панели по-прежнему ровно MAX_BOTTOM разделов.
+    await expect(bar.getByRole('link', { name: /Календарь/ })).toBeVisible();
+    await expect(bar.getByRole('link', { name: /^Семья/ })).toHaveCount(0);
 
     // Полная перезагрузка: вытеснение обязано пережить рестарт, а не жить
-    // только в состоянии открытого экрана. «Календарь» на «Главной» встречается
-    // в двух представлениях (строка списка и плитка) — проверяем first(), а
-    // отсутствие в панели — прицельно по таб-бару.
+    // только в состоянии открытого экрана.
     await page.goto('/home');
     const barAfterReload = page.locator('nav').last();
-    await expect(barAfterReload.getByRole('link', { name: /^Семья/ })).toBeVisible();
-    await expect(barAfterReload.getByRole('link', { name: /Календарь/ })).toHaveCount(0);
-    await expect(page.getByText('Календарь', { exact: true }).first()).toBeVisible();
+    await expect(barAfterReload.getByRole('link', { name: /Календарь/ })).toBeVisible();
+    await expect(barAfterReload.getByRole('link', { name: /^Семья/ })).toHaveCount(0);
+    await expect(page.locator('main').getByText('Семья', { exact: true }).first()).toBeVisible();
   });
 });

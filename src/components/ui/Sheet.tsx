@@ -229,7 +229,7 @@ export function Sheet({ open, onClose, title, children }: Props) {
         // минимальную ширину), и вся форма уезжала пальцем вбок. Владелец
         // (20.09): «это окно должно быть мёртвым и никуда не двигаться
         // вправо-влево, не плавать».
-        className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto overflow-x-hidden overscroll-none rounded-t-[1.6rem] border-t border-lh-border-strong bg-lh-surface pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
+        className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto overflow-x-hidden overscroll-none rounded-t-3xl border-t border-lh-border-strong bg-lh-surface pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
         style={{
           // Панель поднимается ровно на высоту клавиатуры, а её потолок на ту
           // же величину опускается — иначе поднятая панель упёрлась бы в

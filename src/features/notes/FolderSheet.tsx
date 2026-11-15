@@ -7,6 +7,7 @@ import { create, update, remove } from '../../db/repo';
 import { PRESET_COLORS } from '../../lib/colors';
 import { t } from '../../lib/i18n';
 import type { NoteFolder } from '../../db/types';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 // Эмодзи, а не иконки: папку человек узнаёт с одного взгляда по картинке, а не
 // прочитав название. Набор небольшой и по темам, которые реально заводят —
@@ -72,11 +73,9 @@ export function FolderSheet({
     // папки поднимаются на уровень выше (для корневой папки — в общий список),
     // и об этом сказано прямо в вопросе.
     if (
-      !window.confirm(
-        t('Удалить папку «{name}»? Содержимое останется — заметки и вложенные папки поднимутся на уровень выше.', {
+      !(await confirmAction(t('Удалить папку «{name}»? Содержимое останется — заметки и вложенные папки поднимутся на уровень выше.', {
           name: folder.name,
-        }),
-      )
+        })))
     )
       return;
     const lift = folder.parentId ?? null;
