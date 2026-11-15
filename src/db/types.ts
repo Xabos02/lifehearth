@@ -630,6 +630,10 @@ export interface Settings {
   // Device-local (settings не синкается) — включается на каждом устройстве
   // отдельно, что удобно и для отладки.
   aiEnabled?: boolean;
+  /** Отклик на касания: тактильный щелчок на iPhone, вибрация на Android,
+   *  щелчок барабанов (lib/feedback.ts, PROTOCOL §6.4). undefined = да.
+   *  Device-local. */
+  tapFeedback?: boolean;
 }
 
 // === Семейный раздел (общие задачи + чат) ===

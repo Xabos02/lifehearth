@@ -1,6 +1,7 @@
 import { ensureAudio, setAudioSession } from '../focus/alarms';
 import { isNoisePlaying } from '../focus/noise';
 import { callManager } from '../../lib/family/familyCall';
+import { feedbackOn } from '../../lib/feedback';
 
 // Щелчок барабана дат — как у колеса выбора времени в будильнике iOS (просьба
 // Влада, задача 38): короткий шорох в полосе ~3,6 кГц и едва слышный тон под
@@ -15,6 +16,8 @@ export function unlockTick(): void {
 }
 
 export function playTick(): void {
+  // «Отклик на касания» выключен — молчит и барабан (lib/feedback.ts).
+  if (!feedbackOn()) return;
   const ac = ensureAudio();
   // Спящий контекст копит запланированное и выдаёт залпом после первого
   // касания — без жеста щелчок просто молчит.

@@ -34,6 +34,7 @@ import { FolderSheet } from './FolderSheet';
 import { checklistProgress } from './checklist';
 import { countNotesDeep, flattenTree, folderMoveTargets, reorderWithin } from './folderTree';
 import { useHoldToReorder } from '../tasks/useHoldToReorder';
+import { buzz } from '../../lib/feedback';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { useToast } from '../../components/ui/toastContext';
 
@@ -172,7 +173,7 @@ function NoteRow({
       if (drag.current.moved) return; // это свайп, а не удержание
       heldRef.current = true;
       // Отклик обязателен: без него неясно, что удержание засчиталось.
-      navigator.vibrate?.(12);
+      buzz(12); // только Android, PROTOCOL §6.4
       onMoveToFolder();
     }, 500);
   };
@@ -401,6 +402,7 @@ export function NotesPage() {
   const rest = filtered.filter((n) => !n.pinned);
 
   const onFolderReorderStart = (f: NoteFolder, at: { pointerId: number }) => {
+    buzz(); // «взял» — только Android, PROTOCOL §6.4
     setReorderFolder(f);
     const level = levelFolders;
     const indexAt = (y: number) => {
@@ -434,6 +436,9 @@ export function NotesPage() {
       if (idx == null) return; // удержание без движения — ничего
       const changes = reorderWithin(level, f.id, idx);
       if (changes.length === 0) return;
+      // «Положил» — только Android и только от пальца: этот же finish ловит
+      // pointercancel, а системный обрыв жеста отклика не получает (PROTOCOL §6.4).
+      if (e.type === 'pointerup') buzz();
       void (async () => {
         for (const c of changes) await update(db.noteFolders, c.id, { sortOrder: c.sortOrder });
         toast(t('Порядок папок обновлён'));

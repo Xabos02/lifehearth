@@ -86,6 +86,9 @@ export const EN: Record<string, string> = {
   'Системная': 'System',
   'Язык': 'Language',
   'Как в системе': 'System default',
+  'Отклик на касания': 'Touch feedback',
+  'Лёгкий щелчок под пальцем, когда что-то переключаете или отмечаете. Барабаны щёлкают звуком — в беззвучном режиме он молчит.':
+    'A light click under your finger when you switch or check something. Wheels click with sound — it stays quiet in silent mode.',
   'Русский': 'Russian',
 
   // === Настройки: остальное ===

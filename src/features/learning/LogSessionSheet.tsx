@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
+import { Haptic } from '../../components/ui/Haptic';
 import { Sheet } from '../../components/ui/Sheet';
 import type { LearningItem } from '../../db/types';
 import { formatDuration } from '../../lib/duration';
@@ -67,6 +68,8 @@ function SessionForm({ item, onClose }: { item: LearningItem; onClose: () => voi
             }`}
           >
             {formatDuration(m)}
+            {/* Выбор длительности щёлкает (PROTOCOL §6.4); выбранная — нет. */}
+            <Haptic off={total === m} />
           </button>
         ))}
       </div>

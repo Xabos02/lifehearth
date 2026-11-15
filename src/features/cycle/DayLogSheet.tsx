@@ -5,6 +5,7 @@ import {
 } from '../../components/ui/glyphs';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
+import { Haptic } from '../../components/ui/Haptic';
 import { Field, Textarea } from '../../components/ui/Input';
 import { db } from '../../db/db';
 import type { BleedingLevel, Severity, SymptomEntry } from '../../db/cycleTypes';
@@ -151,6 +152,8 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
                     )}
                   </span>
                   <span className="max-w-full truncate">{t(l.label)}</span>
+                  {/* Выбор щёлкает (PROTOCOL §6.4); повторный тап ничего не меняет. */}
+                  <Haptic off={active} />
                 </button>
               );
             })}
@@ -185,6 +188,8 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
                           {t(SEVERITY_LABELS[e.severity])}
                         </span>
                       )}
+                      {/* Каждый тап меняет отметку (степень, снятие) — щёлкает, §6.4. */}
+                      <Haptic />
                     </button>
                   );
                 })}

@@ -7,6 +7,7 @@ import { ENERGY_LABEL, ENERGY_LEVELS, levelByDate } from '../../lib/energy';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import { toggleEnergyLevel } from './energyRepo';
 import type { EnergyLevel } from '../../db/types';
+import { Haptic } from '../../components/ui/Haptic';
 
 /** Шкала 1–5 одной строкой: отметка ставится одним тапом прямо с «Сегодня».
  *  Ежедневный ритуал выживает, только если он в один жест — переход в раздел
@@ -69,6 +70,9 @@ export function EnergyTodayLine({ collapsed = false }: { collapsed?: boolean }) 
               >
                 {n}
               </span>
+              {/* Оценка щёлкает (PROTOCOL §6.4) — и повторный тап тоже: он
+                  снимает отметку. */}
+              <Haptic />
             </button>
           );
         })}

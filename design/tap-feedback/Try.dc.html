@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Попробовать пальцем</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.kick{margin:0;font-size:11px;line-height:15px;font-weight:700;letter-spacing:.08em;color:#c9a84c}
+.h{margin:8px 0 0;font-size:22px;line-height:27px;font-weight:700;letter-spacing:-.01em}
+.lead{margin:8px 0 0;font-size:14px;line-height:20px;color:#b3b1ab}
+.sec{margin:22px 0 8px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9a9892}
+.card{background:#18181f;border:1px solid rgba(255,255,255,.07);border-radius:16px}
+.row{display:flex;align-items:center;gap:12px;min-height:64px;box-sizing:border-box;padding:8px 16px;border-top:1px solid rgba(255,255,255,.07)}
+.row.first{border-top:0}
+.num{flex:none;width:22px;height:22px;border-radius:999px;background:#33333f;color:#e4e2dc;font-size:12px;line-height:22px;font-weight:700;text-align:center}
+.lbl{flex:1;font-size:16px;line-height:21px}
+.lbl small{display:block;margin-top:2px;font-size:12px;line-height:16px;color:#9a9892}
+button{font:inherit;color:inherit;margin:0;border:0;background:none;padding:0;position:relative;-webkit-tap-highlight-color:transparent}
+.ov{position:absolute;top:50%;left:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.ov input{position:absolute;width:1px;height:1px;margin:0;visibility:hidden}
+.sw{display:flex;align-items:center;height:44px;padding:0 4px}
+.track{display:flex;align-items:center;box-sizing:border-box;width:44px;height:26px;padding:3px;border-radius:999px;transition:background-color .2s}
+.knob{width:20px;height:20px;border-radius:999px;background:#fff;transition:transform .2s}
+.chk{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:24px;height:24px;border-radius:7px;border:1.5px solid #c9a84c}
+.segs{display:flex;box-sizing:border-box;padding:4px;border-radius:12px;background:#22222d;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+.seg{min-height:44px;padding:0 12px;border-radius:10px;font-size:14px;font-weight:500}
+.alt{min-height:44px;padding:0 16px;border-radius:999px;font-size:14px;font-weight:600}
+.direct{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0}
+.snd{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:56px;box-sizing:border-box;padding:8px 16px;border-top:1px solid rgba(255,255,255,.07);text-align:left;font-size:16px;line-height:21px}
+.snd.first{border-top:0}
+.snd small{display:block;margin-top:2px;font-size:12px;line-height:16px;color:#9a9892}
+.play{flex:none;font-size:12px;font-weight:700;color:#c9a84c}
+.mute{margin:20px 0 0;padding:12px 14px;border-radius:12px;background:#111118;font-size:13px;line-height:19px;color:#b3b1ab}
+.mute b{color:#f0eee8;font-weight:600}
+</style>
+</helmet>
+<div style="width: 390px; height: 1180px; box-sizing: border-box; padding: 24px 16px 28px; background: #08080f; color: #f0eee8; font-family: -apple-system, system-ui, 'Inter', sans-serif">
+  <p class="kick">ЖИВОЙ ПРИМЕР</p>
+  <h1 class="h">Попробовать пальцем</h1>
+  <p class="lead">Включите ▶ на этом артборде, возьмите iPhone и нажимайте. Щелчок под пальцем — в строках 1–4. Звуки слышны только со снятым беззвучным режимом.</p>
+
+  <p class="sec">Тактильный щелчок — во всех вариантах</p>
+  <div class="card">
+    <div class="row first">
+      <span class="num">1</span>
+      <span class="lbl">Переключатель</span>
+      <button type="button" role="switch" aria-checked="{{ swAria }}" aria-label="Переключатель" class="sw" onClick="{{ toggleSw }}">
+        <span class="track" style="background-color: {{ swTrack }}"><span class="knob" style="transform: {{ swKnob }}"></span></span>
+        <label class="ov" aria-hidden="true"><input type="checkbox" switch="" onClick="{{ stop }}"></label>
+      </button>
+    </div>
+    <div class="row">
+      <span class="num">2</span>
+      <span class="lbl">Отметка задачи<small>«Купить хлеб»</small></span>
+      <button type="button" aria-pressed="{{ chkAria }}" aria-label="Отметить задачу" class="chk" style="background-color: {{ chkBg }}" onClick="{{ toggleChk }}">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#08080f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{ chkMark }}"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+        <label class="ov" aria-hidden="true"><input type="checkbox" switch="" onClick="{{ stop }}"></label>
+      </button>
+    </div>
+    <div class="row">
+      <span class="num">3</span>
+      <span class="lbl">Сегменты</span>
+      <span class="segs">
+        <sc-for list="{{ segs }}" as="item" hint-placeholder-count="3">
+          <button type="button" aria-pressed="{{ item.pressed }}" class="seg" style="background-color: {{ item.bg }}; color: {{ item.fg }}" onClick="{{ item.pick }}">{{ item.label }}<sc-if value="{{ item.off }}" hint-placeholder-val="{{ true }}"><label class="ov" aria-hidden="true"><input type="checkbox" switch="" onClick="{{ stop }}"></label></sc-if></button>
+        </sc-for>
+      </span>
+    </div>
+    <div class="row">
+      <span class="num">4</span>
+      <span class="lbl">Запасной способ<small>палец попадает прямо в системный переключатель</small></span>
+      <span style="position: relative; display: inline-flex">
+        <button type="button" aria-pressed="{{ altAria }}" class="alt" style="background-color: {{ altBg }}; color: {{ altFg }}">Нажать</button>
+        <input type="checkbox" switch="" class="direct" aria-label="Запасной способ" onClick="{{ toggleAlt }}">
+      </span>
+    </div>
+  </div>
+
+  <p class="sec">Звуки — только в варианте Б</p>
+  <div class="card">
+    <button type="button" class="snd first" onClick="{{ playTick }}"><span>Щелчок<small>как у барабана сейчас; в Б — ещё захват и свайп</small></span><span class="play">слушать</span></button>
+    <button type="button" class="snd" onClick="{{ playOkA }}"><span>«Готово» — две ноты вверх</span><span class="play">слушать</span></button>
+    <button type="button" class="snd" onClick="{{ playOkB }}"><span>«Готово» — капля</span><span class="play">слушать</span></button>
+    <button type="button" class="snd" onClick="{{ playWarnA }}"><span>«Внимание» — два низких</span><span class="play">слушать</span></button>
+    <button type="button" class="snd" onClick="{{ playWarnB }}"><span>«Внимание» — тон вниз</span><span class="play">слушать</span></button>
+    <div class="row">
+      <span class="num">5</span>
+      <span class="lbl">Отметка со звуком<small>щелчок под пальцем и «готово» вместе</small></span>
+      <button type="button" aria-pressed="{{ chk2Aria }}" aria-label="Отметить задачу со звуком" class="chk" style="background-color: {{ chk2Bg }}" onClick="{{ toggleChk2 }}">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#08080f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{ chk2Mark }}"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+        <label class="ov" aria-hidden="true"><input type="checkbox" switch="" onClick="{{ stop }}"></label>
+      </button>
+    </div>
+  </div>
+
+  <p class="mute"><b>Что написать мне:</b> какие из строк 1–4 щёлкают под пальцем и какие звуки «готово» и «внимание» ближе. Если не щёлкает ни одна — это ещё не приговор: канва открыта во вложенном окне, проверим в самом приложении.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1180}}'>
+class Component extends DCLogic {
+  audio() {
+    if (!this._ac) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      this._ac = new AC();
+    }
+    if (this._ac.state !== 'running') this._ac.resume();
+    return this._ac;
+  }
+  note(ac, t, freq, dur, peak, o) {
+    o = o || {};
+    var osc = ac.createOscillator();
+    var g = ac.createGain();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    if (o.glideTo) osc.frequency.exponentialRampToValueAtTime(o.glideTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + (o.attack || 0.004));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g);
+    g.connect(ac.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+  tick(ac, t) {
+    var len = Math.floor(ac.sampleRate * 0.03);
+    var buf = ac.createBuffer(1, len, ac.sampleRate);
+    var d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 6);
+    var src = ac.createBufferSource();
+    src.buffer = buf;
+    var band = ac.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 3600;
+    band.Q.value = 0.8;
+    var g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.45, t + 0.0008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
+    src.connect(band);
+    band.connect(g);
+    g.connect(ac.destination);
+    src.start(t);
+    src.stop(t + 0.03);
+    this.note(ac, t, 2400, 0.012, 0.08, { type: 'triangle', glideTo: 1500, attack: 0.0008 });
+  }
+  play(kind) {
+    var ac = this.audio();
+    if (!ac) return;
+    var t = ac.currentTime + 0.005;
+    if (kind === 'tick') this.tick(ac, t);
+    if (kind === 'okA') { this.note(ac, t, 1046.5, 0.09, 0.11); this.note(ac, t + 0.075, 1568, 0.17, 0.13); }
+    if (kind === 'okB') { this.note(ac, t, 620, 0.12, 0.16, { glideTo: 930 }); this.note(ac, t, 1240, 0.08, 0.04, { glideTo: 1860 }); }
+    if (kind === 'warnA') { this.note(ac, t, 392, 0.07, 0.18, { type: 'triangle' }); this.note(ac, t + 0.11, 392, 0.09, 0.18, { type: 'triangle' }); }
+    if (kind === 'warnB') { this.note(ac, t, 523, 0.17, 0.17, { glideTo: 330, attack: 0.005 }); }
+  }
+  vib(pattern) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    } catch (e) {}
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state || {};
+    var sw = !!s.sw;
+    var chk = !!s.chk;
+    var chk2 = !!s.chk2;
+    var alt = !!s.alt;
+    var seg = s.seg || 'day';
+    var GOLD = '#c9a84c';
+    var segs = [
+      { id: 'day', label: 'День' },
+      { id: 'week', label: 'Неделя' },
+      { id: 'month', label: 'Месяц' }
+    ].map(function (x) {
+      var on = seg === x.id;
+      return {
+        label: x.label,
+        pressed: on ? 'true' : 'false',
+        off: !on,
+        bg: on ? GOLD : 'transparent',
+        fg: on ? '#08080f' : '#b3b1ab',
+        pick: function () {
+          if (on) return;
+          self.vib(10);
+          self.setState({ seg: x.id });
+        }
+      };
+    });
+    return {
+      stop: function (e) { e.stopPropagation(); },
+      swAria: sw ? 'true' : 'false',
+      swTrack: sw ? GOLD : 'rgba(240,238,232,0.22)',
+      swKnob: sw ? 'translateX(18px)' : 'translateX(0px)',
+      toggleSw: function () { self.vib(10); self.setState({ sw: !sw }); },
+      chkAria: chk ? 'true' : 'false',
+      chkBg: chk ? GOLD : 'transparent',
+      chkMark: chk ? '1' : '0',
+      toggleChk: function () { self.vib(10); self.setState({ chk: !chk }); },
+      segs: segs,
+      altAria: alt ? 'true' : 'false',
+      altBg: alt ? GOLD : '#22222d',
+      altFg: alt ? '#08080f' : '#f0eee8',
+      toggleAlt: function () { self.vib(10); self.setState({ alt: !alt }); },
+      chk2Aria: chk2 ? 'true' : 'false',
+      chk2Bg: chk2 ? GOLD : 'transparent',
+      chk2Mark: chk2 ? '1' : '0',
+      toggleChk2: function () {
+        var on = !chk2;
+        self.vib(on ? [10, 60, 14] : 10);
+        if (on) self.play('okA');
+        self.setState({ chk2: on });
+      },
+      playTick: function () { self.vib(10); self.play('tick'); },
+      playOkA: function () { self.vib([10, 60, 14]); self.play('okA'); },
+      playOkB: function () { self.vib([10, 60, 14]); self.play('okB'); },
+      playWarnA: function () { self.vib([22, 60, 22]); self.play('warnA'); },
+      playWarnB: function () { self.vib([22, 60, 22]); self.play('warnB'); }
+    };
+  }
+}
+</script>
+</body>
+</html>

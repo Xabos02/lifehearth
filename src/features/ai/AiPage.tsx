@@ -573,6 +573,8 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
         >
           <Database size={ICON.inline} />
           {t('Данные')}
+          {/* Переключатель доступа — щёлкает (PROTOCOL §6.4). */}
+          {!busy && <Haptic />}
         </button>
         <div className="flex-1" />
         {busy ? (

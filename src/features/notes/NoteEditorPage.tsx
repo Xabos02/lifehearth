@@ -49,6 +49,7 @@ import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { confirmAction } from '../../components/ui/confirmStore';
+import { buzz } from '../../lib/feedback';
 
 const AUTOSAVE_MS = 600;
 
@@ -854,6 +855,9 @@ export function NoteEditorPage() {
           if (!li || !hitCheckbox(li, e.clientX)) return;
           e.preventDefault();
           toggleItem(li);
+          // Отметка пункта — только Android (PROTOCOL §6.4): галочка — часть
+          // текста редактора, не кнопка, и накладку Haptic сюда не положить.
+          buzz();
           touch();
         }}
         onMouseDown={(e) => {

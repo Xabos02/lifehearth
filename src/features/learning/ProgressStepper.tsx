@@ -11,6 +11,7 @@ import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { Haptic } from '../../components/ui/Haptic';
 
 const BTN_CLASS =
   `flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-text-primary active:opacity-70 disabled:opacity-40 ${HIT_SLOP_44}`;
@@ -42,6 +43,9 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
         onClick={() => void setValue(item.progressCurrent - step)}
       >
         <Minus size={ICON.base} />
+        {/* Шаг прогресса щёлкает под пальцем (PROTOCOL §6.4); у упора кнопка
+            выключена и накладки нет. */}
+        {item.progressCurrent > 0 && <Haptic />}
       </button>
       <span className="min-w-12 text-center font-bold tabular-nums">
         {formatNum(item.progressCurrent)}
@@ -54,6 +58,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
         onClick={() => void setValue(item.progressCurrent + step)}
       >
         <Plus size={ICON.base} />
+        {item.progressCurrent < item.progressTarget && <Haptic />}
       </button>
       {item.progressUnit === 'pages' && (
         <button
@@ -63,6 +68,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
           onClick={() => void setValue(item.progressCurrent + 10)}
         >
           +10
+          {item.progressCurrent < item.progressTarget && <Haptic />}
         </button>
       )}
     </div>

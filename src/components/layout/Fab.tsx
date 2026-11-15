@@ -6,6 +6,7 @@ import { usePomodoroActions } from '../../features/focus/pomodoro';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { t } from '../../lib/i18n';
 import { ICON, STROKE_HEAVY } from '../ui/icons';
+import { buzz } from '../../lib/feedback';
 
 interface Props {
   onClick: () => void;
@@ -154,11 +155,7 @@ export function Fab({ onClick, label }: Props) {
       if (!g.current.armed) return;
       g.current.dragMode = true;
       g.current.wasDrag = true;
-      try {
-        navigator.vibrate?.(10); // тактильный сигнал «взял» (где поддерживается)
-      } catch {
-        /* без вибрации */
-      }
+      buzz(10); // «взял» — только Android, PROTOCOL §6.4
       setDragging(true);
     }, LONG_PRESS_MS);
   };
@@ -192,7 +189,7 @@ export function Fab({ onClick, label }: Props) {
     }
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (e: PointerEvent<HTMLButtonElement>) => {
     const s = g.current;
     clearTimer();
     releaseCapture();
@@ -202,6 +199,9 @@ export function Fab({ onClick, label }: Props) {
         const final = { x: s.curX, y: s.curY };
         setOverride(final);
         void updateSettings({ fabPosition: final });
+        // Поставил на новое место — короткая вибрация, только Android
+        // (PROTOCOL §6.4); системный обрыв жеста молчит.
+        if (e.type === 'pointerup') buzz();
       }
       setDragging(false);
     }

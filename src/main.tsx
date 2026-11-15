@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { db, ensureSettings } from './db/db'
 import { resolveLang, setLang } from './lib/i18n'
 import { setConsentFlag, watchConsent } from './lib/consent'
+import { setFeedbackOn, watchFeedback } from './lib/feedback'
 import { ensurePersistentStorage } from './lib/storage'
 import { StartupError } from './components/StartupError'
 
@@ -26,6 +27,10 @@ void (async () => {
     // «Фокус» и погода решают, идти ли в сеть, на первом же кадре.
     setConsentFlag(Boolean(s?.consentAt))
     void watchConsent()
+    // Отклик на касания — тоже до первого рендера: накладка Haptic решает,
+    // вставать ли ей в кнопку, на первом же кадре.
+    setFeedbackOn(s?.tapFeedback !== false)
+    void watchFeedback()
     root.render(
       <StrictMode>
         <App />

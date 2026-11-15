@@ -194,11 +194,11 @@ export function PlacesPage() {
     <Screen title={t('Места')} backTo="/home">
       <div className="space-y-3">
         <ChipRow>
-          <Chip active={kindFilter === 'all'} onClick={() => setKindFilter('all')}>
+          <Chip active={kindFilter === 'all'} hapticOff={kindFilter === 'all'} onClick={() => setKindFilter('all')}>
             {t('Все')}
           </Chip>
           {KIND_ORDER.map((k) => (
-            <Chip key={k} active={kindFilter === k} onClick={() => setKindFilter(k)}>
+            <Chip key={k} active={kindFilter === k} hapticOff={kindFilter === k} onClick={() => setKindFilter(k)}>
               {t(KIND_LABELS[k])}
             </Chip>
           ))}
