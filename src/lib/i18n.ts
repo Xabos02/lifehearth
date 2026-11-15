@@ -78,6 +78,8 @@ const EN_PLURALS: Record<string, [string, string]> = {
   пунктов: ['item', 'items'],
   уроков: ['lesson', 'lessons'],
   раз: ['time', 'times'],
+  просрочено: ['overdue', 'overdue'],
+  папок: ['folder', 'folders'],
 };
 
 /** Склонение с учётом языка: русские формы — как в plural(), английская пара

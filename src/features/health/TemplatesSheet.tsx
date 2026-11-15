@@ -14,6 +14,7 @@ import { workoutKind } from './workouts';
 import { addTemplate, removeTemplate } from './templateRepo';
 import { ItemFields } from './ItemFields';
 import { newItem, savedFromItem, type Item } from './workoutItem';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -48,8 +49,8 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (window.confirm(t('Удалить шаблон?'))) void removeTemplate(tpl.id);
+                onClick={async () => {
+                  if (await confirmAction(t('Удалить шаблон?'))) void removeTemplate(tpl.id);
                 }}
                 className={`p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
                 aria-label={t('Удалить шаблон')}

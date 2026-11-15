@@ -140,12 +140,17 @@ test('кнопки-иконки в шапке одинаковой ширины 
   // Раньше слот right в Screen набивали шестью разными обёртками (p-1, p-1.5,
   // p-2, size-10, дважды без ничего) — при переходе между разделами правый
   // край шапки заметно прыгал.
-  const withHeaderButton = ['/', '/tasks', '/stats', '/more/cycle'];
+  // Стрелка «назад» с подписью раздела (редизайн) — не кнопка-иконка, её
+  // ширина зависит от подписи; сравниваем только действия справа. /stats без
+  // данных показывает пустой экран без «Поделиться», поэтому взяты «Заметки».
+  const withHeaderButton = ['/', '/tasks', '/notes', '/more/cycle'];
   await openApp(page);
   const widths: { route: string; w: number }[] = [];
   for (const route of withHeaderButton) {
     await openRoute(page, route);
-    const btn = page.locator('header a[aria-label], header button[aria-label]').last();
+    const btn = page
+      .locator('header a[aria-label]:not([aria-label^="Назад"]), header button[aria-label]:not([aria-label^="Назад"])')
+      .last();
     await expect(btn, `на ${route} кнопки в шапке нет`).toBeVisible();
     const box = await btn.boundingBox();
     if (box) widths.push({ route, w: Math.round(box.width) });

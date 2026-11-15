@@ -19,6 +19,7 @@ import { updateSettings } from '../../../hooks/useSettings';
 import { now } from '../../../db/repo';
 import { t } from '../../../lib/i18n';
 import { ICON } from '../../../components/ui/icons';
+import { confirmAction } from '../../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -121,12 +122,14 @@ export function RecoveryKeySheet({ open, saved, onClose }: Props) {
     toast(t('Ключ сохранён и проверен'));
   }
 
-  function handleClose() {
+  async function handleClose() {
     if (
       !confirmed &&
-      !window.confirm(
-        t('Ключ восстановления не сохранён. Без него записи из облака не вернуть ничем. Всё равно закрыть?'),
-      )
+      !(await confirmAction({
+        title: t('Ключ восстановления не сохранён'),
+        message: t('Ключ восстановления не сохранён. Без него записи из облака не вернуть ничем. Всё равно закрыть?'),
+        confirmLabel: t('Закрыть'),
+      }))
     )
       return;
     onClose();

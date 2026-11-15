@@ -29,6 +29,7 @@ import { TABLE_RU } from './tableNames';
 import { ButtonRow, Row, Section } from './SettingsSection';
 import { Switch } from '../../components/ui/Switch';
 import { useConsent } from '../../lib/consent';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 /** Состояние локального хранилища. Показываем ровно тогда, когда есть что
  *  сказать: браузер отказал в постоянном хранении — значит данные могут быть
@@ -168,7 +169,7 @@ export function BackupPage() {
         workouts: p.counts.workouts ?? 0,
       },
     );
-    if (!window.confirm(msg)) return;
+    if (!(await confirmAction({ title: msg, confirmLabel: t('Восстановить') }))) return;
     await importBackup(backup);
     toast(t('Данные восстановлены'));
   }
@@ -216,12 +217,10 @@ export function BackupPage() {
         const when = e.remoteDate
           ? t(' от {date}', { date: formatRu(e.remoteDate.slice(0, 10), 'd MMMM yyyy') })
           : '';
-        const ok = window.confirm(
-          t(
+        const ok = (await confirmAction({ title: t(
             'В облаке лежит копия{when}, и в ней БОЛЬШЕ данных, чем на этом устройстве:\n\n{lines}\n\nЗаменить её копией с этого устройства? Разницу вернуть будет неоткуда.',
             { when, lines: lines.join('\n') },
-          ),
-        );
+          ), confirmLabel: t('Заменить') }));
         if (ok) await handleCloudBackupNow(true);
         return;
       }

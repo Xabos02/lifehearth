@@ -1,4 +1,4 @@
-import { test, expect, openApp } from './fixtures';
+import { test, expect, openApp, answerConfirm } from './fixtures';
 import { addDaysKey, todayKey } from '../src/lib/dates';
 
 // Раздел «Здоровье» (задача 14): спорт-календарь, ритм «через день», цель
@@ -181,8 +181,8 @@ test('импорт CSV из Strava добавляет тренировки и н
     '1,"Sep 1, 2026, 7:01:00 AM","Morning Run",Run,2100,5.21,1920',
     '2,"Sep 3, 2026, 6:02:11 PM","Gym",Weight Training,3300,,3300',
   ].join('\n');
-  page.on('dialog', (d) => void d.accept());
   await page.getByTestId('workout-csv').setInputFiles({ name: 'activities.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await answerConfirm(page, true);
   await expect.poll(async () =>
     page.evaluate(async () => {
       const { db } = await import('/src/db/db.ts');
@@ -260,9 +260,9 @@ test('удалённый последний замер веса снимает �
   await page.getByPlaceholder('75').fill('78,4');
   await page.getByRole('button', { name: 'Сохранить' }).click();
   await expect(card).toContainText('78,4');
-  page.on('dialog', (d) => void d.accept());
   await card.getByRole('button', { name: '+ замер' }).click();
   await page.getByRole('button', { name: 'Удалить замер за этот день' }).click();
+  await answerConfirm(page, true);
   await expect(card).toContainText('Замеров пока нет');
   // Та же гонка, что выше: профиль догоняет дневник следующей записью.
   await expect

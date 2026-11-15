@@ -13,6 +13,7 @@ import { PRESET_COLORS } from '../../lib/colors';
 import { ICON, STROKE } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
 import { depthOf, parentCandidates } from './projectTree';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 /** Шит создания/редактирования проекта. project=null → создание.
  *  defaults.parentId — предзаполненный родитель («+ Подпроект» из секции). */
@@ -89,7 +90,7 @@ function ProjectEditForm({
 
   const handleDelete = async () => {
     if (!project) return;
-    if (!window.confirm(t('Удалить проект? Его задачи останутся без проекта, а подпроекты поднимутся на верхний уровень.'))) return;
+    if (!(await confirmAction(t('Удалить проект? Его задачи останутся без проекта, а подпроекты поднимутся на верхний уровень.')))) return;
     // Задачи не удаляем — отвязываем от проекта.
     const tasks = alive(await db.tasks.where('projectId').equals(project.id).toArray());
     for (const task of tasks) {

@@ -18,8 +18,8 @@ test('«Главная» зовёт сделать копию, только ко
   // раньше, чем запрос ответил.
   await openApp(page, '/home');
   const bar = page.getByRole('navigation');
-  const tabDue = bar.getByRole('link', { name: 'Главная, нужна резервная копия', exact: true });
-  const tabCalm = bar.getByRole('link', { name: 'Главная', exact: true });
+  const tabDue = bar.getByRole('link', { name: 'Ещё, нужна резервная копия', exact: true });
+  const tabCalm = bar.getByRole('link', { name: 'Ещё', exact: true });
   const settingsDue = page.getByText('Пора сделать резервную копию', { exact: true });
   const status = page.getByText('Резервную копию ещё не делали', { exact: true });
   const warning = /(^|\s)text-warning(\s|$)/;

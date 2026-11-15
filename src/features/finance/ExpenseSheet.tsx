@@ -9,6 +9,7 @@ import { create, remove, update } from '../../db/repo';
 import type { ExpenseItem, ExpenseKind, ExpenseRecurrence } from '../../db/types';
 import { EXPENSE_CATEGORY_SUGGESTIONS } from '../../lib/finance';
 import { t } from '../../lib/i18n';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -73,7 +74,7 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm(t('Удалить запись?'))) return;
+    if (!(await confirmAction(t('Удалить запись?')))) return;
     await remove(db.expenseItems, item.id);
     onClose();
   };

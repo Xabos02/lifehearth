@@ -12,6 +12,7 @@ import { GCheck as Check } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 type PStr = '0' | '1' | '2' | '3';
 // Цвет полосы приоритета — тот же, что и в личных задачах (TaskItem.PRIORITY_BAR):
@@ -81,7 +82,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
 
   async function remove() {
     if (!task) return;
-    if (!window.confirm(t('Удалить задачу?'))) return;
+    if (!(await confirmAction(t('Удалить задачу?')))) return;
     await deleteFamilyTask(familyId, task.id);
     onClose();
   }

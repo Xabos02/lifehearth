@@ -15,6 +15,7 @@ import { addTemplate } from './templateRepo';
 import { TemplatesSheet } from './TemplatesSheet';
 import { ItemFields } from './ItemFields';
 import { itemFromSaved, newItem, savedFromItem, type Item } from './workoutItem';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -93,7 +94,7 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
 
   const del = async () => {
     if (!workout) return;
-    if (!window.confirm(t('Удалить тренировку?'))) return;
+    if (!(await confirmAction(t('Удалить тренировку?')))) return;
     await removeWorkout(workout.id);
     onClose();
   };

@@ -12,7 +12,7 @@ import {
   GCopy as Copy,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
-import { alive, create, remove, uid, update } from '../../db/repo';
+import { alive, create, remove, restore, uid, update } from '../../db/repo';
 import type { ChecklistItem, Priority, Project, Recurrence, Task } from '../../db/types';
 import { MAX_DEPTH } from './dragTuning';
 import { Sheet } from '../../components/ui/Sheet';
@@ -40,6 +40,7 @@ import { useAutoCapitalizeTextarea } from '../../lib/useAutoCapitalizeTextarea';
 import { usePomodoroActions } from '../focus/pomodoro';
 import { ICON } from '../../components/ui/icons';
 import { isSleeping, scheduleNext } from './taskActions';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'manual';
 type PriorityStr = '0' | '1' | '2' | '3';
@@ -361,10 +362,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
   const handleDelete = async () => {
     if (!task) return;
-    if (!window.confirm(t('Удалить задачу?'))) return;
     void cancelReminder(task.id, task.remindBefore != null);
     await remove(db.tasks, task.id);
     onClose();
+    toast(t('Задача удалена'), { action: { label: t('Вернуть'), onClick: () => void restore(db.tasks, task.id) } });
   };
 
   const handleCreateProject = async () => {
@@ -417,7 +418,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
   /** Удалить записанное вложение: мягко, каждый чанк — синк разнесёт. */
   const deleteSavedFile = async (fileId: string) => {
-    if (!window.confirm(t('Удалить файл из задачи?'))) return;
+    if (!(await confirmAction(t('Удалить файл из задачи?')))) return;
     const rows = await db.taskFiles.where('fileId').equals(fileId).toArray();
     for (const r of rows) await remove(db.taskFiles, r.id);
   };
@@ -517,8 +518,8 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
     (task ? projectId !== (task.projectId ?? null) : projectId !== (defaults?.projectId ?? null)) ||
     (task ? remindBefore !== (task.remindBefore ?? null) : remindBefore !== null) ||
     tagsText.trim() !== (task?.tags ?? []).join(', ').trim();
-  const requestClose = () => {
-    if (dirty && !window.confirm(t('Закрыть без сохранения?'))) return;
+  const requestClose = async () => {
+    if (dirty && !(await confirmAction({ title: t('Закрыть без сохранения?'), confirmLabel: t('Закрыть без сохранения') }))) return;
     onClose();
   };
 

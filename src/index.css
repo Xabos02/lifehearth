@@ -99,6 +99,7 @@
   --color-lh-text-tertiary: var(--lh-text-tertiary);
   --color-lh-border: var(--lh-border);
   --color-lh-border-strong: var(--lh-border-strong);
+  --color-lh-canvas: var(--lh-canvas);
   --color-lh-ai: var(--lh-ai-accent);
   --radius-lh-card: var(--lh-radius-card);
   --radius-lh-btn: var(--lh-radius-btn);
@@ -210,11 +211,12 @@
   --cc-accent: oklch(0.672 0.131 38.8);
   --cc-accent-2: oklch(0.770 0.101 43.6);
   --cc-code-bg: oklch(0.159 0 0);
-  --app-danger: oklch(0.70 0.185 20);
-  --app-success: oklch(0.80 0.16 158);
-  --app-warning: oklch(0.83 0.135 80);
+  /* Смысловые — значения DESIGN.md «Ember Gold». */
+  --app-danger: #ef6b73;
+  --app-success: #4cd49b;
+  --app-warning: #edba5c;
   /* «Мороз» — голубой заморозки задач: снежинка, бейджи, секция «Заморожено». */
-  --app-frost: oklch(0.78 0.125 225);
+  --app-frost: #5ec2e8;
   /* Заливки. Холодные затемнены под белый глиф (было 2.62 / 3.28 / 2.91 / 3.65,
      стало ≥4.5); светлые оставлены как есть — на них идёт --app-on-light. */
   /* Золотая заливка — под ТЁМНЫЙ глиф --lh-bg, как у золотых кнопок: белый
@@ -253,8 +255,14 @@
   --lh-accent-dim: rgba(201, 168, 76, 0.15);
   --lh-accent-border: rgba(201, 168, 76, 0.3);
   --lh-text-primary: #f0eee8;
-  --lh-text-secondary: rgba(240, 238, 232, 0.52);
-  --lh-text-tertiary: rgba(240, 238, 232, 0.25);
+  /* Редизайн «Ember Gold» (42 экрана, 15.11.2026): вторичный — СПЛОШНОЙ
+     #8C8A85 (≥4.6:1 на bg/surface/surface-2/canvas), а не прозрачность —
+     PROTOCOL запрещает третий серый через альфу. Декоративный — #4A4945,
+     только для неактивного и линий, не для чтения. */
+  --lh-text-secondary: #8c8a85;
+  --lh-text-tertiary: #4a4945;
+  /* Холст навигации: нижнее меню, липкие шапки, панели (эталон «Сегодня»). */
+  --lh-canvas: #111118;
   --lh-border: rgba(255, 255, 255, 0.07);
   --lh-border-strong: rgba(240, 238, 232, 0.15);
   --lh-radius-card: 16px;
@@ -351,6 +359,7 @@
   --lh-text-tertiary: oklch(0.26 0.022 284 / 0.45);
   --lh-border: var(--app-hairline);
   --lh-border-strong: oklch(0 0 0 / 0.14);
+  --lh-canvas: oklch(0.985 0.004 280);
   color-scheme: light;
 }
 
@@ -483,7 +492,8 @@ body {
     font-weight: 300;
     line-height: 1.35;
     letter-spacing: 0.02em;
-    color: var(--lh-text-tertiary);
+    /* Подпись читают — значит вторичный, а не декоративный тон (≥4.5:1). */
+    color: var(--lh-text-secondary);
   }
 }
 
@@ -639,9 +649,11 @@ select {
      первую ВИЗУАЛЬНУЮ строку, поэтому длинный заголовок обрывался, а перенос
      выглядел как тело. Теперь крупным/жирным становится весь ведущий текст —
      заголовок переносится целиком, без ограничения в одну строку. */
-  font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.35;
+  /* Макет редактора: заголовок 26/600, трекинг −0.3px. */
+  font-size: 1.625rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
 }
 /* Тело заметки — блоки после заголовка: обычный размер и насыщенность. */
 .note-editor div,
@@ -653,7 +665,8 @@ select {
 .note-editor blockquote {
   font-size: 17px;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.55;
+  letter-spacing: normal;
 }
 .note-editor:empty::before {
   content: attr(data-placeholder);
@@ -745,10 +758,11 @@ select {
   margin: 0.6em 0 0.2em;
 }
 .note-editor blockquote {
-  margin: 0.4em 0;
-  padding-left: 0.9em;
-  border-left: 3px solid var(--app-accent);
-  color: var(--app-muted);
+  margin: 0.6em 0;
+  padding-left: 1em;
+  border-left: 2px solid var(--app-accent);
+  color: var(--lh-text-secondary);
+  font-weight: 300;
 }
 /* Ссылка в тексте заметки. Золото — тот же токен, которым набраны ссылочные
    подписи в интерфейсе, и в обеих темах он подобран как ЦВЕТ ТЕКСТА

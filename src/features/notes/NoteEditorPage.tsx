@@ -44,10 +44,11 @@ import { NoteAttachments } from './NoteAttachments';
 import { MAX_FILE_BYTES, formatFileSize, groupNoteAttachments, planNoteFileChunks } from '../../lib/noteFiles';
 import { ImageTooLargeError, MAX_INPUT_BYTES, compressImage } from '../../lib/image';
 import { useToast } from '../../components/ui/toastContext';
-import { create, remove, uid, update } from '../../db/repo';
+import { create, remove, restore, uid, update } from '../../db/repo';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 const AUTOSAVE_MS = 600;
 
@@ -489,7 +490,7 @@ export function NoteEditorPage() {
   /** Удалить вложение: мягко, каждый чанк — синк разнесёт удаление по
    *  устройствам так же, как разносил сам файл. */
   const deleteAttachment = useCallback(async (fileId: string) => {
-    if (!window.confirm(t('Удалить файл из заметки?'))) return;
+    if (!(await confirmAction(t('Удалить файл из заметки?')))) return;
     const rows = await db.noteFiles.where('fileId').equals(fileId).toArray();
     for (const r of rows) await remove(db.noteFiles, r.id);
   }, []);
@@ -712,11 +713,12 @@ export function NoteEditorPage() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(t('Удалить заметку?'))) return;
     deletedRef.current = true;
     clearTimeout(timerRef.current);
-    if (savedIdRef.current) await remove(db.notes, savedIdRef.current);
+    const id = savedIdRef.current;
+    if (id) await remove(db.notes, id);
     navigate('/notes');
+    if (id) toast(t('Заметка удалена'), { action: { label: t('Вернуть'), onClick: () => void restore(db.notes, id) } });
   };
 
   // «Готово»: гасим отложенный автосейв, сохраняем текущее состояние и уходим.
@@ -756,7 +758,7 @@ export function NoteEditorPage() {
       {/* Дата изменения по центру над текстом — фирменная строка Apple Notes:
           тихий факт вместо интерфейса, живёт прямо в листе заметки. */}
       {editedAt && (
-        <p className="mb-2 text-center text-xs text-lh-text-secondary">
+        <p className="mb-4 text-center text-2xs tabular-nums text-lh-text-secondary">
           {format(
             new Date(editedAt),
             getLang() === 'ru' ? "d MMMM yyyy 'г'., HH:mm" : 'MMMM d, yyyy · HH:mm',

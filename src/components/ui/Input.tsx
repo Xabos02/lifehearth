@@ -257,7 +257,7 @@ export function Field({
         if (first && first.tagName === 'BUTTON') e.preventDefault();
       }}
     >
-      <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{label}</span>
+      <span className="mb-2 block px-1 text-xs text-lh-text-secondary">{label}</span>
       {children}
     </label>
   );

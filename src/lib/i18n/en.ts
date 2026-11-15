@@ -44,6 +44,22 @@ export const EN: Record<string, string> = {
   'Сохранить': 'Save',
   'Отмена': 'Cancel',
   'Отменить': 'Undo',
+  'Доброе утро': 'Good morning',
+  'Добрый день': 'Good afternoon',
+  'Добрый вечер': 'Good evening',
+  'Доброй ночи': 'Good night',
+  '{done} из {total} готово': '{done} of {total} done',
+  // Редизайн 15.11.2026: шит подтверждения и плашка «Вернуть».
+  'Выйти': 'Leave',
+  'Вернуть': 'Undo',
+  'Привычка удалена': 'Habit deleted',
+  'Заметка удалена': 'Note deleted',
+  'Задача удалена': 'Task deleted',
+  'Заменить': 'Replace',
+  'Ключ восстановления не сохранён': 'Recovery key not saved',
+  'Отключить': 'Turn off',
+  'Перечитать': 'Resync',
+  'Закрыть без сохранения': 'Close without saving',
   'Удалить': 'Delete',
   'Готово': 'Done',
   'Добавить': 'Add',
@@ -862,7 +878,7 @@ export const EN: Record<string, string> = {
   'всегда': 'always',
   'Включить раздел {name}': 'Turn on {name}',
   'Выключить раздел {name}': 'Turn off {name}',
-  'Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Главной») — задержите строку пальцем и перетащите.':
+  'Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Ещё») — задержите строку пальцем и перетащите.':
     'A tap on the toggle turns a section on or off. To reorder, or move a section across the line into the bottom bar (up to {n} slots, not counting Home) — press and hold a row, then drag.',
   'Выключено': 'Off',
   'Сбросить по умолчанию': 'Reset to defaults',
@@ -1626,6 +1642,13 @@ export const EN: Record<string, string> = {
 
   // === Цели над списком задач ===
   'Цель достигнута': 'Goal achieved',
+  'Все цели': 'All goals',
+  'Тема': 'Theme',
+  'Группы': 'Groups',
+  'Уведомления выключены': 'Notifications are off',
+  'Вы не узнаете о сообщениях и звонках': "You won't know about messages and calls",
+  'Папки': 'Folders',
+  '{n} на сегодня': '{n} for today',
   'Привяжите задачи': 'Link tasks to it',
   'Осталось {n}': '{n} left',
   'Пройдено {v}%': '{v}% done',
@@ -1707,7 +1730,7 @@ export const EN: Record<string, string> = {
     'Could not sync. Check your connection and try again',
   'Синхронизация отключена': 'Sync is off',
   // Настройки и системное
-  'выше — панель · ниже — «Главная»': 'above — the bottom bar · below — Home',
+  'выше — панель · ниже — «Ещё»': 'above — the bottom bar · below — More',
   'Версия': 'Version',
   'Понятно': 'Got it',
   'Брошено': 'Dropped',
@@ -2062,7 +2085,7 @@ export const EN: Record<string, string> = {
   // === Расстановка приоритетов разделов (онбординг + настройки) ===
   'Показать ещё {n}': 'Show {n} more',
   'Что для вас важнее всего?': 'What\u2019s most important to you?',
-  'Расставьте разделы по важности — верхние {n} сразу видны на «Главной», остальные откроются по кнопке «Показать ещё». Стрелками меняете порядок, переключателем — скрываете ненужное.':
+  'Расставьте разделы по важности — верхние {n} сразу видны в «Ещё», остальные откроются по кнопке «Показать ещё». Стрелками меняете порядок, переключателем — скрываете ненужное.':
     'Arrange sections by importance \u2014 the top {n} are shown right on \u201CHome\u201D, the rest open behind the \u201CShow more\u201D button. Use the arrows to reorder, the switch to hide what you don\u2019t need.',
   'дальше — за кнопкой «Показать ещё»': 'the rest are behind the \u201CShow more\u201D button',
   'Поднять «{name}»': 'Move \u201C{name}\u201D up',
@@ -2070,8 +2093,8 @@ export const EN: Record<string, string> = {
   'Скрыть раздел {name}': 'Hide {name} section',
   'Скрыто': 'Hidden',
   'Показать раздел {name}': 'Show {name} section',
-  'на «Главной» — за кнопкой «Показать ещё»': 'on \u201CHome\u201D \u2014 behind the \u201CShow more\u201D button',
-  'Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Главной») — задержите строку пальцем и перетащите. Номер у раздела — его место в списке «Главной»: первые {home} видны сразу, остальные — за кнопкой «Показать ещё».':
+  'в «Ещё» — за кнопкой «Показать ещё»': 'in \u201CMore\u201D \u2014 behind the \u201CShow more\u201D button',
+  'Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Ещё») — задержите строку пальцем и перетащите. Номер у раздела — его место в списке «Ещё»: первые {home} видны сразу, остальные — за кнопкой «Показать ещё».':
     'The switch turns a section on and off with a tap. To reorder or move a section across the line into the bottom bar (up to {n} spots, not counting \u201CHome\u201D) \u2014 hold the row and drag it. The number next to a section is its place in the \u201CHome\u201D list: the first {home} are shown right away, the rest are behind the \u201CShow more\u201D button.',
   'Расстановка приоритетов': 'Priority ranking',
 

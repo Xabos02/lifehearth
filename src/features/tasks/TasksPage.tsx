@@ -40,7 +40,9 @@ import { Hint } from '../../components/ui/Hint';
 import { useHint } from '../../hooks/useHint';
 import { updateSettings } from '../../hooks/useSettings';
 import { useToast } from '../../components/ui/toastContext';
-import { t } from '../../lib/i18n';
+import { t, tPlur } from '../../lib/i18n';
+import { todayKey } from '../../lib/dates';
+import { taskOnDay } from '../../lib/taskDates';
 import { ProjectEditSheet } from './ProjectEditSheet';
 import { QuickAddBar } from './QuickAddBar';
 import { TaskEditSheet } from './TaskEditSheet';
@@ -269,7 +271,7 @@ function Section({
       data-drop-key={dropKey}
       // Без заливки, как у подпроекта: серое в шапке и под списком на золотой
       // подложке не держит AA (канва design/muted-on-gold).
-      className={`mb-12 rounded-lh-card transition-opacity ${
+      className={`mb-8 rounded-lh-card transition-opacity ${
         highlight ? 'ring-2 ring-lh-accent' : ''
       } ${isReorderSource ? 'opacity-40' : ''}`}
     >
@@ -282,7 +284,7 @@ function Section({
         <button
           {...headerProps}
           aria-expanded={!collapsed}
-          className={`flex flex-1 items-center gap-1.5 py-2.5 text-left ${
+          className={`flex min-h-11 flex-1 items-center gap-1.5 py-2.5 text-left ${
             reorderable ? 'select-none [-webkit-touch-callout:none] [-webkit-user-select:none]' : ''
           }`}
         >
@@ -291,7 +293,7 @@ function Section({
             className={`shrink-0 text-lh-text-secondary transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
           {icon && <span className="flex shrink-0 items-center">{icon}</span>}
-          <h2 className="text-lg font-light tracking-tight">{title}</h2>
+          <h2 className="text-sm font-semibold">{title}</h2>
           <span
             className="project-count text-sm"
             style={color ? ({ '--project-color': color } as CSSProperties) : undefined}
@@ -322,7 +324,7 @@ function Section({
               <button
                 onClick={onAdd}
                 aria-label={t('Добавить задачу в проект')}
-                className={`p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
+                className={`p-1.5 text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
                 <Plus size={ICON.inline} />
               </button>
@@ -1049,6 +1051,18 @@ export function TasksPage() {
     () => unlinkDeadProjects(alive(tasksRaw ?? []), projectsRaw),
     [tasksRaw, projectsRaw],
   );
+  // Строка под заголовком (макет): «14 активных · 4 на сегодня · 1 просрочена».
+  const headerStats = useMemo(() => {
+    const today = todayKey();
+    const open = allTasks.filter((x) => !x.completedAt && !x.frozenAt);
+    if (open.length === 0) return undefined;
+    const onToday = open.filter((x) => taskOnDay(x, today)).length;
+    const late = open.filter((x) => x.dueDate !== null && x.dueDate < today).length;
+    const parts = [tPlur(open.length, ['активная', 'активных', 'активных'])];
+    if (onToday > 0) parts.push(t('{n} на сегодня', { n: onToday }));
+    if (late > 0) parts.push(tPlur(late, ['просрочена', 'просрочены', 'просрочено']));
+    return parts.join(' · ');
+  }, [allTasks]);
   // Уникальные теги из живых задач для фильтра.
   const tagOptions = useMemo(
     () => [...new Set(allTasks.flatMap((task) => task.tags))].sort((a, b) => a.localeCompare(b)),
@@ -1328,6 +1342,7 @@ export function TasksPage() {
   return (
     <Screen
       title={t('Задачи')}
+      subtitle={headerStats}
       right={
         // Голубой «морозный» кружок со свечением — видно, что это кнопка.
         // Метрика и зона касания 44×44 — из IconButton; здесь только заливка.
@@ -1337,15 +1352,11 @@ export function TasksPage() {
           onClick={() => setFreezeSheetOpen(true)}
           tone="frost"
           strokeWidth={STROKE_STRONG}
-          className="bg-frost/15 shadow-[0_0_16px_-6px_var(--app-frost)] transition-transform active:scale-90"
+          className="bg-frost/15 transition-transform active:scale-90"
         />
       }
     >
       <QuickAddBar onCreated={revealTask} />
-
-      {/* Приближение к целям — сразу под строкой добавления. Выше неё нельзя:
-          первое, зачем открывают экран задач, — записать задачу. */}
-      <GoalsProgress />
 
       {tagOptions.length > 0 && (
         <div className="mb-4">
@@ -1365,6 +1376,11 @@ export function TasksPage() {
           </ChipRow>
         </div>
       )}
+
+      {/* Приближение к целям — под строкой добавления и фильтром тегов (как в
+          макете). Выше строки нельзя: первое, зачем открывают экран задач, —
+          записать задачу. */}
+      <GoalsProgress />
 
       {empty ? (
         <>

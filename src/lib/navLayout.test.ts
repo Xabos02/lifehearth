@@ -22,8 +22,8 @@ const OPTS = {
 describe('computeNavLayout', () => {
   it('без конфига собирает панель по умолчанию с якорем в конце', () => {
     const l = computeNavLayout(REG, undefined, OPTS);
-    // Якорь ПЕРВЫМ: «Главная» — вход, а не хвост списка.
-    expect(l.bottom).toEqual(['home', 'today', 'tasks', 'notes', 'goals']);
+    // Якорь ПОСЛЕДНИМ: «Ещё» замыкает панель (редизайн 15.11.2026).
+    expect(l.bottom).toEqual(['today', 'tasks', 'notes', 'goals', 'home']);
     expect(l.more).toContain('finance');
   });
 
@@ -39,7 +39,7 @@ describe('computeNavLayout', () => {
       { bottom: ['today', 'today', 'nope', 'home', 'tasks'], hidden: ['nope', 'home', 'today'] },
       OPTS,
     );
-    expect(l.bottom).toEqual(['home', 'today', 'tasks']);
+    expect(l.bottom).toEqual(['today', 'tasks', 'home']);
     // Якорь и нескрываемый раздел спрятать нельзя, несуществующий id отброшен.
     expect(l.hidden).not.toContain('home');
     expect(l.hidden).not.toContain('today');

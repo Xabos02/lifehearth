@@ -17,6 +17,7 @@ import { ICON } from '../../components/ui/icons';
 import {
   GSparkle as Sparkles,
   GSend as Send,
+  GPlus as Plus,
 } from '../../components/ui/glyphs';
 
 /** Подсказка живёт под этим ключом и в разметке, и в скрытии по факту
@@ -85,7 +86,9 @@ export function QuickAddBar({
 
   return (
     <div className="mb-4">
-      <div ref={wrapRef} className="card px-3 py-2">
+      {/* Макет: строка ввода r12 на втором уровне поверхности, «+» слева,
+          микрофон справа — без карточки вокруг. */}
+      <div ref={wrapRef} className="rounded-xl border border-lh-border bg-lh-surface-2 py-1 pr-1.5 pl-4">
         {/* gap-3 (12.75px), а не gap-2: микрофон и «отправить» — по 37px,
             их зоны 44x44 вылезают на 3.5px в каждую сторону, поэтому при зазоре
             4.25px зоны перекрывались на 2.75px. Верх по DOM — «отправить», и
@@ -93,7 +96,8 @@ export function QuickAddBar({
             8.5px между зонами остаётся 1.5px чистого зазора. Поле ужимается на
             8.5px (на 320px остаётся 167.5px) — это только обрезка плейсхолдера,
             min-w-0 у обёртки Input не даёт строке уехать за карточку. */}
-        <div className="flex items-center gap-3">
+        <div className="flex min-h-11 items-center gap-3">
+          <Plus size={ICON.inline} className="shrink-0 text-lh-text-secondary" aria-hidden />
           <Input
             value={text}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setText(e.target.value)}

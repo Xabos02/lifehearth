@@ -24,55 +24,43 @@ export function TabBar() {
   if (pathname === '/more/family' && familyQs.get('g') != null && familyQs.get('t') == null) return null;
 
   return (
-    <nav className="z-30 shrink-0 border-t border-lh-border bg-[color-mix(in_srgb,var(--lh-bg)_92%,transparent)] backdrop-blur-[20px] pb-[clamp(6px,env(safe-area-inset-bottom),8px)]">
-      <div className="mx-auto flex max-w-lg px-1">
+    // Редизайн «Ember Gold»: холст #111118 на 92% + blur, подписи 11px под
+    // иконками, активная вкладка — золото и полужирная подпись. Зона касания
+    // каждой вкладки — 52px в высоту и не уже пятой части ряда.
+    <nav className="z-30 shrink-0 border-t border-lh-border bg-[color-mix(in_srgb,var(--lh-canvas)_92%,transparent)] backdrop-blur-[20px] pb-[clamp(6px,env(safe-area-inset-bottom),8px)]">
+      <div className="mx-auto flex max-w-lg px-2 pt-1.5">
         {bottom.map(({ id, to, label, icon: Icon, end }) => {
           // Бейджи привязаны к разделу, куда бы он ни встал: непрочитанное у
-          // «Семьи», «пора сделать копию» у «Главной» (настройки живут там).
+          // «Семьи», «пора сделать копию» у «Ещё» (настройки живут там).
           const showBadge = (id === 'home' && backupStale) || (id === 'family' && familyUnread);
           return (
             <NavLink
               key={id}
               to={to}
               end={end}
-              // Подписей под иконками нет (макеты) — имя вкладки живёт только
-              // здесь. Оранжевая точка 8px несёт два разных сообщения; их
-              // текстовый дубль тоже уходит в имя ссылки.
               aria-label={
                 showBadge
                   ? `${t(label)}, ${id === 'home' ? t('нужна резервная копия') : t('есть непрочитанные')}`
-                  : t(label)
+                  : undefined
               }
-              // min-w-0 обязателен: без него flex-элемент не сжимается ниже
-              // min-content содержимого, и пятая вкладка уезжает за край
-              // экрана (с подписями на 320px ряд требовал 348px и обрезался).
-              className="flex min-w-0 flex-1 flex-col items-center pt-2 pb-1.5"
+              // min-w-0 обязателен: без него пятая вкладка с подписью уезжала
+              // за край на 320px.
+              className="flex h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-1"
             >
               {({ isActive }) => (
                 <>
+                  <span className={`relative shrink-0 ${isActive ? 'text-lh-accent' : 'text-lh-text-secondary'}`}>
+                    <Icon size={ICON.header} strokeWidth={isActive ? STROKE_STRONG : STROKE} />
+                    {showBadge && (
+                      <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-lh-canvas" />
+                    )}
+                  </span>
                   <span
-                    // Пилюля тянется по вкладке, но не шире прежних w-16 (64px:
-                    // шаг --spacing 4px × 16): на 393/430px вид не меняется, а на
-                    // узком экране она сжимается вместо того, чтобы задавать
-                    // неусыхаемый min-content и выталкивать ряд за край.
-                    className={`flex h-9 w-full max-w-16 items-center justify-center rounded-2xl transition-colors duration-200 ${
-                      isActive ? 'text-lh-accent' : 'text-lh-text-secondary'
+                    className={`max-w-full truncate text-2xs ${
+                      isActive ? 'font-semibold text-lh-accent' : 'text-lh-text-secondary'
                     }`}
                   >
-                    <span className="relative shrink-0">
-                      <Icon
-                        size={ICON.header}
-                        // Активная вкладка «наливается» весом. Раньше это
-                        // делалось через inline style — единственный способ
-                        // перебить глобальное .lucide{stroke-width}. Правила
-                        // больше нет, вес идёт обычным пропом и означает
-                        // пиксели (ui/icons.ts).
-                        strokeWidth={isActive ? STROKE_STRONG : STROKE}
-                      />
-                      {showBadge && (
-                        <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-lh-bg" />
-                      )}
-                    </span>
+                    {t(label)}
                   </span>
                 </>
               )}

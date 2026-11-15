@@ -1,4 +1,4 @@
-import { test, expect, openApp } from './fixtures';
+import { test, expect, openApp, answerConfirm } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // Раздел заметок целиком: структура редактора, вставка, форматирование, папки.
@@ -209,11 +209,11 @@ test.describe('папки', () => {
     await page.mouse.up();
     await page.getByRole('button', { name: /Временная/ }).click();
 
-    page.once('dialog', (d) => void d.accept());
     await page.getByRole('button', { name: /Временная/ }).click();
     await page.getByRole('button', { name: 'Ещё', exact: true }).click();
     await page.getByRole('button', { name: 'Изменить папку' }).click();
     await page.getByRole('button', { name: 'Удалить папку' }).click();
+    await answerConfirm(page, true);
     await page.waitForTimeout(500);
 
     // Заметка вернулась в общий список, а не исчезла вместе с папкой.
@@ -589,8 +589,8 @@ test.describe('фото и файлы в заметке', () => {
     await page.reload();
     await expect(page.getByTestId('note-attachments')).toContainText('отчёт.txt');
 
-    page.on('dialog', (d) => void d.accept());
     await page.getByRole('button', { name: 'Удалить отчёт.txt' }).click();
+    await answerConfirm(page, true);
     await expect(page.getByTestId('note-attachments')).toHaveCount(0);
     await page.reload();
     await expect(page.locator('.note-editor')).toBeVisible();

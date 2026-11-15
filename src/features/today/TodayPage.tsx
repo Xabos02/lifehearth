@@ -26,21 +26,33 @@ import { SportTodayLine } from '../health/SportTodayLine';
 import { ProtectDataCard } from './ProtectDataCard';
 import { IconButton } from '../../components/ui/IconButton';
 import { t } from '../../lib/i18n';
+import { useSettings } from '../../hooks/useSettings';
+
+/** Приветствие по времени суток (макет «Сегодня»: крупно — приветствие,
+ *  мелко над ним — дата). */
+function greeting(now = new Date()): string {
+  const h = now.getHours();
+  if (h >= 5 && h < 12) return t('Доброе утро');
+  if (h >= 12 && h < 18) return t('Добрый день');
+  if (h >= 18 && h < 23) return t('Добрый вечер');
+  return t('Доброй ночи');
+}
 
 /** Список задач в карточке — как в TasksPage. */
 function TaskList({
   tasks,
   projectById,
   onEdit,
-  muted,
 }: {
   tasks: Task[];
   projectById: Map<string, Project>;
   onEdit: (t: Task) => void;
-  muted?: boolean;
 }) {
+  // Макет: все задачи дня — в ОДНОЙ карточке через разделители; просроченные
+  // сверху (их выделяет красная полоса и подпись срока в самой строке),
+  // выполненные — внизу, зачёркнутые.
   return (
-    <div className={`card divide-y divide-lh-border px-4 ${muted ? 'opacity-60' : ''}`}>
+    <div className="card divide-y divide-lh-border px-4">
       {tasks.map((t) => (
         <TaskItem
           key={t.id}
@@ -101,12 +113,18 @@ export function TodayPage() {
     setSheetOpen(true);
   }
 
+  const settings = useSettings();
+  const name = settings.profile?.name?.trim();
+  const hello = name ? `${greeting()}, ${name}` : greeting();
+  const totalToday = overdue.length + todayOpen.length + todayDone.length;
+
   const noTasks = overdue.length === 0 && todayOpen.length === 0 && todayDone.length === 0;
 
   return (
     <Screen
-      title={t('Сегодня')}
-      subtitle={formatHeaderDate()}
+      title={hello}
+      titleHiddenPrefix={t('Сегодня')}
+      eyebrow={formatHeaderDate()}
       right={
         <IconButton icon={Search} label={t('Поиск')} to="/search" />
       }
@@ -131,29 +149,18 @@ export function TodayPage() {
         onToggleHabits={() => setHabitsOpen((v) => !v)}
       />
 
-      {overdue.length > 0 && (
-        <section className="mb-5">
-          <h2 className="lh-section mb-2 text-warning">{t('Просрочено')}</h2>
-          <TaskList tasks={overdue} projectById={projectById} onEdit={openEdit} />
-        </section>
-      )}
-
       {noTasks ? (
         loaded && <EmptyState icon={Sun} title={t('На сегодня задач нет')} hint={t('Добавьте задачу кнопкой +')} />
       ) : (
-        (todayOpen.length > 0 || todayDone.length > 0) && (
-          <section className="mb-5">
-            <h2 className="lh-section mb-2">{t('Задачи на сегодня')}</h2>
-            {todayOpen.length > 0 && (
-              <TaskList tasks={todayOpen} projectById={projectById} onEdit={openEdit} />
-            )}
-            {todayDone.length > 0 && (
-              <div className={todayOpen.length > 0 ? 'mt-2' : ''}>
-                <TaskList tasks={todayDone} projectById={projectById} onEdit={openEdit} muted />
-              </div>
-            )}
-          </section>
-        )
+        <section className="mb-3">
+          <div className="mb-2.5 flex items-end justify-between gap-3 px-1">
+            <h2 className="lh-section">{t('Задачи на сегодня')}</h2>
+            <span className="text-xs tabular-nums text-lh-text-secondary">
+              {t('{done} из {total} готово', { done: todayDone.length, total: totalToday })}
+            </span>
+          </div>
+          <TaskList tasks={[...overdue, ...todayOpen, ...todayDone]} projectById={projectById} onEdit={openEdit} />
+        </section>
       )}
 
       {/* Быстрый ввод стоит СРАЗУ ПОД задачами: он про них, и добавляют чаще

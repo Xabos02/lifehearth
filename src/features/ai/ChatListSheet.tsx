@@ -14,6 +14,7 @@ import {
   GSearch as Search,
   GTrash as Trash2,
 } from '../../components/ui/glyphs';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 /** «26 июл, 18:40» — ISO-метка сообщения, а не дата-ключ (formatRu тут не подходит). */
 function formatWhen(iso: string): string {
@@ -38,7 +39,7 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
   const [query, setQuery] = useState('');
 
   async function handleRemove(chat: LlmChat) {
-    if (!window.confirm(t('Удалить чат «{title}» со всей перепиской?', { title: chat.title }))) return;
+    if (!(await confirmAction(t('Удалить чат «{title}» со всей перепиской?', { title: chat.title })))) return;
     await removeChat(chat.id);
   }
 

@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { markFillScreen } from '../../lib/ui/fillScreen';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
+import { useNavLayout } from '../../hooks/useNavLayout';
 import {
   GChevronLeft as ChevronLeft,
 } from '../../components/ui/glyphs';
@@ -30,6 +31,12 @@ interface Props {
   right?: ReactNode;
   /** подзаголовок под title (например, дата) */
   subtitle?: string;
+  /** Строка НАД заголовком — дата на «Сегодня» (макет: дата мелко, крупно —
+   *  приветствие). */
+  eyebrow?: string;
+  /** Скрытое начало заголовка для диктора и поиска по экрану: визуально
+   *  приветствие, а по смыслу экран — «Сегодня». */
+  titleHiddenPrefix?: string;
   /** контент занимает всю высоту (для чата): сам скроллится внутри, без резерва снизу */
   fill?: boolean;
   /** Минималистичная шапка: заголовок в одну строку обычным кеглем.
@@ -64,6 +71,21 @@ interface Props {
  *  ленты (App.tsx, --fab-strip), и складывать их значило бы вернуть мёртвую
  *  полосу внизу. Высоту таб-бара и safe-area — тоже: таб-бар соседний
  *  flex-элемент каркаса, а не наложение, свою safe-area он держит сам. */
+/** Имя родителя по адресу «назад» — подпись у стрелки («‹ Ещё»), когда
+ *  экран не задал свою. Ключи — русские (t() переводит). */
+const PARENT_LABELS: Record<string, string> = {
+  '/': 'Сегодня',
+  '/home': 'Ещё',
+  '/tasks': 'Задачи',
+  '/notes': 'Заметки',
+  '/goals': 'Цели',
+  '/more/family': 'Семья',
+  '/more/cycle': 'Женские дни',
+  '/more/cycle/settings': 'Настройки раздела',
+  '/more/learning': 'Обучение',
+  '/more/settings': 'Настройки',
+};
+
 /** Стрелка «Назад» с необязательной подписью. */
 function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void; label?: string }) {
   if (!label) {
@@ -80,12 +102,12 @@ function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void
   // -ml-1 повторяет отступ IconButton: без него подписанная стрелка стояла бы
   // на 4px правее обычной, и шапка прыгала бы при переходе между экранами.
   const cls =
-    'relative -ml-1 flex min-h-11 shrink-0 items-center gap-0.5 pr-1 text-lh-accent active:opacity-60';
+    'relative -ml-1 flex min-h-11 shrink-0 items-center gap-1 pr-1 text-base text-lh-accent active:opacity-60';
   const inner = (
     <>
       <ChevronLeft size={ICON.accent} strokeWidth={STROKE_STRONG} className="shrink-0" />
       {/* max-w — чтобы длинное имя папки не съедало место у кнопок справа. */}
-      <span className="max-w-[7.5rem] truncate">{label}</span>
+      <span className="max-w-[12rem] truncate">{label}</span>
     </>
   );
   return onClick ? (
@@ -101,11 +123,13 @@ function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void
 
 export function Screen({
   title,
-  backTo,
+  backTo: backToProp,
   onBack,
   backLabel,
   right,
   subtitle,
+  eyebrow,
+  titleHiddenPrefix,
   fill = false,
   compact = false,
   titleLead,
@@ -113,6 +137,13 @@ export function Screen({
   titlePressHint,
   children,
 }: Props) {
+  // Раздел, вынесенный в нижнее меню, — экран первого уровня: стрелка «‹ Ещё»
+  // у него вводила бы в заблуждение (по умолчанию так у «Семьи»). Решает
+  // текущая раскладка меню — человек может поменять её в «Разделах».
+  const { bottom } = useNavLayout();
+  const { pathname } = useLocation();
+  const backTo =
+    backToProp === '/home' && bottom.some((sec) => !sec.anchor && sec.to === pathname) ? undefined : backToProp;
   // Пока такой экран открыт, баннер установки не показывается: прокрутки,
   // вместе с которой он уезжал бы, здесь нет.
   useEffect(() => (fill ? markFillScreen() : undefined), [fill]);
@@ -135,21 +166,35 @@ export function Screen({
     >
       {/* Широкие экраны (Mac/Windows/iPad): контент — центральная колонка
           max-w-lg, той же ширины, что таб-бар. На телефоне ничего не меняет. */}
+      {/* Шапка «Ember Gold» (редизайн 42 экранов): без нижней линии, на
+          полупрозрачном фоне с blur — контент уходит под неё мягко. У экранов
+          второго уровня стрелка с именем родителя стоит отдельной строкой над
+          крупным заголовком, как large title в iOS; у корневых — заголовок
+          слева, действия справа. Компактная (чат) — одна строка, как раньше. */}
       <header
-        className={`sticky top-0 z-30 shrink-0 border-b border-lh-border bg-lh-bg px-4 ${
+        className={`sticky top-0 z-30 shrink-0 bg-[color-mix(in_srgb,var(--lh-bg)_92%,transparent)] px-4 backdrop-blur-[20px] ${
           compact
-            ? 'pt-[calc(env(safe-area-inset-top)+8px)] pb-2'
-            : 'pt-[calc(env(safe-area-inset-top)+12px)] pb-3'
+            ? 'border-b border-lh-border pt-[calc(env(safe-area-inset-top)+8px)] pb-2'
+            : 'pt-[calc(env(safe-area-inset-top)+8px)] pb-3'
         }`}
       >
+        {!compact && !onTitlePress && (backTo || onBack) ? (
+          <div className="mx-auto w-full max-w-lg">
+            <div className="-ml-1 flex min-h-11 items-center gap-2">
+              <BackControl to={backTo} onClick={onBack} label={backLabel ?? (backTo && PARENT_LABELS[backTo] ? t(PARENT_LABELS[backTo]) : t('Назад'))} />
+              <div className="ml-auto flex items-center">{right}</div>
+            </div>
+            {(title || subtitle) && (
+              <div className="pt-1">
+                {title && <h1 className="lh-heading line-clamp-2 break-words max-[359px]:text-[7.5vw]">{title}</h1>}
+                {subtitle && <p className="mt-1 text-xs text-lh-text-secondary">{subtitle}</p>}
+              </div>
+            )}
+          </div>
+        ) : (
         <div className="mx-auto flex w-full max-w-lg items-center gap-2">
-          {/* Стрелка «Назад» — единственная навигация вверх по иерархии, и вес
-              у неё акцентный: обычным 1.5px шеврон рядом с жирным заголовком
-              читался как случайная чёрточка. В iOS он тоже полужирный. */}
           {(backTo || onBack) && (
-            // Стрелка и подпись — одна кнопка, а не две рядом стоящие: в iOS
-            // «‹ Заметки» нажимается целиком, и палец туда и целится.
-            <BackControl to={backTo} onClick={onBack} label={backLabel} />
+            <BackControl to={backTo} onClick={onBack} label={compact ? backLabel : undefined} />
           )}
           {onTitlePress ? (
             <h1 className="min-w-0 flex-1">
@@ -171,19 +216,10 @@ export function Screen({
               </button>
             </h1>
           ) : (
-          <div className="min-w-0 flex-1">
-            {/* Заголовок переносится на вторую строку вместо обрезки многоточием
-                («Установка и данн…»): на 320px под него остаётся всего ~252px —
-                ширина минус px-4 и стрелка «Назад». line-clamp-2 оставляет
-                многоточие только для действительно длинных названий, break-words
-                страхует от неразрывно длинного слова (у шапки overflow скрыт).
-                Стиль — .lh-heading дизайн-системы (28px, вес 300, трекинг
-                -0.5px) от 360px и выше; 7.5vw ужимает только совсем узкие
-                экраны (320px → 24px), где две строки уже не спасают. */}
-            {/* Пустой заголовок — законный случай: у редактора заметки его
-                роль играет первая строка самого текста, и дублировать её
-                словом «Заметка» незачем. Рендерить пустой h1 нельзя — он
-                занимает высоту строки и раздувает шапку. */}
+          <div className={`min-w-0 flex-1 ${compact ? '' : 'pt-1'}`}>
+            {/* Пустой заголовок — законный случай (редактор заметки): пустой h1
+                не рендерим, он раздувал бы шапку. */}
+            {eyebrow && !compact && <p className="mb-1 text-sm text-lh-text-secondary">{eyebrow}</p>}
             {title && (
               <h1
                 className={
@@ -192,18 +228,20 @@ export function Screen({
                     : 'lh-heading line-clamp-2 break-words max-[359px]:text-[7.5vw]'
                 }
               >
+                {titleHiddenPrefix && <span className="sr-only">{titleHiddenPrefix}. </span>}
                 {title}
               </h1>
             )}
             {subtitle && (
-              <p className={`font-medium text-lh-text-secondary ${compact ? 'truncate text-2xs leading-tight' : 'text-sm'}`}>
+              <p className={`text-lh-text-secondary ${compact ? 'truncate text-2xs leading-tight font-medium' : 'mt-1 text-xs'}`}>
                 {subtitle}
               </p>
             )}
           </div>
           )}
-          {right}
+          {right && <div className="-mr-2 flex shrink-0 items-center">{right}</div>}
         </div>
+        )}
       </header>
       <main
         className={

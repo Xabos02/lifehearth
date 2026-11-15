@@ -7,6 +7,7 @@ import {
   GCloud as Cloud,
   GCloudOff as CloudOff,
   GSettings as SettingsIcon,
+  GSearch as Search,
 } from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
@@ -21,6 +22,8 @@ import { HOME_VISIBLE_STEP, SECTION_BY_ID } from '../../lib/sections';
 import { getLang, t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import { useConsent } from '../../lib/consent';
+import { IconButton } from '../../components/ui/IconButton';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 interface MenuCardProps {
   to: string;
@@ -34,8 +37,8 @@ interface MenuCardProps {
 function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: MenuCardProps) {
   return (
     <Link to={to} className="flex items-stretch gap-3 pl-4 active:bg-lh-surface-2">
-      <div className="relative my-3 flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
-        <Icon size={ICON.header} />
+      <div className="relative my-3 flex size-9 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
+        <Icon size={ICON.action} />
         {badge && (
           <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-warning" />
         )}
@@ -47,14 +50,14 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
         {/* min-w-0 обязателен: иначе длинная подпись не даёт колонке сжаться и
             выдавливает стрелку за край карточки. */}
         <div className="min-w-0 flex-1">
-        <p className="font-semibold">{title}</p>
+        <p>{title}</p>
         {/* Две строки вместо многоточия: на 320px под подпись остаётся 158px,
             а «Общие задачи, чат и звонки» требует 299 — обрезка съедала
             половину фразы. Карточка от второй строки подрастает, но список
             всё равно вертикальный, и читаемость важнее ровной высоты. */}
         {subtitle && (
           <p
-            className={`line-clamp-2 text-sm leading-snug ${
+            className={`line-clamp-2 text-xs leading-snug ${
               subtitleWarning ? 'text-warning' : 'text-lh-text-secondary'
             }`}
           >
@@ -62,10 +65,20 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
           </p>
         )}
         </div>
-        <ChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
+        <ChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
       </div>
     </Link>
   );
+}
+
+/** Инициалы для аватара без фото: «Владислав Ковалёв» → «ВК». */
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join('');
 }
 
 /** Карточка профиля. Ведёт на экран редактирования; пока ничего не заполнено —
@@ -91,7 +104,7 @@ function ProfileCard() {
   return (
     <Link
       to="/home/profile"
-      className="flex items-center gap-3.5 card p-4 active:opacity-80"
+      className="flex items-center gap-3.5 p-4 active:opacity-80"
     >
       {p?.avatar ? (
         <img
@@ -101,16 +114,20 @@ function ProfileCard() {
           width={56}
           height={56}
         />
+      ) : p?.name?.trim() ? (
+        <div className="flex size-14 shrink-0 items-center justify-center rounded-full border border-lh-accent/40 bg-lh-accent-dim text-lg font-light text-lh-accent">
+          {initials(p.name.trim())}
+        </div>
       ) : (
         <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-lh-text-secondary">
           <User size={ICON.accent} />
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className={`text-lg font-light ${p?.name?.trim() ? 'truncate' : 'leading-tight'}`}>
+        <p className={`text-base font-semibold ${p?.name?.trim() ? 'break-words' : 'leading-tight'}`}>
           {p?.name?.trim() || (hasAny ? t('Без имени') : t('Заполнить профиль'))}
         </p>
-        <p className="text-sm leading-snug text-lh-text-secondary">
+        <p className="text-xs leading-snug text-lh-text-secondary">
           {facts.length > 0 ? facts.join(' · ') : t('Имя, фото, рост и вес')}
         </p>
       </div>
@@ -149,23 +166,23 @@ function DataStatusCard() {
   return (
     <Link
       to="/more/settings"
-      className="flex items-center gap-3 card p-4 active:opacity-80"
+      className="flex items-center gap-3 border-t border-lh-border p-4 active:opacity-80"
     >
       <div
-        className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${
+        className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${
           syncOn ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
         }`}
       >
         {syncOn ? <Cloud size={ICON.header} /> : <CloudOff size={ICON.header} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-semibold">
+        <p className="text-sm">
           {syncOn ? t('Данные синхронизируются') : paused ? t('Синхронизация на паузе') : t('Не синхронизируется')}
         </p>
         {/* Без truncate по той же причине, что и в MenuCard: «Копию ещё не
             делали» на 320px не влезает в 158px и обрывалось на «не дел…» —
             ровно то предупреждение, которое обязано читаться целиком. */}
-        <p className={`text-sm leading-snug ${due ? 'text-warning' : 'text-lh-text-secondary'}`}>
+        <p className={`text-xs leading-snug ${due ? 'text-warning' : 'text-lh-text-secondary'}`}>
           {last ? t('Копия: {date}', { date: formatRu(last.slice(0, 10), 'd MMMM') }) : t('Резервную копию ещё не делали')}
         </p>
       </div>
@@ -199,16 +216,22 @@ export function HomePage() {
   const settingsSection = SECTION_BY_ID.get('settings');
 
   return (
-    <Screen title={t('Главная')}>
+    <Screen title={t('Ещё')} right={<IconButton icon={Search} label={t('Поиск')} to="/search" />}>
       <div className="space-y-5">
-        <div className="space-y-3">
+        {/* Макет «Ещё»: профиль и состояние данных — одна карточка. */}
+        <div className="card overflow-hidden">
           <ProfileCard />
           <DataStatusCard />
         </div>
 
         {sections.length > 0 && (
           <section>
-            <h2 className="lh-section mb-2 px-1">{t('Разделы')}</h2>
+            <div className="mb-2 flex items-center justify-between px-1">
+              <h2 className="lh-section">{t('Разделы')}</h2>
+              <Link to="/more/settings/sections" className={`relative text-xs text-lh-accent ${HIT_SLOP_44}`}>
+                {t('Настроить')}
+              </Link>
+            </div>
             {/* Один контейнер вместо десяти карточек: у каждой была своя
                 рамка и своя тень, а высоты в одном ряду расходились на 20px
                 (82 / 95 / 103) — список читался как набор плиток, а не как
