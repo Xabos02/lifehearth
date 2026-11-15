@@ -61,3 +61,52 @@ test('шапка показывает, кто это, одной строкой'
   // Возраст вместо даты: сколько человеку лет, понятнее, чем когда он родился.
   await expect(page.getByText(/\d+ лет · 178 см · 70 кг/)).toBeVisible();
 });
+
+// Уход с экрана раньше паузы автосохранения дописывает последнее нажатие. Эта
+// запись брала профиль из ПЕРВОГО кадра экрана, когда база ещё не ответила:
+// аватар стирался, а прежний вес считался новым и ложился в дневник замером
+// на сегодня — точка, которой не было, и на всех устройствах поверх
+// сегодняшнего настоящего веса.
+test('быстрый уход из профиля не стирает аватар и не добавляет замер веса', async ({ page }) => {
+  const avatar = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+  await openApp(page, '/home', { profile: { name: 'Аня', avatar, heightCm: 170, weightKg: 80 } });
+  const earlier = await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { addDaysKey, todayKey } = await import('/src/lib/dates.ts');
+    const date = addDaysKey(todayKey(), -5);
+    const at = new Date().toISOString();
+    await db.metricLogs.put({
+      id: `health:weight:${date}`, metricId: 'health:weight', date, value: 80,
+      createdAt: at, updatedAt: at, deletedAt: null,
+    } as never);
+    return date;
+  });
+  // Переход внутри приложения, а не goto: экран монтируется заново, и его
+  // первый кадр рисуется до ответа базы — как у человека.
+  await page.locator('a[href="/home/profile"]').click();
+  await expect(page.getByLabel('Имя')).toHaveValue('Аня');
+  // Набор и «Назад» — одним заходом в страницу, а не двумя шагами Playwright:
+  // под нагрузкой между ними легко набегали бы 600 мс паузы, и сохранение
+  // успевало бы по таймеру — тест прошёл бы мимо ошибки.
+  await page.evaluate(async () => {
+    const input = [...document.querySelectorAll('input')].find((i) => i.value === 'Аня')!;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Аня К');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 50));
+    document.querySelector<HTMLAnchorElement>('a[aria-label="Назад"]')!.click();
+  });
+
+  const read = () =>
+    page.evaluate(async () => {
+      const { db } = await import('/src/db/db.ts');
+      const p = (await db.settings.get('app'))?.profile;
+      const logs = (await db.metricLogs.toArray()).filter((l) => !l.deletedAt).map((l) => `${l.date}=${l.value}`);
+      return { name: p?.name, avatar: Boolean(p?.avatar), weightKg: p?.weightKg, logs };
+    });
+  // Последнее нажатие дописано — значит запись при уходе уже прошла.
+  await expect.poll(async () => (await read()).name).toBe('Аня К');
+  // Замер пишется следом за профилем: даём ему время, прежде чем утверждать,
+  // что его нет.
+  await page.waitForTimeout(500);
+  expect(await read()).toEqual({ name: 'Аня К', avatar: true, weightKg: 80, logs: [`${earlier}=80`] });
+});

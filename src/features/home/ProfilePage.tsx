@@ -9,6 +9,7 @@ import { Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
+import type { UserProfile } from '../../db/types';
 import { logMeasure } from '../health/measures';
 import { updateSettings } from '../../hooks/useSettings';
 import { getLang, t } from '../../lib/i18n';
@@ -31,6 +32,17 @@ function parseNumber(raw: string): number | null {
   if (s === '') return null;
   const v = Number(s);
   return Number.isFinite(v) && v > 0 ? v : null;
+}
+
+/** Правка профиля поверх СВЕЖЕГО из базы, а не `p` кадра. Сохранение при
+ *  уходе с экрана зовётся из первого кадра, где база ещё не ответила и `p`
+ *  пуст: аватар стирался, а прежний вес считался новым. Фото так же
+ *  ложилось на профиль, снятый до сжатия, — сохранение, успевшее за время
+ *  сжатия, откатилось бы. Возвращает профиль до правки. */
+async function patchProfile(patch: UserProfile): Promise<UserProfile | undefined> {
+  const before = (await db.settings.get('app'))?.profile;
+  await updateSettings({ profile: { ...before, ...patch } });
+  return before;
 }
 
 export function ProfilePage() {
@@ -99,18 +111,15 @@ export function ProfilePage() {
   async function commit(f: typeof form) {
     saveTimer.current = undefined;
     const weightKg = parseNumber(f.weightKg);
-    await updateSettings({
-      profile: {
-        ...p,
-        name: f.name.trim() || undefined,
-        birthDate: f.birthDate || null,
-        heightCm: parseNumber(f.heightCm),
-        weightKg,
-      },
+    const before = await patchProfile({
+      name: f.name.trim() || undefined,
+      birthDate: f.birthDate || null,
+      heightCm: parseNumber(f.heightCm),
+      weightKg,
     });
     // Вес из профиля — в дневник замеров («Здоровье»), чтобы источник был
     // один: раньше «Главная» показывала профильное число, а раздел — своё.
-    if (weightKg != null && weightKg !== p?.weightKg && weightKg >= 20 && weightKg <= 300) {
+    if (weightKg != null && weightKg !== before?.weightKg && weightKg >= 20 && weightKg <= 300) {
       await logMeasure('weight', todayKey(), weightKg);
     }
     setDraft(null);
@@ -136,7 +145,7 @@ export function ProfilePage() {
       // Аватар мельче фото в чате: он рисуется кружком 56px, и хранить под
       // него мегабайт незачем. 256px хватает и для будущих крупных мест.
       const dataUrl = await compressImage(file, 256, 0.75);
-      await updateSettings({ profile: { ...p, avatar: dataUrl } });
+      await patchProfile({ avatar: dataUrl });
     } catch (err) {
       if (err instanceof ImageTooLargeError) {
         toast(t('Файл больше {mb} МБ', { mb: Math.round(MAX_INPUT_BYTES / 1024 / 1024) }));
@@ -186,7 +195,7 @@ export function ProfilePage() {
             type="button"
             disabled={busy}
             aria-label={t('Удалить фото')}
-            onClick={() => void updateSettings({ profile: { ...p, avatar: null } })}
+            onClick={() => void patchProfile({ avatar: null })}
             className={`shrink-0 p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
           >
             <Trash2 size={ICON.action} />

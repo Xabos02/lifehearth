@@ -17,7 +17,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { db } = await import('../db/db');
+const { db, DEFAULT_SETTINGS } = await import('../db/db');
 const { generateKey, encryptJSON, decryptJSON, exportKeyRaw, importKeyRaw, wireId, wireIdKey } = await import('./crypto');
 const { getSyncConfig, patchSyncConfig } = await import('./syncState');
 const { runSync, batchByBytes } = await import('./sync');
@@ -1116,5 +1116,41 @@ describe('непрозрачные id на проводе (задача 35)', ()
     }]);
     await runSync();
     expect(sent.map((r) => r.table)).toEqual(['metricLogs2']);
+  });
+});
+
+// Профиль держит у себя копию последнего веса: её читают «Главная» и ИМТ.
+// Догоняла она дневник только при замере на ЭТОМ устройстве — вес, введённый
+// на телефоне, на ноутбуке показывался в «Замерах», а «Главная» и ИМТ
+// оставались на прежнем числе, пока здесь не введут или не удалят замер.
+describe('вес с другого устройства доходит до профиля', () => {
+  const T1 = '2026-11-15T08:00:00.000Z';
+  const T2 = '2026-11-15T09:00:00.000Z';
+  const weight = (date: string, value: number, updatedAt: string, deletedAt: string | null = null) => ({
+    id: `health:weight:${date}`, metricId: 'health:weight', date, value, createdAt: T1, updatedAt, deletedAt,
+  });
+
+  it('новый замер обновляет профиль, его удаление возвращает прежний', async () => {
+    const key = await seedSync();
+    await db.settings.put({ ...DEFAULT_SETTINGS, profile: { name: 'Аня', heightCm: 170, weightKg: 80 } });
+    await db.metricLogs.put(weight('2026-11-14', 80, '2026-11-14T08:00:00.000Z') as never);
+    const k = await wireIdKey(key);
+    const wid = await wireId(k, 'metricLogs', 'health:weight:2026-11-15');
+    const rec = async (row: ReturnType<typeof weight>) => ({
+      table: 'metricLogs2', id: wid, updatedAt: row.updatedAt, deletedAt: row.deletedAt,
+      ciphertext: await encryptJSON(key, row, 512),
+    });
+    const pulls: unknown[] = [{ records: [await rec(weight('2026-11-15', 78.4, T1))], hasMore: false, nextAfter: 1 }];
+    mockFetch((url) =>
+      url.includes('/sync/pull') ? jsonRes(pulls.shift() ?? { records: [], hasMore: false, nextAfter: 0 }) : jsonRes({ ok: true }),
+    );
+    const profile = async () => (await db.settings.get('app'))?.profile;
+
+    await runSync();
+    expect(await profile()).toEqual({ name: 'Аня', heightCm: 170, weightKg: 78.4 });
+
+    pulls.push({ records: [await rec(weight('2026-11-15', 78.4, T2, T2))], hasMore: false, nextAfter: 2 });
+    await runSync();
+    expect((await profile())?.weightKg).toBe(80);
   });
 });

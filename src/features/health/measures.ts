@@ -106,27 +106,24 @@ export async function logMeasure(key: MeasureKey, date: string, value: number): 
   // Строку метрики на замер не трогаем: её currentValue никто не читает, а
   // правка в ту же миллисекунду, что и замер, связывала бы на сервере замер
   // с его видом (задача 35).
-  // Вес — ещё и в профиле: его читают «Главная» и ИМТ. Один источник правды
-  // — дневник; профиль догоняет, если замер не старше последнего.
-  if (key === 'weight') {
-    const logs = (await db.metricLogs.where('metricId').equals(metricId).toArray()).filter((l) => !l.deletedAt);
-    const latest = logs.reduce((m, l) => (l.date > m ? l.date : m), '');
-    if (date >= latest) {
-      const s = await db.settings.get('app');
-      await updateSettings({ profile: { ...s?.profile, weightKg: v } });
-    }
-  }
+  if (key === 'weight') await syncProfileWeight();
 }
 
 export async function removeMeasureLog(id: string): Promise<void> {
   await remove(db.metricLogs, id);
-  // Удалили вес — профиль и ИМТ на «Главной» догоняют последний живой замер.
-  if (id.startsWith(`${measureDef('weight').id}:`)) {
-    const logs = (await db.metricLogs.where('metricId').equals(measureDef('weight').id).toArray()).filter((l) => !l.deletedAt);
-    const latest = logs.sort((a, b) => b.date.localeCompare(a.date))[0];
-    const s = await db.settings.get('app');
-    await updateSettings({ profile: { ...s?.profile, weightKg: latest ? latest.value : null } });
-  }
+  if (id.startsWith(`${measureDef('weight').id}:`)) await syncProfileWeight();
+}
+
+/** Вес — ещё и в профиле: его читают «Главная» и ИМТ. Один источник правды
+ *  — дневник; профиль догоняет последний живой замер после ЛЮБОЙ записи веса:
+ *  своего замера, удаления и замера, пришедшего синком с другого устройства
+ *  (sync.ts) — раньше синк профиль не трогал, и «Главная» с ИМТ оставались
+ *  на прежнем числе. Нет замеров — нет и веса. */
+export async function syncProfileWeight(): Promise<void> {
+  const logs = (await db.metricLogs.where('metricId').equals(measureDef('weight').id).toArray()).filter((l) => !l.deletedAt);
+  const latest = logs.sort((a, b) => b.date.localeCompare(a.date))[0];
+  const s = await db.settings.get('app');
+  await updateSettings({ profile: { ...s?.profile, weightKg: latest ? latest.value : null } });
 }
 
 export interface MeasureTrend {
