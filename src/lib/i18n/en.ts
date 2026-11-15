@@ -1913,6 +1913,7 @@ export const EN: Record<string, string> = {
   'Apple Health веб-приложению закрыт, а Strava пускает к данным только по платной подписке. Зато файл выгрузки есть у всех: подойдёт activities.csv из Strava, выгрузка Garmin или своя таблица с датой, видом и минутами.': 'Apple Health is closed to web apps, and Strava only shares data with a paid subscription. But everyone can export a file: activities.csv from Strava, a Garmin export, or your own table with date, type and minutes will do.',
   '{d} за 30 дней': '{d} over 30 days',
   '{d} за 30 дней · утром, до кофе': '{d} over 30 days · morning, before coffee',
+  'Ни одна строка из {n} не разобрана: проверьте дату и длительность.': 'None of the {n} rows could be read: check the date and duration.',
   'В файле не нашлось тренировок: нужны колонки с датой и длительностью.': 'No workouts found in the file: it needs date and duration columns.',
   'Верхнее': 'Systolic',
   'Нижнее': 'Diastolic',

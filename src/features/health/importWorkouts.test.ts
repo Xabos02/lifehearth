@@ -159,3 +159,14 @@ describe('CSV целиком', () => {
     expect(withoutDuplicates([{ ...row, minutes: 40 }], [edited])).toEqual([]);
   });
 });
+
+describe('ключ дня', () => {
+  it('день должен быть в календаре: 31 февраля и 25-й месяц — нет', async () => {
+    const { isDateKey } = await import('../../lib/dates');
+    expect(['2026-11-15', '2024-02-29', '2026-01-01', '2026-12-31'].map(isDateKey)).toEqual([true, true, true, true]);
+    expect(['2026-02-31', '2026-02-29', '2026-25-09', '2026-00-10', '2026-11-00', '', '2026-1-5', '15.11.2026'].map(isDateKey)).toEqual(
+      Array(8).fill(false),
+    );
+  });
+});
+

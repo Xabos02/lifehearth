@@ -99,7 +99,13 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
     // запись воскресала при следующем импорте той же выгрузки.
     const fresh = withoutDuplicates(parsed.rows, await db.workouts.toArray());
     if (parsed.rows.length === 0) {
-      toast(t('В файле не нашлось тренировок: нужны колонки с датой и длительностью.'));
+      // Колонки есть, но ни одна строка не подошла (дата, которой нет, или
+      // позже сегодня) — говорим это, а не «нужны колонки».
+      toast(
+        parsed.skipped > 0
+          ? t('Ни одна строка из {n} не разобрана: проверьте дату и длительность.', { n: parsed.skipped })
+          : t('В файле не нашлось тренировок: нужны колонки с датой и длительностью.'),
+      );
       return;
     }
     const msg = t('Найдено записей: {n}, новых: {fresh}, не разобрано строк: {skipped}. Добавить новые?', {

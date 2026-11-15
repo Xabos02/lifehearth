@@ -27,7 +27,9 @@ import { formatDuration } from '../../lib/duration';
 // Шаблон в зале читают чаще, чем правят, а стена полей с обрезанными
 // названиями («Подтягива…») читалась плохо.
 
-const digits = (v: string, max: number) => v.replace(/[^\d]/g, '').slice(0, max);
+/** Целое число: вставка «12,5» — это 12, а не 125 (разделитель раньше
+ *  вырезался, и цифры склеивались). */
+const digits = (v: string, max: number) => v.replace(/[.,].*$/, '').replace(/[^\d]/g, '').slice(0, max);
 /** Дробное число: до 4 цифр, один разделитель и до 2 знаков после — как
  *  хранится. Второй разделитель («5,2,1») поле принимало, а запись выходила
  *  без километров — молча; без предела 400 цифр записывались как Infinity.
@@ -187,6 +189,8 @@ export function ItemFields({
                 onClear={() => onChange({ newKind: '' })}
                 // «Своё» — новый вид, а не упражнение внутри вида: подписи не путать.
                 placeholder={t('Название вида')}
+                // Чип вида — в одну строку: длинное название уводило его за край шторки.
+                maxLength={40}
               />
               <Button className="shrink-0" disabled={!item.newKind.trim()} onClick={() => void confirmCustom()}>
                 {t('Добавить')}
@@ -244,9 +248,11 @@ export function ItemFields({
             key={s.name}
             type="button"
             onClick={() => addExercise(s)}
-            className={`rounded-full border border-lh-border bg-lh-surface-2 px-3 py-1.5 text-sm text-lh-text-primary active:opacity-70 ${HIT_SLOP_44}`}
+            className={`max-w-full rounded-full border border-lh-border bg-lh-surface-2 px-3 py-1.5 text-sm text-lh-text-primary active:opacity-70 ${HIT_SLOP_44}`}
           >
-            + {s.name}
+            {/* Многоточие — на внутренней строке: overflow на самой кнопке
+                обрезал бы её невидимую зону касания. */}
+            <span className="block truncate">+ {s.name}</span>
           </button>
         ))}
         <button

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router';
 import { db } from '../../db/db';
@@ -29,7 +29,7 @@ export function SportTodayLine() {
   const rows = useLiveQuery(() => db.workouts.toArray(), []);
   const [open, setOpen] = useState(false);
 
-  const workouts = shownWorkouts(rows ?? []);
+  const workouts = useMemo(() => shownWorkouts(rows ?? []), [rows]);
   const goal = settings.workoutWeeklyGoal ?? DEFAULT_WEEKLY_GOAL;
   const advice = todayAdvice(workouts, today, goal);
   const last = lastWorkout(workouts, today);

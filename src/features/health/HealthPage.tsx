@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { Screen } from '../../components/layout/Screen';
@@ -63,7 +63,8 @@ export function HealthPage() {
   // в порядке ввода и в точках дня, и в списках (addWorkoutSession).
   const rows = useLiveQuery(async () => (await db.workouts.toArray()).sort((a, b) => a.createdAt.localeCompare(b.createdAt)), []);
   const loaded = useLoaded(rows);
-  const workouts = shownWorkouts(rows ?? []);
+  // Один и тот же список между кадрами: сводки вкладки считаются по нему.
+  const workouts = useMemo(() => shownWorkouts(rows ?? []), [rows]);
 
   const openNew = (date: string) => setSheet({ open: true, workout: null, date, template: null });
   const openEdit = (w: Workout) => setSheet({ open: true, workout: w, date: w.date, template: null });

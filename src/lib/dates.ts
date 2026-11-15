@@ -1,4 +1,4 @@
-import { addDays, endOfMonth, endOfWeek, format, getISODay, isSameMonth, isValid, parse, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
+import { addDays, endOfMonth, endOfWeek, format, getISODay, isSameMonth, parse, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
 import { enUS, ru } from 'date-fns/locale';
 import { getLang, t } from './i18n';
 
@@ -22,7 +22,12 @@ export function fromKey(key: string): Date {
 /** Ключ дня, который есть в календаре: '2026-02-31' и '2026-25-09' — нет.
  *  fromKey делает из такого Invalid Date, а format на нём бросает RangeError. */
 export function isDateKey(key: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(key) && isValid(fromKey(key));
+  // Без date-fns: проверка идёт по каждой тренировке на каждом кадре раздела,
+  // а разбор строки библиотекой на выгрузке Strava за годы — это десятки мс.
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!m) return false;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return d.getFullYear() === +m[1] && d.getMonth() === +m[2] - 1 && d.getDate() === +m[3];
 }
 
 export function todayKey(): string {

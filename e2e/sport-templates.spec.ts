@@ -657,3 +657,16 @@ test('барабан: три быстрые стрелки подряд — тр
   await expect(page.getByRole('button', { name: 'Общее время: 15 мин' })).toBeVisible();
 });
 
+test('целые поля упражнения: вставка «12,5» — это 12, а не 125', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await openTemplates(page);
+  await page.getByRole('button', { name: 'Новый шаблон' }).click();
+  await page.getByRole('button', { name: 'Упражнение', exact: true }).click();
+  await page.getByLabel('Подходы').fill('12,5');
+  await expect(page.getByLabel('Подходы')).toHaveValue('12');
+  await page.getByLabel('Повторы', { exact: true }).fill('12.5');
+  await expect(page.getByLabel('Повторы', { exact: true })).toHaveValue('12');
+  await page.getByLabel('Повторы, до').fill('абв15');
+  await expect(page.getByLabel('Повторы, до')).toHaveValue('15');
+});
+
