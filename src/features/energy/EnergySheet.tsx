@@ -9,6 +9,7 @@ import { create, remove, update } from '../../db/repo';
 import { t } from '../../lib/i18n';
 import type { EnergyEffort, EnergyItem } from '../../db/types';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 const CATEGORY_SUGGESTIONS = [
   'Тело',
@@ -100,7 +101,7 @@ function ItemForm({ item, onClose }: { item: EnergyItem | null; onClose: () => v
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm(t('Удалить способ?'))) return;
+    if (!(await confirmAction(t('Удалить способ?')))) return;
     await remove(db.energyItems, item.id);
     onClose();
   };

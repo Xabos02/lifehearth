@@ -7,6 +7,7 @@ import { create, remove, update } from '../../db/repo';
 import { t } from '../../lib/i18n';
 import type { SavingsGoal } from '../../db/types';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 const COLORS = ['#7c9cff', '#a78bfa', '#f472b6', '#fb923c', '#facc15', '#4ade80', '#22d3ee', '#f87171'];
 
@@ -58,7 +59,7 @@ function GoalForm({ goal, onClose }: { goal: SavingsGoal | null; onClose: () => 
 
   const handleDelete = async () => {
     if (!goal) return;
-    if (!window.confirm(t('Удалить цель со всеми пополнениями?'))) return;
+    if (!(await confirmAction(t('Удалить цель со всеми пополнениями?')))) return;
     const deps = await db.savingsDeposits.where('goalId').equals(goal.id).toArray();
     for (const d of deps) await remove(db.savingsDeposits, d.id);
     await remove(db.savingsGoals, goal.id);

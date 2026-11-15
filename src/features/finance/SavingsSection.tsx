@@ -15,6 +15,7 @@ import { SavingsGoalSheet } from './SavingsGoalSheet';
 import { getLang, t } from '../../lib/i18n';
 import { DepositSheet } from './DepositSheet';
 import { ICON } from '../../components/ui/icons';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 function GoalCard({
   goal,
@@ -178,9 +179,16 @@ export function SavingsSection() {
   // Без подтверждения: цель уходит в АРХИВ, а не удаляется, и вернуть её
   // оттуда можно. Спрашивать на обратимом действии — приучать жать «Да» не
   // читая, и тогда вопрос перестаёт работать там, где он правда нужен.
-  const claim = (g: SavingsGoal) => {
+  const claim = async (g: SavingsGoal) => {
     // Необратимо с экрана: архивную цель ни один экран пока не показывает.
-    if (!window.confirm(t('Забрать накопленное и убрать цель из списка? История пополнений останется в базе.'))) return;
+    if (
+      !(await confirmAction({
+        title: t('Забрать накопленное и убрать цель из списка? История пополнений останется в базе.'),
+        confirmLabel: t('Забрать'),
+        danger: false,
+      }))
+    )
+      return;
     void update(db.savingsGoals, g.id, { archivedAt: now() });
   };
 

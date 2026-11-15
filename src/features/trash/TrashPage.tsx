@@ -22,6 +22,7 @@ import { formatRu } from '../../lib/dates';
 import type { BaseEntity } from '../../db/types';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 interface TrashEntry {
   table: Table<BaseEntity, string>;
@@ -107,7 +108,7 @@ export function TrashPage() {
 
   async function handlePurge(entry: TrashEntry) {
     if (busyRef.current) return;
-    if (!window.confirm(t('Удалить навсегда?'))) return;
+    if (!(await confirmAction(t('Удалить навсегда?')))) return;
     busyRef.current = true;
     try {
       // Каскадно убираем дочерние логи и части плана, иначе они остаются

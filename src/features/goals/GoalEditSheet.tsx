@@ -12,6 +12,7 @@ import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 const MODE_OPTIONS: { value: GoalProgressMode; label: string }[] = [
   { value: 'manual', label: 'Вручную' },
@@ -96,7 +97,7 @@ function GoalEditForm({
 
   async function handleDelete() {
     if (!goal) return;
-    if (!window.confirm(t('Удалить цель «{title}»?', { title: goal.title }))) return;
+    if (!(await confirmAction(t('Удалить цель «{title}»?', { title: goal.title })))) return;
     const [tasks, items] = await Promise.all([
       db.tasks.where('goalId').equals(goal.id).toArray(),
       db.learningItems.where('goalId').equals(goal.id).toArray(),

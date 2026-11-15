@@ -73,6 +73,7 @@ import { useVoiceRecorder } from './useVoiceRecorder';
 import { isAlive, snippetOf } from './chats';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 // Палитра быстрых реакций — как в WhatsApp/Telegram, шесть базовых.
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
@@ -1100,7 +1101,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
     setActionMsg(null);
     // Спрашиваем: удаление необратимо и стирает сообщение у всех, а меню
     // открывается одиночным касанием — промахнуться легко.
-    if (!window.confirm(t('Удалить сообщение? Оно исчезнет у всех.'))) return;
+    if (!(await confirmAction(t('Удалить сообщение? Оно исчезнет у всех.')))) return;
     if (editingId === m.clientMsgId) {
       setEditingId(null);
       setText('');

@@ -16,6 +16,7 @@ import { CallRunner } from './components/CallRunner';
 import { SwNavBridge } from './components/SwNavBridge';
 import { TabBar } from './components/layout/TabBar';
 import { ToastProvider } from './components/ui/Toast';
+import { ConfirmHost } from './components/ui/ConfirmHost';
 import { useSettings } from './hooks/useSettings';
 import { TodayPage } from './features/today/TodayPage';
 import { TasksPage } from './features/tasks/TasksPage';
@@ -277,6 +278,9 @@ export default function App() {
               этого окна человек не узнаёт ни что версия сменилась, ни чем. */}
           <WhatsNew />
           <GenderGate />
+          {/* Подтверждения действий (шит вместо window.confirm) — последним,
+              чтобы вопрос вставал поверх шита, из которого его задали. */}
+          <ConfirmHost />
         </ErrorBoundary>
         </PomodoroProvider>
       </ToastProvider>

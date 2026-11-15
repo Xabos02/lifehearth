@@ -15,7 +15,7 @@ const ROUTES = [
   ['/calendar', 'Календарь'],
   ['/goals', 'Цели'],
   ['/stats', 'Статистика'],
-  ['/home', 'Главная'],
+  ['/home', 'Ещё'],
   ['/more/finance', 'Финансы'],
   ['/more/focus', 'Фокус'],
   ['/more/habits', 'Привычки'],

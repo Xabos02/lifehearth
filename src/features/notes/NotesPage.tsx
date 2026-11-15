@@ -24,7 +24,7 @@ import { IconButton } from '../../components/ui/IconButton';
 import { Sheet } from '../../components/ui/Sheet';
 import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
-import { alive, remove, update } from '../../db/repo';
+import { alive, remove, restore, update } from '../../db/repo';
 import type { Note, NoteFolder } from '../../db/types';
 import { formatRu, toKey } from '../../lib/dates';
 import { t, tPlur } from '../../lib/i18n';
@@ -426,7 +426,8 @@ export function NotesPage() {
   };
 
   function del(note: Note) {
-    if (window.confirm(t('Удалить заметку?'))) void remove(db.notes, note.id);
+    void remove(db.notes, note.id);
+    toast(t('Заметка удалена'), { action: { label: t('Вернуть'), onClick: () => void restore(db.notes, note.id) } });
   }
 
   const renderList = (items: Note[]) => (
@@ -501,9 +502,13 @@ export function NotesPage() {
   async function deleteSelected() {
     const ids = [...selected];
     if (ids.length === 0) return;
-    if (!window.confirm(t('Удалить {n}? Вернуть можно из Корзины.', { n: tPlur(ids.length, ['заметку', 'заметки', 'заметок']) }))) return;
     for (const id of ids) await remove(db.notes, id);
-    toast(t('Удалено: {n}. Вернуть можно из Корзины', { n: ids.length }));
+    toast(t('Удалено: {n}. Вернуть можно из Корзины', { n: ids.length }), {
+      action: {
+        label: t('Вернуть'),
+        onClick: () => void Promise.all(ids.map((id) => restore(db.notes, id))),
+      },
+    });
     exitSelect();
   }
 

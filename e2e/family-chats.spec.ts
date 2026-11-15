@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { openApp, seedFamilyChats, test } from './fixtures';
+import { openApp, seedFamilyChats, test, answerConfirm } from './fixtures';
 
 // «Семья» — список чатов, как в мессенджере (канва design/family-chats, Б):
 // общий чат карточкой вместе с задачами, ниже «Личные» — группы на двоих под
@@ -102,14 +102,8 @@ test('пригласить в личный чат можно, но сначал�
   await page.goto('/more/family?g=p-mom&t=members');
   await expect(page.getByRole('button', { name: 'Выйти из группы' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Мама', level: 1, exact: true })).toBeVisible();
-  const asked: string[] = [];
-  page.once('dialog', (d) => {
-    asked.push(d.message());
-    void d.dismiss();
-  });
   await page.getByRole('button', { name: 'Пригласить' }).click();
-  await expect.poll(() => asked.length).toBe(1);
-  expect(asked[0]).toContain('Чат станет общим');
+  expect(await answerConfirm(page, false)).toContain('Чат станет общим');
   // Отказ — приглашения нет.
   await expect(page.getByRole('heading', { name: 'Пригласить в группу' })).toHaveCount(0);
 });

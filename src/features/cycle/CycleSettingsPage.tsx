@@ -20,6 +20,7 @@ import { formatRu } from '../../lib/dates';
 import { AUTO_TASK_TEMPLATES, MAX_ACTIVE_AUTO_TASKS } from '../../lib/cycle/autoTasks';
 import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 /** Переключатель строкой. Своя реализация вместо нативного checkbox: нужен
  *  крупный тач-таргет на всю строку и подпись под заголовком, а нативный
@@ -84,7 +85,7 @@ function PinSection({ settings }: { settings: CycleSettings }) {
   }
 
   async function remove() {
-    if (!window.confirm(t('Убрать код? Раздел будет открываться без него.'))) return;
+    if (!(await confirmAction({ title: t('Убрать код? Раздел будет открываться без него.'), confirmLabel: t('Убрать код'), danger: false }))) return;
     await updateCycleSettings({ lock: 'none', pin: undefined });
     lockCycleSection();
   }

@@ -10,7 +10,7 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PhotoViewer } from '../../components/ui/PhotoViewer';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
-import { remove, update } from '../../db/repo';
+import { remove, restore, update } from '../../db/repo';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
 import { addDaysKey, formatDueDate, formatRu, toKey, todayKey } from '../../lib/dates';
 import { formatDueRange } from '../../lib/taskDates';
@@ -200,10 +200,11 @@ export const TaskItem = memo(function TaskItem({
   };
 
   const handleDelete = () => {
-    if (window.confirm(t('Удалить задачу?'))) {
-      void cancelReminder(task.id, task.remindBefore != null);
-      void remove(db.tasks, task.id);
-    } else setDx(0);
+    // Без вопроса: удаление мягкое, и плашка «Вернуть» отменяет его одним
+    // касанием (макет: «Удалено · Вернуть» вместо системного confirm).
+    void cancelReminder(task.id, task.remindBefore != null);
+    void remove(db.tasks, task.id);
+    toast(t('Задача удалена'), { action: { label: t('Вернуть'), onClick: () => void restore(db.tasks, task.id) } });
   };
 
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
