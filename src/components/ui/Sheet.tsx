@@ -29,6 +29,14 @@ const DRAG_START = 12;
  *  жест отпускаем совсем, панель не двигается и не закрывается. */
 const DRAG_X_ABORT = 10;
 
+/** Сколько открытых шторок сейчас держат прокрутку приложения. Запрет
+ *  ставит первая, снимает последняя. Раньше каждая запоминала прежнее
+ *  значение и возвращала его сама: шторка поверх шторки запоминала уже
+ *  выставленный запрет, и когда обе уходили разом (системное «Назад», тап
+ *  по пушу), внешняя возвращала прокрутку, а внутренняя следом — запрет.
+ *  Лента после этого не листалась ни на одном экране до перезапуска. */
+let scrollLocks = 0;
+
 /** Bottom sheet — стандартный контейнер быстрых форм создания/редактирования.
  *  Закрывается свайпом вниз по «ручке»/шапке. */
 export function Sheet({ open, onClose, title, children }: Props) {
@@ -75,11 +83,11 @@ export function Sheet({ open, onClose, title, children }: Props) {
     if (!open) return;
     const scroller = document.querySelector<HTMLElement>('[data-app-scroll]');
     if (!scroller) return;
-    const prev = scroller.style.overflowY;
     const at = scroller.scrollTop;
-    scroller.style.overflowY = 'hidden';
+    // Своего overflowY в разметке у контейнера нет — снятый запрет это ''.
+    if (scrollLocks++ === 0) scroller.style.overflowY = 'hidden';
     return () => {
-      scroller.style.overflowY = prev;
+      if (--scrollLocks === 0) scroller.style.overflowY = '';
       scroller.scrollTop = at;
     };
   }, [open]);
