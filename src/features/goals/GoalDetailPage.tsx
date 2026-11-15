@@ -1,9 +1,13 @@
 import { useState, type ChangeEvent } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { differenceInCalendarDays } from 'date-fns';
 import {
   Book,
+  Flag,
   FileText,
+  Link2,
+  Workflow,
   FlaskConical,
   Languages,
   Minus,
@@ -11,17 +15,18 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
-  GPencil as Pencil,
   GPlus as Plus,
   GClose as X,
   GLearning as GraduationCap,
+  GCalendar as CalendarIcon,
+  GChevronDown as ChevronDown,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, update } from '../../db/repo';
-import type { LearningItem, LearningKind, Task } from '../../db/types';
-import { formatRu } from '../../lib/dates';
+import type { Goal, LearningItem, LearningKind, Task } from '../../db/types';
+import { formatRu, fromKey, todayKey } from '../../lib/dates';
 import { formatNum } from '../../lib/finance';
-import { t } from '../../lib/i18n';
+import { t, tPlur } from '../../lib/i18n';
 import { goalProgress, goalProgressLabel } from '../../lib/progress';
 import { Screen } from '../../components/layout/Screen';
 import { Input } from '../../components/ui/Input';
@@ -31,8 +36,6 @@ import { Sheet } from '../../components/ui/Sheet';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { GoalEditSheet } from './GoalEditSheet';
-import { IconButton } from '../../components/ui/IconButton';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
 
 const KIND_ICONS: Record<LearningKind, LucideIcon> = {
@@ -48,23 +51,37 @@ const KIND_ICONS: Record<LearningKind, LucideIcon> = {
 function SectionHeader({
   title,
   actionLabel,
+  actionIcon: ActionIcon,
   onAction,
 }: {
   title: string;
   actionLabel?: string;
+  actionIcon?: LucideIcon;
   onAction?: () => void;
 }) {
   return (
-    <div className="mb-2 flex items-center justify-between">
-      <h2 className="font-bold">{title}</h2>
+    <div className="mb-1 flex min-h-11 items-center justify-between px-1">
+      <h2 className="lh-section">{title}</h2>
       {actionLabel && onAction && (
-        <button type="button" onClick={onAction} className="text-sm font-medium text-lh-accent">
+        <button
+          type="button"
+          onClick={onAction}
+          className="flex h-11 items-center gap-1.5 text-sm text-lh-accent active:opacity-60"
+        >
+          {ActionIcon && <ActionIcon size={ICON.inline} />}
           {actionLabel}
         </button>
       )}
     </div>
   );
 }
+
+const STATUS_LABEL: Record<Goal['status'], string> = {
+  active: 'Активна',
+  paused: 'Пауза',
+  completed: 'Завершена',
+  archived: 'Архив',
+};
 
 /** Детальная страница цели: прогресс, связанные задачи, привычки, обучение. */
 export function GoalDetailPage() {
@@ -91,6 +108,7 @@ export function GoalDetailPage() {
   const [linkLearningOpen, setLinkLearningOpen] = useState(false);
   // Черновик ввода числового прогресса строкой (null = поле не редактируется).
   const [valueDraft, setValueDraft] = useState<string | null>(null);
+  const [showDone, setShowDone] = useState(false);
 
   if (goal === undefined) {
     return <Screen title={t('Цель')} backTo="/goals">{null}</Screen>;
@@ -133,192 +151,273 @@ export function GoalDetailPage() {
     });
   }
 
+  const openTasks = sortedTasks.filter((task) => !task.completedAt);
+  const doneTasks = sortedTasks.filter((task) => task.completedAt);
+  const daysLeft = goal.targetDate ? differenceInCalendarDays(fromKey(goal.targetDate), fromKey(todayKey())) : null;
+  const dueHint =
+    daysLeft === null
+      ? ''
+      : daysLeft < 0
+        ? t('срок прошёл')
+        : daysLeft === 0
+          ? t('сегодня')
+          : daysLeft < 14
+            ? t('через {x}', { x: tPlur(daysLeft, ['день', 'дня', 'дней']) })
+            : t('через {x}', { x: tPlur(Math.round(daysLeft / 7), ['неделю', 'недели', 'недель']) });
+  const openTask = (task: Task) => {
+    setEditingTask(task);
+    setTaskSheetOpen(true);
+  };
+
   return (
     <Screen
-      title={goal.title}
+      title=""
       backTo="/goals"
       right={
-        <IconButton icon={Pencil} label={t('Редактировать')} onClick={() => setEditOpen(true)} />
+        <button
+          type="button"
+          onClick={() => setEditOpen(true)}
+          className="flex h-11 items-center px-1 text-base font-medium text-lh-accent active:opacity-60"
+        >
+          {t('Изменить')}
+        </button>
       }
     >
-      {goal.description && (
-        <p className="mb-4 whitespace-pre-wrap text-sm text-lh-text-secondary">{goal.description}</p>
-      )}
+      <div className="flex flex-col gap-6">
+      <section className="flex flex-col items-center pt-1 text-center">
+        <div className="relative">
+          <ProgressRing value={progress} size={168} strokeWidth={7} color={goal.color} label="" />
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-[44px] font-light leading-none tabular-nums tracking-tight">
+              {Math.round(progress)}
+              <span className="text-xl text-lh-text-secondary">%</span>
+            </span>
+            {goal.progressMode !== 'manual' && (
+              <span className="mt-1.5 max-w-[130px] truncate text-xs tabular-nums text-lh-text-secondary">
+                {goalProgressLabel(goal, goalTasks)}
+              </span>
+            )}
+          </div>
+        </div>
+        <span className="mt-5 inline-flex items-center gap-2 text-xs text-lh-text-secondary">
+          <span className="size-2 rounded-full" style={{ background: goal.color }} />
+          {t(STATUS_LABEL[goal.status])}
+        </span>
+        <h1 className="mt-2 break-words px-4 text-2xl font-light leading-tight tracking-tight">{goal.title}</h1>
+        {goal.targetDate && (
+          <p className="mt-2 flex items-center gap-1.5 text-sm tabular-nums text-lh-text-secondary">
+            <CalendarIcon size={ICON.inline} className="shrink-0" />
+            {t('Срок: {date}', { date: formatRu(goal.targetDate, 'd MMMM yyyy') })}
+            {dueHint && ` · ${dueHint}`}
+          </p>
+        )}
+      </section>
 
-      <div className="flex items-center gap-4 card p-4">
-        <ProgressRing value={progress} size={96} strokeWidth={7} color={goal.color} />
-        <div className="min-w-0">
-          <p className="text-lg font-light">{goalProgressLabel(goal, goalTasks)}</p>
-          {goal.targetDate && (
-            <p className="text-sm text-lh-text-secondary">
-              {t('Срок: {date}', { date: formatRu(goal.targetDate, 'd MMMM yyyy') })}
+      {(goal.description || goal.progressMode === 'tasks') && (
+        <section className="card p-4">
+          {goal.description && <p className="whitespace-pre-wrap text-sm leading-relaxed">{goal.description}</p>}
+          {goal.progressMode === 'tasks' && (
+            <p
+              className={`flex items-center gap-2 text-xs text-lh-text-secondary ${
+                goal.description ? 'mt-4 border-t border-lh-border pt-3' : ''
+              }`}
+            >
+              <Workflow size={ICON.inline} className="shrink-0" />
+              {t('Прогресс считается по задачам ниже.')}
             </p>
           )}
-        </div>
-      </div>
+        </section>
+      )}
 
-      {goal.status === 'active' && progress >= 100 && (
-        <div className="mt-3 rounded-2xl border border-success/40 bg-success/10 p-4">
-          <p className="font-semibold text-success">{t('Цель достигнута?')}</p>
-          <button
-            type="button"
-            onClick={() => update(db.goals, goal.id, { status: 'completed' })}
-            className="mt-1 text-sm font-medium text-success underline"
-          >
-            {t('Отметить завершённой')}
-          </button>
+      {goal.progressMode === 'manual' && (
+        <div className="card p-4">
+          <p className="mb-2 text-sm font-medium text-lh-text-secondary">
+            {t('Прогресс вручную · {n}%', { n: goal.progressManual })}
+          </p>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={goal.progressManual}
+            aria-label={t('Прогресс вручную, проценты')}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              update(db.goals, goal.id, { progressManual: Number(e.target.value) })
+            }
+            className="w-full"
+            style={{ accentColor: goal.color }}
+          />
+        </div>
+      )}
+      {goal.progressMode === 'numeric' && (
+        <div className="card p-4">
+          <p className="mb-2 text-sm font-medium text-lh-text-secondary">
+            {t('{done} из {total}', {
+              done: formatNum(current),
+              total: formatNum(goal.targetValue ?? 0),
+            })}
+            {goal.unitLabel ? ` ${goal.unitLabel}` : ''}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label={t('Уменьшить прогресс')}
+              onClick={() => {
+                setValueDraft(null);
+                void changeBy(-1);
+              }}
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 active:opacity-70"
+            >
+              <Minus size={ICON.base} />
+            </button>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              value={valueDraft ?? String(current)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setValueDraft(e.target.value)}
+              onBlur={() => {
+                if (valueDraft === null) return;
+                const n = Number(valueDraft);
+                if (valueDraft.trim() !== '' && Number.isFinite(n)) void setCurrentValue(n);
+                setValueDraft(null);
+              }}
+              className="text-center"
+            />
+            <button
+              type="button"
+              aria-label={t('Увеличить прогресс')}
+              onClick={() => {
+                setValueDraft(null);
+                void changeBy(1);
+              }}
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 active:opacity-70"
+            >
+              <Plus size={ICON.base} />
+            </button>
+          </div>
         </div>
       )}
 
-      <div className="mt-3">
-        {goal.progressMode === 'manual' && (
-          <div className="card p-4">
-            <p className="mb-2 text-sm font-medium text-lh-text-secondary">
-              {t('Прогресс вручную · {n}%', { n: goal.progressManual })}
-            </p>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={goal.progressManual}
-              aria-label={t('Прогресс вручную, проценты')}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                update(db.goals, goal.id, { progressManual: Number(e.target.value) })
-              }
-              className="w-full"
-              style={{ accentColor: goal.color }}
-            />
-          </div>
-        )}
-        {goal.progressMode === 'numeric' && (
-          <div className="card p-4">
-            <p className="mb-2 text-sm font-medium text-lh-text-secondary">
-              {t('{done} из {total}', {
-                done: formatNum(current),
-                total: formatNum(goal.targetValue ?? 0),
-              })}
-              {goal.unitLabel ? ` ${goal.unitLabel}` : ''}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                aria-label={t('Уменьшить прогресс')}
-                onClick={() => {
-                  setValueDraft(null);
-                  void changeBy(-1);
-                }}
-                className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 active:opacity-70"
-              >
-                <Minus size={ICON.base} />
-              </button>
-              <Input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                value={valueDraft ?? String(current)}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setValueDraft(e.target.value)}
-                onBlur={() => {
-                  if (valueDraft === null) return;
-                  const n = Number(valueDraft);
-                  if (valueDraft.trim() !== '' && Number.isFinite(n)) void setCurrentValue(n);
-                  setValueDraft(null);
-                }}
-                className="text-center"
-              />
-              <button
-                type="button"
-                aria-label={t('Увеличить прогресс')}
-                onClick={() => {
-                  setValueDraft(null);
-                  void changeBy(1);
-                }}
-                className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 active:opacity-70"
-              >
-                <Plus size={ICON.base} />
-              </button>
-            </div>
-          </div>
-        )}
-        {goal.progressMode === 'tasks' && (
-          <p className="px-1 text-sm text-lh-text-secondary">{t('Прогресс считается по задачам ниже.')}</p>
-        )}
-      </div>
-
-      <section className="mt-6">
-        <SectionHeader title={t('Задачи')} />
+      <section>
+        <SectionHeader
+          title={
+            openTasks.length > 0
+              ? t('Задачи · {x}', { x: tPlur(openTasks.length, ['открытая', 'открытых', 'открытых']) })
+              : t('Задачи')
+          }
+          actionLabel={t('Задача')}
+          actionIcon={Plus}
+          onAction={() => {
+            setEditingTask(null);
+            setTaskSheetOpen(true);
+          }}
+        />
         {sortedTasks.length === 0 && (
           <p className="px-1 text-sm text-lh-text-secondary">{t('Нет привязанных задач.')}</p>
         )}
         <div className="flex flex-col gap-2">
-          {sortedTasks.map((taskItem) => (
+          {openTasks.map((taskItem) => (
             <TaskItem
               key={taskItem.id}
               task={taskItem}
               project={projects.find((p) => p.id === taskItem.projectId) ?? null}
-              onEdit={(task) => {
-                setEditingTask(task);
-                setTaskSheetOpen(true);
-              }}
+              onEdit={openTask}
             />
           ))}
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setEditingTask(null);
-            setTaskSheetOpen(true);
-          }}
-          className="mt-2 flex items-center gap-1.5 px-1 py-2 text-sm font-medium text-lh-accent"
-        >
-          <Plus size={ICON.action} /> {t('Задача')}
-        </button>
+        {doneTasks.length > 0 && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowDone((v) => !v)}
+              aria-expanded={showDone}
+              className="card mt-2 flex h-12 w-full items-center justify-between px-4 text-sm text-lh-text-secondary active:opacity-70"
+            >
+              <span>{t('Выполненные · {n}', { n: doneTasks.length })}</span>
+              <ChevronDown size={ICON.inline} className={`transition-transform ${showDone ? 'rotate-180' : ''}`} />
+            </button>
+            {showDone && (
+              <div className="mt-2 flex flex-col gap-2">
+                {doneTasks.map((taskItem) => (
+                  <TaskItem
+                    key={taskItem.id}
+                    task={taskItem}
+                    project={projects.find((p) => p.id === taskItem.projectId) ?? null}
+                    onEdit={openTask}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </section>
 
-      <section className="mt-6">
+      <section>
         <SectionHeader
           title={t('Обучение')}
           actionLabel={t('Привязать')}
+          actionIcon={Link2}
           onAction={() => setLinkLearningOpen(true)}
         />
-        {linkedLearning.length === 0 && (
+        {linkedLearning.length === 0 ? (
           <p className="px-1 text-sm text-lh-text-secondary">{t('Нет привязанных материалов.')}</p>
-        )}
-        <div className="flex flex-col gap-2">
-          {linkedLearning.map((li: LearningItem) => {
-            const Icon = KIND_ICONS[li.kind];
-            return (
-              <div
-                key={li.id}
-                className="flex items-center gap-3 card p-3.5"
-              >
-                <Icon size={ICON.base} className="shrink-0 text-lh-text-secondary" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-base font-medium">{li.title}</p>
-                  <div className="mt-1.5">
-                    <ProgressBar
-                      value={
-                        li.progressTarget > 0
-                          ? (li.progressCurrent / li.progressTarget) * 100
-                          : 0
-                      }
-                      color={goal.color}
-                    />
-                  </div>
+        ) : (
+          <div className="card divide-y divide-lh-border">
+            {linkedLearning.map((li: LearningItem) => {
+              const Icon = KIND_ICONS[li.kind];
+              return (
+                <div key={li.id} className="flex items-center gap-3 py-3.5 pl-4 pr-2">
+                  <Link
+                    to={`/more/learning/${li.id}`}
+                    className="flex min-w-0 flex-1 items-center gap-3 active:opacity-70"
+                  >
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
+                      <Icon size={ICON.base} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{li.title}</span>
+                      <span className="mt-1.5 block">
+                        <ProgressBar
+                          value={li.progressTarget > 0 ? (li.progressCurrent / li.progressTarget) * 100 : 0}
+                          color={goal.color}
+                        />
+                      </span>
+                      {li.progressTarget > 0 && (
+                        <span className="mt-1.5 block text-xs tabular-nums text-lh-text-secondary">
+                          {t('{done} из {total}', { done: formatNum(li.progressCurrent), total: formatNum(li.progressTarget) })}
+                        </span>
+                      )}
+                    </span>
+                  </Link>
+                  <button
+                    type="button"
+                    aria-label={t('Отвязать')}
+                    onClick={() => update(db.learningItems, li.id, { goalId: null })}
+                    className="flex size-11 shrink-0 items-center justify-center text-lh-text-secondary active:opacity-60"
+                  >
+                    <X size={ICON.action} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  aria-label={t('Отвязать')}
-                  onClick={() => update(db.learningItems, li.id, { goalId: null })}
-                  className={`p-1.5 text-lh-text-secondary ${HIT_SLOP_44}`}
-                >
-                  <X size={ICON.action} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </section>
+
+      {goal.status === 'active' && (
+        <button
+          type="button"
+          onClick={() => update(db.goals, goal.id, { status: 'completed' })}
+          className="card flex min-h-14 w-full items-center justify-center gap-2 px-4 py-3 text-sm text-success active:opacity-70"
+        >
+          <Flag size={ICON.action} className="shrink-0" />
+          <span>
+            {t('Цель достигнута?')} {t('Отметить завершённой')}
+          </span>
+        </button>
+      )}
+      </div>
 
       <GoalEditSheet open={editOpen} onClose={() => setEditOpen(false)} goal={goal} />
 
