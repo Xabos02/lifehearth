@@ -84,6 +84,9 @@ export function ItemFields({
   const suggestions = exerciseSuggestions(sources, item, item.exercises.map((e) => e.name));
 
   function pickType(type: WorkoutType, customLabel: string | null = null, customColor: string | null = null) {
+    // Тап по уже выбранному чипу — не смена вида: без этого он снимал
+    // keepsDistance и стирал километры импортированной записи.
+    if (type === item.type && customLabel === item.customLabel) return;
     // Сменили вид — километры чужого вида больше не держим.
     const patch: Partial<Item> = { type, customLabel, customColor, keepsDistance: false };
     if (!item.minutesTouched) patch.minutes = String(kindOfItem({ type, customLabel, customColor }).defaultMinutes);
@@ -300,7 +303,7 @@ function ExerciseEditor({
   const caption = 'mb-1 block text-xs text-lh-text-secondary';
   const sign = 'flex h-11 items-center text-lh-text-secondary';
   const arrow =
-    'flex size-11 shrink-0 items-center justify-center rounded-lh-btn border border-lh-border-strong text-lh-text-secondary active:scale-95 disabled:opacity-40';
+    'flex size-11 shrink-0 items-center justify-center rounded-lh-btn border border-lh-border-strong text-lh-text-secondary active:scale-95 aria-disabled:opacity-40 aria-disabled:active:scale-100';
   return (
     <div className="my-2 space-y-3 rounded-lh-btn border border-lh-accent-border p-3" data-testid="exercise-editor">
       <Input
@@ -383,10 +386,12 @@ function ExerciseEditor({
         />
       </Field>
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => onMove(-1)} disabled={first} aria-label={t('Поднять упражнение')} className={arrow}>
+        {/* У края — aria-disabled, а не disabled: выключенная кнопка теряла бы
+            фокус (он уходил на body), и стрелки с клавиатуры обрывались. */}
+        <button type="button" onClick={() => !first && onMove(-1)} aria-disabled={first} aria-label={t('Поднять упражнение')} className={arrow}>
           <GChevronDown size={ICON.base} className="rotate-180" />
         </button>
-        <button type="button" onClick={() => onMove(1)} disabled={last} aria-label={t('Опустить упражнение')} className={arrow}>
+        <button type="button" onClick={() => !last && onMove(1)} aria-disabled={last} aria-label={t('Опустить упражнение')} className={arrow}>
           <GChevronDown size={ICON.base} />
         </button>
         {/* «Убрать» — омоним, как у вида: английская ветка явная. */}

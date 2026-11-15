@@ -181,6 +181,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
         {/* Шаблоны — там же, где день (канва design/sport-templates): чип
             открывает запись на выбранный день уже заполненной. Раньше до них
             было три касания через «Новую тренировку». */}
+        {templates && (
         <div className="mt-3 border-t border-lh-border pt-1" data-testid="day-templates">
           <div className="flex min-h-11 items-center justify-between">
             <span className="px-1 text-sm text-lh-text-secondary">{templates.length > 0 ? t('По шаблону') : t('Шаблонов пока нет')}</span>
@@ -207,6 +208,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
             </div>
           )}
         </div>
+        )}
       </section>
 
       <div className="flex gap-3">

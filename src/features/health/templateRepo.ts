@@ -21,8 +21,13 @@ export async function removeTemplate(id: string): Promise<void> {
   await remove(db.workoutTemplates, id);
 }
 
-/** Живые шаблоны по алфавиту — один порядок в списке и в чипах карточки дня. */
-export function useTemplates(): WorkoutTemplate[] {
-  const rows = useLiveQuery(() => db.workoutTemplates.toArray(), []) ?? [];
-  return alive(rows).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+/** Живые шаблоны по алфавиту — один порядок в списке и в чипах карточки дня.
+ *  `undefined` — база ещё не ответила: «Шаблонов пока нет» на первом кадре
+ *  мелькало у того, у кого они есть. Запись без названия или видов (битая
+ *  строка синка) пропускается: сортировка по ней роняла бы всю вкладку. */
+export function useTemplates(): WorkoutTemplate[] | undefined {
+  const rows = useLiveQuery(() => db.workoutTemplates.toArray(), []);
+  return rows && alive(rows)
+    .filter((tpl) => typeof tpl.name === 'string' && Array.isArray(tpl.items))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 }

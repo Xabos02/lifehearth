@@ -16,8 +16,12 @@ const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 
 /** Два колеса: часы и минуты. `value` — минуты всего; 0 — время не задано. */
 export function DurationWheel({ value, onChange }: { value: number; onChange: (minutes: number) => void }) {
-  const h = Math.min(HOURS.length - 1, Math.floor(value / 60));
-  const m = (Math.round((value % 60) / 5) * 5) % 60;
+  // На сетку колёс встаёт всё значение целиком: 58 минут — это «1 ч 0 мин»,
+  // а не «0 ч 0 мин» (отдельное округление остатка давало 60 → 0). Время не
+  // на сетке приходит только синком; пока колёса не тронули, оно не меняется.
+  const snapped = Math.min(HOURS[HOURS.length - 1] * 60 + MINUTES[MINUTES.length - 1], Math.round(value / 5) * 5);
+  const h = Math.floor(snapped / 60);
+  const m = snapped % 60;
   // Оба колеса могут встать в один тик: второе должно сложиться с уже новым
   // значением первого, а не с тем, что было на прошлом рендере.
   const cur = useRef({ h, m });
@@ -62,30 +66,14 @@ function WheelColumn({
 }) {
   const railRef = useRef<HTMLDivElement>(null);
   const centerRef = useRef(-1);
-  const settle = useRef<number | undefined>(undefined);
-  const valueRef = useRef(value);
-  const onChangeRef = useRef(onChange);
+  // Куда колесо едет после тапа или стрелки; null — его крутят пальцем.
+  const targetRef = useRef<number | null>(null);
   const [center, setCenter] = useState(() => Math.max(0, values.indexOf(value)));
   // JS-прокрутка сама слушает «Уменьшение движения» (PROTOCOL §6.1).
   const reduce = useMemo(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false, []);
 
-  useEffect(() => {
-    valueRef.current = value;
-    onChangeRef.current = onChange;
-  }, [value, onChange]);
-  // Барабан закрыли, пока колесо доезжало: число под полосой всё равно выбрано.
-  useEffect(
-    () => () => {
-      if (settle.current === undefined) return;
-      window.clearTimeout(settle.current);
-      const v = values[centerRef.current];
-      if (v !== undefined && v !== valueRef.current) onChangeRef.current(v);
-    },
-    [values],
-  );
-
   // Встать на значение: при открытии — скачком, без щелчков; своё же значение
-  // после остановки колеса приходит с тем же индексом и ничего не двигает.
+  // приходит с тем же индексом и ничего не двигает.
   useLayoutEffect(() => {
     const rail = railRef.current;
     const i = values.indexOf(value);
@@ -103,24 +91,31 @@ function WheelColumn({
     const rail = railRef.current;
     if (!rail) return;
     const i = Math.min(values.length - 1, Math.max(0, Math.round(rail.scrollTop / ROW)));
-    if (i !== centerRef.current) {
-      centerRef.current = i;
-      setCenter(i);
-      playTick();
-    }
-    // Значение уходит наверх, когда колесо встало, — на броске форма не
-    // перерисовывается на каждом делении (как барабан дней).
-    window.clearTimeout(settle.current);
-    settle.current = window.setTimeout(() => {
-      settle.current = undefined;
-      const v = values[centerRef.current];
-      if (v !== undefined && v !== valueRef.current) onChangeRef.current(v);
-    }, 120);
+    if (i === centerRef.current) return;
+    centerRef.current = i;
+    setCenter(i);
+    playTick();
+    // Число уходит в форму сразу, на каждом делении: «Сохранить» или закрытие
+    // через долю секунды после броска уже видят его. У барабана дней выбор
+    // ждёт остановки ленты — там за ним пересчёт сводок, здесь форма лёгкая.
+    // После тапа число уже отдано (pick): промежуточные по пути не в счёт.
+    if (targetRef.current === null) onChange(values[i]);
+    else if (i === targetRef.current) targetRef.current = null;
   };
 
+  /** Тап по числу и стрелка знают число сразу — и отдают сразу, колесо
+   *  доезжает следом: закрытие на полпути не оставит промежуточное. */
   const pick = (i: number) => {
     unlockTick();
+    if (i === centerRef.current) return;
+    targetRef.current = i;
+    onChange(values[i]);
     railRef.current?.scrollTo({ top: i * ROW, behavior: reduce ? 'auto' : 'smooth' });
+  };
+  /** Палец на колесе — дальше ведёт он, а не начатая тапом прокрутка. */
+  const grab = () => {
+    targetRef.current = null;
+    unlockTick();
   };
 
   // Клавиатура: Tab входит на выбранном числе, стрелки листают по делению.
@@ -136,9 +131,9 @@ function WheelColumn({
     <div
       ref={railRef}
       onScroll={onScroll}
-      onTouchStart={unlockTick}
+      onTouchStart={grab}
       onTouchEnd={unlockTick}
-      onPointerDown={unlockTick}
+      onPointerDown={grab}
       onKeyDown={onKeyDown}
       role="group"
       aria-label={label}

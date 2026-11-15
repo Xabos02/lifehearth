@@ -130,4 +130,16 @@ describe('упражнения внутри вида', () => {
     // У бега флаг не нужен: дистанция — его собственное поле.
     expect(itemFromSaved({ ...ski, type: 'run' }).keepsDistance).toBe(false);
   });
+
+  // Разбор кода 15.11.2026: запись, пришедшая синком от другой версии, могла
+  // нести число на месте текста — редактор падал на .trim().
+  it('чужая форма полей упражнения не роняет строку формы и не уходит обратно в запись', () => {
+    const odd = { name: 'Сани', sets: 4, reps: 20, repsTo: '8', unit: 'xyz', weight: 12, rest: null, note: { a: 1 } } as never;
+    const row = exerciseRow(odd);
+    expect(row).toMatchObject({ name: 'Сани', sets: '4', reps: '20', repsTo: '', unit: null, weight: '', rest: '', note: '', open: false });
+    expect(cleanExercises([row])).toStrictEqual([{ name: 'Сани', sets: 4, reps: 20 }]);
+    // Вид без списка упражнений или с мусором на его месте — пустой список.
+    const item = { type: 'strength' as const, customLabel: null, customColor: null, minutes: 0, distanceKm: null, exercises: 'нет' as never };
+    expect(itemFromSaved(item).exercises).toEqual([]);
+  });
 });

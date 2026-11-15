@@ -79,7 +79,7 @@ export function itemFromSaved(src: WorkoutTemplateItem, collapsed = false): Item
     minutes: src.minutes > 0 ? String(src.minutes) : '',
     distance: src.distanceKm != null ? String(src.distanceKm).replace('.', ',') : '',
     minutesTouched: true,
-    exercises: (src.exercises ?? []).map((e) => exerciseRow(e)),
+    exercises: (Array.isArray(src.exercises) ? src.exercises : []).map((e) => exerciseRow(e)),
     collapsed,
     keepsDistance: src.distanceKm != null && !kindOfItem(src).hasDistance,
     newKind: null,
@@ -89,16 +89,21 @@ export function itemFromSaved(src: WorkoutTemplateItem, collapsed = false): Item
 /** Упражнение → строка формы. Без аргумента — пустая новая строка, сразу
  *  раскрытая; сохранённое и взятое подсказкой — свёрнуто, читается строкой. */
 export function exerciseRow(e?: WorkoutExercise): ExerciseRow {
+  // Запись могла прийти синком от другой версии или с правкой руками:
+  // число на месте текста роняло редактор на .trim(), неизвестная единица
+  // уходила обратно в запись. Берём только то, что форма умеет показать.
+  const text = (v: unknown) => (typeof v === 'string' ? v : '');
+  const count = (v: unknown) => (typeof v === 'number' && v > 0 ? String(v) : '');
   return {
     key: nextKey('e'),
-    name: e?.name ?? '',
-    sets: e?.sets ? String(e.sets) : '',
-    reps: e?.reps ? String(e.reps) : '',
-    repsTo: e?.repsTo ? String(e.repsTo) : '',
-    unit: e?.unit ?? null,
-    weight: e?.weight ?? '',
-    rest: e?.rest ?? '',
-    note: e?.note ?? '',
+    name: text(e?.name),
+    sets: count(e?.sets),
+    reps: count(e?.reps),
+    repsTo: count(e?.repsTo),
+    unit: e?.unit === 'sec' || e?.unit === 'min' || e?.unit === 'm' ? e.unit : null,
+    weight: text(e?.weight),
+    rest: text(e?.rest),
+    note: text(e?.note),
     open: !e,
   };
 }

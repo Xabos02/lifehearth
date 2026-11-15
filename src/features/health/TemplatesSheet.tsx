@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
@@ -32,6 +32,13 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
   const [editing, setEditing] = useState<WorkoutTemplate | 'new' | null>(null);
   const dirty = useRef(false);
   const list = useTemplates();
+  // Список ↔ редактор — другой экран в той же шторке: начинается сверху.
+  // Иначе карандаш у нижнего шаблона открывал редактор с середины, а
+  // название, время и памятка оставались за верхним краем.
+  const top = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    top.current?.closest('.overflow-y-auto')?.scrollTo(0, 0);
+  }, [editing]);
 
   const back = () => {
     dirty.current = false;
@@ -47,7 +54,8 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
 
   return (
     <Sheet open={open} onClose={close} title={editing === 'new' ? t('Новый шаблон') : editing ? t('Шаблон') : t('Шаблоны тренировок')}>
-      {open && !editing && (
+      <div ref={top} />
+      {open && !editing && list && (
         <div className="space-y-2 pb-2">
           {list.length === 0 ? (
             <p className="py-4 text-center text-sm text-lh-text-secondary">{t('Шаблонов пока нет.')}</p>

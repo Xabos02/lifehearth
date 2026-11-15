@@ -479,3 +479,123 @@ test('экран 320: карточка дня, список и редактор 
   expect(Math.round(saveBox!.height)).toBeLessThanOrEqual(52);
   expect(Math.abs(saveBox!.y - delBox!.y)).toBeLessThan(1);
 });
+
+// ——— Замечания независимого разбора кода (15.11.2026) ———
+
+test('тап по уже выбранному виду не стирает километры импортированной записи', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await page.evaluate(async () => {
+    const { addWorkout } = await import('/src/features/health/workoutRepo.ts');
+    const { todayKey } = await import('/src/lib/dates.ts');
+    await addWorkout({
+      date: todayKey(), type: 'other', minutes: 60, distanceKm: 12.5, effort: null, note: 'Лыжи',
+      source: 'import', groupId: null, customLabel: null, customColor: null,
+    });
+  });
+  await page.getByRole('button', { name: /^Другое/ }).first().click();
+  // По плейсхолдеру: у заполненного поля подпись достаётся крестику очистки.
+  await expect(page.locator(SHEET).getByText('Дистанция, км')).toBeVisible();
+  const km = page.locator(SHEET).getByPlaceholder('по желанию', { exact: true }).nth(1);
+  await expect(km).toHaveValue('12,5');
+  await page.locator(SHEET).getByRole('button', { name: 'Другое', exact: true }).click();
+  await expect(km).toHaveValue('12,5');
+  await page.getByRole('button', { name: 'Тяжело' }).click();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.locator(SHEET)).toHaveCount(0);
+  expect((await workouts(page))[0]).toMatchObject({ type: 'other', distanceKm: 12.5, effort: 3 });
+});
+
+test('барабан: время не на сетке видно верно и не меняется само; число уходит в форму сразу', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await seedTemplate(page, { name: 'Не на сетке', totalMinutes: 58, items: [item('strength', 0, null, [])] });
+  await openTemplates(page);
+  await page.getByRole('button', { name: 'Изменить шаблон «Не на сетке»' }).click();
+  await page.getByRole('button', { name: 'Общее время: 58 мин' }).click();
+  const cols = page.getByTestId('duration-wheel').locator('[role=group]');
+  // 58 минут на колёсах — «1 ч 0 мин», а не «0 ч 0 мин».
+  await expect(cols.nth(0).locator('button[aria-pressed="true"]')).toHaveAttribute('aria-label', '1 ч, выбрано');
+  await expect(cols.nth(1).locator('button[aria-pressed="true"]')).toHaveAttribute('aria-label', '0 мин, выбрано');
+  // Колёса не трогали — время то же, вопроса при закрытии нет.
+  let asked = false;
+  page.once('dialog', (d) => {
+    asked = true;
+    void d.accept();
+  });
+  await page.locator(SHEET).getByRole('button', { name: 'Закрыть' }).click();
+  await expect(page.locator(SHEET)).toHaveCount(0);
+  expect(asked).toBe(false);
+  expect((await templates(page))[0].totalMinutes).toBe(58);
+
+  // Прокрутил и «Сохранить» через кадр — намного раньше прежней паузы в
+  // 120 мс, после которой значение только уходило в форму: время в записи.
+  await openTemplates(page);
+  await page.getByRole('button', { name: 'Изменить шаблон «Не на сетке»' }).click();
+  await page.getByRole('button', { name: 'Общее время: 58 мин' }).click();
+  await cols.nth(1).evaluate(async (el) => {
+    el.scrollTop = 88;
+    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+    document.querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
+      if (b.textContent?.trim() === 'Сохранить') b.click();
+    });
+  });
+  await expect(page.getByRole('button', { name: /^Не на сетке/ })).toContainText('1 ч 10 м');
+  expect((await templates(page))[0].totalMinutes).toBe(70);
+
+  // Тап по числу и сразу закрыть барабан: встаёт выбранное число, не промежуточное.
+  await page.getByRole('button', { name: 'Изменить шаблон «Не на сетке»' }).click();
+  await page.getByRole('button', { name: 'Общее время: 1 ч 10 м' }).click();
+  await cols.nth(1).evaluate((el) => {
+    const target = [...el.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('40 '));
+    target!.click();
+  });
+  await page.getByRole('button', { name: /^Общее время/ }).click();
+  await expect(page.getByTestId('duration-wheel')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Общее время: 1 ч 40 м' })).toBeVisible();
+});
+
+test('редактор открывается сверху и из прокрученного списка; шаблоны в карточке дня не мигают «пока нет»', async ({ page }) => {
+  // Наблюдатель с первого кадра: текст «Шаблонов пока нет» в карточке дня.
+  await page.addInitScript(() => {
+    (window as unknown as { __flash: boolean }).__flash = false;
+    new MutationObserver(() => {
+      const box = document.querySelector('[data-testid="day-templates"]');
+      if (box?.textContent?.includes('Шаблонов пока нет')) (window as unknown as { __flash: boolean }).__flash = true;
+    }).observe(document, { childList: true, subtree: true, characterData: true });
+  });
+  await openApp(page, '/more/health');
+  for (let i = 1; i <= 14; i++) {
+    await seedTemplate(page, { name: `Шаблон ${String(i).padStart(2, '0')}`, items: [item('strength', 0, null, [])] });
+  }
+  await page.evaluate(() => {
+    (window as unknown as { __flash: boolean }).__flash = false;
+  });
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'По шаблону: Шаблон 14' })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __flash: boolean }).__flash)).toBe(false);
+
+  await openTemplates(page);
+  const last = page.getByRole('button', { name: 'Изменить шаблон «Шаблон 14»' });
+  await last.scrollIntoViewIfNeeded();
+  await last.click();
+  await expect(page.getByLabel('Название шаблона')).toHaveValue('Шаблон 14');
+  await expect(page.getByLabel('Название шаблона')).toBeInViewport();
+});
+
+test('стрелка порядка, упёршаяся в край, остаётся в фокусе', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await seedTemplate(page, TEMPLATE_A);
+  await openTemplates(page);
+  await page.getByRole('button', { name: 'Изменить шаблон «Тренировка А»' }).click();
+  // «Брусья» — второе в силовой: одна стрелка вверх — и оно первое.
+  await page.getByTestId('exercise-row').nth(2).click();
+  const up = page.getByRole('button', { name: 'Поднять упражнение' });
+  await up.focus();
+  await page.keyboard.press('Enter');
+  await expect(up).toBeDisabled();
+  await expect(up).toBeFocused();
+  // Упёрлась — дальше не двигает и ничего не ломает.
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Готово' }).click();
+  await expect(page.getByTestId('exercise-row').nth(1)).toContainText('Брусья с поясом');
+});
+
