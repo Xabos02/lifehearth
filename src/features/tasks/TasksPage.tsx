@@ -284,7 +284,7 @@ function Section({
         <button
           {...headerProps}
           aria-expanded={!collapsed}
-          className={`flex flex-1 items-center gap-1.5 py-2.5 text-left ${
+          className={`flex min-h-11 flex-1 items-center gap-1.5 py-2.5 text-left ${
             reorderable ? 'select-none [-webkit-touch-callout:none] [-webkit-user-select:none]' : ''
           }`}
         >

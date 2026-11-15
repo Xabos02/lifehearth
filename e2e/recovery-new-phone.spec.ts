@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
-import { openApp, test, WORKER_MATCH, answerConfirm } from './fixtures';
+import { openApp, test, WORKER_MATCH } from './fixtures';
 import { makeServer } from './syncServer';
 
 // Переезд на новый телефон — весь путь целиком, от включения обмена до
@@ -146,8 +146,8 @@ test.describe('переезд на новый телефон', () => {
 
     // Уходим, не сохранив: приложение обязано переспросить, а потом честно
     // показать состояние «вернуть нечем» вместо зелёного «всё включено».
+    page.once('dialog', (d) => void d.accept());
     await page.keyboard.press('Escape');
-    await answerConfirm(page, true);
 
     await expect(page.getByText('Ключ восстановления не сохранён', { exact: false })).toBeVisible();
     await ctx.close();

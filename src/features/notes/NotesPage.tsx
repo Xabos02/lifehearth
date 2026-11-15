@@ -615,7 +615,9 @@ export function NotesPage() {
             : t('Заметки')
       }
       subtitle={
-        !selecting && !current && allNotes.length > 0
+        // В режиме выбора подпись остаётся: без неё шапка становилась ниже
+        // и лента прыгала при входе в выбор.
+        !current && allNotes.length > 0
           ? [
               tPlur(allNotes.length, ['заметка', 'заметки', 'заметок']),
               folders.length > 0 ? tPlur(folders.length, ['папка', 'папки', 'папок']) : null,
