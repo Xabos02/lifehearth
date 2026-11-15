@@ -9,7 +9,7 @@ import {
 import {
   GPhone as Phone,
   GLock as Lock,
-  GChevronLeft as ChevronLeft,
+  GChevronDown as ChevronDown,
 } from '../../components/ui/glyphs';
 import { callManager, type CallSnapshot } from '../../lib/family/familyCall';
 import { getLang, t } from '../../lib/i18n';
@@ -131,24 +131,42 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
           aria-label={t('Свернуть звонок')}
           // POSITIONED, а не обычный: тот несёт relative, и он перебивал
           // absolute — стрелка уезжала из своего угла в поток (hitSlop.ts).
-          className={`absolute left-4 flex size-9 items-center justify-center rounded-full bg-lh-surface-2/80 text-lh-text-primary active:opacity-70 ${HIT_SLOP_44_POSITIONED}`}
-          style={{ top: 'calc(env(safe-area-inset-top) + 16px)' }}
+          className={`absolute left-3 flex size-11 items-center justify-center rounded-full text-lh-text-secondary active:opacity-70 ${HIT_SLOP_44_POSITIONED}`}
+          style={{ top: 'calc(env(safe-area-inset-top) + 12px)' }}
         >
-          <ChevronLeft size={ICON.accent} />
+          <ChevronDown size={ICON.accent} />
         </button>
       )}
+      {/* Шифрование — тихой строкой сверху, как в макете «Звонок». */}
+      <p
+        className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1.5 text-xs text-lh-text-secondary"
+        style={{ top: 'calc(env(safe-area-inset-top) + 26px)' }}
+      >
+        <Lock size={ICON.inline} aria-hidden />
+        {t('Зашифровано')}
+      </p>
       {/* Кто и статус */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-6">
-        <span
-          className={`flex size-28 items-center justify-center rounded-full bg-lh-accent text-3xl font-extralight text-lh-bg ${
-            snap.status === 'outgoing' || incoming ? 'animate-pulse' : ''
-          }`}
-        >
-          {initial}
+      <div className="flex flex-1 flex-col items-center justify-center">
+        <span className="relative flex size-40 items-center justify-center">
+          <span
+            aria-hidden
+            className={`absolute inset-0 rounded-full border border-lh-accent-border ${
+              snap.status === 'outgoing' || incoming ? 'animate-ping [animation-duration:2.4s]' : ''
+            }`}
+          />
+          <span aria-hidden className="absolute -inset-[18px] rounded-full border border-lh-accent/10" />
+          <span className="flex size-36 items-center justify-center rounded-full border border-lh-accent-border bg-lh-accent-dim text-5xl font-light text-lh-accent">
+            {initial}
+          </span>
         </span>
-        <div className="text-center">
-          <p className="text-2xl font-extralight tracking-tight">{snap.peerName || t('Участник')}</p>
-          <p className="mt-1 text-base text-lh-text-secondary">
+        <div className="mt-10 text-center">
+          <p className="text-3xl font-light tracking-tight">{snap.peerName || t('Участник')}</p>
+          <p
+            className={`mt-2 flex items-center justify-center gap-2 text-base tabular-nums ${
+              snap.status === 'active' ? 'text-success' : 'text-lh-text-secondary'
+            }`}
+          >
+            {snap.status === 'active' && <span aria-hidden className="size-2 rounded-full bg-success" />}
             {snap.status === 'active' && snap.startedAt
               ? fmtElapsed(now - snap.startedAt)
               : statusText(snap)}
@@ -158,7 +176,7 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
 
       {/* Управление */}
       {!ended && (
-        <div className="flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-4">
+        <div className="flex w-full max-w-xs flex-wrap items-start justify-center gap-x-8 gap-y-7">
           {incoming ? (
             <>
               <CallButton color="danger" label={t('Отклонить')} onClick={() => callManager.decline()}>
@@ -275,12 +293,12 @@ function CallButton({
       : color === 'success'
         ? 'bg-success-fill text-on-light'
         : color === 'active'
-          ? 'bg-lh-accent text-lh-bg'
-          : 'bg-lh-surface-2 text-lh-text-primary';
+          ? 'bg-lh-text-primary text-lh-bg'
+          : 'bg-lh-surface-2 text-lh-text-primary ring-1 ring-inset ring-lh-border';
   return (
     <button onClick={onClick} className="flex flex-col items-center gap-2 active:scale-95" aria-label={label}>
-      <span className={`flex size-16 items-center justify-center rounded-full shadow-lg ${cls}`}>{children}</span>
-      <span className="text-xs text-lh-text-secondary">{label}</span>
+      <span className={`flex items-center justify-center rounded-full ${color === 'danger' || color === 'success' ? 'size-[72px]' : 'size-16'} ${cls}`}>{children}</span>
+      <span className={`text-xs ${color === 'active' ? 'text-lh-text-primary' : 'text-lh-text-secondary'}`}>{label}</span>
     </button>
   );
 }

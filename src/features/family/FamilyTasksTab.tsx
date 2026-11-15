@@ -10,9 +10,12 @@ import { db } from '../../db/db';
 import type { FamilyTask } from '../../db/types';
 import { TaskCheck } from '../../components/ui/Checkbox';
 import { Button } from '../../components/ui/Button';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { formatDueDate, todayKey } from '../../lib/dates';
 import { toggleFamilyTask, reorderFamilyTasks } from '../../lib/family/familyRepo';
 import { FamilyTaskSheet } from './FamilyTaskSheet';
+import { MemberAvatar, GroupAvatar } from './MemberAvatar';
+import { getFamilyConfig } from '../../lib/family/familyState';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 
@@ -38,6 +41,10 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
   const membersRaw = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]);
   const members = useMemo(() => membersRaw ?? [], [membersRaw]);
   const memberMap = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
+  const selfId = useLiveQuery(() => getFamilyConfig(familyId), [familyId])?.selfMemberId;
+  // Фильтр макета «Общие задачи»: все, мне, я поручил. Перенос пальцем — только
+  // во «Все»: в отфильтрованном списке место строки не равно месту в общем порядке.
+  const [filter, setFilter] = useState<'all' | 'mine' | 'byMe'>('all');
 
   const tasks = useMemo(() => (tasksRaw ?? []).filter((task) => !task.deletedAt), [tasksRaw]);
   const activeSorted = useMemo(
@@ -55,10 +62,14 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
   const [dragOrder, setDragOrder] = useState<string[] | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const activeMap = useMemo(() => Object.fromEntries(activeSorted.map((t) => [t.id, t])), [activeSorted]);
-  const active = useMemo(() => {
+  const ordered = useMemo(() => {
     if (!dragOrder) return activeSorted;
     return dragOrder.map((id) => activeMap[id]).filter((t): t is FamilyTask => Boolean(t));
   }, [dragOrder, activeSorted, activeMap]);
+  const matches = (task: FamilyTask) =>
+    filter === 'all' || (filter === 'mine' ? task.assigneeId === selfId : task.createdBy === selfId);
+  const active = filter === 'all' ? ordered : ordered.filter(matches);
+  const mineCount = selfId ? activeSorted.filter((x) => x.assigneeId === selfId).length : 0;
 
   const [editing, setEditing] = useState<FamilyTask | null>(null);
   const [open, setOpen] = useState(false);
@@ -112,7 +123,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
   const onRowPointerDown = (task: FamilyTask, e: ReactPointerEvent<HTMLDivElement>) => {
     longFired.current = false;
     // Выполненные идут по времени выполнения — переставлять там нечего.
-    if (task.completedAt || active.length < 2) return;
+    if (task.completedAt || active.length < 2 || filter !== 'all') return;
     clearPress();
     const row = e.currentTarget;
     pressState.current = { id: task.id, x: e.clientX, y: e.clientY, pointerId: e.pointerId, timer: null };
@@ -238,12 +249,17 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
         style={{ touchAction: dragSource ? 'none' : undefined }}
         // select-none и без системного меню: на iPhone удержание строки иначе
         // выделяло текст названия вместо того, чтобы взять задачу.
-        className={`flex touch-pan-y select-none items-start gap-3 py-3 transition-[opacity,transform] active:opacity-80 [-webkit-touch-callout:none] [-webkit-user-select:none] ${
+        className={`relative flex touch-pan-y select-none items-start gap-3 py-3.5 pr-3 pl-4 transition-[opacity,transform] active:bg-lh-surface-2 [-webkit-touch-callout:none] [-webkit-user-select:none] ${
           dragSource ? 'z-10 scale-[0.98] opacity-70 shadow-lg' : ''
         }`}
       >
-        {!done && (
-          <span className={`mt-1 h-9 w-1 shrink-0 self-stretch rounded-full ${task.color ? '' : PRIORITY_BAR[task.priority]}`} style={task.color ? { background: task.color } : undefined} />
+        {/* Приоритет — тонкой полосой у края карточки, а не отдельной колонкой. */}
+        {!done && (task.color || task.priority > 0) && (
+          <span
+            aria-hidden
+            className={`absolute top-3 bottom-3 left-0 w-1 rounded-r ${task.color ? '' : PRIORITY_BAR[task.priority]}`}
+            style={task.color ? { background: task.color } : undefined}
+          />
         )}
         <TaskCheck
           checked={done}
@@ -260,8 +276,8 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
           color={task.color ?? assignee?.color}
         />
         <div className="min-w-0 flex-1">
-          <p className={`break-words ${done ? 'text-lh-text-secondary line-through' : 'font-medium'}`}>{task.title}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-lh-text-secondary">
+          <p className={`break-words leading-snug ${done ? 'text-lh-text-secondary line-through' : ''}`}>{task.title}</p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-lh-text-secondary">
             {author && <span>{t('от {name}', { name: author.displayName })}</span>}
             {/* Цвет исполнителя — только в тёмной теме, в светлой muted (§1.8):
                 лаймовый на белой карточке давал 1.51. */}
@@ -278,12 +294,25 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
             )}
           </p>
         </div>
+        {!done && (assignee ? <MemberAvatar member={assignee} className="mt-0.5 size-7 text-2xs" /> : <GroupAvatar className="mt-0.5 size-7" glyph={ICON.inline} />)}
       </div>
     );
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5 pb-4">
+      <p className="-mt-2 text-xs leading-relaxed text-lh-text-secondary">
+        {t('Видны всем в группе. То, что поручено вам, попадёт в «Сегодня».')}
+      </p>
+      <SegmentedControl
+        value={filter}
+        onChange={setFilter}
+        options={[
+          { value: 'all', label: activeSorted.length > 0 ? t('Все · {n}', { n: activeSorted.length }) : t('Все') },
+          { value: 'mine', label: mineCount > 0 ? t('Мне · {n}', { n: mineCount }) : t('Мне') },
+          { value: 'byMe', label: t('Я поручил') },
+        ]}
+      />
       <Button onClick={openNew} className="w-full">
         <Plus size={ICON.base} />
         {t('Новая задача')}
@@ -293,26 +322,31 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
         loaded && <p className="py-10 text-center text-sm text-lh-text-secondary">{t('Пока нет общих задач.')}</p>
       ) : (
         <>
-          {active.length > 0 && (
-            <div ref={listRef} className="card divide-y divide-lh-border px-4">
+          {active.length > 0 ? (
+            <div ref={listRef} className="card divide-y divide-lh-border">
               {active.map(renderRow)}
             </div>
+          ) : (
+            loaded && <p className="py-6 text-center text-sm text-lh-text-secondary">{t('Здесь пока пусто.')}</p>
           )}
 
           {completed.length > 0 && (
-            <div>
+            <section>
               <button
                 onClick={() => setShowDone((v) => !v)}
-                className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-sm text-lh-text-secondary active:opacity-60"
+                aria-expanded={showDone}
+                className="mb-2.5 flex min-h-11 w-full items-center justify-between px-1 text-left active:opacity-60"
               >
-                <ChevronRight size={ICON.inline} className={`shrink-0 transition-transform ${showDone ? 'rotate-90' : ''}`} />
-                <span>{t('Выполненные')}</span>
-                <span className="text-xs">{completed.length}</span>
+                <span className="lh-section">{t('Выполненные')}</span>
+                <span className="flex items-center gap-1 text-xs text-lh-text-secondary">
+                  {completed.length}
+                  <ChevronRight size={ICON.inline} className={`shrink-0 transition-transform ${showDone ? 'rotate-90' : ''}`} />
+                </span>
               </button>
               {showDone && (
-                <div className="card mt-1 divide-y divide-lh-border px-4 opacity-70">{completed.map(renderRow)}</div>
+                <div className="card divide-y divide-lh-border">{completed.filter(matches).map(renderRow)}</div>
               )}
-            </div>
+            </section>
           )}
         </>
       )}

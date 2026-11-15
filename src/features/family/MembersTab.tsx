@@ -1,13 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   UserPlus,
   UserMinus,
+  MessageCircle as GChat,
 } from 'lucide-react';
 import {
   GPhone as Phone,
   GTasks,
+  GPencil,
+  GAlert,
+  GLock,
+  GCheck,
+  GPhoneOut,
+  GTrash,
+  GChevronRight,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import type { FamilyMember } from '../../db/types';
@@ -35,16 +43,50 @@ import { GroupAvatar, MemberAvatar } from './MemberAvatar';
 import { chatPath, isAlive } from './chats';
 import { confirmAction } from '../../components/ui/confirmStore';
 
-/** Строка раздела «Группа» — текстом, без значков, как на артборде
- *  Group-Info: четыре действия читаются словами. */
-function ActionRow({ label, onClick, danger = false }: { label: string; onClick: () => void; danger?: boolean }) {
+type Glyph = ComponentType<{ size?: number | string; className?: string }>;
+
+/** Строка действия карточки группы: значок, название, при нужде пояснение. */
+function ActionRow({
+  icon: Icon,
+  label,
+  hint,
+  onClick,
+  danger = false,
+  chevron = false,
+}: {
+  icon: Glyph;
+  label: string;
+  hint?: string;
+  onClick: () => void;
+  danger?: boolean;
+  chevron?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-13 w-full items-center px-4 text-left font-medium active:bg-lh-surface-2 ${danger ? 'text-danger' : ''}`}
+      className={`flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left active:bg-lh-surface-2 ${danger ? 'text-danger' : ''}`}
     >
-      <span className="truncate">{label}</span>
+      <Icon size={ICON.action} className={`w-5 shrink-0 ${danger ? '' : 'text-lh-text-secondary'}`} />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm">{label}</span>
+        {hint && <span className="block text-xs text-lh-text-secondary">{hint}</span>}
+      </span>
+      {chevron && <GChevronRight size={ICON.action} className="shrink-0 text-lh-text-secondary" />}
+    </button>
+  );
+}
+
+/** Плитка быстрого действия под названием группы. */
+function QuickTile({ icon: Icon, label, onClick }: { icon: Glyph; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="card flex h-[68px] flex-col items-center justify-center gap-1.5 active:bg-lh-surface-2"
+    >
+      <Icon size={ICON.base} className="text-lh-accent" />
+      <span className="text-xs">{label}</span>
     </button>
   );
 }
@@ -144,22 +186,110 @@ export function MembersTab({
         .join(' · ');
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-col items-center pb-1 text-center">
+    <div className="space-y-6 pb-4">
+      <section className="flex flex-col items-center pt-1 text-center">
         {partner ? (
-          <MemberAvatar member={partner} className="size-16 text-2xl" />
+          <MemberAvatar member={partner} className="size-20 text-3xl font-light" />
         ) : (
-          <GroupAvatar className="size-16" glyph={ICON.display} />
+          <GroupAvatar className="size-20" glyph={ICON.display} />
         )}
-        <h1 className="mt-3 text-lg font-semibold">{title}</h1>
-        <p className="mt-0.5 text-sm text-lh-text-secondary">{summary}</p>
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
+        <h1 className="mt-4 lh-heading">{title}</h1>
+        <p className="mt-1 text-xs text-lh-text-secondary">{summary}</p>
+        {/* Быстрые действия плитками (макет «Карточка группы»): чат, звонок
+            собеседнику и задачи — три главные причины открыть карточку. */}
+        <div className={`mt-5 grid w-full gap-2 ${partner ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <QuickTile icon={GChat} label={t('Чат')} onClick={() => navigate(chatPath(familyId))} />
+          {partner && (
+            <QuickTile
+              icon={Phone}
+              label={t('Звонок')}
+              onClick={() => void callManager.startCall(familyId, partner.id)}
+            />
+          )}
+          <QuickTile
+            icon={GTasks}
+            label={activeTasks > 0 ? t('Задачи · {n}', { n: activeTasks }) : t('Задачи')}
+            onClick={() => navigate(chatPath(familyId, 'tasks'), { state: { from: 'members' } })}
+          />
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2.5 flex items-center justify-between px-1">
+          <h2 className="lh-section">{t('Участники')}</h2>
+          {!partner && onlineCount > 0 && (
+            <span className="text-xs text-lh-text-secondary">{t('{n} в сети', { n: onlineCount })}</span>
+          )}
+        </div>
+        <div className="divide-y divide-lh-border card">
+          {alive.map((m) => {
+            const isSelf = m.id === selfId;
+            // Действие у строки одно — переименовать себя. Чужая строка — не
+            // кнопка: иначе мигает на нажатие и скринридер обещает действие,
+            // которого нет. Высота строк одинаковая.
+            const Name = isSelf ? 'button' : 'div';
+            const online = onlineSet.has(m.id);
+            return (
+              <div key={m.id} className="flex w-full items-center gap-3 px-4 py-2.5">
+                <Name
+                  onClick={isSelf ? () => setEditName(true) : undefined}
+                  className={`flex min-h-11 min-w-0 flex-1 items-center gap-3 ${isSelf ? 'text-left active:opacity-80' : ''}`}
+                >
+                  <span className="relative shrink-0">
+                    <MemberAvatar member={m} className="size-11 text-sm" />
+                    {/* У себя — тоже по списку сервера, без поблажки «я всегда в сети». */}
+                    {online && (
+                      <span data-testid="presence-dot" className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-lh-surface" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words leading-snug">
+                      <span className={m.removedAt ? 'line-through opacity-60' : undefined}>{m.displayName}</span>
+                      {isSelf ? (
+                        <span className="text-sm text-lh-text-secondary"> · {t('вы')}</span>
+                      ) : m.removedAt ? (
+                        <span className="text-sm text-lh-text-secondary"> · {t('исключён')}</span>
+                      ) : null}
+                    </span>
+                    {isSelf ? (
+                      isOwner && <span className="mt-0.5 block text-xs text-lh-accent">{t('Владелец группы')}</span>
+                    ) : (
+                      !m.removedAt && (
+                        <span className={`mt-0.5 block text-xs ${online ? 'text-success' : 'text-lh-text-secondary'}`}>
+                          {online ? t('в сети') : t('не в сети')}
+                        </span>
+                      )
+                    )}
+                  </span>
+                </Name>
+                {!isSelf && !m.removedAt && (
+                  <div className="flex shrink-0 items-center gap-3">
+                    {isOwner && (
+                      <button
+                        onClick={() => setRemoving(m)}
+                        aria-label={t('Исключить {name}', { name: m.displayName })}
+                        className={`flex size-10 shrink-0 items-center justify-center rounded-full text-lh-text-secondary active:scale-95 active:text-danger ${HIT_SLOP_44}`}
+                      >
+                        <UserMinus size={ICON.base} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => void callManager.startCall(familyId, m.id)}
+                      aria-label={t('Позвонить {name}', { name: m.displayName })}
+                      className={`flex size-10 shrink-0 items-center justify-center rounded-full text-lh-accent active:scale-95 ${HIT_SLOP_44}`}
+                    >
+                      <Phone size={ICON.base} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {/* Пригласить можно всегда: «личный» здесь только вычисленный вид
               группы на двоих, и прятать кнопку значило бы запереть группу из
               двух. В личном чате — сначала правда о последствиях. */}
-          <Button
-            variant="ghost"
-            className="border border-lh-accent-border"
+          <button
+            type="button"
             onClick={async () => {
               if (
                 partner &&
@@ -172,82 +302,15 @@ export function MembersTab({
                 return;
               setInvite(true);
             }}
+            className="flex min-h-14 w-full items-center gap-3 px-4 text-left text-lh-accent active:bg-lh-surface-2"
           >
-            <UserPlus size={ICON.base} />
-            {t('Пригласить')}
-          </Button>
-          <Button
-            variant="ghost"
-            className="border border-lh-accent-border"
-            onClick={() => navigate(chatPath(familyId, 'tasks'), { state: { from: 'members' } })}
-          >
-            <GTasks size={ICON.base} />
-            {activeTasks > 0 ? t('Задачи · {n}', { n: activeTasks }) : t('Задачи')}
-          </Button>
+            <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full border border-dashed border-lh-accent-border">
+              <UserPlus size={ICON.action} />
+            </span>
+            <span>{t('Пригласить')}</span>
+          </button>
         </div>
-      </div>
-
-      <h2 className="px-1 pt-2 text-sm font-semibold text-lh-text-secondary">{t('Участники')}</h2>
-      <div className="divide-y divide-lh-border overflow-hidden card">
-        {alive.map((m) => {
-          const isSelf = m.id === selfId;
-          // Действие у строки одно — переименовать себя. Чужая строка — не
-          // кнопка: иначе мигает на нажатие и скринридер обещает действие,
-          // которого нет. min-h-11 у обеих — высота строк одинаковая.
-          const Name = isSelf ? 'button' : 'div';
-          return (
-            <div key={m.id} className="flex w-full items-center gap-3 px-3 py-2.5">
-              {/* min-h-11: сама по себе кнопка — аватар 36px, на 8px ниже нормы.
-                  Отступ строки 10px, а не 12: строка выходит 64px — как прежде у
-                  строки с круглыми кнопками size-10, и все строки одной высоты. */}
-              <Name
-                onClick={isSelf ? () => setEditName(true) : undefined}
-                className={`flex min-h-11 min-w-0 flex-1 items-center gap-3 ${isSelf ? 'text-left active:opacity-80' : ''}`}
-              >
-                <span className="relative shrink-0">
-                  <MemberAvatar member={m} className="size-9 text-sm" />
-                  {/* У себя — тоже по списку сервера, без поблажки «я всегда в
-                      сети»: он включает и это устройство, пока оно на связи.
-                      Раньше точка горела и без сети, рядом с «не в сети» в шапке. */}
-                  {onlineSet.has(m.id) && (
-                    <span data-testid="presence-dot" className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-lh-surface" />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1 truncate font-medium">
-                  <span className={m.removedAt ? 'line-through opacity-60' : undefined}>{m.displayName}</span>
-                  {m.id === selfId ? (
-                    <span className="text-lh-text-secondary"> · {t('вы')}</span>
-                  ) : m.removedAt ? (
-                    <span className="text-xs text-lh-text-secondary"> · {t('исключён')}</span>
-                  ) : (
-                    <span className="text-xs text-lh-text-secondary"> · {onlineSet.has(m.id) ? t('в сети') : t('не в сети')}</span>
-                  )}
-                </span>
-              </Name>
-              {!isSelf && !m.removedAt && (
-                <>
-                  {isOwner && (
-                    <button
-                      onClick={() => setRemoving(m)}
-                      aria-label={t('Исключить {name}', { name: m.displayName })}
-                      className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95 ${HIT_SLOP_44}`}
-                    >
-                      <UserMinus size={ICON.base} />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => void callManager.startCall(familyId, m.id)}
-                    aria-label={t('Позвонить {name}', { name: m.displayName })}
-                    className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success active:scale-95 ${HIT_SLOP_44}`}
-                  >
-                    <Phone size={ICON.base} />
-                  </button>
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      </section>
 
       {ownerless && (
         <div className="card p-4">
@@ -261,17 +324,36 @@ export function MembersTab({
         </div>
       )}
 
-      {/* Новая группа и вход по приглашению живут в «Новом чате» списка: их
-          место там, где выбирают, с кем говорить, а не в карточке чужой группы. */}
-      <h2 className="px-1 pt-2 text-sm font-semibold text-lh-text-secondary">{partner ? t('Чат') : t('Группа')}</h2>
-      <div className="divide-y divide-lh-border overflow-hidden card">
-        <ActionRow label={t('Переименовать группу')} onClick={() => setRenaming(true)} />
-        {/* Разбор последнего сорвавшегося звонка. Живёт здесь, а не в общих
-            настройках: сюда человек и приходит, когда «не дозвонился». */}
-        <ActionRow label={t('Почему звонок не вышел')} onClick={() => setDiag(true)} />
-        <ActionRow label={t('Выйти из группы')} onClick={() => void leave()} danger />
-        {isOwner && <ActionRow label={t('Удалить группу')} onClick={() => void removeGroup()} danger />}
-      </div>
+      {/* Новая группа и вход по приглашению живут в «Новом чате» списка. */}
+      <section>
+        <h2 className="mb-2.5 px-1 lh-section">{partner ? t('Чат') : t('Группа')}</h2>
+        <div className="divide-y divide-lh-border card">
+          <ActionRow icon={GPencil} label={t('Переименовать группу')} onClick={() => setRenaming(true)} />
+          {/* Разбор последнего сорвавшегося звонка: сюда и приходят, когда «не дозвонился». */}
+          <ActionRow icon={GAlert} label={t('Почему звонок не вышел')} onClick={() => setDiag(true)} chevron />
+          <div className="flex min-h-14 items-center gap-3 px-4 py-2.5">
+            <GLock size={ICON.action} aria-hidden className="w-5 shrink-0 text-lh-text-secondary" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm">{t('Шифрование')}</span>
+              <span className="block text-xs text-lh-text-secondary">{t('Ключи только на устройствах участников')}</span>
+            </span>
+            <GCheck size={ICON.action} aria-hidden className="shrink-0 text-success" />
+          </div>
+        </div>
+      </section>
+
+      <section className="divide-y divide-lh-border card">
+        <ActionRow icon={GPhoneOut} label={t('Выйти из группы')} onClick={() => void leave()} danger />
+        {isOwner && (
+          <ActionRow
+            icon={GTrash}
+            label={t('Удалить группу')}
+            hint={t('Чат и задачи исчезнут у всех участников')}
+            onClick={() => void removeGroup()}
+            danger
+          />
+        )}
+      </section>
 
       <RemoveMemberSheet
         key={removing?.id ?? 'rm-closed'}
