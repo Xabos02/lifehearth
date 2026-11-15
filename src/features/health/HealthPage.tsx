@@ -94,7 +94,9 @@ export function HealthPage() {
             selected={selected}
             onSelect={setSelected}
             onEdit={openEdit}
-            onAddFor={openNew}
+            // Дата — на нажатии, как у плавающей кнопки: до минуты после
+            // полуночи карточка дня ещё вчерашняя.
+            onAddFor={() => openNew(selectedNow())}
             onTemplate={openTemplate}
             onTemplates={() => setTemplatesOpen(true)}
             scale={scale}
