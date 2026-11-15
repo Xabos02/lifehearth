@@ -2,31 +2,23 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import {
-  BookOpen,
-  Clock,
-  FileText,
-  FlaskConical,
-  Languages,
-  Video,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { ProgressBar } from '../../components/ui/ProgressBar';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
-import type { LearningItem, LearningKind } from '../../db/types';
+import type { LearningItem } from '../../db/types';
 import { formatNum } from '../../lib/finance';
 import { LearningItemSheet } from './LearningItemSheet';
 import { LogSessionSheet } from './LogSessionSheet';
-import { ProgressStepper } from './ProgressStepper';
 import { repairPercentScale } from './plan';
+import { KIND_ICONS, KIND_LABEL } from './kinds';
 import { pace, unitLabel } from '../../lib/learningPace';
-import { fromKey, todayKey, toKey } from '../../lib/dates';
-import { differenceInCalendarDays } from 'date-fns';
+import { dateLocale, fromKey, toKey } from '../../lib/dates';
+import { formatMinutes } from '../health/workoutStats';
+import { format, startOfWeek } from 'date-fns';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import {
@@ -35,14 +27,6 @@ import {
 
 type Filter = 'inProgress' | 'planned' | 'done';
 
-const KIND_ICONS: Record<LearningKind, LucideIcon> = {
-  book: BookOpen,
-  course: GraduationCap,
-  article: FileText,
-  video: Video,
-  research: FlaskConical,
-  language: Languages,
-};
 
 const EMPTY_HINTS: Record<Filter, string> = {
   inProgress: 'Нажмите + и добавьте книгу, курс или статью.',
@@ -75,6 +59,7 @@ function progressLabel(item: LearningItem): string {
   }
 }
 
+
 function LearningCard({
   item,
   onOpen,
@@ -93,39 +78,37 @@ function LearningCard({
   const finished = item.status === 'done' || item.status === 'dropped';
   // Где человек должен быть по плану — засечка на полосе. Без срока её нет.
   const planPct = sched ? Math.min(100, (100 * sched.planned) / item.progressTarget) : null;
+  const meta = [
+    t(KIND_LABEL[item.kind]),
+    item.dueDate && !finished
+      ? t('до {date}', { date: format(fromKey(item.dueDate), 'd MMMM', { locale: dateLocale() }) })
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
-    <div
-      onClick={onOpen}
-      className="card p-4 active:opacity-90"
-    >
+    <div onClick={onOpen} className="card p-4 active:opacity-90">
       <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
           <Icon size={ICON.header} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate font-semibold">{item.title}</p>
-            {item.status === 'dropped' && (
-              <span className="shrink-0 rounded-full bg-lh-surface-2 px-2 py-0.5 text-2xs text-lh-text-secondary">
-                {t('Брошено')}
-              </span>
-            )}
-          </div>
-          {item.author && <p className="truncate text-sm text-lh-text-secondary">{item.author}</p>}
+          <p className="text-2xs text-lh-text-secondary">
+            {meta}
+            {item.status === 'dropped' && <> · {t('Брошено')}</>}
+          </p>
+          <p className="mt-0.5 font-semibold leading-snug">{item.title}</p>
+          {item.author && <p className="truncate text-xs text-lh-text-secondary">{item.author}</p>}
         </div>
-        {sched && !sched.done && (
-          <span
-            className={`shrink-0 pt-0.5 text-xs font-semibold tabular-nums ${
-              sched.overdue ? 'text-danger' : sched.onTrack ? 'text-lh-text-secondary' : 'text-warning'
-            }`}
-          >
-            {dueLabel(item.dueDate!)}
-          </span>
-        )}
       </div>
-      <div className="relative mt-3">
-        <ProgressBar value={pct} />
+      <div className="relative mt-3.5">
+        <div className="h-1.5 overflow-hidden rounded-full bg-lh-surface-2">
+          <div
+            className={`h-full rounded-full ${item.status === 'done' ? 'bg-success' : 'bg-lh-accent'}`}
+            style={{ width: `${Math.min(100, pct)}%` }}
+          />
+        </div>
         {planPct !== null && !sched?.done && (
           // Засечка плана поверх полосы: видно разрыв, а не только заполнение.
           <span
@@ -135,40 +118,45 @@ function LearningCard({
           />
         )}
       </div>
-      <div className="mt-1.5 flex items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs tabular-nums">
+        <span className="text-lh-text-secondary">{progressLabel(item)}</span>
         {sched && !sched.done ? (
           <span
-            className={`flex items-center gap-1 text-xs font-semibold ${
+            className={`flex items-center gap-1 ${
               sched.overdue ? 'text-danger' : sched.onTrack ? 'text-success' : 'text-warning'
             }`}
           >
+            {sched.overdue ? (
+              <AlertCircle size={ICON.inline} />
+            ) : sched.onTrack ? (
+              <CheckCircle2 size={ICON.inline} />
+            ) : (
+              <AlertCircle size={ICON.inline} />
+            )}
             {sched.overdue
               ? t('Срок прошёл')
               : sched.onTrack
-                ? t('Идёшь по графику')
-                : t('Отстаёшь на {n}\u00A0{unit}', {
+                ? t('Идёте по графику')
+                : t('Отстаёте на {n}\u00A0{unit}', {
                     n: formatNum(debt),
                     unit: unitLabel(item.progressUnit, debt),
                   })}
           </span>
         ) : (
-          // Слева — «Без срока», как на артборде (design/learning/List):
-          // было progressLabel и слева, и справа — прогресс дважды.
           !item.dueDate &&
-          !finished && <span className="text-xs text-lh-text-secondary">{t('Без срока')}</span>
+          !finished && <span className="text-lh-text-secondary">{t('Без срока')}</span>
         )}
-        <span className="ml-auto text-xs text-lh-text-secondary">
-          {sched && !sched.done
-            ? t('{n}\u00A0{unit} в неделю', {
-                n: formatNum(perWeek),
-                unit: unitLabel(item.progressUnit, perWeek),
-              })
-            : progressLabel(item)}
-        </span>
       </div>
       {item.status === 'inProgress' && (
-        <div className="mt-2 flex items-center gap-2">
-          <ProgressStepper item={item} />
+        <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-lh-border pt-3">
+          <span className="min-w-0 text-xs text-lh-text-secondary">
+            {sched && !sched.done
+              ? t('Нужно {n}\u00A0{unit} в неделю', {
+                  n: formatNum(perWeek),
+                  unit: unitLabel(item.progressUnit, perWeek),
+                })
+              : ''}
+          </span>
           <button
             type="button"
             onClick={(e) => {
@@ -176,23 +164,15 @@ function LearningCard({
               onLog();
             }}
             aria-label={t('Записать занятие')}
-            className="ml-auto flex h-11 items-center gap-1.5 rounded-xl bg-lh-surface-2 px-3 text-sm font-semibold text-lh-text-primary active:opacity-70"
+            className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-lh-surface-2 px-3.5 text-sm text-lh-accent active:opacity-70"
           >
             <Clock size={ICON.action} />
-            {t('Занятие')}
+            {t('Записать занятие')}
           </button>
         </div>
       )}
     </div>
   );
-}
-
-/** Сколько осталось до срока — короткой подписью справа от заголовка. */
-function dueLabel(due: string): string {
-  const days = differenceInCalendarDays(fromKey(due), fromKey(todayKey()));
-  if (days < 0) return t('просрочено');
-  if (days === 0) return t('сегодня');
-  return t('{n} дн.', { n: days });
 }
 
 export function LearningPage() {
@@ -204,6 +184,15 @@ export function LearningPage() {
 
   const rows = useLiveQuery(() => db.learningItems.toArray(), []);
   const loaded = useLoaded(rows);
+  const weekFrom = toKey(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const weekMinutes = useLiveQuery(
+    async () =>
+      alive(await db.learningLogs.where('date').aboveOrEqual(weekFrom).toArray()).reduce(
+        (sum, l) => sum + (l.minutes || 0),
+        0,
+      ),
+    [weekFrom],
+  );
   useEffect(() => {
     void repairPercentScale();
   }, []);
@@ -219,7 +208,13 @@ export function LearningPage() {
   };
 
   return (
-    <Screen title={t('Обучение')} backTo="/home">
+    <Screen
+      title={t('Обучение')}
+      backTo="/home"
+      subtitle={
+        weekMinutes ? t('На этой неделе — {time} занятий', { time: formatMinutes(weekMinutes, t) }) : undefined
+      }
+    >
       <div className="space-y-3">
         <SegmentedControl<Filter>
           options={[
