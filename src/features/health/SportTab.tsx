@@ -28,7 +28,7 @@ import {
 import { adviceTitle, formatKm, lastLine } from './workoutText';
 import { formatExercises } from './exercises';
 import { WorkoutCalendar, type Scale } from './WorkoutCalendar';
-import { parseWorkoutsCsv, withoutDuplicates } from './importWorkouts';
+import { decodeCsv, parseWorkoutsCsv, withoutDuplicates } from './importWorkouts';
 import { importParsed } from './workoutRepo';
 import { useTemplates } from './templateRepo';
 
@@ -84,7 +84,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    const text = await file.text();
+    const text = decodeCsv(await file.arrayBuffer());
     const parsed = parseWorkoutsCsv(text);
     // Сверка со ВСЕЙ таблицей, включая удалённые: иначе удалённая рукой
     // запись воскресала при следующем импорте той же выгрузки.

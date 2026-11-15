@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
-import { alive } from '../../db/repo';
 import { Screen } from '../../components/layout/Screen';
 import { Fab } from '../../components/layout/Fab';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -14,6 +13,7 @@ import type { Scale } from './WorkoutCalendar';
 import { MeasuresTab } from './MeasuresTab';
 import { WorkoutSheet } from './WorkoutSheet';
 import { TemplatesSheet } from './TemplatesSheet';
+import { shownWorkouts } from './workoutRepo';
 
 type Tab = 'sport' | 'health';
 
@@ -34,7 +34,7 @@ export function HealthPage() {
   // человека с сотней тренировок мелькало «Первая тренировка сегодня?».
   const rows = useLiveQuery(() => db.workouts.toArray(), []);
   const loaded = useLoaded(rows);
-  const workouts = alive(rows ?? []);
+  const workouts = shownWorkouts(rows ?? []);
 
   const openNew = (date: string) => setSheet({ open: true, workout: null, date, template: null });
   const openEdit = (w: Workout) => setSheet({ open: true, workout: w, date: w.date, template: null });

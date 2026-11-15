@@ -1,4 +1,4 @@
-import { addDays, endOfMonth, endOfWeek, format, getISODay, isSameMonth, parse, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
+import { addDays, endOfMonth, endOfWeek, format, getISODay, isSameMonth, isValid, parse, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
 import { enUS, ru } from 'date-fns/locale';
 import { getLang, t } from './i18n';
 
@@ -17,6 +17,12 @@ export function toKey(d: Date): string {
 
 export function fromKey(key: string): Date {
   return startOfDay(parse(key, DATE_KEY_FORMAT, new Date()));
+}
+
+/** Ключ дня, который есть в календаре: '2026-02-31' и '2026-25-09' — нет.
+ *  fromKey делает из такого Invalid Date, а format на нём бросает RangeError. */
+export function isDateKey(key: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(key) && isValid(fromKey(key));
 }
 
 export function todayKey(): string {

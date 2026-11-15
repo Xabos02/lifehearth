@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router';
 import { db } from '../../db/db';
-import { alive } from '../../db/repo';
 import { todayKey } from '../../lib/dates';
 import { t } from '../../lib/i18n';
 import { useNavLayout } from '../../hooks/useNavLayout';
@@ -14,6 +13,7 @@ import { DEFAULT_WEEKLY_GOAL, resolveKind } from './workouts';
 import { formatMinutes, lastWorkout, todayAdvice, weekProgress } from './workoutStats';
 import { adviceTitle, describeWorkout, relativeDay } from './workoutText';
 import { WorkoutSheet } from './WorkoutSheet';
+import { shownWorkouts } from './workoutRepo';
 
 /** Строка спорта на «Сегодня»: что по ритму и кнопка отметить — одним
  *  жестом с главного экрана, как шкала энергии. «После каждой тренировки
@@ -29,7 +29,7 @@ export function SportTodayLine() {
   const rows = useLiveQuery(() => db.workouts.toArray(), []);
   const [open, setOpen] = useState(false);
 
-  const workouts = alive(rows ?? []);
+  const workouts = shownWorkouts(rows ?? []);
   const goal = settings.workoutWeeklyGoal ?? DEFAULT_WEEKLY_GOAL;
   const advice = todayAdvice(workouts, today, goal);
   const last = lastWorkout(workouts, today);

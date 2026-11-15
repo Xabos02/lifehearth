@@ -190,6 +190,13 @@ test('импорт CSV из Strava добавляет тренировки и н
     }),
   ).toBe(2);
 
+  // Человек поправил минуты пробежки в форме. Раньше повтор файла
+  // возвращал исходные 32 минуты второй записью.
+  await page.getByRole('button', { name: /^Бег/ }).first().click();
+  await page.getByPlaceholder('по желанию').first().fill('40');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Бег.*40 мин/ }).first()).toBeVisible();
+
   // Повтор того же файла — «уже есть», записей по-прежнему две.
   await page.getByTestId('workout-csv').setInputFiles({ name: 'activities.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
   await expect(page.getByText('Все записи из файла уже есть.')).toBeVisible();
@@ -198,6 +205,56 @@ test('импорт CSV из Strava добавляет тренировки и н
     return (await db.workouts.toArray()).length;
   });
   expect(n).toBe(2);
+});
+
+test('импорт: несуществующая дата не записывается, а уже записанная не роняет «Сегодня» и «Здоровье»', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-11-15T12:00:00'));
+  await openApp(page, '/more/health');
+  // Дата, которой нет, — как её оставил импорт прежних версий или привёз синк
+  // с другого устройства. Её форматирование бросало RangeError, и вместо
+  // экрана было «Что-то пошло не так» — и после перезагрузки тоже.
+  await seedWorkout(page, '2026-06-31', 'w-bad');
+  await seedWorkout(page, '2026-05-10', 'w-ok');
+  await page.goto('/');
+  await expect(page.getByTestId('sport-today')).toContainText('10 мая · гири');
+  await page.goto('/more/health');
+  await expect(page.getByTestId('sport-status')).toContainText('Последняя — 10 мая, гири');
+
+  const csv = 'Date,Type,Minutes\n2026-11-10,Run,25\n9/25/2026,Run,30\n31.06.2026,Run,20\n2026-11-20,Run,30\n';
+  const asked: string[] = [];
+  page.on('dialog', (d) => {
+    asked.push(d.message());
+    void d.accept();
+  });
+  await page.getByTestId('workout-csv').setInputFiles({ name: 'mine.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await expect(page.getByText('Добавлено: 1 тренировка')).toBeVisible();
+  // Месяц/день/год с днём > 12, 31 июня и дата позже сегодня — в «не разобрано».
+  expect(asked).toEqual(['Найдено записей: 1, новых: 1, не разобрано строк: 3. Добавить новые?']);
+  const imported = await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    return (await db.workouts.toArray()).filter((w) => w.source === 'import').map((w) => w.date);
+  });
+  expect(imported).toEqual(['2026-11-10']);
+});
+
+test('импорт: CSV русского Excel в Windows-1251 читается', async ({ page }) => {
+  await openApp(page, '/more/health');
+  const text = 'Дата;Вид;Минуты\r\n01.09.2026;Бег;30\r\n02.09.2026;Силовая;45';
+  // В 1251 кириллица А–я лежит в 0xC0–0xFF, остальное здесь — ASCII.
+  const buffer = Buffer.from([...text].map((c) => (c >= 'А' && c <= 'я' ? c.charCodeAt(0) - 0x350 : c.charCodeAt(0))));
+  page.on('dialog', (d) => void d.accept());
+  await page.getByTestId('workout-csv').setInputFiles({ name: 'Книга1.csv', mimeType: 'text/csv', buffer });
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { db } = await import('/src/db/db.ts');
+        return (await db.workouts.toArray()).map((w) => [w.date, w.type, w.minutes]).sort();
+      }),
+    )
+    .toEqual([
+      ['2026-09-01', 'run', 30],
+      ['2026-09-02', 'strength', 45],
+    ]);
 });
 
 test('раздел есть в списке «Главной» и открывается оттуда', async ({ page }) => {
