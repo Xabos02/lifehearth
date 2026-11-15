@@ -3,20 +3,18 @@ import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { StatCard } from '../../components/ui/StatCard';
 import { todayKey, WEEKDAY_LABELS } from '../../lib/dates';
-import { isActiveOn, isLogDone } from '../../lib/habits';
 import {
   byWeekday,
   dailyPoints,
   hasEnoughMarks,
   levelByDate,
-  splitByLevel,
   weekTrend,
-  windowDates,
   type Average,
 } from '../../lib/energy';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import type { EnergyLevel } from '../../db/types';
 import { getLang, t } from '../../lib/i18n';
+import { useEnergySplits } from './useEnergySplits';
 
 /** Окно, по которому считаются спарклайн, дни недели и связки. */
 const WINDOW_DAYS = 28;
@@ -86,11 +84,9 @@ export function EnergyStatsCard() {
   const { hidden } = useNavLayout();
   const today = todayKey();
   const logs = useLiveQuery(() => db.energyLogs.toArray(), []);
-  const habitsRaw = useLiveQuery(() => db.habits.toArray(), []);
-  const habitLogsRaw = useLiveQuery(() => db.habitLogs.toArray(), []);
-  const tasksRaw = useLiveQuery(() => db.tasks.toArray(), []);
 
   const byDate = levelByDate(alive(logs ?? []));
+  const { habitSplit, taskSplit } = useEnergySplits(byDate, today, WINDOW_DAYS);
 
   // После хуков: скрытый раздел молчит и здесь — выключив «Энергию», человек
   // не должен натыкаться на её аналитику в статистике.
@@ -100,45 +96,6 @@ export function EnergyStatsCard() {
   const trend = weekTrend(byDate, today);
   const points = dailyPoints(byDate, today, WINDOW_DAYS);
   const weekdays = byWeekday(byDate, today, WINDOW_DAYS);
-  const window = windowDates(today, WINDOW_DAYS);
-
-  // Привычки: доля выполненных из запланированных на день. Дни без плана
-  // (расписание, заморозка) в связку не идут — делить было бы не на что.
-  const habits = alive(habitsRaw ?? []).filter((h) => !h.archivedAt);
-  const habitLogs = alive(habitLogsRaw ?? []);
-  const habitShare = new Map<string, number>();
-  if (habits.length > 0) {
-    const doneByDate = new Map<string, Set<string>>();
-    for (const l of habitLogs) {
-      const habit = habits.find((h) => h.id === l.habitId);
-      if (!habit || !isLogDone(habit, l.value)) continue;
-      const set = doneByDate.get(l.date);
-      if (set) set.add(l.habitId);
-      else doneByDate.set(l.date, new Set([l.habitId]));
-    }
-    for (const date of window) {
-      const planned = habits.filter((h) => isActiveOn(h, date));
-      if (planned.length === 0) continue;
-      const done = doneByDate.get(date);
-      const doneCount = done ? planned.filter((h) => done.has(h.id)).length : 0;
-      habitShare.set(date, doneCount / planned.length);
-    }
-  }
-
-  // Задачи: сколько закрыто в этот день. Знаменателя у задач нет (список
-  // растёт и тает в течение дня), поэтому здесь честнее считать штуки.
-  const tasks = alive(tasksRaw ?? []);
-  const closedPerDay = new Map<string, number>();
-  for (const date of window) closedPerDay.set(date, 0);
-  for (const t of tasks) {
-    if (!t.completedAt) continue;
-    const date = t.completedAt.slice(0, 10);
-    const prev = closedPerDay.get(date);
-    if (prev !== undefined) closedPerDay.set(date, prev + 1);
-  }
-
-  const habitSplit = splitByLevel(byDate, habitShare);
-  const taskSplit = splitByLevel(byDate, closedPerDay);
 
   const deltaText =
     trend.delta === null
