@@ -990,3 +990,18 @@ input[type='date'].date-empty:not(:focus) {
 :root.light .member-color {
   color: var(--lh-text-secondary);
 }
+
+/* Тактильный отклик (components/ui/Haptic.tsx). Кнопке с label-переключателем
+   нужен relative — в @layer base, чтобы absolute/fixed из утилит его били. А
+   ::after из HIT_SLOP_44 лежит поверх label и съел бы тап на всей зоне 44×44 —
+   iPhone бы молчал; правило вне слоёв, зону касания берёт на себя сам label.
+   z-index label не поднимаем: соседнее поле, стоящее позже, выигрывает
+   перекрытие зон, как выигрывало у ::after. */
+@layer base {
+  button:has(> [data-haptic]) {
+    position: relative;
+  }
+}
+button:has(> [data-haptic])::after {
+  pointer-events: none;
+}

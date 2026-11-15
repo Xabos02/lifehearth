@@ -12,6 +12,7 @@ import { startPairing, awaitPairing, connectSync, runSync } from '../../../lib/s
 import { extractRecoveryCode } from '../../../lib/recoveryKey';
 import { t } from '../../../lib/i18n';
 import { ICON } from '../../../components/ui/icons';
+import { Haptic } from '../../../components/ui/Haptic';
 
 interface Props {
   open: boolean;
@@ -186,6 +187,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
           <Button variant="secondary" className="w-full" onClick={copyCode}>
             {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
             {copied ? t('Скопировано') : t('Скопировать код')}
+            <Haptic />
           </Button>
         </div>
       ) : (
