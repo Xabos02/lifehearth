@@ -12,8 +12,8 @@ test('шаблон из упражнений без минут: сохраняе
   // Шаблон стартует с силовой и пустыми минутами — сохранять можно сразу.
   await page.getByRole('button', { name: 'Упражнение' }).last().click();
   await page.getByLabel('Название упражнения').last().fill('Отжимания');
-  await page.getByLabel('Подходов').last().fill('3');
-  await page.getByLabel('Повторов').last().fill('15');
+  await page.getByLabel('Подходы').last().fill('3');
+  await page.getByLabel('Повторы', { exact: true }).last().fill('15');
   // Пустая строка упражнения не сохраняется — это недописанная строка.
   await page.getByRole('button', { name: 'Упражнение' }).last().click();
   await page.getByRole('button', { name: 'Сохранить шаблон' }).click();
@@ -41,7 +41,7 @@ test('шаблон из упражнений без минут: сохраняе
   await line.click();
   await expect(page.getByLabel('Название упражнения')).toHaveValue('Отжимания');
   // Сегодня сделал на подход больше — правка в тренировке, не в шаблоне.
-  await page.getByLabel('Подходов').fill('4');
+  await page.getByLabel('Подходы').fill('4');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
 
   const row = page.getByRole('button', { name: /^Силовая/ }).first();
@@ -57,8 +57,8 @@ test('шаблон из упражнений без минут: сохраняе
   // 4, а не 3 из шаблона: подсказка берёт подходы с последней тренировки.
   await expect(page.getByTestId('exercise-row')).toContainText('4 × 15');
   await page.getByTestId('exercise-row').click();
-  await expect(page.getByLabel('Подходов')).toHaveValue('4');
-  await expect(page.getByLabel('Повторов')).toHaveValue('15');
+  await expect(page.getByLabel('Подходы')).toHaveValue('4');
+  await expect(page.getByLabel('Повторы', { exact: true })).toHaveValue('15');
 });
 
 test('барабан дат: щелчок на каждом пройденном дне, выбор — когда лента встала', async ({ page }) => {

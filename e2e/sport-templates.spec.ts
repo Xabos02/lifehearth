@@ -84,7 +84,7 @@ test('шаблон с нуля: диапазон, секунды, вес, отд
   // Шаблонов нет — в карточке дня только ссылка на список.
   await expect(page.getByTestId('day-templates')).toContainText('Шаблонов пока нет');
   await openTemplates(page);
-  await expect(page.getByText('Шаблонов пока нет.')).toBeVisible();
+  await expect(page.locator(SHEET).getByText('Шаблонов пока нет.')).toBeVisible();
   await page.getByRole('button', { name: 'Новый шаблон' }).click();
   const save = page.getByRole('button', { name: 'Сохранить шаблон' });
   await expect(save).toBeDisabled();
@@ -98,10 +98,10 @@ test('шаблон с нуля: диапазон, секунды, вес, отд
   await expect(page.getByRole('button', { name: 'Готово' })).toBeDisabled();
   await expect(page.getByLabel('Название упражнения')).toBeFocused();
   await page.getByLabel('Название упражнения').fill('Подтягивания с поясом');
-  await page.getByLabel('Подходов').fill('4');
+  await page.getByLabel('Подходы').fill('4');
   // Границы перепутаны — в строке и в базе встают по порядку.
-  await page.getByLabel('Повторов').fill('8');
-  await page.getByLabel('Верхняя граница').fill('6');
+  await page.getByLabel('Повторы', { exact: true }).fill('8');
+  await page.getByLabel('Повторы, до').fill('6');
   await page.getByLabel('Вес').fill('+10–15 кг');
   await page.getByLabel('Отдых').fill('2 мин');
   await editor.getByLabel('Заметка').fill('Разминка 1×5–6 со своим весом');
@@ -117,9 +117,9 @@ test('шаблон с нуля: диапазон, секунды, вес, отд
   await expect(rows.first()).toContainText('Разминка 1×5–6 со своим весом');
 
   await page.getByLabel('Название упражнения').fill('Изометрия на шею');
-  await page.getByLabel('Подходов').fill('2');
-  await page.getByLabel('Повторов').fill('12');
-  await page.getByLabel('Верхняя граница').fill('15');
+  await page.getByLabel('Подходы').fill('2');
+  await page.getByLabel('Повторы', { exact: true }).fill('12');
+  await page.getByLabel('Повторы, до').fill('15');
   await page.getByRole('button', { name: 'сек', exact: true }).click();
   await expect(editor.getByText('Секунды')).toBeVisible();
   await page.getByLabel('Отдых').fill('30 сек');
@@ -129,7 +129,7 @@ test('шаблон с нуля: диапазон, секунды, вес, отд
   // Раунд на мешке: одни минуты, без подходов.
   await add.click();
   await page.getByLabel('Название упражнения').fill('Раунд 1');
-  await page.getByLabel('Повторов').fill('3');
+  await page.getByLabel('Повторы', { exact: true }).fill('3');
   await page.getByRole('button', { name: 'мин', exact: true }).click();
   await page.getByRole('button', { name: 'Готово' }).click();
   await expect(rows.nth(2)).toContainText('3 мин');
@@ -164,12 +164,12 @@ test('правка шаблона: название, вес, порядок, у�
   await seedTemplate(page, TEMPLATE_A);
   const before = (await templates(page))[0];
   await openTemplates(page);
-  await expect(page.getByRole('button', { name: /^Тренировка А/ })).toContainText('Бег, Силовая, Бокс · 1 ч 10 м');
+  await expect(page.getByRole('button', { name: /^Тренировка А/ })).toContainText('Бег, Силовая, Бокс · 1 ч 10 мин');
   await page.getByRole('button', { name: 'Изменить шаблон «Тренировка А»' }).click();
   await expect(page.getByRole('heading', { name: 'Шаблон', exact: true })).toBeVisible();
   await expect(page.getByLabel('Название шаблона')).toHaveValue('Тренировка А');
   await expect(page.getByLabel('Памятка')).toHaveValue('Запас 1–2 повтора до отказа');
-  await expect(page.getByRole('button', { name: 'Общее время: 1 ч 10 м' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Общее время: 1 ч 10 мин' })).toBeVisible();
 
   // Сохранённый шаблон читается как программа: виды — заголовками, чипов нет.
   const kinds = page.getByTestId('workout-kind');
@@ -205,7 +205,7 @@ test('правка шаблона: название, вес, порядок, у�
 
   // При правке кнопка короче — «Сохранить»: рядом стоит «Удалить».
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
-  await expect(page.getByRole('button', { name: /^Тренировка А, недели 5–8/ })).toContainText('Бег, Силовая · 1 ч 10 м');
+  await expect(page.getByRole('button', { name: /^Тренировка А, недели 5–8/ })).toContainText('Бег, Силовая · 1 ч 10 мин');
   const after = await templates(page);
   // Правка, а не новый шаблон: та же запись.
   expect(after).toHaveLength(1);
@@ -316,7 +316,7 @@ test('закрытие редактора: без правок — молча, �
   await expect(page.getByLabel('Название шаблона')).toBeVisible();
   answer = 'accept';
   await page.getByRole('button', { name: 'Удалить', exact: true }).click();
-  await expect(page.getByText('Шаблонов пока нет.')).toBeVisible();
+  await expect(page.locator(SHEET).getByText('Шаблонов пока нет.')).toBeVisible();
   const rows = await templates(page);
   expect(rows).toHaveLength(1);
   expect(rows[0].deletedAt).not.toBeNull();
@@ -349,14 +349,14 @@ test('барабан общего времени: щелчок на каждом
   await cols.nth(0).evaluate((el) => {
     el.scrollTop += 44;
   });
-  await expect(page.getByRole('button', { name: 'Общее время: 1 ч 15 м' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Общее время: 1 ч 15 мин' })).toBeVisible();
   expect(await ticks(page)).toBe(4);
 
   // Клавиатура: в колесе Tab видит одно выбранное число, стрелка — деление.
   await expect(cols.nth(1).locator('button[tabindex="0"]')).toHaveCount(1);
   await cols.nth(1).locator('button[aria-pressed="true"]').focus();
   await page.keyboard.press('ArrowDown');
-  await expect(page.getByRole('button', { name: 'Общее время: 1 ч 20 м' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Общее время: 1 ч 20 мин' })).toBeVisible();
 
   // Время есть, минут у видов нет — честная подсказка; с минутами вида уходит.
   const hint = page.getByText('В часы за месяц идут минуты видов');
@@ -365,12 +365,12 @@ test('барабан общего времени: щелчок на каждом
   await expect(hint).toBeHidden();
 
   await page.getByRole('button', { name: 'Сохранить шаблон' }).click();
-  await expect(page.getByRole('button', { name: /^Утро/ })).toContainText('Силовая · 1 ч 20 м');
+  await expect(page.getByRole('button', { name: /^Утро/ })).toContainText('Силовая · 1 ч 20 мин');
   expect((await templates(page))[0].totalMinutes).toBe(80);
 
   // Обратно в ноль — время не задано, в записи поля нет.
   await page.getByRole('button', { name: 'Изменить шаблон «Утро»' }).click();
-  await page.getByRole('button', { name: 'Общее время: 1 ч 20 м' }).click();
+  await page.getByRole('button', { name: 'Общее время: 1 ч 20 мин' }).click();
   await cols.nth(0).evaluate((el) => {
     el.scrollTop = 0;
   });
@@ -391,7 +391,7 @@ test('строка без названия: остаётся открытой, �
   const add = page.getByRole('button', { name: 'Упражнение', exact: true });
   const editor = page.getByTestId('exercise-editor');
   await add.click();
-  await page.getByLabel('Подходов').fill('3');
+  await page.getByLabel('Подходы').fill('3');
   // Вторая строка первую не сворачивает: без названия она не упражнение.
   await add.click();
   await expect(editor).toHaveCount(2);
@@ -427,7 +427,7 @@ test('английский интерфейс: в редакторе шабло�
   await expect(page.getByRole('heading', { name: 'Workout templates' })).toBeVisible();
   expect(await page.locator(SHEET).innerText()).not.toMatch(cyrillic);
   await page.getByRole('button', { name: 'Edit template “Workout A”' }).click();
-  await page.getByRole('button', { name: 'Total time: 1 h 10 m' }).click();
+  await page.getByRole('button', { name: 'Total time: 1 h 10 min' }).click();
   await page.getByTestId('exercise-row').first().click();
   await page.getByRole('button', { name: /^Type: Run/ }).click();
   await expect(page.getByTestId('exercise-editor')).toBeVisible();
@@ -513,8 +513,8 @@ test('барабан: время не на сетке видно верно и �
   await page.getByRole('button', { name: 'Общее время: 58 мин' }).click();
   const cols = page.getByTestId('duration-wheel').locator('[role=group]');
   // 58 минут на колёсах — «1 ч 0 мин», а не «0 ч 0 мин».
-  await expect(cols.nth(0).locator('button[aria-pressed="true"]')).toHaveAttribute('aria-label', '1 ч, выбрано');
-  await expect(cols.nth(1).locator('button[aria-pressed="true"]')).toHaveAttribute('aria-label', '0 мин, выбрано');
+  await expect(cols.nth(0).locator('button[aria-pressed="true"]')).toHaveAttribute('aria-label', 'Часы: 1, выбрано');
+  await expect(cols.nth(1).locator('button[aria-pressed="true"]')).toHaveAttribute('aria-label', 'Минуты: 0, выбрано');
   // Колёса не трогали — время то же, вопроса при закрытии нет.
   let asked = false;
   page.once('dialog', (d) => {
@@ -538,19 +538,19 @@ test('барабан: время не на сетке видно верно и �
       if (b.textContent?.trim() === 'Сохранить') b.click();
     });
   });
-  await expect(page.getByRole('button', { name: /^Не на сетке/ })).toContainText('1 ч 10 м');
+  await expect(page.getByRole('button', { name: /^Не на сетке/ })).toContainText('1 ч 10 мин');
   expect((await templates(page))[0].totalMinutes).toBe(70);
 
   // Тап по числу и сразу закрыть барабан: встаёт выбранное число, не промежуточное.
   await page.getByRole('button', { name: 'Изменить шаблон «Не на сетке»' }).click();
-  await page.getByRole('button', { name: 'Общее время: 1 ч 10 м' }).click();
+  await page.getByRole('button', { name: 'Общее время: 1 ч 10 мин' }).click();
   await cols.nth(1).evaluate((el) => {
-    const target = [...el.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('40 '));
+    const target = [...el.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Минуты: 40');
     target!.click();
   });
   await page.getByRole('button', { name: /^Общее время/ }).click();
   await expect(page.getByTestId('duration-wheel')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Общее время: 1 ч 40 м' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Общее время: 1 ч 40 мин' })).toBeVisible();
 });
 
 test('редактор открывается сверху и из прокрученного списка; шаблоны в карточке дня не мигают «пока нет»', async ({ page }) => {
@@ -597,5 +597,24 @@ test('стрелка порядка, упёршаяся в край, остаё�
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Готово' }).click();
   await expect(page.getByTestId('exercise-row').nth(1)).toContainText('Брусья с поясом');
+});
+
+test('подсказка упражнения берёт подходы с последней из двух тренировок одного дня', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { todayKey } = await import('/src/lib/dates.ts');
+    const row = (id: string, createdAt: string, sets: number) => ({
+      id, createdAt, updatedAt: createdAt, deletedAt: null, date: todayKey(), type: 'strength', minutes: 0, distanceKm: null,
+      effort: null, note: '', source: 'manual', groupId: null, customLabel: null, customColor: null,
+      exercises: [{ name: 'Отжимания', sets, reps: 15 }],
+    });
+    // id нарочно в обратном порядке: порядок по ключу отдал бы утреннюю.
+    await db.workouts.bulkAdd([row('b-morning', '2026-11-15T07:00:00.000Z', 3), row('a-evening', '2026-11-15T19:00:00.000Z', 5)] as never[]);
+  });
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  await page.locator(SHEET).getByRole('button', { name: 'Силовая', exact: true }).click();
+  await page.getByRole('button', { name: '+ Отжимания' }).click();
+  await expect(page.getByTestId('exercise-row')).toContainText('5 × 15');
 });
 

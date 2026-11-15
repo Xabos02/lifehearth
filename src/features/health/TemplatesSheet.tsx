@@ -11,7 +11,7 @@ import { addTemplate, removeTemplate, updateTemplate, useTemplates, type Templat
 import { ItemFields } from './ItemFields';
 import { DurationWheel } from './DurationWheel';
 import { itemFromSaved, kindPending, newItem, savedFromItem, type Item } from './workoutItem';
-import { formatMinutes } from './workoutStats';
+import { formatDuration } from '../../lib/duration';
 import { templateSummary } from './workoutText';
 import { unlockTick } from './tick';
 
@@ -65,7 +65,7 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
           {list.map((tpl) => (
             <div key={tpl.id} className="flex items-center gap-1 rounded-2xl border border-lh-border-strong py-1 pl-3 pr-1">
               <button type="button" onClick={() => onPick(tpl)} className="min-h-11 min-w-0 flex-1 py-2 text-left active:opacity-70">
-                <span className="block font-medium leading-snug [overflow-wrap:anywhere]">{tpl.name}</span>
+                <span className="block font-medium leading-snug wrap-anywhere">{tpl.name}</span>
                 <span className="block text-sm text-lh-text-secondary">{templateSummary(tpl)}</span>
               </button>
               <button
@@ -177,12 +177,12 @@ function TemplateEditor({
                 setWheelOpen((v) => !v);
               }}
               aria-expanded={wheelOpen}
-              aria-label={total > 0 ? t('Общее время: {time}', { time: formatMinutes(total, t) }) : t('Общее время: не задано')}
+              aria-label={total > 0 ? t('Общее время: {time}', { time: formatDuration(total) }) : t('Общее время: не задано')}
               className={`flex w-full items-center justify-center rounded-lh-btn border bg-lh-surface-2 px-2 py-3 tabular-nums transition-[border-color,box-shadow] active:opacity-80 ${
                 wheelOpen ? 'border-lh-accent-border ring-2 ring-lh-accent-dim' : 'border-lh-border'
               } ${total > 0 ? 'text-lh-text-primary' : 'text-lh-text-secondary'}`}
             >
-              {total > 0 ? formatMinutes(total, t) : '—'}
+              {total > 0 ? formatDuration(total) : '—'}
             </button>
           </Field>
         </div>

@@ -1,4 +1,4 @@
-import type { ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
@@ -14,7 +14,7 @@ import { WORKOUT_KINDS } from './workouts';
 import { addExerciseDef } from './exerciseDefRepo';
 import { cleanExercises, exerciseSuggestions, formatAmount, UNIT_OPTIONS } from './exercises';
 import { exerciseRow, kindOfItem, savedFromItem, type ExerciseRow, type Item } from './workoutItem';
-import { formatMinutes } from './workoutStats';
+import { formatDuration } from '../../lib/duration';
 
 // Один вид внутри формы тренировки и шаблона: вид, минуты, км, упражнения.
 // Общий для обеих шторок: до задачи 38 у шаблона был свой урезанный
@@ -76,7 +76,8 @@ export function ItemFields({
   // Минуты — те, что уйдут в запись: «30,5» читается как 31, а не пропадает.
   const minutes = savedFromItem(item).minutes;
   const summary = [
-    minutes > 0 ? formatMinutes(minutes, t) : null,
+    // «45 мин», а не «45 м»: в той же карточке «м» — метры («Сани 4 × 20 м»).
+    minutes > 0 ? formatDuration(minutes) : null,
     hasDistance && item.distance ? `${item.distance} ${t('км')}` : null,
   ]
     .filter(Boolean)
@@ -101,6 +102,10 @@ export function ItemFields({
     onChange({ newKind: null });
   }
 
+  // Строка, только что свёрнутая кнопкой «Готово»: фокус возвращается на неё.
+  // Иначе кнопка исчезала вместе с редактором, и фокус клавиатуры и читалки
+  // падал на начало страницы.
+  const [refocus, setRefocus] = useState<string | null>(null);
   const setRows = (exercises: ExerciseRow[]) => onChange({ exercises });
   const setExercise = (key: string, patch: Partial<ExerciseRow>) =>
     setRows(item.exercises.map((e) => (e.key === key ? { ...e, ...patch } : e)));
@@ -108,7 +113,10 @@ export function ItemFields({
    *  текст. Строка без названия остаётся открытой — она ещё не упражнение. */
   const foldOthers = (rows: ExerciseRow[], key: string) =>
     rows.map((e) => (e.key === key ? { ...e, open: true } : e.open && e.name.trim() ? { ...e, open: false } : e));
-  const openExercise = (key: string) => setRows(foldOthers(item.exercises, key));
+  const openExercise = (key: string) => {
+    setRefocus(null);
+    setRows(foldOthers(item.exercises, key));
+  };
   function addExercise(e?: WorkoutExercise) {
     const row = exerciseRow(e);
     setRows(row.open ? foldOthers([...item.exercises, row], row.key) : [...item.exercises, row]);
@@ -218,12 +226,15 @@ export function ItemFields({
             ex={ex}
             first={i === 0}
             last={i === item.exercises.length - 1}
-            onChange={(patch) => setExercise(ex.key, patch)}
+            onChange={(patch) => {
+              if (patch.open === false) setRefocus(ex.key);
+              setExercise(ex.key, patch);
+            }}
             onMove={(by) => moveExercise(ex.key, by)}
             onRemove={() => setRows(item.exercises.filter((e) => e.key !== ex.key))}
           />
         ) : (
-          <ExerciseLine key={ex.key} ex={ex} onOpen={() => openExercise(ex.key)} />
+          <ExerciseLine key={ex.key} ex={ex} focus={refocus === ex.key} onOpen={() => openExercise(ex.key)} />
         ),
       )}
 
@@ -252,7 +263,7 @@ export function ItemFields({
 
 /** Упражнение строкой, как в программе: название целиком, справа «4 × 6–8»,
  *  ниже вес и отдых, ещё ниже пометка. Тап раскрывает для правки. */
-function ExerciseLine({ ex, onOpen }: { ex: ExerciseRow; onOpen: () => void }) {
+function ExerciseLine({ ex, focus, onOpen }: { ex: ExerciseRow; focus: boolean; onOpen: () => void }) {
   // Число строкой собирает та же чистка, что и при сохранении: «8–6» в полях
   // читается как «6–8» уже здесь, а не после записи.
   const amount = formatAmount(cleanExercises([{ ...ex, name: ex.name || '·' }])[0], ' × ');
@@ -263,20 +274,23 @@ function ExerciseLine({ ex, onOpen }: { ex: ExerciseRow; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
+      // Строка — свёрнутый редактор: читалка слышит «свёрнуто».
+      aria-expanded={false}
+      autoFocus={focus}
       data-testid="exercise-row"
       className="block min-h-11 w-full border-t border-lh-border py-2.5 text-left active:opacity-70"
     >
       <span className="flex items-baseline gap-3">
-        <span className="min-w-0 flex-1 font-medium leading-snug [overflow-wrap:anywhere]">{ex.name.trim() || t('Без названия')}</span>
+        <span className="min-w-0 flex-1 font-medium leading-snug wrap-anywhere">{ex.name.trim() || t('Без названия')}</span>
         {amount && <span className="shrink-0 whitespace-nowrap tabular-nums">{amount}</span>}
       </span>
       {(weight || rest) && (
-        <span className="mt-0.5 block text-sm leading-snug [overflow-wrap:anywhere]">
+        <span className="mt-0.5 block text-sm leading-snug wrap-anywhere">
           {weight}
           {rest && <span className="text-lh-text-secondary">{`${weight ? ' · ' : ''}${t('отдых {rest}', { rest })}`}</span>}
         </span>
       )}
-      {note && <span className="mt-0.5 block whitespace-pre-line text-sm leading-snug text-lh-text-secondary [overflow-wrap:anywhere]">{note}</span>}
+      {note && <span className="mt-0.5 block whitespace-pre-line text-sm leading-snug text-lh-text-secondary wrap-anywhere">{note}</span>}
     </button>
   );
 }
@@ -300,12 +314,27 @@ function ExerciseEditor({
   onRemove: () => void;
 }) {
   const unit = UNIT_OPTIONS.find((u) => u.value === ex.unit) ?? UNIT_OPTIONS[0];
+  // Раскрыли готовую строку — фокус на сам редактор (не в поле: на iPhone оно
+  // подняло бы клавиатуру поверх упражнения, которое собирались читать).
+  // Новая пустая строка берёт фокус в поле названия сама (autoFocus ниже).
+  const box = useRef<HTMLDivElement>(null);
+  const named = useRef(ex.name !== '');
+  useEffect(() => {
+    if (named.current) box.current?.focus({ preventScroll: true });
+  }, []);
   const caption = 'mb-1 block text-xs text-lh-text-secondary';
   const sign = 'flex h-11 items-center text-lh-text-secondary';
   const arrow =
     'flex size-11 shrink-0 items-center justify-center rounded-lh-btn border border-lh-border-strong text-lh-text-secondary active:scale-95 aria-disabled:opacity-40 aria-disabled:active:scale-100';
   return (
-    <div className="my-2 space-y-3 rounded-lh-btn border border-lh-accent-border p-3" data-testid="exercise-editor">
+    <div
+      ref={box}
+      tabIndex={-1}
+      role="group"
+      aria-label={ex.name.trim() || t('Упражнение')}
+      className="my-2 space-y-3 rounded-lh-btn border border-lh-accent-border p-3 outline-none"
+      data-testid="exercise-editor"
+    >
       <Input
         value={ex.name}
         onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ name: e.target.value })}
@@ -316,51 +345,36 @@ function ExerciseEditor({
         autoFocus={!ex.name}
       />
       <div className="flex items-end gap-2">
-        <div>
-          <span className={caption} aria-hidden>
-            {t('Подходы')}
-          </span>
-          <input
-            inputMode="numeric"
-            value={ex.sets}
-            onChange={(e) => onChange({ sets: digits(e.target.value, 2) })}
-            placeholder="—"
-            aria-label={t('Подходов')}
-            className={NUM}
-          />
-        </div>
+        {/* Подпись — настоящий label: читалка и голосовое управление слышат
+            то слово, что на экране («Секунды», а не «Повторов»). */}
+        <label>
+          <span className={caption}>{t('Подходы')}</span>
+          <input inputMode="numeric" value={ex.sets} onChange={(e) => onChange({ sets: digits(e.target.value, 2) })} placeholder="—" className={NUM} />
+        </label>
         <span className={sign} aria-hidden>
           ×
         </span>
-        <div>
-          <span className={caption} aria-hidden>
-            {t(unit.field)}
-          </span>
-          <input
-            inputMode="numeric"
-            value={ex.reps}
-            onChange={(e) => onChange({ reps: digits(e.target.value, 4) })}
-            placeholder="—"
-            aria-label={t('Повторов')}
-            className={NUM}
-          />
-        </div>
+        <label>
+          <span className={caption}>{t(unit.field)}</span>
+          <input inputMode="numeric" value={ex.reps} onChange={(e) => onChange({ reps: digits(e.target.value, 4) })} placeholder="—" className={NUM} />
+        </label>
         <span className={sign} aria-hidden>
           –
         </span>
-        <div>
+        <label>
           <span className={caption} aria-hidden>
             {t('до')}
           </span>
+          {/* Одно «до» читалке ничего не говорит — имя полное: «Повторы, до». */}
           <input
             inputMode="numeric"
             value={ex.repsTo}
             onChange={(e) => onChange({ repsTo: digits(e.target.value, 4) })}
             placeholder="—"
-            aria-label={t('Верхняя граница')}
+            aria-label={`${t(unit.field)}, ${t('до')}`}
             className={NUM}
           />
-        </div>
+        </label>
       </div>
       <div className="flex flex-wrap gap-2" role="group" aria-label={t('В чём считать')}>
         {UNIT_OPTIONS.map((u) => (

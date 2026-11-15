@@ -184,7 +184,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
         {templates && (
         <div className="mt-3 border-t border-lh-border pt-1" data-testid="day-templates">
           <div className="flex min-h-11 items-center justify-between">
-            <span className="px-1 text-sm text-lh-text-secondary">{templates.length > 0 ? t('По шаблону') : t('Шаблонов пока нет')}</span>
+            <span className="px-1 text-sm text-lh-text-secondary">{templates.length > 0 ? t('По шаблону') : t('Шаблонов пока нет.')}</span>
             <button type="button" onClick={onTemplates} className="flex min-h-11 items-center gap-0.5 text-sm font-medium text-lh-accent active:opacity-60">
               {t('Шаблоны')}
               <ChevronRight size={ICON.inline} />

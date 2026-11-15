@@ -112,10 +112,10 @@ describe('упражнения внутри вида', () => {
 
   it('сводка шаблона: виды без повторов, общее время важнее суммы минут', () => {
     const item = (type: 'run' | 'strength' | 'boxing', minutes: number) => ({ type, customLabel: null, customColor: null, minutes, distanceKm: null });
-    expect(templateSummary({ items: [item('run', 12), item('strength', 45), item('boxing', 11)] })).toBe('Бег, Силовая, Бокс · 1 ч 8 м');
-    expect(templateSummary({ items: [item('run', 12), item('strength', 45)], totalMinutes: 70 })).toBe('Бег, Силовая · 1 ч 10 м');
+    expect(templateSummary({ items: [item('run', 12), item('strength', 45), item('boxing', 11)] })).toBe('Бег, Силовая, Бокс · 1\u00A0ч 8\u00A0мин');
+    expect(templateSummary({ items: [item('run', 12), item('strength', 45)], totalMinutes: 70 })).toBe('Бег, Силовая · 1\u00A0ч 10\u00A0мин');
     expect(templateSummary({ items: [item('boxing', 0), item('strength', 0), item('boxing', 0)] })).toBe('Бокс, Силовая');
-    expect(templateSummary({ items: [item('strength', 0)], totalMinutes: 50 })).toBe('Силовая · 50 мин');
+    expect(templateSummary({ items: [item('strength', 0)], totalMinutes: 50 })).toBe('Силовая · 50\u00A0мин');
   });
 
   // Находка первого круга проверки (15.11.2026): правка импортированной

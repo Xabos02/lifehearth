@@ -140,19 +140,20 @@ function WheelColumn({
       // Затухание — 10px у края: соседние числа читаются в полную силу (AA),
       // гаснет только то, что уходит за край. contain — колесо не тянет за
       // собой прокрутку шторки.
-      className="relative h-[132px] w-28 snap-y snap-mandatory overflow-y-auto overscroll-y-contain [mask-image:linear-gradient(180deg,transparent,#000_10px,#000_calc(100%_-_10px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="relative h-33 w-28 snap-y snap-mandatory overflow-y-auto overscroll-y-contain [mask-image:linear-gradient(180deg,transparent,#000_10px,#000_calc(100%_-_10px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <div aria-hidden className="h-11" />
       {values.map((v, i) => {
         const sel = i === center;
         return (
-          // Читалке и Tab виден только выбранный ряд — как в барабане дней.
+          // Tab входит на выбранном числе, а читалке видны все: в колесе их
+          // 6 и 12 (не 120, как дней) — двойной тап по любому выбирает его,
+          // без клавиатуры и без жеста прокрутки. Имя — словом: «Минуты: 10».
           <button
             key={v}
             type="button"
-            aria-label={`${v} ${unit}${sel ? t(', выбрано') : ''}`}
+            aria-label={`${label}: ${v}${sel ? t(', выбрано') : ''}`}
             aria-pressed={sel}
-            aria-hidden={sel ? undefined : true}
             tabIndex={sel ? 0 : -1}
             onClick={() => pick(i)}
             className="flex h-11 w-full snap-center items-center justify-center gap-1.5"
