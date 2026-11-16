@@ -121,7 +121,8 @@ export function CalendarPage() {
   const weekAhead = useMemo(() => {
     const end = addDaysKey(selectedDate, 7);
     return tasks
-      .filter((x) => !x.completedAt && x.dueDate && x.dueDate > selectedDate && x.dueDate <= end)
+      // Задача с периодом, идущим через выбранный день, уже есть в списке дня — не дублируем.
+      .filter((x) => !x.completedAt && x.dueDate && x.dueDate > selectedDate && x.dueDate <= end && !taskOnDay(x, selectedDate))
       .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!) || (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99'))
       .slice(0, 6);
   }, [tasks, selectedDate]);
@@ -158,7 +159,7 @@ export function CalendarPage() {
         <button
           type="button"
           onClick={goToday}
-          className="min-h-11 shrink-0 rounded-lg px-2 py-2.5 text-sm text-lh-accent active:opacity-60"
+          className="min-h-11 shrink-0 rounded-lg px-2 py-2.5 text-base font-medium text-lh-accent active:opacity-60"
         >
           {t('Сегодня')}
         </button>
@@ -175,11 +176,12 @@ export function CalendarPage() {
             <ChevronLeft size={ICON.action} />
           </button>
           <div className="min-w-0 text-center">
-            <h2 className="truncate font-semibold">{monthTitle}</h2>
-            <p className="text-2xs text-lh-text-secondary tabular-nums">
-              {monthPrefix.slice(0, 4)}
-              {monthCount > 0 && ` · ${tPlur(monthCount, ['задача', 'задачи', 'задач'])}`}
-            </p>
+            <h2 className="truncate font-semibold">{`${monthTitle} ${monthPrefix.slice(0, 4)}`}</h2>
+            {monthCount > 0 && (
+              <p className="text-2xs text-lh-text-secondary tabular-nums">
+                {tPlur(monthCount, ['задача', 'задачи', 'задач'])}
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -261,7 +263,7 @@ export function CalendarPage() {
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-lh-border px-2 pt-3 text-2xs text-lh-text-secondary">
           <span className="flex items-center gap-1.5"><span aria-hidden className="size-1.5 rounded-full bg-lh-accent" />{t('Задачи')}</span>
           <span className="flex items-center gap-1.5"><span aria-hidden className="size-1.5 rounded-full bg-danger" />{t('Просрочено')}</span>
-          <span className="flex items-center gap-1.5"><span aria-hidden className="size-3.5 rounded-[5px] ring-1 ring-lh-accent" />{t('Сегодня')}</span>
+          <span className="flex items-center gap-1.5"><span aria-hidden className="size-3.5 rounded-sm ring-1 ring-lh-accent" />{t('Сегодня')}</span>
         </div>
       </div>
 

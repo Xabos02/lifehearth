@@ -705,7 +705,7 @@ export function FocusPage() {
                     {managing && <Pencil size={ICON.inline} className="shrink-0" />}
                     <span className="truncate">{pr.name}</span>
                   </span>
-                  <span className="text-2xs tabular-nums text-lh-text-secondary">
+                  <span className="text-2xs tabular-nums text-lh-text">
                     {t('длинный {n} мин', { n: String(pr.long) })}
                   </span>
                 </button>

@@ -161,7 +161,7 @@ function ExpenseRow({ item, onOpen }: { item: ExpenseItem; onOpen: () => void })
   const Icon = isIncome ? TrendingUp : (CATEGORY_ICON[item.category ?? ''] ?? CircleEllipsis);
   const meta = [
     !isIncome && item.category ? t(item.category) : null,
-    t(RECURRENCE_LABEL[item.recurrence]).toLowerCase(),
+    RECURRENCE_LABEL[item.recurrence] ? t(RECURRENCE_LABEL[item.recurrence]).toLowerCase() : null,
     item.active ? null : t('не учитывается'),
   ]
     .filter(Boolean)

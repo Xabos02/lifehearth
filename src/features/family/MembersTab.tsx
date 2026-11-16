@@ -263,7 +263,7 @@ export function MembersTab({
                   </span>
                 </Name>
                 {!isSelf && !m.removedAt && (
-                  <div className="flex shrink-0 items-center gap-3">
+                  <>
                     {isOwner && (
                       <button
                         onClick={() => setRemoving(m)}
@@ -280,7 +280,7 @@ export function MembersTab({
                     >
                       <Phone size={ICON.base} />
                     </button>
-                  </div>
+                  </>
                 )}
               </div>
             );

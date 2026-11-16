@@ -187,8 +187,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
                   <div className="flex items-baseline justify-between gap-3 text-sm">
                     <span className="min-w-0 truncate">{k.type === 'custom' ? kind.label : t(kind.label)}</span>
                     <span className="shrink-0 tabular-nums text-lh-text-secondary">
-                      {k.count}
-                      {amount ? ` · ${amount}` : ''}
+                      {amount ?? `${k.count} ${tPlural(k.count, ['раз', 'раза', 'раз'])}`}
                     </span>
                   </div>
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-lh-surface-2">
