@@ -255,7 +255,7 @@ function Tile({
 }) {
   return (
     <div className="card p-4">
-      <p className={`text-2xl font-light leading-none tabular-nums ${warn ? 'text-warning' : ''}`}>
+      <p className={`text-2xl font-extralight leading-none tabular-nums ${warn ? 'text-warning' : ''}`}>
         {v}
         {u && <span className="ml-1 text-sm font-normal text-lh-text-secondary">{u}</span>}
       </p>
@@ -333,8 +333,8 @@ function Chart({
               x2={x(total)}
               y2={y(item.progressTarget)}
               stroke="var(--lh-text-secondary)"
-              strokeWidth="1.5"
-              strokeDasharray="4 5"
+              strokeWidth="1.7"
+              strokeDasharray="4 4"
               vectorEffect="non-scaling-stroke"
             />
             <path

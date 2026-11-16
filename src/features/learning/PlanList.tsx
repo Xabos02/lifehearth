@@ -34,7 +34,7 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
       {groups.map((g) => (
         <div key={g.section || '—'}>
           {g.section && (
-            <p className="px-4 pb-1 pt-3 text-2xs font-semibold uppercase tracking-wider text-lh-text-secondary">{g.section}</p>
+            <p className="lh-section px-4 pb-1 pt-3">{g.section}</p>
           )}
           {g.rows.map((part) => (
             <button

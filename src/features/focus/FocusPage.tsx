@@ -558,10 +558,10 @@ export function FocusPage() {
             )}
           </svg>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-xs uppercase tracking-[.08em] text-lh-text-secondary">
+            <span className="text-xs text-lh-text-secondary">
               {idleWork ? t('Длительность') : t('Осталось')}
             </span>
-            <span className="mt-1 text-5xl font-light leading-none tabular-nums tracking-tight">
+            <span className="mt-1 text-5xl font-extralight leading-none tabular-nums tracking-tight">
               {formatClock(p.remainingMs)}
             </span>
             <CycleDots done={p.cycle.done} total={p.cycle.total} color={accentColor} />
@@ -584,8 +584,11 @@ export function FocusPage() {
             className="flex w-20 flex-col items-center gap-1.5 text-lh-text-primary active:opacity-80"
           >
             <span
-              className="flex size-[72px] items-center justify-center rounded-full bg-lh-accent text-lh-bg"
-              style={{ boxShadow: 'var(--shadow-focus)' }}
+              className="flex size-[72px] items-center justify-center rounded-full text-white"
+              style={{
+                backgroundImage: 'linear-gradient(150deg, var(--focus-accent-fill), var(--focus-accent-2-fill))',
+                boxShadow: 'var(--shadow-focus)',
+              }}
             >
               {p.running ? <Pause size={ICON.hero} fill="currentColor" /> : <Play size={ICON.hero} fill="currentColor" className="ml-1" />}
             </span>

@@ -101,7 +101,7 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
           />
         </div>
       </div>
-      <p className="mt-1 text-3xl font-light leading-tight tracking-tight tabular-nums">
+      <p className="mt-1 text-3xl font-extralight leading-tight tracking-tight tabular-nums">
         {wrapRub(summary.expense * mul)}
       </p>
       <p className="mt-1 text-xs text-lh-text-secondary">

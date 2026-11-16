@@ -177,7 +177,7 @@ export function SavingsSection() {
         <div className="card divide-y divide-lh-border">
           <div className="px-4 py-4">
             <p className="text-xs text-lh-text-secondary">{t('Всего накоплено')}</p>
-            <p className="mt-0.5 text-2xl font-light tabular-nums tracking-tight">{wrapRub(total)}</p>
+            <p className="mt-0.5 text-2xl font-extralight tabular-nums tracking-tight">{wrapRub(total)}</p>
           </div>
           {goals.map((g) => (
             <GoalCard

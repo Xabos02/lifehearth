@@ -130,7 +130,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
             <p className="text-xs text-lh-text-secondary">{t('Цель на неделю')}</p>
             {/* «1/3» одним текстом: число и цель стоят рядом, e2e читает их
                 вместе, а цель отдельно — по data-testid. */}
-            <p className="text-2xl font-light leading-tight tabular-nums">
+            <p className="text-2xl font-extralight leading-tight tabular-nums">
               {week.done}
               <span className="text-lh-text-secondary">/</span>
               <span data-testid="weekly-goal">{goal}</span>
@@ -243,9 +243,10 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
                   </div>
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-lh-surface-2">
                     <div
-                      className="h-full rounded-full bg-lh-accent"
+                      className="h-full rounded-full"
                       style={{
                         width: `${Math.max(4, maxKindMinutes > 0 ? (k.minutes / maxKindMinutes) * 100 : (k.count / maxKindCount) * 100)}%`,
+                        background: kind.color,
                       }}
                     />
                   </div>
@@ -306,7 +307,7 @@ function StepButton({ label, onClick, children }: { label: string; onClick: () =
 function Stat({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
   return (
     <div className="card min-w-0 p-4">
-      <p className={`text-2xl font-light leading-none tabular-nums ${accent ? 'text-lh-accent' : ''}`}>{value}</p>
+      <p className={`text-2xl font-extralight leading-none tabular-nums ${accent ? 'text-lh-accent' : ''}`}>{value}</p>
       <p className="mt-2 text-xs leading-snug text-lh-text-secondary">{label}</p>
     </div>
   );

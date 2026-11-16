@@ -191,7 +191,7 @@ export function GoalDetailPage() {
         <div className="relative">
           <ProgressRing value={progress} size={168} strokeWidth={7} color={goal.color} label="" />
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-5xl font-light tabular-nums">
+            <span className="text-5xl font-extralight tabular-nums">
               {Math.round(progress)}
               <span className="text-lg text-lh-text-secondary">%</span>
             </span>
