@@ -21,7 +21,10 @@ jobs:
           K=$(openssl rand -hex 24); echo "::add-mask::$K"; echo "PROBE_KEY=$K" >> "$GITHUB_ENV"
       - name: Deploy probe worker
         working-directory: .github/probe/worker
-        run: npx --yes wrangler@4 deploy --var "PROBE_KEY:$PROBE_KEY"
+        # Новый воркер: шаг workers.dev сразу после загрузки ловит 10007
+        # «does not exist» — повтор через паузу находит его.
+        run: |
+          for i in 1 2 3 4; do npx --yes wrangler@4 deploy --var "PROBE_KEY:$PROBE_KEY" && exit 0; sleep 15; done; exit 1
       - name: Probe
         run: node .github/probe/probe.mjs
         env:

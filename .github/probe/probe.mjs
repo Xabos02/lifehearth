@@ -10,7 +10,12 @@ const H = { Authorization: `Bearer ${TOK}`, 'Content-Type': 'application/json' }
 const PRICE = {
   '@cf/google/gemma-4-26b-a4b-it': [9091, 27273],
   '@cf/zai-org/glm-4.7-flash': [5500, 36400],
+  '@cf/qwen/qwen3.8-27b': [40909, 290909],
 };
+// Qwen по умолчанию думает на xhigh, а выход у него в 10 раз дороже Gemma:
+// гоняем с короткими размышлениями и на части вопросов, чтобы не съесть лимит дня.
+const EXTRA = { '@cf/qwen/qwen3.8-27b': { reasoning_effort: 'low' } };
+const SUBSET = { '@cf/qwen/qwen3.8-27b': [0, 3, 4, 5, 7] };
 const MODELS = Object.keys(PRICE);
 const MAX_TOKENS = Number(process.env.MAX_TOKENS || 8192);
 const log = (...a) => console.log(...a);
@@ -145,7 +150,7 @@ function parseSSE(raw) {
 }
 
 async function call(endpoint, model, messages, tools, maxTokens = MAX_TOKENS) {
-  const input = { messages, stream: true, stream_options: { include_usage: true }, max_tokens: maxTokens, ...(tools ? { tools } : {}) };
+  const input = { messages, stream: true, stream_options: { include_usage: true }, max_tokens: maxTokens, ...(tools ? { tools } : {}), ...(EXTRA[model] ?? {}) };
   const t0 = Date.now();
   let r;
   for (let i = 0; i < 20; i++) {
@@ -263,6 +268,7 @@ async function quality(ep, model) {
   log(`\n## 3. Качество: ${model} via ${ep}`);
   let total = 0;
   for (const [i, item] of QUESTIONS.entries()) {
+    if (SUBSET[model] && !SUBSET[model].includes(i)) continue;
     const r = await agent(ep, model, item);
     const n = neurons(model, r.usage);
     total += n || 0;
@@ -270,7 +276,8 @@ async function quality(ep, model) {
     log(`tools: ${r.trace.join(' → ') || '—'} | tokens in/out ${r.usage.prompt_tokens}/${r.usage.completion_tokens} | neurons≈${n?.toFixed(1)} | ${r.ms}ms | finish ${r.finish}`);
     log(r.error ? `ОШИБКА: ${r.error}` : cut(r.text, 1800));
   }
-  log(`\nВсего neurons≈${total.toFixed(0)} на ${QUESTIONS.length} вопросов (${(total / QUESTIONS.length).toFixed(1)} в среднем)`);
+  const n = SUBSET[model]?.length ?? QUESTIONS.length;
+  log(`\nВсего neurons≈${total.toFixed(0)} на ${n} вопросов (${(total / n).toFixed(1)} в среднем)`);
 }
 
 if (MODE === 'all' || MODE === 'settings') await settings();
