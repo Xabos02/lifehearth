@@ -1,19 +1,41 @@
 import type { WorkoutType } from '../../db/types';
 
-// Справочник видов тренировок: подпись, цвет точки в календаре, есть ли
-// дистанция, минуты по умолчанию (чтобы отметить занятие в два касания).
+// Справочник видов тренировок: подпись, есть ли дистанция, минуты по
+// умолчанию (чтобы отметить занятие в два касания).
 //
 // Набор — от занятий владельца (бег, бокс на мешке, гири, отжимания/планка =
 // силовая) плюс самое частое у остальных: ходьба, вело, плавание, растяжка.
-// Цвета — из палитры приложения, а не свои: точки стоят рядом с точками задач
-// в календаре и должны выглядеть родными.
 
 export interface WorkoutKind {
   value: WorkoutType;
   label: string;
-  color: string;
   hasDistance: boolean;
   defaultMinutes: number;
+}
+
+/** Цвет отметки тренировки — один на все виды (выбор владельца 16.11.2026,
+ *  канва design/sport-color): кружок дня в календаре, точка в строках
+ *  тренировок и на «Сегодня», полосы «по видам». До того у каждого вида был
+ *  свой цвет. По умолчанию зелёный.
+ *
+ *  Только токены темы: hex из палитры проектов за темой не идёт, и зелёный
+ *  #4ade80 на белой карточке светлой темы — 1.9:1. Замер кружка (16.11.2026,
+ *  на карточке, второй поверхности и подложке барабана, обе темы) — не ниже
+ *  4.11 при норме для графики 3. Не взяты: оранжевый «Бокса» и бирюза
+ *  «Плавания» — в светлой 2.83 и 2.26 на подложке; янтарь — в тёмной его не
+ *  отличить от золота. */
+export const WORKOUT_COLORS = [
+  { value: 'green', label: 'Зелёный', color: 'var(--app-success)' },
+  { value: 'blue', label: 'Голубой', color: 'var(--app-frost)' },
+  { value: 'violet', label: 'Фиолетовый', color: 'var(--app-accent-2)' },
+  { value: 'gold', label: 'Золотой', color: 'var(--lh-accent)' },
+  { value: 'red', label: 'Красный', color: 'var(--app-danger)' },
+];
+
+/** CSS-цвет отметки по сохранённому значению; незнакомое (старая копия,
+ *  чужое устройство) и пустое — зелёный. */
+export function workoutColor(value: string | undefined): string {
+  return (WORKOUT_COLORS.find((c) => c.value === value) ?? WORKOUT_COLORS[0]).color;
 }
 
 /** У кого показывать темп мин/км: бег и ходьба. Вело и плавание — другие
@@ -21,18 +43,15 @@ export interface WorkoutKind {
 export const PACE_TYPES: ReadonlySet<WorkoutType> = new Set(['run', 'walk']);
 
 export const WORKOUT_KINDS: WorkoutKind[] = [
-  { value: 'run', label: 'Бег', color: 'var(--lh-accent)', hasDistance: true, defaultMinutes: 30 },
-  { value: 'strength', label: 'Силовая', color: 'var(--focus-accent)', hasDistance: false, defaultMinutes: 45 },
-  // Бокс — свой оранжевый, а не токен светлого конца фокуса: тот в светлой
-  // теме на белой карточке давал 2,6:1, и точка тонула.
-  { value: 'boxing', label: 'Бокс', color: 'oklch(0.66 0.19 45)', hasDistance: false, defaultMinutes: 30 },
-  { value: 'kettlebell', label: 'Гири', color: 'var(--app-success)', hasDistance: false, defaultMinutes: 30 },
-  { value: 'stretch', label: 'Растяжка', color: 'var(--app-accent-2)', hasDistance: false, defaultMinutes: 20 },
-  { value: 'walk', label: 'Ходьба', color: 'var(--app-frost)', hasDistance: true, defaultMinutes: 40 },
-  { value: 'bike', label: 'Вело', color: 'var(--app-warning)', hasDistance: true, defaultMinutes: 45 },
-  // Плавание — бирюза, чтобы не совпадать с голубым ходьбы.
-  { value: 'swim', label: 'Плавание', color: 'oklch(0.68 0.13 195)', hasDistance: true, defaultMinutes: 40 },
-  { value: 'other', label: 'Другое', color: 'var(--lh-text-secondary)', hasDistance: false, defaultMinutes: 30 },
+  { value: 'run', label: 'Бег', hasDistance: true, defaultMinutes: 30 },
+  { value: 'strength', label: 'Силовая', hasDistance: false, defaultMinutes: 45 },
+  { value: 'boxing', label: 'Бокс', hasDistance: false, defaultMinutes: 30 },
+  { value: 'kettlebell', label: 'Гири', hasDistance: false, defaultMinutes: 30 },
+  { value: 'stretch', label: 'Растяжка', hasDistance: false, defaultMinutes: 20 },
+  { value: 'walk', label: 'Ходьба', hasDistance: true, defaultMinutes: 40 },
+  { value: 'bike', label: 'Вело', hasDistance: true, defaultMinutes: 45 },
+  { value: 'swim', label: 'Плавание', hasDistance: true, defaultMinutes: 40 },
+  { value: 'other', label: 'Другое', hasDistance: false, defaultMinutes: 30 },
 ];
 
 export function workoutKind(type: WorkoutType): WorkoutKind {
@@ -40,7 +59,9 @@ export function workoutKind(type: WorkoutType): WorkoutKind {
 }
 
 /** Палитра для своих упражнений — по кругу, чтобы у каждого нового имени была
- *  своя точка, а не серая «другое» для всех сразу. */
+ *  своя точка, а не серая «другое» для всех сразу. С 16.11.2026 точка у всех
+ *  видов одного цвета (WORKOUT_COLORS), а этот цвет только пишется в запись и
+ *  справочник — экран его не читает. */
 const CUSTOM_COLORS = [
   'var(--app-warning)',
   'oklch(0.66 0.19 45)',
@@ -55,18 +76,11 @@ export function nextCustomColor(existingCount: number): string {
 }
 
 /** Вид тренировки для конкретной записи: у встроенных — из справочника, у
- *  своего упражнения (type='custom') — название и цвет, сохранённые прямо в
- *  записи (без похода в exerciseDefs — они нужны только для подсказки при
- *  вводе). */
-export function resolveKind(w: { type: WorkoutType; customLabel?: string | null; customColor?: string | null }): WorkoutKind {
+ *  своего упражнения (type='custom') — название, сохранённое прямо в записи
+ *  (без похода в exerciseDefs — они нужны только для подсказки при вводе). */
+export function resolveKind(w: { type: WorkoutType; customLabel?: string | null }): WorkoutKind {
   if (w.type === 'custom' && w.customLabel) {
-    return {
-      value: 'custom',
-      label: w.customLabel,
-      color: w.customColor ?? 'var(--lh-text-secondary)',
-      hasDistance: false,
-      defaultMinutes: 30,
-    };
+    return { value: 'custom', label: w.customLabel, hasDistance: false, defaultMinutes: 30 };
   }
   return workoutKind(w.type);
 }

@@ -1992,6 +1992,14 @@ export const EN: Record<string, string> = {
   'Сохранить шаблон': 'Save template',
   'Шаблоны тренировок': 'Workout templates',
   'Шаблонов пока нет.': 'No templates yet.',
+  // Цвет отметки тренировки (16.11.2026).
+  'Цвет отметки': 'Marker color',
+  'Так отмечается день с тренировкой — в календаре, в списке и на «Сегодня».': 'This is how a workout day is marked — in the calendar, in the list and on “Today”.',
+  'Зелёный': 'Green',
+  'Голубой': 'Blue',
+  'Фиолетовый': 'Purple',
+  'Золотой': 'Gold',
+  'Красный': 'Red',
   // Шаблоны: правка, общее время, упражнение с весом и отдыхом (15.11.2026).
   'По шаблону': 'From template',
   'По шаблону: {name}': 'From template: {name}',

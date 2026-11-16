@@ -10,7 +10,8 @@ import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { getLang, t } from '../../lib/i18n';
 import type { WorkoutExercise, WorkoutType } from '../../db/types';
-import { WORKOUT_KINDS } from './workouts';
+import { WORKOUT_KINDS, workoutColor } from './workouts';
+import { useSettings } from '../../hooks/useSettings';
 import { addExerciseDef } from './exerciseDefRepo';
 import { cleanExercises, exerciseSuggestions, formatAmount, UNIT_OPTIONS } from './exercises';
 import { exerciseRow, kindOfItem, savedFromItem, type ExerciseRow, type Item } from './workoutItem';
@@ -72,6 +73,7 @@ export function ItemFields({
       return [...alive(ws), ...alive(tpls).flatMap((tpl) => tpl.items)];
     }, []) ?? [];
   const kind = kindOfItem(item);
+  const dotColor = workoutColor(useSettings().workoutColor);
   // Своё название — данные человека: не переводим.
   const kindName = item.type === 'custom' ? kind.label : t(kind.label);
   const hasDistance = kind.hasDistance || item.keepsDistance;
@@ -92,7 +94,7 @@ export function ItemFields({
     if (type === item.type && customLabel === item.customLabel) return;
     // Сменили вид — километры чужого вида больше не держим.
     const patch: Partial<Item> = { type, customLabel, customColor, keepsDistance: false };
-    if (!item.minutesTouched) patch.minutes = String(kindOfItem({ type, customLabel, customColor }).defaultMinutes);
+    if (!item.minutesTouched) patch.minutes = String(kindOfItem({ type, customLabel }).defaultMinutes);
     onChange(patch);
   }
 
@@ -145,7 +147,7 @@ export function ItemFields({
           aria-label={[t('Вид: {name}', { name: kindName }), summary].filter(Boolean).join(', ')}
           className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left active:opacity-70"
         >
-          <span className="size-2.5 shrink-0 rounded-full" style={{ background: kind.color }} aria-hidden />
+          <span className="size-2.5 shrink-0 rounded-full" style={{ background: dotColor }} aria-hidden />
           <span className="truncate font-semibold">{kindName}</span>
           <GChevronDown
             size={ICON.inline}
