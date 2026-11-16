@@ -28,12 +28,17 @@ test('«+» у проекта открывает форму с этим прое
   await page.locator('textarea[placeholder="Что нужно сделать?"]').fill('Позвонить поставщику');
   await page.getByRole('button', { name: 'Сохранить' }).click();
 
-  const saved = await page.evaluate(async () => {
-    const { db } = await import('/src/db/db.ts');
-    const t = (await db.tasks.toArray()).find((x: { title: string }) => x.title === 'Позвонить поставщику');
-    return t?.projectId;
-  });
-  expect(saved).toBe('p1');
+  // Запись — после расчёта места новой задачи (newTaskSortOrder читает
+  // список): база догоняет клик, ждём её, а не читаем сразу.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { db } = await import('/src/db/db.ts');
+        const t = (await db.tasks.toArray()).find((x: { title: string }) => x.title === 'Позвонить поставщику');
+        return t?.projectId;
+      }),
+    )
+    .toBe('p1');
 });
 
 test('«+» у подпроекта кладёт задачу в подпроект', async ({ page }) => {
@@ -45,10 +50,15 @@ test('«+» у подпроекта кладёт задачу в подпрое�
   await page.locator('textarea[placeholder="Что нужно сделать?"]').fill('Собрать сборку');
   await page.getByRole('button', { name: 'Сохранить' }).click();
 
-  const saved = await page.evaluate(async () => {
-    const { db } = await import('/src/db/db.ts');
-    const t = (await db.tasks.toArray()).find((x: { title: string }) => x.title === 'Собрать сборку');
-    return t?.projectId;
-  });
-  expect(saved).toBe('p2');
+  // Запись — после расчёта места новой задачи (newTaskSortOrder читает
+  // список): база догоняет клик, ждём её, а не читаем сразу.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { db } = await import('/src/db/db.ts');
+        const t = (await db.tasks.toArray()).find((x: { title: string }) => x.title === 'Собрать сборку');
+        return t?.projectId;
+      }),
+    )
+    .toBe('p2');
 });
