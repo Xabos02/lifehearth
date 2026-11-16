@@ -1065,25 +1065,31 @@ export function TasksPage() {
   const tasksRaw = useLiveQuery(() => db.tasks.toArray(), []);
   const projectsRaw = useLiveQuery(() => db.projects.toArray(), []);
 
-  // Задача из строки быстрого ввода ложится в конец «Без проекта» — ниже
-  // всех папок. Человек жал Enter, поле очищалось, а задачи на экране не было.
-  // Строка появляется в DOM следующим рендером после ответа liveQuery — ждём
-  // её по кадрам и докручиваем ленту. Не scrollIntoView: он крутит всех
-  // предков и на iOS устраивал «войну скроллов» (см. ChatTab).
-  const revealTask = useCallback((id: string) => {
+  // Новое встаёт наверх своего списка, а заводят его и снизу: задачу из
+  // строки быстрого ввода — в «Без проекта» под всеми папками, «+ Задача» под
+  // длинным проектом, «Новый проект» под всем списком. Без докрутки новое
+  // оказывалось за краем экрана, и казалось, что ничего не сохранилось.
+  // Строка (или секция проекта) появляется в DOM следующим рендером после
+  // ответа liveQuery — ждём её по кадрам и докручиваем ленту. Не
+  // scrollIntoView: он крутит всех предков и на iOS устраивал «войну
+  // скроллов» (см. ChatTab).
+  const revealNew = useCallback((id: string) => {
     let tries = 0;
     const attempt = () => {
-      const el = document.querySelector<HTMLElement>(`[data-task-id="${id}"]`);
-      if (!el) {
+      const el = document.querySelector<HTMLElement>(`[data-task-id="${id}"], [data-drop-key="${id}"]`);
+      const sc = document.getElementById('app-scroll');
+      // Шторка ещё открыта: закрываясь, она вернёт ленту на прежнее место и
+      // перебьёт докрутку. Ждём, пока она снимет запрет прокрутки.
+      if (!el || !sc || sc.style.overflowY === 'hidden') {
         if (tries++ < 60) requestAnimationFrame(attempt);
         return;
       }
-      const sc = document.getElementById('app-scroll');
-      if (!sc) return;
       const r = el.getBoundingClientRect();
       const cr = sc.getBoundingClientRect();
+      // Сверху ленту закрывает липкая шапка экрана — верхний край считаем по ней.
+      const top = Math.max(cr.top, sc.querySelector('header')?.getBoundingClientRect().bottom ?? cr.top);
       if (r.bottom > cr.bottom) sc.scrollTop += r.bottom - cr.bottom + 16;
-      else if (r.top < cr.top) sc.scrollTop -= cr.top - r.top + 16;
+      else if (r.top < top) sc.scrollTop -= top - r.top + 16;
     };
     requestAnimationFrame(attempt);
   }, []);
@@ -1131,7 +1137,7 @@ export function TasksPage() {
     () => (activeTag ? allTasks.filter((task) => task.tags.includes(activeTag)) : allTasks),
     [allTasks, activeTag],
   );
-  // Проекты сверху вниз в порядке создания (sortOrder растёт → новые ниже).
+  // Проекты по sortOrder: новый встаёт наверх (newSortOrder), перенос задаёт место.
   const projects = useMemo(
     () =>
       alive(projectsRaw ?? [])
@@ -1425,7 +1431,7 @@ export function TasksPage() {
       {/* Фото-панель — в самом верху, над строкой добавления: так попросил
           владелец (16.11.2026). Пустая она не занимает места. */}
       <PhotoBoard />
-      <QuickAddBar onCreated={revealTask} />
+      <QuickAddBar onCreated={revealNew} />
 
       {tagOptions.length > 0 && (
         <div className="mb-4">
@@ -1654,12 +1660,14 @@ export function TasksPage() {
         onClose={() => setTaskSheetOpen(false)}
         task={editingTask}
         defaults={{ projectId: taskDefaultProject }}
+        onCreated={revealNew}
       />
       <ProjectEditSheet
         open={projectSheetOpen}
         onClose={() => setProjectSheetOpen(false)}
         project={editingProject}
         defaults={{ parentId: projectDefaultParent }}
+        onCreated={revealNew}
       />
       <FreezeSheet
         key={freezeSheetOpen ? 'freeze-open' : 'freeze-closed'}
