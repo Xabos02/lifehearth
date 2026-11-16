@@ -205,3 +205,48 @@ test('важные во главе остаются над новой обычн
   await input.press('Enter');
   await expect.poll(() => tasksShown(page).then((l) => l[0])).toBe('Отправить отчёт');
 });
+
+// Канва design/no-project-top: «Без проекта» — над проектами. Задача из
+// строки быстрого ввода ложится туда, и под всеми папками она оказывалась в
+// самом низу экрана: Enter — и лента уезжала вниз.
+test('задача из строки встаёт прямо под ней: «Без проекта» над проектами', async ({ page }) => {
+  await openApp(page, '/tasks', { seenHints: ['tasks-quick-add', 'tasks-gestures'] });
+  await seedLong(page);
+
+  const input = page.getByPlaceholder('Что нужно сделать?');
+  await input.fill('Купить молоко');
+  await input.press('Enter');
+  await expect(page.getByText('Купить молоко', { exact: true })).toBeVisible();
+
+  await expect.poll(() => projectsShown(page, ['Без проекта', 'Дом'])).toEqual(['Без проекта', 'Дом']);
+  expect(await page.evaluate(() => document.getElementById('app-scroll')!.scrollTop)).toBe(0);
+  const id = await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    return (await db.tasks.toArray()).find((x) => x.title === 'Купить молоко')!.id;
+  });
+  await expect.poll(() => onScreen(page, `[data-task-id="${id}"]`)).toBe(true);
+});
+
+// С одними выполненными «Без проекта» остаётся внизу, как раньше: свёрнутый
+// архив не занимает верх экрана у того, кто всё раскладывает по папкам.
+test('«Без проекта» только с выполненными — под проектами', async ({ page }) => {
+  await openApp(page, '/tasks', { seenHints: ['tasks-quick-add', 'tasks-gestures'] });
+  await seed(page);
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    await db.tasks.put({
+      id: 'done1', title: 'Купить хлеб', notes: '', projectId: null, goalId: null, priority: 0,
+      dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: now,
+      checklist: [], recurrence: null, tags: [], sortOrder: 1000, createdAt: now, updatedAt: now, deletedAt: null,
+    } as never);
+  });
+  const names = ['Дом', 'Работа', 'Без проекта'];
+  await expect.poll(() => projectsShown(page, names)).toEqual(names);
+
+  // Появилась невыполненная задача без проекта — блок поднимается наверх.
+  const input = page.getByPlaceholder('Что нужно сделать?');
+  await input.fill('Купить молоко');
+  await input.press('Enter');
+  await expect.poll(() => projectsShown(page, names)).toEqual(['Без проекта', 'Дом', 'Работа']);
+});

@@ -9,7 +9,7 @@ import { getFamilyConfig } from './familyState';
 import { sendItem } from './familyChat';
 import { cancelReminder, scheduleReminder, type ReminderTask } from '../push';
 import { t } from '../i18n';
-import { orderUnderHigh } from '../taskOrder';
+import { orderUnderHigh, renumberUnderHigh } from '../taskOrder';
 
 function stripMeta<T extends { id: string; seq: number; familyId: string; pendingNotify?: unknown }>(
   row: T,
@@ -96,6 +96,13 @@ export async function createFamilyTask(
     .filter((t) => !t.deletedAt && !t.completedAt)
     .sort((a, b) => b.sortOrder - a.sortOrder);
   const top = Date.now();
+  let sortOrder = data.sortOrder ?? ((data.priority ?? 0) === 3 ? top : orderUnderHigh(active, top, -1));
+  if (sortOrder === null) {
+    // Зазор под важными кончился — порядок группы раздаём заново.
+    const fresh = renumberUnderHigh(active, -1);
+    for (const w of fresh.writes) await updateFamilyTask(familyId, w.id, { sortOrder: w.sortOrder });
+    sortOrder = fresh.order;
+  }
   const task: FamilyTask = {
     id: crypto.randomUUID(),
     familyId,
@@ -111,7 +118,7 @@ export async function createFamilyTask(
     createdBy: c.selfMemberId,
     completedAt: null,
     completedBy: null,
-    sortOrder: data.sortOrder ?? ((data.priority ?? 0) === 3 ? top : orderUnderHigh(active, top, -1)),
+    sortOrder,
     deletedAt: null,
   };
   await db.familyTasks.put(task);

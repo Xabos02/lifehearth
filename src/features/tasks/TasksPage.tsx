@@ -1065,9 +1065,9 @@ export function TasksPage() {
   const tasksRaw = useLiveQuery(() => db.tasks.toArray(), []);
   const projectsRaw = useLiveQuery(() => db.projects.toArray(), []);
 
-  // Новое встаёт наверх своего списка, а заводят его и снизу: задачу из
-  // строки быстрого ввода — в «Без проекта» под всеми папками, «+ Задача» под
-  // длинным проектом, «Новый проект» под всем списком. Без докрутки новое
+  // Новое встаёт наверх своего списка, а заводят его и снизу: «+ Задача» под
+  // длинным проектом, «Новый проект» под всем списком, строка быстрого ввода
+  // при прокрученной ленте. Без докрутки новое
   // оказывалось за краем экрана, и казалось, что ничего не сохранилось.
   // Строка (или секция проекта) появляется в DOM следующим рендером после
   // ответа liveQuery — ждём её по кадрам и докручиваем ленту. Не
@@ -1406,6 +1406,48 @@ export function TasksPage() {
     );
   };
 
+  // «Без проекта» — над проектами (владелец, 16.11.2026, канва
+  // design/no-project-top): туда ложится задача из строки быстрого ввода, и под
+  // всеми папками она оказывалась в самом низу экрана. С одними выполненными
+  // блок остаётся внизу, как раньше: у того, кто всё раскладывает по папкам,
+  // верх экрана не занимает свёрнутый архив.
+  const noProjectOnTop = noProjectTasks.length > 0;
+  const noProjectSection =
+    (noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
+      <Section
+        title={t('Без проекта')}
+        count={activeCount(noProjectTasks)}
+        collapsed={collapsed.has(NONE)}
+        onToggle={() => toggle(NONE)}
+        onLaunch={launchOf(noProjectTasks)}
+        dropRef={registerSection}
+        dropKey={NONE}
+        highlight={Boolean(draggingTask) && dropKey === NONE}
+      >
+        {noProjectTasks.length > 0 && (
+          <TaskCard
+            tasks={noProjectTasks}
+            projectById={projectById}
+            onEdit={editTask}
+            onDragStart={onDragStart}
+            draggingId={draggingTask?.id ?? null}
+            dropIndex={draggingTask && dropKey === NONE ? taskDropIndex : null}
+            dividerAt={dividerOf(noProjectTasks)}
+          />
+        )}
+        {noProjectCompleted.length > 0 && (
+          <CompletedSubsection
+            tasks={noProjectCompleted}
+            projectById={projectById}
+            onEdit={editTask}
+            expanded={expandedCompleted.has(NONE)}
+            onToggle={() => toggleCompleted(NONE)}
+          />
+        )}
+        <AddTaskRow onClick={() => openTask(null, null)} />
+      </Section>
+    );
+
   return (
     <Screen
       title={t('Задачи')}
@@ -1499,6 +1541,7 @@ export function TasksPage() {
               }
             />
           )}
+          {noProjectOnTop && noProjectSection}
           {topProjects.map((p, i) => {
             const list = activeByProject.get(p.id) ?? [];
             const doneList = completedByProject.get(p.id) ?? [];
@@ -1568,41 +1611,7 @@ export function TasksPage() {
             );
           })}
           {reorderingTop && projInsertIndex === topProjects.length && <DropLine />}
-
-          {(noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
-            <Section
-              title={t('Без проекта')}
-              count={activeCount(noProjectTasks)}
-              collapsed={collapsed.has(NONE)}
-              onToggle={() => toggle(NONE)}
-              onLaunch={launchOf(noProjectTasks)}
-              dropRef={registerSection}
-              dropKey={NONE}
-              highlight={Boolean(draggingTask) && dropKey === NONE}
-            >
-              {noProjectTasks.length > 0 && (
-                <TaskCard
-                  tasks={noProjectTasks}
-                  projectById={projectById}
-                  onEdit={editTask}
-                  onDragStart={onDragStart}
-                  draggingId={draggingTask?.id ?? null}
-                  dropIndex={draggingTask && dropKey === NONE ? taskDropIndex : null}
-                  dividerAt={dividerOf(noProjectTasks)}
-                />
-              )}
-              {noProjectCompleted.length > 0 && (
-                <CompletedSubsection
-                  tasks={noProjectCompleted}
-                  projectById={projectById}
-                  onEdit={editTask}
-                  expanded={expandedCompleted.has(NONE)}
-                  onToggle={() => toggleCompleted(NONE)}
-                />
-              )}
-              <AddTaskRow onClick={() => openTask(null, null)} />
-            </Section>
-          )}
+          {!noProjectOnTop && noProjectSection}
 
           <button
             onClick={() => openProject(null)}

@@ -324,6 +324,11 @@ test('раздел «Задачи»: зоны касания не налезаю
   await page.locator('[data-drop-key="a1"]').getByRole('button', { name: /Бизнес/ }).first().click();
   await expect(page.getByText('Позвонить поставщику')).toHaveCount(0);
   await expect(page.locator('[data-drop-key="a2"]')).toBeVisible();
+  // Клик докручивает ленту к «Бизнесу» (над ним теперь «Без проекта»), и
+  // верх списка уходит под липкую шапку экрана: пальцу он там недоступен, а
+  // по координатам ложится на «Заморозить задачи». Меряем ленту в начале —
+  // как шторки в overlapsOn.
+  await page.evaluate(() => { document.getElementById('app-scroll')!.scrollTop = 0; });
   expect(await overlapsOn(page)).toEqual([]);
 });
 
