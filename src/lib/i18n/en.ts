@@ -1559,6 +1559,14 @@ export const EN: Record<string, string> = {
   'Открыть фото': 'Open photo',
   'Удалить фото': 'Delete photo',
   'Добавить фото': 'Add photo',
+  // Фото-панель наверху «Задач»
+  'Фотопанель': 'Photo board',
+  'Добавить фото на панель': 'Add photo to the board',
+  'Убрать фото с панели?': 'Remove the photo from the board?',
+  'Убрать с панели': 'Remove from board',
+  'На панели уже {n} фото — уберите одно, чтобы добавить новое':
+    'The board already holds {n} photos — remove one to add another',
+  'На панели помещается {n} фото — лишние не добавлены': 'The board holds {n} photos — the extra ones weren’t added',
   'Теги': 'Tags',
   'через запятую: работа, дом': 'comma-separated: work, home',
   'Проект': 'Project',
