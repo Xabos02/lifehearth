@@ -39,7 +39,7 @@ import { t } from '../../lib/i18n';
 import { useAutoCapitalizeTextarea } from '../../lib/useAutoCapitalizeTextarea';
 import { usePomodoroActions } from '../focus/pomodoro';
 import { ICON } from '../../components/ui/icons';
-import { isSleeping, newSortOrder, scheduleNext } from './taskActions';
+import { isSleeping, newSortOrder, newTaskSortOrder, scheduleNext } from './taskActions';
 import { confirmAction } from '../../components/ui/confirmStore';
 import { Haptic } from '../../components/ui/Haptic';
 
@@ -341,7 +341,11 @@ function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
         const rec = data.recurrence;
         if (isSleeping(task) && rec && rec.type !== 'manual') await scheduleNext({ ...task, ...changes }, rec);
       } else {
-        const created = await create(db.tasks, { ...data, completedAt: null, sortOrder: newSortOrder() });
+        const created = await create(db.tasks, {
+          ...data,
+          completedAt: null,
+          sortOrder: await newTaskSortOrder(projectId, priority, temporary),
+        });
         savedId = created.id;
       }
       // Снимки раскладываем кусками в свою таблицу — параллельно тому, что они

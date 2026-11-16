@@ -1,10 +1,11 @@
-import type { Recurrence, Task } from '../../db/types';
+import type { Priority, Recurrence, Task } from '../../db/types';
 import { db } from '../../db/db';
 import { create, now, remove, uid, update } from '../../db/repo';
 import { nextOccurrence } from '../../lib/recurrence';
 import { nextWindowStart } from '../../lib/taskDates';
 import { todayKey } from '../../lib/dates';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
+import { orderUnderHigh } from '../../lib/taskOrder';
 
 /** Порядок новой задачи или проекта в списке — самый верх: новое видно
  *  сразу, а не где-то в конце. Им же поднимает задачу выбор высокого
@@ -14,6 +15,25 @@ import { cancelReminder, scheduleReminder } from '../../lib/push';
  *  задачу или проект можно утащить куда угодно, и следующее сохранение их
  *  не вернёт наверх. */
 export const newSortOrder = (): number => -Date.now();
+
+/** Порядок новой задачи в её списке «Задач»: важная — на самый верх,
+ *  обычная — сразу под важными во главе списка (orderUnderHigh). Список — как
+ *  на экране: активные того же проекта, временные отдельно от обычных — при
+ *  группировке они стоят своей группой внизу проекта. */
+export async function newTaskSortOrder(projectId: string | null, priority: Priority, temporary = false): Promise<number> {
+  if (priority === 3) return newSortOrder();
+  const list = (await db.tasks.toArray())
+    .filter(
+      (t) =>
+        !t.deletedAt &&
+        !t.frozenAt &&
+        (!t.completedAt || isSleeping(t)) &&
+        (t.projectId ?? null) === projectId &&
+        Boolean(t.temporary) === temporary,
+    )
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  return orderUnderHigh(list, newSortOrder());
+}
 
 /**
  * Переключение выполненности задачи.
