@@ -20,6 +20,7 @@ import {
 } from '../../components/ui/glyphs';
 import { IconButton } from '../../components/ui/IconButton';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { Haptic } from '../../components/ui/Haptic';
 import { ICON } from '../../components/ui/icons';
 import type { LlmChat, LlmMessage } from '../../db/types';
 import { aiErrorText } from '../../lib/ai/aiClient';
@@ -444,6 +445,7 @@ function AssistantBlock({
           {!failed && (
             <button aria-label={t('Скопировать')} className={`p-1 active:opacity-60 ${HIT_SLOP_44}`} onClick={onCopy}>
               <Copy size={ICON.inline} />
+              <Haptic />
             </button>
           )}
           <button
@@ -571,6 +573,8 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
         >
           <Database size={ICON.inline} />
           {t('Данные')}
+          {/* Переключатель доступа — щёлкает (PROTOCOL §6.4). */}
+          {!busy && <Haptic />}
         </button>
         <div className="flex-1" />
         {busy ? (

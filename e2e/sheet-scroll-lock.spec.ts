@@ -79,3 +79,34 @@ test('после закрытия формы список остаётся та�
 
   expect(await scrollTop(page)).toBe(before);
 });
+
+// Две шторки друг над другом («Отметить тренировку» → «Из шаблона») и уход с
+// экрана разом — системное «Назад» или тап по пушу. Обе размонтируются в одном
+// проходе, и каждая возвращала контейнеру то, что запомнила при открытии:
+// внешняя — пустое значение, внутренняя — уже выставленный запрет. Побеждал
+// запрет, и лента не листалась ни на одном экране до перезапуска.
+test('уход с экрана из шторки поверх шторки не замораживает прокрутку', async ({ page }) => {
+  await openApp(page, '/tasks');
+  await seedMany(page, 40);
+
+  // Переход без перезагрузки — тем же путём, что и тап по пушу (SwNavBridge),
+  // чтобы «Назад» вернул на /tasks внутри того же приложения.
+  await page.evaluate(() => {
+    navigator.serviceWorker.dispatchEvent(
+      new MessageEvent('message', { data: { type: 'open-url', url: '/more/health' } }),
+    );
+  });
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  await page.getByRole('button', { name: 'Из шаблона' }).click();
+  await expect(page.getByRole('heading', { name: 'Шаблоны тренировок' })).toBeVisible();
+
+  await page.evaluate(() => history.back());
+  await expect(page.getByText('Задача 0', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Шаблоны тренировок' })).toHaveCount(0);
+
+  const scroller = page.locator(SCROLLER);
+  expect(await scroller.evaluate((el) => el.style.overflowY), 'запрет прокрутки остался на контейнере').toBe('');
+  await scroller.hover();
+  await page.mouse.wheel(0, 600);
+  await expect.poll(() => scrollTop(page), { message: 'лента не листается' }).toBeGreaterThan(0);
+});

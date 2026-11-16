@@ -1,3 +1,5 @@
+import { Haptic } from './Haptic';
+
 interface Option<T extends string> {
   value: T;
   label: string;
@@ -36,6 +38,9 @@ export function SegmentedControl<T extends string>({ options, value, onChange, c
           }`}
         >
           {o.label}
+          {/* Смена выбора щёлкает (§6.4); тап по уже выбранному ничего не
+              меняет — накладка пропускает его сквозь себя. */}
+          <Haptic off={value === o.value} />
         </button>
       ))}
     </div>

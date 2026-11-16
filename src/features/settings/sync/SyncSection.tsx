@@ -21,6 +21,7 @@ import {
   GCopy as Copy,
 } from '../../../components/ui/glyphs';
 import { confirmAction } from '../../../components/ui/confirmStore';
+import { Haptic } from '../../../components/ui/Haptic';
 
 function formatSyncedAt(iso: string): string {
   if (!iso) return t('ещё не синхронизировано');
@@ -264,6 +265,7 @@ export function SyncSection() {
                 <span className="block font-mono text-xs break-all">{config.accountId}</span>
               </span>
               <Copy size={ICON.action} className="shrink-0 text-lh-text-secondary" />
+              <Haptic />
             </button>
             {/* Самая частая причина «данные не появляются» — устройства в
                 РАЗНЫХ аккаунтах: синхронизация настраивается на каждом

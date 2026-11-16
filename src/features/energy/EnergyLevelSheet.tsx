@@ -1,4 +1,5 @@
 import { Sheet } from '../../components/ui/Sheet';
+import { Haptic } from '../../components/ui/Haptic';
 import { formatDueDate } from '../../lib/dates';
 import { ENERGY_LABEL, ENERGY_LEVELS } from '../../lib/energy';
 import { clearEnergyLevel, setEnergyLevel } from './energyRepo';
@@ -51,6 +52,9 @@ export function EnergyLevelSheet({ open, onClose, date, current }: Props) {
                 {n}
               </span>
               <span className={active ? 'font-medium' : ''}>{t(ENERGY_LABEL[n])}</span>
+              {/* Оценка щёлкает (PROTOCOL §6.4). Шторка закрывается после записи
+                  в базу — кнопка к щелчку ещё на месте. Текущая ничего не меняет. */}
+              <Haptic off={active} />
             </button>
           );
         })}

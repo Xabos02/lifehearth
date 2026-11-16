@@ -3,6 +3,7 @@ import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 import { Sheet } from '../../components/ui/Sheet';
+import { Haptic } from '../../components/ui/Haptic';
 import { t } from '../../lib/i18n';
 import { setHabitValue } from './habitRepo';
 import type { Habit } from '../../db/types';
@@ -98,6 +99,8 @@ function LogForm({
             onClick={() => set(String((Number(rawRef.current.replace(',', '.')) || 0) + inc))}
           >
             +{inc}
+            {/* Шаг щёлкает, как «−/+» в «Фокусе» и обучении (PROTOCOL §6.4). */}
+            <Haptic />
           </Button>
         ))}
         <Button variant="secondary" onClick={() => set(String(target))}>

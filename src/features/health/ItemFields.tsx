@@ -1,36 +1,57 @@
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { Chip } from '../../components/ui/Chip';
 import { Button } from '../../components/ui/Button';
-import { Field, Input } from '../../components/ui/Input';
-import { GClose, GPlus } from '../../components/ui/glyphs';
+import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
+import { GChevronDown, GClose, GPlus } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { getLang, t } from '../../lib/i18n';
 import type { WorkoutExercise, WorkoutType } from '../../db/types';
 import { WORKOUT_KINDS } from './workouts';
 import { addExerciseDef } from './exerciseDefRepo';
-import { exerciseSuggestions } from './exercises';
-import { exerciseRow, kindOfItem, type ExerciseRow, type Item } from './workoutItem';
+import { cleanExercises, exerciseSuggestions, formatAmount, UNIT_OPTIONS } from './exercises';
+import { exerciseRow, kindOfItem, savedFromItem, type ExerciseRow, type Item } from './workoutItem';
+import { formatDuration } from '../../lib/duration';
 
 // Один вид внутри формы тренировки и шаблона: вид, минуты, км, упражнения.
 // Общий для обеих шторок: до задачи 38 у шаблона был свой урезанный
 // конструктор — без своих упражнений, с обязательными минутами, а строку без
 // минут он молча выкидывал при сохранении.
+//
+// С 15.11.2026 (канва design/sport-templates, вариант Б) всё, что уже
+// заполнено, читается как программа: вид — заголовком, упражнение — строкой
+// «название · 4 × 6–8 · вес · отдых · пометка». Тап раскрывает для правки.
+// Шаблон в зале читают чаще, чем правят, а стена полей с обрезанными
+// названиями («Подтягива…») читалась плохо.
 
-const digits = (v: string, max: number) => v.replace(/[^\d]/g, '').slice(0, max);
+/** Целое число: вставка «12,5» — это 12, а не 125 (разделитель раньше
+ *  вырезался, и цифры склеивались). */
+const digits = (v: string, max: number) => v.replace(/[.,].*$/, '').replace(/[^\d]/g, '').slice(0, max);
+/** Дробное число: до 4 цифр, один разделитель и до 2 знаков после — как
+ *  хранится. Второй разделитель («5,2,1») поле принимало, а запись выходила
+ *  без километров — молча; без предела 400 цифр записывались как Infinity.
+ *  Минуты — тоже дробью: сохранение её округляет, а `digits` вырезал
+ *  разделитель и склеивал «30.5» в 305 минут. */
+const decimal = (v: string) => {
+  const s = v.replace(/[^\d.,]/g, '');
+  const i = s.search(/[.,]/);
+  if (i < 0) return s.slice(0, 4);
+  return s.slice(0, Math.min(i, 4)) + s[i] + s.slice(i + 1).replace(/[.,]/g, '').slice(0, 2);
+};
+
+const NUM =
+  'h-11 w-14 shrink-0 rounded-lh-btn border border-lh-border bg-lh-surface-2 text-center tabular-nums text-lh-text-primary outline-none transition-[border-color,box-shadow] placeholder:text-lh-text-secondary focus:border-lh-accent-border focus:ring-2 focus:ring-lh-accent-dim';
 
 export function ItemFields({
   item,
-  index,
   removable,
   onRemove,
   onChange,
 }: {
   item: Item;
-  index: number;
   removable: boolean;
   onRemove: () => void;
   onChange: (patch: Partial<Item>) => void;
@@ -45,37 +66,95 @@ export function ItemFields({
         db.workouts.orderBy('date').reverse().limit(200).toArray(),
         db.workoutTemplates.toArray(),
       ]);
+      // Две тренировки за день: индекс по дате их не упорядочивает — свежая
+      // по времени записи первой, иначе подсказка брала подходы с ранней.
+      ws.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
       return [...alive(ws), ...alive(tpls).flatMap((tpl) => tpl.items)];
     }, []) ?? [];
-  const [addingCustom, setAddingCustom] = useState(false);
-  const [customInput, setCustomInput] = useState('');
   const kind = kindOfItem(item);
+  // Своё название — данные человека: не переводим.
+  const kindName = item.type === 'custom' ? kind.label : t(kind.label);
+  const hasDistance = kind.hasDistance || item.keepsDistance;
+  // Минуты — те, что уйдут в запись: «30,5» читается как 31, а не пропадает.
+  const minutes = savedFromItem(item).minutes;
+  const summary = [
+    // «45 мин», а не «45 м»: в той же карточке «м» — метры («Сани 4 × 20 м»).
+    minutes > 0 ? formatDuration(minutes) : null,
+    hasDistance && item.distance ? `${item.distance} ${t('км')}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   const suggestions = exerciseSuggestions(sources, item, item.exercises.map((e) => e.name));
 
   function pickType(type: WorkoutType, customLabel: string | null = null, customColor: string | null = null) {
-    const patch: Partial<Item> = { type, customLabel, customColor };
+    // Тап по уже выбранному чипу — не смена вида: без этого он снимал
+    // keepsDistance и стирал километры импортированной записи.
+    if (type === item.type && customLabel === item.customLabel) return;
+    // Сменили вид — километры чужого вида больше не держим.
+    const patch: Partial<Item> = { type, customLabel, customColor, keepsDistance: false };
     if (!item.minutesTouched) patch.minutes = String(kindOfItem({ type, customLabel, customColor }).defaultMinutes);
     onChange(patch);
   }
 
   async function confirmCustom() {
-    const name = customInput.trim();
+    const name = item.newKind?.trim();
     if (!name) return;
     const def = await addExerciseDef(name);
     pickType('custom', def.label, def.color);
-    setAddingCustom(false);
-    setCustomInput('');
+    onChange({ newKind: null });
   }
 
+  // Строка, только что свёрнутая кнопкой «Готово»: фокус возвращается на неё.
+  // Иначе кнопка исчезала вместе с редактором, и фокус клавиатуры и читалки
+  // падал на начало страницы.
+  const [refocus, setRefocus] = useState<string | null>(null);
+  const setRows = (exercises: ExerciseRow[]) => onChange({ exercises });
   const setExercise = (key: string, patch: Partial<ExerciseRow>) =>
-    onChange({ exercises: item.exercises.map((e) => (e.key === key ? { ...e, ...patch } : e)) });
-  const addExercise = (e: WorkoutExercise = { name: '', sets: null, reps: null }) =>
-    onChange({ exercises: [...item.exercises, exerciseRow(e)] });
+    setRows(item.exercises.map((e) => (e.key === key ? { ...e, ...patch } : e)));
+  /** Раскрыта одна строка: остальные дописанные сворачиваются обратно в
+   *  текст. Строка без названия остаётся открытой — она ещё не упражнение. */
+  const foldOthers = (rows: ExerciseRow[], key: string) =>
+    rows.map((e) => (e.key === key ? { ...e, open: true } : e.open && e.name.trim() ? { ...e, open: false } : e));
+  const openExercise = (key: string) => {
+    setRefocus(null);
+    setRows(foldOthers(item.exercises, key));
+  };
+  function addExercise(e?: WorkoutExercise) {
+    const row = exerciseRow(e);
+    setRows(row.open ? foldOthers([...item.exercises, row], row.key) : [...item.exercises, row]);
+  }
+  function moveExercise(key: string, by: -1 | 1) {
+    const i = item.exercises.findIndex((e) => e.key === key);
+    const j = i + by;
+    if (i < 0 || j < 0 || j >= item.exercises.length) return;
+    const rows = [...item.exercises];
+    [rows[i], rows[j]] = [rows[j], rows[i]];
+    setRows(rows);
+  }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-lh-border-strong p-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-lh-text-secondary">{index === 0 ? t('Вид') : `${t('Вид')} ${index + 1}`}</p>
+    <div className="rounded-2xl border border-lh-border-strong px-3 pb-3 pt-0.5" data-testid="workout-kind">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          // Свернули вид — поле «+ Своё» закрывается вместе с набранным: скрытый
+          // текст держал бы «Сохранить» выключенной без видимой причины.
+          onClick={() => onChange(item.collapsed ? { collapsed: false } : { collapsed: true, newKind: null })}
+          aria-expanded={!item.collapsed}
+          // Имя с приставкой: голое «Силовая» совпадало бы с чипом вида ниже.
+          aria-label={[t('Вид: {name}', { name: kindName }), summary].filter(Boolean).join(', ')}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left active:opacity-70"
+        >
+          <span className="size-2.5 shrink-0 rounded-full" style={{ background: kind.color }} aria-hidden />
+          <span className="truncate font-semibold">{kindName}</span>
+          <GChevronDown
+            size={ICON.inline}
+            className={`shrink-0 text-lh-text-secondary transition-transform ${item.collapsed ? '' : 'rotate-180'}`}
+          />
+          {item.collapsed && summary && (
+            <span className="ml-auto shrink-0 whitespace-nowrap text-sm tabular-nums text-lh-text-secondary">{summary}</span>
+          )}
+        </button>
         {/* «Убрать» — омоним: в словаре «Clear» (снять срок задачи), здесь
             убирается весь вид — английская ветка явная. */}
         {removable && (
@@ -84,120 +163,98 @@ export function ItemFields({
           </button>
         )}
       </div>
-      <div className="flex flex-wrap gap-2">
-        {WORKOUT_KINDS.map((k) => (
-          <Chip key={k.value} active={item.type === k.value} onClick={() => pickType(k.value)}>
-            {t(k.label)}
-          </Chip>
-        ))}
-        {aliveDefs.map((d) => (
-          <Chip key={d.id} active={item.type === 'custom' && item.customLabel === d.label} onClick={() => pickType('custom', d.label, d.color)}>
-            {d.label}
-          </Chip>
-        ))}
-        <Chip active={addingCustom} onClick={() => setAddingCustom((v) => !v)}>
-          + {t('Своё')}
-        </Chip>
-      </div>
-      {addingCustom && (
-        <div className="flex gap-2">
-          <Input
-            value={customInput}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setCustomInput(e.target.value)}
-            onClear={() => setCustomInput('')}
-            // «Своё» — новый вид, а не упражнение внутри вида: подписи не путать.
-            placeholder={t('Название вида')}
-          />
-          <Button className="shrink-0" disabled={!customInput.trim()} onClick={() => void confirmCustom()}>
-            {t('Добавить')}
-          </Button>
-        </div>
-      )}
 
-      <div className="flex gap-3">
-        <Field label={t('Минут')} className="flex-1">
-          <Input
-            inputMode="numeric"
-            value={item.minutes}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ minutes: digits(e.target.value, 4), minutesTouched: true })}
-            onClear={() => onChange({ minutes: '', minutesTouched: true })}
-            placeholder={t('по желанию')}
-          />
-        </Field>
-        {kind.hasDistance && (
-          <Field label={t('Дистанция, км')} className="flex-1">
-            <Input
-              inputMode="decimal"
-              value={item.distance}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ distance: e.target.value.replace(/[^\d.,]/g, '') })}
-              onClear={() => onChange({ distance: '' })}
-              placeholder={t('по желанию')}
-            />
-          </Field>
-        )}
-      </div>
-
-      {item.exercises.length > 0 && (
-        <div>
-          <div className="mb-1 flex items-baseline justify-between text-sm font-medium text-lh-text-secondary">
-            <span>{t('Упражнения')}</span>
-            <span className="text-xs font-normal">{t('подходы × повторы')}</span>
+      {!item.collapsed && (
+        <div className="space-y-3 pb-3 pt-1">
+          <div className="flex flex-wrap gap-2">
+            {WORKOUT_KINDS.map((k) => (
+              <Chip key={k.value} active={item.type === k.value} onClick={() => pickType(k.value)}>
+                {t(k.label)}
+              </Chip>
+            ))}
+            {aliveDefs.map((d) => (
+              <Chip key={d.id} active={item.type === 'custom' && item.customLabel === d.label} onClick={() => pickType('custom', d.label, d.color)}>
+                {d.label}
+              </Chip>
+            ))}
+            {/* Закрыли поле — передумали: набранное уходит вместе с ним, иначе
+                скрытый текст держал бы «Сохранить» выключенной. */}
+            <Chip active={item.newKind !== null} onClick={() => onChange({ newKind: item.newKind === null ? '' : null })}>
+              + {t('Своё')}
+            </Chip>
           </div>
-          {item.exercises.map((ex, i) => (
-            <div key={ex.key} className={`flex items-center gap-2 ${i > 0 ? 'mt-2 border-t border-lh-border pt-2' : ''}`}>
-              {/* Заполненное имя читается строкой, пустое — полем: так на
-                  канве design/sport-exercises (А). Отступ один и тот же, чтобы
-                  текст не прыгал на первой букве. */}
-              <input
-                value={ex.name}
-                onChange={(e) => setExercise(ex.key, { name: e.target.value })}
-                placeholder={t('Упражнение')}
-                aria-label={t('Название упражнения')}
-                className={`h-11 min-w-0 flex-1 rounded-lh-btn border bg-transparent px-3 font-medium text-ellipsis text-lh-text-primary outline-none transition-[border-color,box-shadow] placeholder:font-normal placeholder:text-lh-text-secondary focus:border-lh-accent-border focus:ring-2 focus:ring-lh-accent-dim ${
-                  ex.name ? 'border-transparent' : 'border-lh-border-strong'
-                }`}
+          {item.newKind !== null && (
+            <div className="flex gap-2">
+              <Input
+                value={item.newKind}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ newKind: e.target.value })}
+                onClear={() => onChange({ newKind: '' })}
+                // «Своё» — новый вид, а не упражнение внутри вида: подписи не путать.
+                placeholder={t('Название вида')}
+                // Чип вида — в одну строку: длинное название уводило его за край шторки.
+                maxLength={40}
               />
-              <input
-                inputMode="numeric"
-                value={ex.sets}
-                onChange={(e) => setExercise(ex.key, { sets: digits(e.target.value, 2) })}
-                placeholder="—"
-                aria-label={t('Подходов')}
-                className="h-11 w-12 shrink-0 rounded-lh-btn border border-lh-border bg-lh-surface-2 text-center tabular-nums text-lh-text-primary outline-none transition-[border-color,box-shadow] placeholder:text-lh-text-secondary focus:border-lh-accent-border focus:ring-2 focus:ring-lh-accent-dim"
-              />
-              <span className="text-lh-text-secondary" aria-hidden>
-                ×
-              </span>
-              <input
-                inputMode="numeric"
-                value={ex.reps}
-                onChange={(e) => setExercise(ex.key, { reps: digits(e.target.value, 3) })}
-                placeholder="—"
-                aria-label={t('Повторов')}
-                className="h-11 w-12 shrink-0 rounded-lh-btn border border-lh-border bg-lh-surface-2 text-center tabular-nums text-lh-text-primary outline-none transition-[border-color,box-shadow] placeholder:text-lh-text-secondary focus:border-lh-accent-border focus:ring-2 focus:ring-lh-accent-dim"
-              />
-              <button
-                type="button"
-                onClick={() => onChange({ exercises: item.exercises.filter((e) => e.key !== ex.key) })}
-                className={`shrink-0 p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
-                aria-label={t('Убрать упражнение')}
-              >
-                <GClose size={ICON.base} />
-              </button>
+              <Button className="shrink-0" disabled={!item.newKind.trim()} onClick={() => void confirmCustom()}>
+                {t('Добавить')}
+              </Button>
             </div>
-          ))}
+          )}
+
+          <div className="flex gap-3">
+            <Field label={t('Минут')} className="flex-1">
+              <Input
+                inputMode="numeric"
+                value={item.minutes}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ minutes: decimal(e.target.value), minutesTouched: true })}
+                onClear={() => onChange({ minutes: '', minutesTouched: true })}
+                placeholder={t('по желанию')}
+              />
+            </Field>
+            {hasDistance && (
+              <Field label={t('Дистанция, км')} className="flex-1">
+                <Input
+                  inputMode="decimal"
+                  value={item.distance}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ distance: decimal(e.target.value) })}
+                  onClear={() => onChange({ distance: '' })}
+                  placeholder={t('по желанию')}
+                />
+              </Field>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      {item.exercises.map((ex, i) =>
+        ex.open ? (
+          <ExerciseEditor
+            key={ex.key}
+            ex={ex}
+            first={i === 0}
+            last={i === item.exercises.length - 1}
+            onChange={(patch) => {
+              if (patch.open === false) setRefocus(ex.key);
+              setExercise(ex.key, patch);
+            }}
+            onMove={(by) => moveExercise(ex.key, by)}
+            onRemove={() => setRows(item.exercises.filter((e) => e.key !== ex.key))}
+          />
+        ) : (
+          <ExerciseLine key={ex.key} ex={ex} focus={refocus === ex.key} onOpen={() => openExercise(ex.key)} />
+        ),
+      )}
+
+      <div className={`flex flex-wrap gap-2 ${item.exercises.length > 0 ? 'border-t border-lh-border pt-3' : ''}`}>
         {suggestions.map((s) => (
           <button
             key={s.name}
             type="button"
             onClick={() => addExercise(s)}
-            className={`rounded-full border border-lh-border bg-lh-surface-2 px-3 py-1.5 text-sm text-lh-text-primary active:opacity-70 ${HIT_SLOP_44}`}
+            className={`max-w-full rounded-full border border-lh-border bg-lh-surface-2 px-3 py-1.5 text-sm text-lh-text-primary active:opacity-70 ${HIT_SLOP_44}`}
           >
-            + {s.name}
+            {/* Многоточие — на внутренней строке: overflow на самой кнопке
+                обрезал бы её невидимую зону касания. */}
+            <span className="block truncate">+ {s.name}</span>
           </button>
         ))}
         <button
@@ -207,6 +264,166 @@ export function ItemFields({
         >
           <GPlus size={ICON.inline} /> {t('Упражнение')}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** Упражнение строкой, как в программе: название целиком, справа «4 × 6–8»,
+ *  ниже вес и отдых, ещё ниже пометка. Тап раскрывает для правки. */
+function ExerciseLine({ ex, focus, onOpen }: { ex: ExerciseRow; focus: boolean; onOpen: () => void }) {
+  // Число строкой собирает та же чистка, что и при сохранении: «8–6» в полях
+  // читается как «6–8» уже здесь, а не после записи.
+  const amount = formatAmount(cleanExercises([{ ...ex, name: ex.name || '·' }])[0], ' × ');
+  const weight = ex.weight.trim();
+  const rest = ex.rest.trim();
+  const note = ex.note.trim();
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      // Строка — свёрнутый редактор: читалка слышит «свёрнуто».
+      aria-expanded={false}
+      autoFocus={focus}
+      data-testid="exercise-row"
+      className="block min-h-11 w-full border-t border-lh-border py-2.5 text-left active:opacity-70"
+    >
+      <span className="flex items-baseline gap-3">
+        <span className="min-w-0 flex-1 font-medium leading-snug wrap-anywhere">{ex.name.trim() || t('Без названия')}</span>
+        {amount && <span className="shrink-0 whitespace-nowrap tabular-nums">{amount}</span>}
+      </span>
+      {(weight || rest) && (
+        <span className="mt-0.5 block text-sm leading-snug wrap-anywhere">
+          {weight}
+          {rest && <span className="text-lh-text-secondary">{`${weight ? ' · ' : ''}${t('отдых {rest}', { rest })}`}</span>}
+        </span>
+      )}
+      {note && <span className="mt-0.5 block whitespace-pre-line text-sm leading-snug text-lh-text-secondary wrap-anywhere">{note}</span>}
+    </button>
+  );
+}
+
+/** Раскрытое упражнение: числа — с цифровой клавиатуры, диапазон — двумя
+ *  полями (на цифровой клавиатуре iPhone нет тире), единицы — чипами, вес и
+ *  отдых — словами человека («+10–15 кг», «90 сек»). */
+function ExerciseEditor({
+  ex,
+  first,
+  last,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  ex: ExerciseRow;
+  first: boolean;
+  last: boolean;
+  onChange: (patch: Partial<ExerciseRow>) => void;
+  onMove: (by: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  const unit = UNIT_OPTIONS.find((u) => u.value === ex.unit) ?? UNIT_OPTIONS[0];
+  // Раскрыли готовую строку — фокус на сам редактор (не в поле: на iPhone оно
+  // подняло бы клавиатуру поверх упражнения, которое собирались читать).
+  // Новая пустая строка берёт фокус в поле названия сама (autoFocus ниже).
+  const box = useRef<HTMLDivElement>(null);
+  const named = useRef(ex.name !== '');
+  useEffect(() => {
+    if (named.current) box.current?.focus({ preventScroll: true });
+  }, []);
+  const caption = 'mb-1 block text-xs text-lh-text-secondary';
+  const sign = 'flex h-11 items-center text-lh-text-secondary';
+  const arrow =
+    'flex size-11 shrink-0 items-center justify-center rounded-lh-btn border border-lh-border-strong text-lh-text-secondary active:scale-95 aria-disabled:opacity-40 aria-disabled:active:scale-100';
+  return (
+    <div
+      ref={box}
+      tabIndex={-1}
+      role="group"
+      aria-label={ex.name.trim() || t('Упражнение')}
+      className="my-2 space-y-3 rounded-lh-btn border border-lh-accent-border p-3 outline-none"
+      data-testid="exercise-editor"
+    >
+      <Input
+        value={ex.name}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ name: e.target.value })}
+        placeholder={t('Упражнение')}
+        aria-label={t('Название упражнения')}
+        maxLength={80}
+        // Новая пустая строка — сразу с курсором: её открыли, чтобы писать.
+        autoFocus={!ex.name}
+      />
+      <div className="flex items-end gap-2">
+        {/* Подпись — настоящий label: читалка и голосовое управление слышат
+            то слово, что на экране («Секунды», а не «Повторов»). */}
+        <label>
+          <span className={caption}>{t('Подходы')}</span>
+          <input inputMode="numeric" value={ex.sets} onChange={(e) => onChange({ sets: digits(e.target.value, 2) })} placeholder="—" className={NUM} />
+        </label>
+        <span className={sign} aria-hidden>
+          ×
+        </span>
+        <label>
+          <span className={caption}>{t(unit.field)}</span>
+          <input inputMode="numeric" value={ex.reps} onChange={(e) => onChange({ reps: digits(e.target.value, 4) })} placeholder="—" className={NUM} />
+        </label>
+        <span className={sign} aria-hidden>
+          –
+        </span>
+        <label>
+          <span className={caption} aria-hidden>
+            {t('до')}
+          </span>
+          {/* Одно «до» читалке ничего не говорит — имя полное: «Повторы, до». */}
+          <input
+            inputMode="numeric"
+            value={ex.repsTo}
+            onChange={(e) => onChange({ repsTo: digits(e.target.value, 4) })}
+            placeholder="—"
+            aria-label={`${t(unit.field)}, ${t('до')}`}
+            className={NUM}
+          />
+        </label>
+      </div>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('В чём считать')}>
+        {UNIT_OPTIONS.map((u) => (
+          <Chip key={u.chip} active={ex.unit === u.value} onClick={() => onChange({ unit: u.value })}>
+            {t(u.chip)}
+          </Chip>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <Field label={t('Вес')} className="min-w-0 flex-1">
+          <Input value={ex.weight} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ weight: e.target.value })} placeholder={t('+10 кг')} maxLength={40} />
+        </Field>
+        <Field label={t('Отдых')} className="min-w-0 flex-1">
+          <Input value={ex.rest} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ rest: e.target.value })} placeholder={t('2 мин')} maxLength={24} />
+        </Field>
+      </div>
+      <Field label={t('Заметка')}>
+        <AutoGrowTextarea
+          value={ex.note}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onChange({ note: e.target.value })}
+          placeholder={t('Техника, разминочный подход…')}
+          maxLength={600}
+        />
+      </Field>
+      <div className="flex items-center gap-2">
+        {/* У края — aria-disabled, а не disabled: выключенная кнопка теряла бы
+            фокус (он уходил на body), и стрелки с клавиатуры обрывались. */}
+        <button type="button" onClick={() => !first && onMove(-1)} aria-disabled={first} aria-label={t('Поднять упражнение')} className={arrow}>
+          <GChevronDown size={ICON.base} className="rotate-180" />
+        </button>
+        <button type="button" onClick={() => !last && onMove(1)} aria-disabled={last} aria-label={t('Опустить упражнение')} className={arrow}>
+          <GChevronDown size={ICON.base} />
+        </button>
+        {/* «Убрать» — омоним, как у вида: английская ветка явная. */}
+        <button type="button" onClick={onRemove} aria-label={t('Убрать упражнение')} className="min-h-11 px-2 text-sm font-medium text-lh-text-secondary active:opacity-60">
+          {getLang() === 'en' ? 'Remove' : 'Убрать'}
+        </button>
+        {/* Без названия строка не упражнение: свернуть её нельзя, только убрать. */}
+        <Button className="ml-auto" disabled={!ex.name.trim()} onClick={() => onChange({ open: false })}>
+          {t('Готово')}
+        </Button>
       </div>
     </div>
   );

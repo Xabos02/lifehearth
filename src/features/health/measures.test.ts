@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { MetricLog } from '../../db/types';
 import { MEASURES, formatMeasure, logMeasure, measureDef, measureTrend } from './measures';
 import { db } from '../../db/db';
+import { setLang } from '../../lib/i18n';
 
 function log(date: string, value: number, deletedAt: string | null = null, updatedAt = date): MetricLog {
   return { id: date + value, createdAt: date, updatedAt, deletedAt, metricId: 'health:weight', date, value };
@@ -57,6 +58,36 @@ describe('тренд замера', () => {
   it('формат: запятая и знаки по определению', () => {
     expect(formatMeasure(78.44, measureDef('weight'))).toBe('78,4');
     expect(formatMeasure(58, measureDef('pulse'))).toBe('58');
+  });
+
+  it('формат в английском интерфейсе — с точкой', () => {
+    setLang('en');
+    try {
+      expect(formatMeasure(78.44, measureDef('weight'))).toBe('78.4');
+    } finally {
+      setLang('ru');
+    }
+  });
+
+  it('запись без дня или с днём, которого нет, в тренд не попадает', () => {
+    // Такие записи успела сохранить форма, пока не проверяла день: стёртое
+    // поле даты давало ''. Последней она роняла вкладку в format().
+    expect(measureTrend([log('', 7)], '2026-09-12').last).toBeNull();
+    const t = measureTrend([log('', 130), log('2026-09-20', 125), log('2026-09-31', 120)], '2026-10-01');
+    expect(t.last?.date).toBe('2026-09-20');
+    expect(t.deltaPrev).toBeNull();
+  });
+});
+
+describe('запись замера', () => {
+  beforeEach(async () => {
+    await Promise.all(db.tables.map((t) => t.clear()));
+  });
+
+  it('без дня или с днём, которого нет, не записывается', async () => {
+    await logMeasure('ferritin', '', 50);
+    await logMeasure('ferritin', '2026-02-31', 50);
+    expect(await db.metricLogs.count()).toBe(0);
   });
 });
 

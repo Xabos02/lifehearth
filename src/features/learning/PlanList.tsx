@@ -6,6 +6,7 @@ import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
 import { unitLabel, type ProgressUnit } from '../../lib/learningPace';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { Haptic } from '../../components/ui/Haptic';
 import { togglePart } from './plan';
 
 /** План материала: части, сгруппированные по разделам.
@@ -64,6 +65,8 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
                   {unit !== 'percent' && `\u00A0${unitLabel(unit, part.estimate)}`}
                 </span>
               )}
+              {/* Отметка части щёлкает — и постановка, и снятие (PROTOCOL §6.4). */}
+              {item && <Haptic />}
             </button>
           ))}
         </div>

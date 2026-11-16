@@ -9,7 +9,7 @@ import { useToast } from '../../components/ui/toastContext';
 import { t, tPlural } from '../../lib/i18n';
 import { addDaysKey, dateLocale, fromKey, todayKey } from '../../lib/dates';
 import { updateSettings, useSettings } from '../../hooks/useSettings';
-import type { Workout } from '../../db/types';
+import type { Workout, WorkoutTemplate } from '../../db/types';
 import { DEFAULT_WEEKLY_GOAL, EFFORT_LABELS, PACE_TYPES, resolveKind } from './workouts';
 import {
   avgIntervalDays,
@@ -27,8 +27,9 @@ import {
 import { adviceTitle, formatKm, lastLine } from './workoutText';
 import { formatExercises } from './exercises';
 import { WorkoutCalendar, type Scale } from './WorkoutCalendar';
-import { parseWorkoutsCsv, withoutDuplicates } from './importWorkouts';
+import { decodeCsv, parseWorkoutsCsv, withoutDuplicates } from './importWorkouts';
 import { importParsed } from './workoutRepo';
+import { useTemplates } from './templateRepo';
 import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
@@ -37,17 +38,22 @@ interface Props {
   onSelect: (date: string) => void;
   onEdit: (w: Workout) => void;
   onAddFor: (date: string) => void;
+  /** Тренировка по шаблону на выбранный день — чип в карточке дня. */
+  onTemplate: (tpl: WorkoutTemplate) => void;
+  /** Открыть список шаблонов: выбрать, изменить, завести новый. */
+  onTemplates: () => void;
   scale: Scale;
   onScale: (scale: Scale) => void;
 }
 
 /** Вкладка «Спорт»: что сегодня по ритму, календарь, сводки, недавние. */
-export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale, onScale }: Props) {
+export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTemplate, onTemplates, scale, onScale }: Props) {
   const today = todayKey();
   const settings = useSettings();
   const goal = settings.workoutWeeklyGoal ?? DEFAULT_WEEKLY_GOAL;
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
+  const templates = useTemplates();
 
   const advice = todayAdvice(workouts, today, goal);
   const last = lastWorkout(workouts, today);
@@ -69,8 +75,17 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
     () => workouts.filter((w) => w.date === selected).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [workouts, selected],
   );
+  // Записи — свежие первыми, а виды одного занятия — в порядке ввода, как в
+  // карточке дня: их метки идут подряд по миллисекунде (addWorkoutSession).
   const recent = useMemo(
-    () => [...workouts].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 8),
+    () =>
+      [...workouts]
+        .sort(
+          (a, b) =>
+            b.date.localeCompare(a.date) ||
+            (a.groupId && a.groupId === b.groupId ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt)),
+        )
+        .slice(0, 8),
     [workouts],
   );
 
@@ -78,13 +93,19 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    const text = await file.text();
+    const text = decodeCsv(await file.arrayBuffer());
     const parsed = parseWorkoutsCsv(text);
     // Сверка со ВСЕЙ таблицей, включая удалённые: иначе удалённая рукой
     // запись воскресала при следующем импорте той же выгрузки.
     const fresh = withoutDuplicates(parsed.rows, await db.workouts.toArray());
     if (parsed.rows.length === 0) {
-      toast(t('В файле не нашлось тренировок: нужны колонки с датой и длительностью.'));
+      // Колонки есть, но ни одна строка не подошла (дата, которой нет, или
+      // позже сегодня) — говорим это, а не «нужны колонки».
+      toast(
+        parsed.skipped > 0
+          ? t('Ни одна строка из {n} не разобрана: проверьте дату и длительность.', { n: parsed.skipped })
+          : t('В файле не нашлось тренировок: нужны колонки с датой и длительностью.'),
+      );
       return;
     }
     const msg = t('Найдено записей: {n}, новых: {fresh}, не разобрано строк: {skipped}. Добавить новые?', {
@@ -154,13 +175,46 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, scale
             {t('+ Тренировка')}
           </button>
         </div>
+        <div className="card">
         {selectedList.length === 0 ? (
-          <p className="card px-4 py-3.5 text-sm text-lh-text-secondary">{t('Тренировок не отмечено.')}</p>
+          <p className="px-4 py-3.5 text-sm text-lh-text-secondary">{t('Тренировок не отмечено.')}</p>
         ) : (
-          <div className="card divide-y divide-lh-border">
+          <div className="divide-y divide-lh-border">
             {selectedList.map((w) => <WorkoutRow key={w.id} w={w} onClick={() => onEdit(w)} />)}
           </div>
         )}
+        {/* Шаблоны — там же, где день (канва design/sport-templates): чип
+            открывает запись на выбранный день уже заполненной. Раньше до них
+            было три касания через «Новую тренировку». */}
+        {templates && (
+        <div className="border-t border-lh-border px-4 pb-3 pt-1" data-testid="day-templates">
+          <div className="flex min-h-11 items-center justify-between">
+            <span className="text-sm text-lh-text-secondary">{templates.length > 0 ? t('По шаблону') : t('Шаблонов пока нет.')}</span>
+            <button type="button" onClick={onTemplates} className="flex min-h-11 items-center gap-0.5 text-sm font-medium text-lh-accent active:opacity-60">
+              {t('Шаблоны')}
+              <ChevronRight size={ICON.inline} />
+            </button>
+          </div>
+          {templates.length > 0 && (
+            <div className="flex flex-wrap gap-2 pb-1">
+              {templates.map((tpl) => (
+                // Высота 44 самой кнопкой, а не невидимой зоной: зону обрезал
+                // бы overflow, которым длинное название режется многоточием.
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => onTemplate(tpl)}
+                  aria-label={t('По шаблону: {name}', { name: tpl.name })}
+                  className="flex min-h-11 max-w-full items-center rounded-full border border-lh-border-strong bg-lh-surface-2 px-3.5 text-sm font-medium text-lh-text-primary active:scale-95"
+                >
+                  <span className="truncate">{tpl.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        )}
+        </div>
       </section>
 
       <section className="grid grid-cols-2 gap-3">

@@ -41,6 +41,7 @@ import { usePomodoroActions } from '../focus/pomodoro';
 import { ICON } from '../../components/ui/icons';
 import { isSleeping, scheduleNext } from './taskActions';
 import { confirmAction } from '../../components/ui/confirmStore';
+import { Haptic } from '../../components/ui/Haptic';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'manual';
 type PriorityStr = '0' | '1' | '2' | '3';
@@ -539,6 +540,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <Copy size={ICON.inline} />
+              {title.length > 0 && <Haptic />}
             </button>
           </div>
           <div className="flex items-start gap-2">
@@ -573,6 +575,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <Copy size={ICON.inline} />
+              {notes.length > 0 && <Haptic />}
             </button>
           </div>
           <div className="flex items-start gap-2">
@@ -865,10 +868,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               край на 393px, а полоса прокрутки скрыта — догадаться нельзя. */}
           <div className="mt-2">
             <div className="flex flex-wrap gap-2">
-              <Chip active={dueDate === todayKey()} onClick={() => setDueDate(todayKey())}>
+              <Chip active={dueDate === todayKey()} hapticOff={dueDate === todayKey()} onClick={() => setDueDate(todayKey())}>
                 {t('Сегодня')}
               </Chip>
-              <Chip active={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>
+              <Chip active={dueDate === tomorrow} hapticOff={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>
                 {t('Завтра')}
               </Chip>
               <Chip
@@ -887,6 +890,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 {t('Период')}
               </Chip>
               <Chip
+                hapticOff={!dueDate && !dueTime && !startDate}
                 onClick={() => {
                   setDueDate(null);
                   setDueTime(null);

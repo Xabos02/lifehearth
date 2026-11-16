@@ -18,6 +18,7 @@ import { MemberAvatar, GroupAvatar } from './MemberAvatar';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { buzz } from '../../lib/feedback';
 
 const PRIORITY_BAR: Record<number, string> = {
   3: 'bg-danger',
@@ -132,6 +133,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
       if (!st) return;
       clearPress(); // удержание сработало: дальше жест ведут обработчики окна
       longFired.current = true;
+      buzz(); // «взял» — только Android, PROTOCOL §6.4
       startDrag(task.id, st.pointerId);
       // Палец ещё неподвижен — захватываем его на строке, как строка личной
       // задачи (TaskItem). Ведение и отпускание ловит окно (startDrag), и в
@@ -169,6 +171,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
   const startDrag = (id: string, pointerId: number) => {
     const seq = ++dragSeq.current;
     let order = active.map((t) => t.id);
+    const before = order; // move не правит массив на месте, а строит новый
     const move = (e: PointerEvent) => {
       if (e.pointerId !== pointerId) return;
       // Место — номер строки под пальцем в разметке. Порядок может опережать
@@ -193,6 +196,9 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
         setDragOrder(null);
         return;
       }
+      // Задача встала на новое место — короткая вибрация, только Android
+      // (PROTOCOL §6.4); отпустил там же, где взял, — молчим.
+      if (order.some((x, i) => x !== before[i])) buzz();
       // Порядок жеста держим, пока запись не легла в базу: иначе список на миг
       // возвращался к старому порядку и прыгал обратно.
       void reorderFamilyTasks(familyId, order).finally(() => {
@@ -269,7 +275,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
             // «взял и передумал» выполнял задачу и слал семье пуш об этом.
             if (longFired.current) {
               longFired.current = false;
-              return;
+              return false; // и без щелчка: отметка не изменилась
             }
             void toggleFamilyTask(familyId, task);
           }}

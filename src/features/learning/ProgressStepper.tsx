@@ -10,6 +10,7 @@ import { todayKey } from '../../lib/dates';
 import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { Haptic } from '../../components/ui/Haptic';
 
 const BTN_CLASS =
   'flex size-12 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-text-primary active:opacity-70 disabled:opacity-40';
@@ -49,6 +50,9 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
           onClick={() => void setValue(item.progressCurrent - step)}
         >
           <Minus size={ICON.base} />
+          {/* Шаг прогресса щёлкает под пальцем (PROTOCOL §6.4); у упора кнопка
+              выключена и накладки нет. */}
+          {item.progressCurrent > 0 && <Haptic />}
         </button>
         <div className="min-w-0 text-center">
           <p className="text-3xl font-light leading-none tabular-nums">
@@ -67,6 +71,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
           onClick={() => void setValue(item.progressCurrent + step)}
         >
           <Plus size={ICON.base} />
+          {item.progressCurrent < item.progressTarget && <Haptic />}
         </button>
       </div>
       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-lh-surface-2" aria-hidden>
@@ -80,6 +85,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
           onClick={() => void setValue(item.progressCurrent + 10)}
         >
           {t('Плюс десять страниц')}
+          {item.progressCurrent < item.progressTarget && <Haptic />}
         </button>
       )}
     </div>

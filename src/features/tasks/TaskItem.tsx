@@ -18,6 +18,7 @@ import { describeRecurrence } from '../../lib/recurrence';
 import { t } from '../../lib/i18n';
 import { isSleeping, launchTasks, skipTask, toggleTask } from './taskActions';
 import { ICON } from '../../components/ui/icons';
+import { buzz } from '../../lib/feedback';
 import {
   GRepeat as RepeatG,
   GSnowflake as Snowflake,
@@ -117,6 +118,8 @@ export const TaskItem = memo(function TaskItem({
     pointerId: 0,
     axis: 'none' as 'none' | 'x' | 'y', // directional lock: ось жеста, пока не определена — не свайпим
   });
+  // Порог «выполнить» уже отозвался вибрацией в этом жесте — второй раз не надо.
+  const swipeBuzzed = useRef(false);
   const [viewerAt, setViewerAt] = useState<number | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -217,6 +220,7 @@ export const TaskItem = memo(function TaskItem({
       pointerId: e.pointerId,
       axis: 'none',
     };
+    swipeBuzzed.current = false;
     setDragging(true);
     // Long-press → drag-режим. Армируем только там, где перенос поддержан.
     if (onDragStart) {
@@ -267,6 +271,12 @@ export const TaskItem = memo(function TaskItem({
       drag.current.moved = true; // определившееся движение — это не тап
     }
     if (drag.current.axis === 'y') return; // вертикальный скролл — не свайпим
+    // Свайп вправо перешёл порог: отпустишь — задача выполнится. Только Android,
+    // на iPhone сигнал — сама плашка (PROTOCOL §6.4). Влево — без отклика.
+    if (!swipeBuzzed.current && drag.current.dx + d > SWIPE_THRESHOLD) {
+      swipeBuzzed.current = true;
+      buzz();
+    }
     setDx(Math.max(-ACTIONS_WIDTH, Math.min(ACTIONS_WIDTH, drag.current.dx + d)));
   };
   const onUp = () => {

@@ -16,6 +16,7 @@ import { getLang, t } from '../../lib/i18n';
 import { CallGuard } from './CallGuard';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
+import { Haptic } from '../../components/ui/Haptic';
 
 /** Через сколько заблокировать экран после того, как звонок ушёл «к уху». */
 const LOCK_AFTER_CONNECT_MS = 1800;
@@ -200,6 +201,7 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
                 color={snap.muted ? 'active' : 'surface'}
                 label={snap.muted ? (getLang() === 'en' ? 'Unmute' : 'Включить') : t('Микрофон')}
                 onClick={bump(() => callManager.toggleMute())}
+                haptic
               >
                 {snap.muted ? <MicOff size={ICON.accent} /> : <Mic size={ICON.accent} />}
               </CallButton>
@@ -208,6 +210,7 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
                   color={snap.speakerOn ? 'active' : 'surface'}
                   label={snap.speakerOn ? t('Динамик') : t('К уху')}
                   onClick={bump(() => void callManager.toggleSpeaker())}
+                  haptic
                 >
                   <Volume2 size={ICON.accent} />
                 </CallButton>
@@ -281,11 +284,14 @@ function CallButton({
   label,
   color,
   onClick,
+  haptic = false,
 }: {
   children: React.ReactNode;
   label: string;
   color: 'danger' | 'success' | 'surface' | 'active';
   onClick: () => void;
+  /** Кнопка-переключатель (микрофон, динамик) — щёлкает, PROTOCOL §6.4. */
+  haptic?: boolean;
 }) {
   const cls =
     color === 'danger'
@@ -299,6 +305,7 @@ function CallButton({
     <button onClick={onClick} className="flex flex-col items-center gap-2 active:scale-95" aria-label={label}>
       <span className={`flex items-center justify-center rounded-full ${color === 'danger' || color === 'success' ? 'size-[72px]' : 'size-16'} ${cls}`}>{children}</span>
       <span className={`text-xs ${color === 'active' ? 'text-lh-text-primary' : 'text-lh-text-secondary'}`}>{label}</span>
+      {haptic && <Haptic />}
     </button>
   );
 }

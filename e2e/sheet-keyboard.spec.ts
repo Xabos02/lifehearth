@@ -105,3 +105,28 @@ test('второй тап мимо панели закрывает форму', 
 
   await expect(input).toHaveCount(0);
 });
+
+// Длинная форма (шаблон тренировки на десять упражнений): поле в фокусе стоит
+// у нижнего края панели. Клавиатура срезает панель снизу на свою высоту —
+// поле оставалось под краем: печатаешь и не видишь (находка 15.11.2026).
+test('поле в фокусе у нижнего края длинной формы остаётся над клавиатурой', async ({ page }) => {
+  await fakeViewport(page);
+  await openApp(page, '/more/health');
+  await page.evaluate(async () => {
+    const { addTemplate } = await import('/src/features/health/templateRepo.ts');
+    const exercises = Array.from({ length: 10 }, (_, i) => ({ name: `Упражнение ${i + 1}`, sets: 3, reps: 10, note: 'Пометка' }));
+    await addTemplate({ name: 'Длинный', items: [{ type: 'strength', customLabel: null, customColor: null, minutes: 0, distanceKm: null, exercises }] } as never);
+  });
+  await page.getByTestId('day-templates').getByRole('button', { name: 'Шаблоны', exact: true }).click();
+  await page.getByRole('button', { name: 'Изменить шаблон «Длинный»' }).click();
+  await page.getByTestId('exercise-row').last().click();
+  const note = page.getByTestId('exercise-editor').getByLabel('Заметка');
+  // Поле — к самому низу видимой части панели, как после прокрутки пальцем.
+  await note.evaluate((el) => el.scrollIntoView({ block: 'end' }));
+  await note.focus();
+  await showKeyboard(page, KEYBOARD);
+  await expect
+    .poll(async () => note.evaluate((el) => Math.round(el.getBoundingClientRect().bottom)))
+    .toBeLessThanOrEqual((page.viewportSize()?.height ?? 0) - KEYBOARD);
+});
+

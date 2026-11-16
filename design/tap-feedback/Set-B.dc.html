@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Б: два выключателя — тактильный и звуки</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.sub{height:30px;box-sizing:border-box;margin:0;padding:9px 16px 0;font-size:12px;line-height:16px;color:#b3b1ab}
+img{display:block}
+</style>
+</helmet>
+<div style="width: 393px; height: 1006px; background: #08080f; font-family: -apple-system, system-ui, 'Inter', sans-serif">
+  <p class="sub">Тёмная тема — две строки: звуки выключаются отдельно</p>
+  <img src="shots/set-dark-b.webp" alt="Настройки в тёмной теме: под строкой «Язык» строки «Тактильный отклик» и «Звуки» с включёнными переключателями и пояснением под карточкой" style="width: 393px; height: 465px">
+  <p class="sub">Светлая тема</p>
+  <img src="shots/set-light-b.webp" alt="Настройки в светлой теме: строки «Тактильный отклик» и «Звуки» с включёнными переключателями и пояснением под карточкой" style="width: 393px; height: 465px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":393,"height":1006}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

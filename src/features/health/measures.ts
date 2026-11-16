@@ -1,8 +1,9 @@
 import { db } from '../../db/db';
 import { createWithId, remove, update } from '../../db/repo';
 import type { MetricLog } from '../../db/types';
-import { addDaysKey } from '../../lib/dates';
+import { addDaysKey, isDateKey, todayKey } from '../../lib/dates';
 import { updateSettings } from '../../hooks/useSettings';
+import { getLang } from '../../lib/i18n';
 
 // Замеры вкладки «Здоровье»: вес, сон, пульс покоя, давление.
 //
@@ -87,6 +88,9 @@ export async function logMeasure(key: MeasureKey, date: string, value: number): 
   // Границы — от опечаток, не медицинские: «796» из профиля с недобранной
   // запятой в дневник не попадает.
   if (!Number.isFinite(value) || value < def.min || value > def.max) return;
+  // Стёртое поле даты отдаёт '' — оно меньше любой даты и проходило «не позже
+  // сегодня»; запись без дня потом роняла вкладку в format().
+  if (!isDateKey(date)) return;
   const metricId = await ensureMetric(def);
   const v = Number(value.toFixed(def.decimals));
   const id = measureLogId(metricId, date);
@@ -96,27 +100,29 @@ export async function logMeasure(key: MeasureKey, date: string, value: number): 
   // Строку метрики на замер не трогаем: её currentValue никто не читает, а
   // правка в ту же миллисекунду, что и замер, связывала бы на сервере замер
   // с его видом (задача 35).
-  // Вес — ещё и в профиле: его читают «Главная» и ИМТ. Один источник правды
-  // — дневник; профиль догоняет, если замер не старше последнего.
-  if (key === 'weight') {
-    const logs = (await db.metricLogs.where('metricId').equals(metricId).toArray()).filter((l) => !l.deletedAt);
-    const latest = logs.reduce((m, l) => (l.date > m ? l.date : m), '');
-    if (date >= latest) {
-      const s = await db.settings.get('app');
-      await updateSettings({ profile: { ...s?.profile, weightKg: v } });
-    }
-  }
+  if (key === 'weight') await syncProfileWeight();
 }
 
 export async function removeMeasureLog(id: string): Promise<void> {
   await remove(db.metricLogs, id);
-  // Удалили вес — профиль и ИМТ на «Главной» догоняют последний живой замер.
-  if (id.startsWith(`${measureDef('weight').id}:`)) {
-    const logs = (await db.metricLogs.where('metricId').equals(measureDef('weight').id).toArray()).filter((l) => !l.deletedAt);
-    const latest = logs.sort((a, b) => b.date.localeCompare(a.date))[0];
-    const s = await db.settings.get('app');
-    await updateSettings({ profile: { ...s?.profile, weightKg: latest ? latest.value : null } });
-  }
+  if (id.startsWith(`${measureDef('weight').id}:`)) await syncProfileWeight();
+}
+
+/** Вес — ещё и в профиле: его читают «Главная» и ИМТ. Один источник правды
+ *  — дневник; профиль догоняет последний живой замер после ЛЮБОЙ записи веса:
+ *  своего замера, удаления и замера, пришедшего синком с другого устройства
+ *  (sync.ts) — раньше синк профиль не трогал, и «Главная» с ИМТ оставались
+ *  на прежнем числе. Нет замеров — нет и веса. */
+export async function syncProfileWeight(): Promise<void> {
+  // Те же замеры, что видит вкладка (measureTrend): без записей с битым или
+  // будущим днём — синк привозит их с устройств в другом часовом поясе.
+  const today = todayKey();
+  const logs = (await db.metricLogs.where('metricId').equals(measureDef('weight').id).toArray()).filter(
+    (l) => !l.deletedAt && isDateKey(l.date) && l.date <= today,
+  );
+  const latest = logs.sort((a, b) => b.date.localeCompare(a.date))[0];
+  const s = await db.settings.get('app');
+  await updateSettings({ profile: { ...s?.profile, weightKg: latest ? latest.value : null } });
 }
 
 export interface MeasureTrend {
@@ -138,7 +144,9 @@ export interface MeasureTrend {
 export function measureTrend(logs: MetricLog[], today: string, windowDays = 30): MeasureTrend {
   const byDate = new Map<string, MetricLog>();
   for (const l of logs) {
-    if (l.deletedAt || l.date > today) continue;
+    // Запись без дня форма успела сохранить до проверки — у людей она уже в
+    // базе. Пропускаем, иначе вкладка падает при каждом открытии.
+    if (l.deletedAt || l.date > today || !isDateKey(l.date)) continue;
     const have = byDate.get(l.date);
     if (!have || l.updatedAt > have.updatedAt) byDate.set(l.date, l);
   }
@@ -158,7 +166,9 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-/** «78,4» — число с нужным числом знаков и запятой. */
+/** «78,4» / «78.4» — число с нужным числом знаков, разделитель по языку
+ *  (PROTOCOL §7.7): в английском запятая читается как разделитель тысяч. */
 export function formatMeasure(value: number, def: MeasureDef): string {
-  return value.toFixed(def.decimals).replace('.', ',');
+  const s = value.toFixed(def.decimals);
+  return getLang() === 'ru' ? s.replace('.', ',') : s;
 }

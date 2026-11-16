@@ -35,6 +35,16 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
   // Замеры → Спорт» календарь перемонтируется и должен показать месяц
   // выбранного дня.
   const [anchor, setAnchor] = useState(selected);
+  // Выбор сменился — сетка идёт за ним, откуда бы он ни пришёл. Серый день
+  // соседнего месяца — как в «Календаре»: иначе выбранный день висел серым на
+  // краю, а сводка под сеткой была уже про другой месяц. Барабан выбирает день
+  // под полосой, уходя с экрана, — уже после того, как «Месяц» поставил сетку
+  // на прежний день. Стрелки месяца выбор не трогают — их месяц остаётся.
+  const [seen, setSeen] = useState(selected);
+  if (seen !== selected) {
+    setSeen(selected);
+    setAnchor(selected);
+  }
 
   const byDay = useMemo(() => {
     const m = new Map<string, Workout[]>();
@@ -139,9 +149,9 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
                 muted={!d.inMonth}
                 future={d.key > today}
                 count={sessionCount(byDay.get(d.key) ?? [], d.key, d.key)}
-                // Серый день соседнего месяца листает сетку на свой месяц — как в
-                // «Календаре»: иначе выбранный день висел серым на краю, а
-                // сводка под сеткой была уже про другой месяц.
+                // Серый день листает сетку на свой месяц и тогда, когда он УЖЕ
+                // выбран: выбор не меняется, и правило «сетка идёт за выбором»
+                // выше на такой тап не срабатывает.
                 onSelect={(key) => {
                   if (!d.inMonth) setAnchor(key);
                   onSelect(key);
@@ -237,8 +247,9 @@ interface WheelInfo {
 
 /** Дни барабаном: крутится пальцем по инерции, встаёт на ближайший день,
  *  на каждом дне — щелчок. Правый край — сегодня: в будущее не крутится,
- *  тренировку туда не записать. Выбор уходит наверх, когда лента встала, —
- *  иначе на быстром броске вкладка пересчитывала бы сводки на каждом дне. */
+ *  тренировку туда не записать. Прокрутка пальцем отдаёт выбор наверх, когда
+ *  лента встала, — иначе на быстром броске вкладка пересчитывала бы сводки на
+ *  каждом дне. Тап и стрелки знают день сразу и отдают его сразу. */
 function DayWheel({
   byDay,
   selected,
@@ -274,6 +285,10 @@ function DayWheel({
   // иначе уменьшенная кнопка ужимала свою зону касания меньше 44px.
   const faces = useRef<(HTMLSpanElement | null)[]>([]);
   const centerRef = useRef(-1);
+  // Куда лента едет сама — после тапа, стрелки или «Сегодня»; null — стоит
+  // или её ведёт палец. Тап отдаёт выбор сразу, а лента доезжает следом: всё,
+  // что спрашивает «где сейчас лента», должно смотреть сюда, а не под полосу.
+  const headingRef = useRef<number | null>(null);
   const firstRef = useRef(first);
   const prevSelected = useRef(selected);
   const selectedRef = useRef(selected);
@@ -312,7 +327,9 @@ function DayWheel({
     () => () => {
       if (settle.current === undefined) return;
       window.clearTimeout(settle.current);
-      const key = infoRef.current[centerRef.current]?.key;
+      // Лента ехала к тапнутому дню — он, а не день, оказавшийся под полосой
+      // на полпути.
+      const key = infoRef.current[headingRef.current ?? centerRef.current]?.key;
       if (key && key !== selectedRef.current) onSelectRef.current(key);
     },
     [],
@@ -331,16 +348,21 @@ function DayWheel({
     prevSelected.current = selected;
     // Новые данные (синк с другого устройства, своя же запись) пересобирают
     // info — ленту это не двигает: посреди прокрутки она уезжала назад.
-    if (centerRef.current >= 0 && !shifted && (!changed || i === centerRef.current)) return;
+    // «Уже там» — это куда лента едет, а не где она сейчас: «Сегодня», нажатая
+    // сразу после тапа по дню, пока лента не сдвинулась, иначе терялась —
+    // под полосой ещё стоял сегодняшний день, и лента уезжала к тапнутому.
+    if (centerRef.current >= 0 && !shifted && (!changed || i === (headingRef.current ?? centerRef.current))) return;
     // Скачок без прокрутки — при открытии и когда лента достроилась слева
     // (индексы сдвинулись, а день на месте). «Сегодня» — прокруткой, со
     // щелчками по пути, как колесо iOS.
     if (centerRef.current < 0 || shifted || reduce) {
+      headingRef.current = null;
       centerRef.current = i;
       rail.scrollLeft = i * WHEEL_STEP;
       setCenter(i);
       paint(rail.scrollLeft);
     } else {
+      headingRef.current = i;
       rail.scrollTo({ left: i * WHEEL_STEP, behavior: 'smooth' });
     }
     // paint читает info и reduce из того же рендера — отдельной зависимостью не нужен.
@@ -357,9 +379,12 @@ function DayWheel({
       setCenter(i);
       playTick();
     }
+    if (i === headingRef.current) headingRef.current = null;
     window.clearTimeout(settle.current);
     settle.current = window.setTimeout(() => {
       settle.current = undefined;
+      // Лента встала: дальше «где она» — снова день под полосой.
+      headingRef.current = null;
       const key = info[centerRef.current]?.key;
       if (key && key !== selectedRef.current) onSelect(key);
     }, 120);
@@ -371,21 +396,33 @@ function DayWheel({
     },
     [],
   );
+  // Выбор — сразу, не дожидаясь ленты: подпись уже показывала новый день, а
+  // «Отметить тренировку» в первые полсекунды открывалась на прежнем.
   const pick = useMemo(
     () => (i: number) => {
       unlockTick();
+      headingRef.current = reduce ? null : i;
       railRef.current?.scrollTo({ left: i * WHEEL_STEP, behavior: reduce ? 'auto' : 'smooth' });
+      const key = infoRef.current[i]?.key;
+      if (key && key !== selectedRef.current) onSelectRef.current(key);
     },
     [reduce],
   );
 
+  const grab = () => {
+    headingRef.current = null;
+    unlockTick();
+  };
+
   // Клавиатура: в барабан Tab входит на выбранном дне (остальные вне порядка
   // фокуса — иначе первый Tab уводил ленту на 120 дней назад), стрелки
-  // листают по дню.
+  // листают по дню — от выбранного, а не от дня под полосой: тот меняется,
+  // только когда лента пройдёт полшага, и быстрые нажатия терялись.
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault();
-    const j = Math.min(info.length - 1, Math.max(0, center + (e.key === 'ArrowRight' ? 1 : -1)));
+    const at = info.findIndex((d) => d.key === selected);
+    const j = Math.min(info.length - 1, Math.max(0, at + (e.key === 'ArrowRight' ? 1 : -1)));
     pick(j);
     (faces.current[j]?.parentElement as HTMLElement | null | undefined)?.focus({ preventScroll: true });
   };
@@ -412,9 +449,10 @@ function DayWheel({
         <div
           ref={railRef}
           onScroll={onScroll}
-          onTouchStart={unlockTick}
+          // Палец на ленте — дальше ведёт он, а не начатая тапом прокрутка.
+          onTouchStart={grab}
           onTouchEnd={unlockTick}
-          onPointerDown={unlockTick}
+          onPointerDown={grab}
           onKeyDown={onKeyDown}
           role="group"
           aria-label={t('Дни')}

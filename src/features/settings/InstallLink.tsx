@@ -8,6 +8,7 @@ import { INSTALL_URL } from '../../lib/appInstall';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { Haptic } from '../../components/ui/Haptic';
 
 /**
  * Постоянный блок «ссылка для установки»: показывает адрес сайта, даёт
@@ -37,6 +38,7 @@ export function InstallLink() {
           className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-lh-surface-2 text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
         >
           {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
+          <Haptic />
         </button>
       </div>
       <a

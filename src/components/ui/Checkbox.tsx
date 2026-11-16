@@ -6,7 +6,9 @@ import { t } from '../../lib/i18n';
 
 interface Props {
   checked: boolean;
-  onChange: () => void;
+  /** false — клик отбит (конец удержания, а не отметка): он отменяется, и
+   *  накладка не щёлкает и не вибрирует (PROTOCOL §6.4). */
+  onChange: () => unknown;
   /** hex-цвет проекта/привычки; по умолчанию акцентный */
   color?: string;
   size?: number;
@@ -30,6 +32,7 @@ interface Props {
 export { HIT_SLOP_44 } from './hitSlop';
 import { HIT_SLOP_44 } from './hitSlop';
 import { STROKE_HEAVY } from './icons';
+import { Haptic } from './Haptic';
 
 /** Чекбокс задачи — скруглённый квадрат (как в списках iOS). Пустой —
  *  спокойная серая рамка; выполненный — заливка цветом проекта/акцента
@@ -46,7 +49,7 @@ export function TaskCheck({ checked, onChange, color, size = 22 }: Props) {
     <button
       onClick={(e) => {
         e.stopPropagation();
-        onChange();
+        if (onChange() === false) e.preventDefault();
       }}
       aria-label={checked ? t('Снять отметку') : t('Выполнить')}
       className={`flex shrink-0 items-center justify-center rounded-[6px] border-2 transition-transform duration-150 active:scale-90 ${HIT_SLOP_44}`}
@@ -58,6 +61,8 @@ export function TaskCheck({ checked, onChange, color, size = 22 }: Props) {
       }}
     >
       {checked && <Check size={size - 10} style={{ color: checkColor }} strokeWidth={STROKE_HEAVY} />}
+      {/* Отметка чувствуется под пальцем — и постановка, и снятие (§6.4). */}
+      <Haptic />
     </button>
   );
 }
