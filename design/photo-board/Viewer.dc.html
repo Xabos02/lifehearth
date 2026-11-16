@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Просмотр фото с панели</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 393px; height: 892px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; background: #08080f; font-family: -apple-system, system-ui, sans-serif">
+<p style="margin: 0; height: 28px; font-size: 13px; line-height: 28px; color: #8c8a85">Тап по фото: слева «Удалить», справа счётчик</p>
+<img src="shots/viewer-dark.webp" alt="Фото с панели на весь экран, кнопка удаления в левом верхнем углу" style="display: block; width: 393px; height: 852px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":393,"height":892}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
