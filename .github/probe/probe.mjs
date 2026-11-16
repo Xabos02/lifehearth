@@ -4,6 +4,8 @@ const ACC = process.env.CF_ACCOUNT_ID;
 const TOK = process.env.CF_API_TOKEN;
 const MODE = process.env.PROBE_MODE || 'all';
 const BASE = `https://api.cloudflare.com/client/v4/accounts/${ACC}`;
+const PROBE_URL = process.env.PROBE_URL;
+const PROBE_KEY = process.env.PROBE_KEY;
 const H = { Authorization: `Bearer ${TOK}`, 'Content-Type': 'application/json' };
 const PRICE = {
   '@cf/google/gemma-4-26b-a4b-it': [9091, 27273],
@@ -143,14 +145,27 @@ function parseSSE(raw) {
 }
 
 async function call(endpoint, model, messages, tools, maxTokens = MAX_TOKENS) {
-  const body = { messages, stream: true, stream_options: { include_usage: true }, max_tokens: maxTokens, ...(tools ? { tools } : {}) };
-  let url;
-  if (endpoint === 'openai') { url = `${BASE}/ai/v1/chat/completions`; body.model = model; }
-  else url = `${BASE}/ai/run/${model}`;
+  const input = { messages, stream: true, stream_options: { include_usage: true }, max_tokens: maxTokens, ...(tools ? { tools } : {}) };
   const t0 = Date.now();
-  const r = await fetch(url, { method: 'POST', headers: H, body: JSON.stringify(body) });
+  let r;
+  for (let i = 0; i < 20; i++) {
+    r = await fetch(`${PROBE_URL}/?k=${PROBE_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model, input }) });
+    // workers.dev нового воркера разъезжается по сети несколько секунд
+    if (r.status !== 404 && r.status !== 403 && r.status !== 530) break;
+    await new Promise((res) => setTimeout(res, 3000));
+  }
   const raw = await r.text();
   return { status: r.status, ct: r.headers.get('content-type'), raw, ms: Date.now() - t0 };
+}
+
+async function errors() {
+  log('\n## 2b. Форма ошибок binding');
+  const bad = await call('binding', '@cf/nope/not-a-model', [{ role: 'user', content: 'hi' }]);
+  log('bad model:', bad.status, cut(bad.raw, 400));
+  const big = await call('binding', MODELS[0], [{ role: 'user', content: 'hi' }], undefined, 10_000_000);
+  log('huge max_tokens:', big.status, cut(big.raw, 400));
+  const m32 = await call('binding', MODELS[0], [{ role: 'user', content: 'Ответь одним словом: да' }], undefined, 32000);
+  log('max_tokens 32000:', m32.status, cut(m32.raw.split('\n').filter(Boolean).slice(-3).join(' / '), 400));
 }
 
 function report(tag, model, res) {
@@ -190,7 +205,7 @@ async function probe() {
   const msgs = [{ role: 'system', content: SYS_TOOLS }, { role: 'user', content: 'Что у меня по задачам на этой неделе? Что самое срочное?' }];
   const ok = {};
   for (const model of MODELS) {
-    for (const ep of ['openai', 'run']) {
+    for (const ep of ['binding']) {
       const tag = `${model} via ${ep}`;
       const r1 = await call(ep, model, msgs, TOOL_DEFS);
       const st = report(`${tag} R1`, model, r1);
@@ -260,10 +275,10 @@ async function quality(ep, model) {
 
 if (MODE === 'all' || MODE === 'settings') await settings();
 let ok = {};
-if (MODE === 'all' || MODE === 'probe') ok = await probe();
+if (MODE === 'all' || MODE === 'probe') { ok = await probe(); await errors(); }
 if (MODE === 'all' || MODE === 'quality') {
   for (const model of MODELS) {
-    const ep = ok[`${model} via run`] ? 'run' : ok[`${model} via openai`] ? 'openai' : MODE === 'quality' ? 'openai' : null;
+    const ep = ok[`${model} via binding`] || MODE === 'quality' ? 'binding' : null;
     if (ep) await quality(ep, model);
     else log(`\n## 3. ${model}: проверка не прошла, качество не гоняю`);
   }
