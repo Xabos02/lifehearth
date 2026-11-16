@@ -2,7 +2,6 @@ import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   AudioWaveform,
-  Bell,
   BellOff,
   Clock,
   Coffee,
@@ -19,12 +18,14 @@ import {
   GPause as Pause,
   GPlay as Play,
   GRepeat as RotateCcw,
+  GBellRing as Bell,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { t } from '../../lib/i18n';
 import { Screen } from '../../components/layout/Screen';
 import { Sheet } from '../../components/ui/Sheet';
+import { IconButton } from '../../components/ui/IconButton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import {
   formatClock,
@@ -494,14 +495,7 @@ export function FocusPage() {
       backTo="/home"
       right={
         // На весь экран — как в Focus To-Do: только круг и время, экран не гаснет.
-        <button
-          type="button"
-          onClick={() => setFullscreen(true)}
-          aria-label={t('На весь экран')}
-          className="flex size-11 items-center justify-center rounded-full text-lh-text-secondary active:opacity-60"
-        >
-          <Maximize2 size={ICON.header} />
-        </button>
+        <IconButton icon={Maximize2} label={t('На весь экран')} tone="muted" onClick={() => setFullscreen(true)} />
       }
     >
       <div className="flex flex-col gap-6" style={FOCUS_VARS}>
@@ -511,6 +505,7 @@ export function FocusPage() {
           {(['work', 'break', 'long'] as Phase[]).map((ph) => (
             <span
               key={ph}
+              aria-hidden={p.phase !== ph || undefined}
               className={`flex h-8 items-center rounded-full px-3.5 ${
                 p.phase === ph ? 'bg-lh-surface-2 font-semibold text-lh-text-primary' : 'text-lh-text-secondary'
               }`}
@@ -613,7 +608,7 @@ export function FocusPage() {
           className="card flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-80"
         >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-            <ListChecks size={ICON.base} />
+            <ListChecks size={ICON.header} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-xs text-lh-text-secondary">{t('Задача для фокуса')}</span>

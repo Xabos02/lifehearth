@@ -80,7 +80,7 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
           {t('Круг {n} из {total}', { n: String(Math.min(p.cycle.done + 1, p.cycle.total)), total: String(p.cycle.total) })}
         </p>
         <span
-          className="mt-4 text-[min(96px,24vw)] font-light leading-none tabular-nums tracking-[-0.03em]"
+          className="mt-4 text-[72px] font-light leading-none tabular-nums tracking-tight"
           data-testid="fullscreen-clock"
         >
           {formatClock(p.remainingMs)}

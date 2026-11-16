@@ -202,7 +202,7 @@ export function MembersTab({
           {partner && (
             <QuickTile
               icon={Phone}
-              label={t('Звонок')}
+              label={t('Позвонить')}
               onClick={() => void callManager.startCall(familyId, partner.id)}
             />
           )}
@@ -348,7 +348,7 @@ export function MembersTab({
           <ActionRow
             icon={GTrash}
             label={t('Удалить группу')}
-            hint={t('Чат и задачи исчезнут у всех участников')}
+            hint={t('Сервер сотрёт переписку и задачи, у участников останется уже пришедшее')}
             onClick={() => void removeGroup()}
             danger
           />

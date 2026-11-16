@@ -70,6 +70,10 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
   const matches = (task: FamilyTask) =>
     filter === 'all' || (filter === 'mine' ? task.assigneeId === selfId : task.createdBy === selfId);
   const active = filter === 'all' ? ordered : ordered.filter(matches);
+  // Выполненные — под тем же фильтром, что и открытые: иначе на «Мне» висели
+  // «Пока нет общих задач» при чужих открытых и счётчик «Выполненные 5» над
+  // пустой карточкой.
+  const completedShown = filter === 'all' ? completed : completed.filter(matches);
   const mineCount = selfId ? activeSorted.filter((x) => x.assigneeId === selfId).length : 0;
 
   const [editing, setEditing] = useState<FamilyTask | null>(null);
@@ -263,7 +267,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
         {!done && (task.color || task.priority > 0) && (
           <span
             aria-hidden
-            className={`absolute top-3 bottom-3 left-0 w-1 rounded-r ${task.color ? '' : PRIORITY_BAR[task.priority]}`}
+            className={`absolute top-3 bottom-3 left-0 w-1 rounded-r-sm ${task.color ? '' : PRIORITY_BAR[task.priority]}`}
             style={task.color ? { background: task.color } : undefined}
           />
         )}
@@ -308,7 +312,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
   return (
     <div className="space-y-5 pb-4">
       <p className="-mt-2 text-xs leading-relaxed text-lh-text-secondary">
-        {t('Видны всем в группе. То, что поручено вам, попадёт в «Сегодня».')}
+        {t('Видны всем в группе')}
       </p>
       <SegmentedControl
         value={filter}
@@ -324,8 +328,12 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
         {t('Новая задача')}
       </Button>
 
-      {active.length === 0 && completed.length === 0 ? (
-        loaded && <p className="py-10 text-center text-sm text-lh-text-secondary">{t('Пока нет общих задач.')}</p>
+      {active.length === 0 && completedShown.length === 0 ? (
+        loaded && (
+          <p className="py-10 text-center text-sm text-lh-text-secondary">
+            {filter === 'all' ? t('Пока нет общих задач.') : t('Здесь пока пусто.')}
+          </p>
+        )
       ) : (
         <>
           {active.length > 0 ? (
@@ -336,7 +344,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
             loaded && <p className="py-6 text-center text-sm text-lh-text-secondary">{t('Здесь пока пусто.')}</p>
           )}
 
-          {completed.length > 0 && (
+          {completedShown.length > 0 && (
             <section>
               <button
                 onClick={() => setShowDone((v) => !v)}
@@ -345,12 +353,12 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
               >
                 <span className="lh-section">{t('Выполненные')}</span>
                 <span className="flex items-center gap-1 text-xs text-lh-text-secondary">
-                  {completed.length}
+                  {completedShown.length}
                   <ChevronRight size={ICON.inline} className={`shrink-0 transition-transform ${showDone ? 'rotate-90' : ''}`} />
                 </span>
               </button>
               {showDone && (
-                <div className="card divide-y divide-lh-border">{completed.filter(matches).map(renderRow)}</div>
+                <div className="card divide-y divide-lh-border">{completedShown.map(renderRow)}</div>
               )}
             </section>
           )}

@@ -68,10 +68,15 @@ function EnergyRow({ item, onOpen }: { item: EnergyItem; onOpen: () => void }) {
       className="flex w-full items-start gap-3 px-4 py-3.5 text-left active:bg-lh-surface-2"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-        <Icon size={ICON.base} aria-hidden />
+        <Icon size={ICON.header} aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate">{item.title}</span>
+        {/* Категория — текстом: иконка есть только у предложенных, своя
+            категория получает общую батарейку, а читалке иконка не видна. */}
+        {item.category && (
+          <span className="block truncate text-xs text-lh-text-secondary">{t(item.category)}</span>
+        )}
         {item.description && (
           <span className="mt-0.5 line-clamp-2 block text-xs text-lh-text-secondary">
             {item.description}
@@ -125,7 +130,12 @@ export function EnergyPage() {
           </p>
           <ChipRow>
             {FILTERS.map((f) => (
-              <Chip key={f.value} active={filter === f.value} onClick={() => setFilter(f.value)}>
+              <Chip
+                key={f.value}
+                active={filter === f.value}
+                hapticOff={filter === f.value}
+                onClick={() => setFilter(f.value)}
+              >
                 {t(f.label)}
               </Chip>
             ))}

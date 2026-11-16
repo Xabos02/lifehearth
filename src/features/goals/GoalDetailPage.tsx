@@ -79,9 +79,11 @@ function SectionHeader({
 
 const STATUS_LABEL: Record<Goal['status'], string> = {
   active: 'Активна',
-  paused: 'Пауза',
+  // Статус, а не команда: «Пауза» и «Архив» в словаре — кнопка плеера
+  // и вид файла (Pause / Archive).
+  paused: 'На паузе',
   completed: 'Завершена',
-  archived: 'Архив',
+  archived: 'В архиве',
 };
 
 /** Детальная страница цели: прогресс, связанные задачи, привычки, обучение. */
@@ -189,9 +191,9 @@ export function GoalDetailPage() {
         <div className="relative">
           <ProgressRing value={progress} size={168} strokeWidth={7} color={goal.color} label="" />
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-[44px] font-light leading-none tabular-nums tracking-tight">
+            <span className="text-5xl font-light tabular-nums">
               {Math.round(progress)}
-              <span className="text-xl text-lh-text-secondary">%</span>
+              <span className="text-lg text-lh-text-secondary">%</span>
             </span>
             {goal.progressMode !== 'manual' && (
               <span className="mt-1.5 max-w-[130px] truncate text-xs tabular-nums text-lh-text-secondary">
@@ -378,7 +380,7 @@ export function GoalDetailPage() {
                     className="flex min-w-0 flex-1 items-center gap-3 active:opacity-70"
                   >
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-                      <Icon size={ICON.base} />
+                      <Icon size={ICON.header} />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{li.title}</span>

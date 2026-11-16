@@ -135,7 +135,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
               <span className="text-lh-text-secondary">/</span>
               <span data-testid="weekly-goal">{goal}</span>
               <span className="ml-1.5 text-base text-lh-text-secondary">
-                {tPlural(goal, ['тренировка', 'тренировки', 'тренировок'])}
+                {tPlural(goal, ['день', 'дня', 'дней'])}
               </span>
             </p>
           </div>
@@ -230,18 +230,15 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
           <div className="card space-y-3.5 p-4">
             {kinds.map((k) => {
               const kind = resolveKind(k);
-              const amount =
-                kind.hasDistance && k.distanceKm > 0
-                  ? formatKm(k.distanceKm)
-                  : k.minutes > 0
-                    ? formatMinutes(k.minutes, t)
-                    : null;
               return (
                 <div key={`${k.type}-${k.customLabel ?? ''}`}>
                   <div className="flex items-baseline justify-between gap-3 text-sm">
                     <span className="min-w-0 truncate">{k.type === 'custom' ? kind.label : t(kind.label)}</span>
                     <span className="shrink-0 tabular-nums text-lh-text-secondary">
-                      {amount ?? `${k.count} ${tPlural(k.count, ['раз', 'раза', 'раз'])}`}
+                      {/* Вид без времени (одни упражнения) — числом занятий, а не
+                          «0 мин»; первое число — минуты, по ним и полоса. */}
+                      {k.minutes > 0 ? formatMinutes(k.minutes, t) : `${k.count} ${tPlural(k.count, ['раз', 'раза', 'раз'])}`}
+                      {kind.hasDistance && k.distanceKm > 0 ? ` · ${formatKm(k.distanceKm)}` : ''}
                     </span>
                   </div>
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-lh-surface-2">
@@ -279,7 +276,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
           className="flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-80"
         >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-text-secondary">
-            <FileUp size={ICON.base} />
+            <FileUp size={ICON.header} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">{t('Из других приложений')}</span>

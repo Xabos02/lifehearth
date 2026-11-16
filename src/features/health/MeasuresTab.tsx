@@ -4,9 +4,9 @@ import { db } from '../../db/db';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
-import { Gauge, HeartPulse, Moon, Weight, type LucideIcon } from 'lucide-react';
+import { Gauge, Moon, Weight, type LucideIcon } from 'lucide-react';
 import { ICON } from '../../components/ui/icons';
-import { GPlus as Plus } from '../../components/ui/glyphs';
+import { GHeart, GPlus as Plus } from '../../components/ui/glyphs';
 import { getLang, t } from '../../lib/i18n';
 import { formatRu, isDateKey, todayKey } from '../../lib/dates';
 import type { MetricLog } from '../../db/types';
@@ -92,7 +92,7 @@ export function MeasuresTab() {
       <div className="grid grid-cols-2 gap-3">
       <MeasureCard
         compact
-        icon={HeartPulse}
+        icon={GHeart}
         def={measureDef('pulse')}
         value={pulse.last ? formatMeasure(pulse.last.value, measureDef('pulse')) : null}
         sub={

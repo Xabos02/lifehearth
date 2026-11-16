@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { differenceInCalendarDays } from 'date-fns';
-import { AlertCircle, CheckCircle2, Clock, Pencil } from 'lucide-react';
+import { AlertCircle, Clock, Pencil } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { db } from '../../db/db';
@@ -14,6 +14,7 @@ import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
 import { forecastPerWeek, pace, recentPace, unitLabel, weeksAtPace } from '../../lib/learningPace';
 import { ICON } from '../../components/ui/icons';
+import { GCheckCircle } from '../../components/ui/glyphs';
 import { KIND_ICONS, KIND_LABEL } from './kinds';
 import { ProgressStepper } from './ProgressStepper';
 import { LearningItemSheet } from './LearningItemSheet';
@@ -134,12 +135,17 @@ export function LearningItemPage() {
         {sched && <Chart item={item} sched={sched} />}
 
         <section>
-          <div className="mb-1 flex items-center justify-between gap-2 px-1">
+          <div className="mb-1 flex items-center gap-2 px-1">
             <h2 className="lh-section">{t('План')}</h2>
+            {liveParts.length > 0 && (
+              <span className="text-xs tabular-nums text-lh-text-secondary">
+                {t('{a} из {b}', { a: liveParts.filter((p) => p.doneAt).length, b: liveParts.length })}
+              </span>
+            )}
             <button
               type="button"
               onClick={() => setPartsOpen(true)}
-              className="-mr-1 flex h-11 items-center px-1 text-sm text-lh-accent active:opacity-60"
+              className="-mr-1 ml-auto flex h-11 items-center px-1 text-sm text-lh-accent active:opacity-60"
             >
               {liveParts.length > 0 ? t('Изменить план') : t('Составить план')}
             </button>
@@ -280,8 +286,13 @@ function Chart({
   const x = (d: number) => PAD.l + (iw * d) / total;
   const y = (v: number) => PAD.t + ih - (ih * Math.min(1, v / item.progressTarget));
 
+  // Где «сегодня» по ширине: SVG растянут (preserveAspectRatio="none"), поэтому
+  // точку и подпись ставим HTML-ом в процентах — иначе круг тянется в эллипс,
+  // а подпись в ряду justify-between стояла бы посередине при любой дате.
+  const todayPct = (x(gone) / W) * 100;
+
   const tone = sched.overdue ? 'text-danger' : sched.onTrack ? 'text-success' : 'text-warning';
-  const StatusIcon = sched.onTrack && !sched.overdue ? CheckCircle2 : AlertCircle;
+  const StatusIcon = sched.onTrack && !sched.overdue ? GCheckCircle : AlertCircle;
 
   return (
     <section>
@@ -298,46 +309,59 @@ function Chart({
                   unit: unitLabel(item.progressUnit, debt),
                 })}
         </p>
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          className="mt-4 block h-[120px] w-full"
-          preserveAspectRatio="none"
-          role="img"
-          aria-label={t('Движение по графику')}
-        >
-          <line x1={0} y1={y(0)} x2={W} y2={y(0)} stroke="var(--app-hairline)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          <line
-            x1={0}
-            y1={y(item.progressTarget / 2)}
-            x2={W}
-            y2={y(item.progressTarget / 2)}
-            stroke="var(--app-hairline)"
-            strokeWidth="1"
-            vectorEffect="non-scaling-stroke"
+        <div className="relative mt-4">
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            className="block h-[120px] w-full"
+            preserveAspectRatio="none"
+            role="img"
+            aria-label={t('Движение по графику')}
+          >
+            <line x1={0} y1={y(0)} x2={W} y2={y(0)} stroke="var(--app-hairline)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <line
+              x1={0}
+              y1={y(item.progressTarget / 2)}
+              x2={W}
+              y2={y(item.progressTarget / 2)}
+              stroke="var(--app-hairline)"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+            />
+            <line
+              x1={x(0)}
+              y1={y(0)}
+              x2={x(total)}
+              y2={y(item.progressTarget)}
+              stroke="var(--lh-text-secondary)"
+              strokeWidth="1.5"
+              strokeDasharray="4 5"
+              vectorEffect="non-scaling-stroke"
+            />
+            <path
+              d={`M ${x(0)} ${y(0)} L ${x(gone)} ${y(item.progressCurrent)}`}
+              fill="none"
+              stroke="var(--lh-accent)"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+          <span
+            aria-hidden
+            className="absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lh-accent"
+            style={{ left: `${todayPct}%`, top: `${(y(item.progressCurrent) / H) * 100}%` }}
           />
-          <line
-            x1={x(0)}
-            y1={y(0)}
-            x2={x(total)}
-            y2={y(item.progressTarget)}
-            stroke="var(--lh-text-secondary)"
-            strokeWidth="1.5"
-            strokeDasharray="4 5"
-            vectorEffect="non-scaling-stroke"
-          />
-          <path
-            d={`M ${x(0)} ${y(0)} L ${x(gone)} ${y(item.progressCurrent)}`}
-            fill="none"
-            stroke="var(--lh-accent)"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-          />
-          <circle cx={x(gone)} cy={y(item.progressCurrent)} r="4" fill="var(--lh-accent)" />
-        </svg>
-        <div className="mt-2 flex justify-between text-xs tabular-nums text-lh-text-secondary">
+        </div>
+        <div className="relative mt-2 flex justify-between text-xs tabular-nums text-lh-text-secondary">
           <span>{formatRu(from, 'd MMM')}</span>
-          <span>{t('сегодня')}</span>
+          {/* ponytail: у краёв подпись наехала бы на даты (~50px при карточке от
+              256px) — там её нет, место «сегодня» видно по точке. Нужна всегда —
+              мерить ширины подписей. */}
+          {todayPct >= 30 && todayPct <= 70 && (
+            <span className="absolute top-0 -translate-x-1/2" style={{ left: `${todayPct}%` }}>
+              {t('сегодня')}
+            </span>
+          )}
           <span>{formatRu(item.dueDate!, 'd MMM')}</span>
         </div>
         <div className="mt-3 flex gap-4 text-xs text-lh-text-secondary">

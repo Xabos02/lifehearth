@@ -2239,7 +2239,6 @@ export const EN: Record<string, string> = {
     'Whoever joins with this invite will also see past messages. Only the group’s creator can remove them.',
   // Редизайн экранов, часть 2
   '4 недели': '4 weeks',
-  'Видны всем в группе. То, что поручено вам, попадёт в «Сегодня».': 'Visible to everyone in the group. Tasks assigned to you appear in “Today”.',
   'Владелец группы': 'Group owner',
   'Все · {n}': 'All · {n}',
   'Выполненные · {n}': 'Completed · {n}',
@@ -2264,7 +2263,6 @@ export const EN: Record<string, string> = {
   'Прогресс круга': 'Round progress',
   'Сменить': 'Change',
   'Факт': 'Actual',
-  'Чат и задачи исчезнут у всех участников': 'Chat and tasks will disappear for all members',
   'Шифрование': 'Encryption',
   'Я поручил': 'Assigned by me',
   'ваш темп': 'your pace',
@@ -2280,4 +2278,15 @@ export const EN: Record<string, string> = {
   'Основное': 'Basics',
   '{done} из {n}': '{done} of {n}',
   'Найти в приложении': 'Search the app',
+  // Ревью PR #20: подписи, сводка энергии, обучение
+  'Видны всем в группе': 'Visible to everyone in the group',
+  'Сервер сотрёт переписку и задачи, у участников останется уже пришедшее': 'The server will erase messages and tasks; what members already received stays with them',
+  'Свернуть список': 'Show less',
+  'страница из {n}': 'of {n} pages',
+  'урок из {n}': 'of {n} lessons',
+  'ч из {n}': 'of {n} h',
+  'из 100%': 'of 100%',
+  '4 недели, от ранней к текущей: {list}': '4 weeks, oldest to current: {list}',
+  'нет отметок': 'no entries',
+  'В архиве': 'Archived',
 };
