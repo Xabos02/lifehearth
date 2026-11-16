@@ -5,6 +5,7 @@ import { FileUp, Minus } from 'lucide-react';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { GChevronRight as ChevronRight, GEnergy as Activity, GPlus as Plus } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
+import { Haptic } from '../../components/ui/Haptic';
 import { useToast } from '../../components/ui/toastContext';
 import { t, tPlural } from '../../lib/i18n';
 import { addDaysKey, dateLocale, fromKey, todayKey } from '../../lib/dates';
@@ -130,21 +131,25 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
             <p className="text-xs text-lh-text-secondary">{t('Цель на неделю')}</p>
             {/* «1/3» одним текстом: число и цель стоят рядом, e2e читает их
                 вместе, а цель отдельно — по data-testid. */}
-            <p className="text-2xl font-light leading-tight tabular-nums">
+            <p className="text-2xl font-extralight leading-tight tabular-nums">
               {week.done}
               <span className="text-lh-text-secondary">/</span>
               <span data-testid="weekly-goal">{goal}</span>
               <span className="ml-1.5 text-base text-lh-text-secondary">
-                {tPlural(goal, ['тренировка', 'тренировки', 'тренировок'])}
+                {tPlural(goal, ['день', 'дня', 'дней'])}
               </span>
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <StepButton label={t('Цель: меньше')} onClick={() => void updateSettings({ workoutWeeklyGoal: Math.max(1, goal - 1) })}>
               <Minus size={ICON.action} />
+              {/* Шаг «−/+» щёлкает (PROTOCOL §6.4); на краю 1–7 шаг ничего не
+                  меняет — накладка пропускает тап. */}
+              <Haptic off={goal <= 1} />
             </StepButton>
             <StepButton label={t('Цель: больше')} onClick={() => void updateSettings({ workoutWeeklyGoal: Math.min(7, goal + 1) })}>
               <Plus size={ICON.action} />
+              <Haptic off={goal >= 7} />
             </StepButton>
           </div>
         </div>
@@ -230,25 +235,23 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
           <div className="card space-y-3.5 p-4">
             {kinds.map((k) => {
               const kind = resolveKind(k);
-              const amount =
-                kind.hasDistance && k.distanceKm > 0
-                  ? formatKm(k.distanceKm)
-                  : k.minutes > 0
-                    ? formatMinutes(k.minutes, t)
-                    : null;
               return (
                 <div key={`${k.type}-${k.customLabel ?? ''}`}>
                   <div className="flex items-baseline justify-between gap-3 text-sm">
                     <span className="min-w-0 truncate">{k.type === 'custom' ? kind.label : t(kind.label)}</span>
                     <span className="shrink-0 tabular-nums text-lh-text-secondary">
-                      {amount ?? `${k.count} ${tPlural(k.count, ['раз', 'раза', 'раз'])}`}
+                      {/* Вид без времени (одни упражнения) — числом занятий, а не
+                          «0 мин»; первое число — минуты, по ним и полоса. */}
+                      {k.minutes > 0 ? formatMinutes(k.minutes, t) : `${k.count} ${tPlural(k.count, ['раз', 'раза', 'раз'])}`}
+                      {kind.hasDistance && k.distanceKm > 0 ? ` · ${formatKm(k.distanceKm)}` : ''}
                     </span>
                   </div>
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-lh-surface-2">
                     <div
-                      className="h-full rounded-full bg-lh-accent"
+                      className="h-full rounded-full"
                       style={{
                         width: `${Math.max(4, maxKindMinutes > 0 ? (k.minutes / maxKindMinutes) * 100 : (k.count / maxKindCount) * 100)}%`,
+                        background: kind.color,
                       }}
                     />
                   </div>
@@ -279,7 +282,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
           className="flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-80"
         >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-text-secondary">
-            <FileUp size={ICON.base} />
+            <FileUp size={ICON.header} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">{t('Из других приложений')}</span>
@@ -309,7 +312,7 @@ function StepButton({ label, onClick, children }: { label: string; onClick: () =
 function Stat({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
   return (
     <div className="card min-w-0 p-4">
-      <p className={`text-2xl font-light leading-none tabular-nums ${accent ? 'text-lh-accent' : ''}`}>{value}</p>
+      <p className={`text-2xl font-extralight leading-none tabular-nums ${accent ? 'text-lh-accent' : ''}`}>{value}</p>
       <p className="mt-2 text-xs leading-snug text-lh-text-secondary">{label}</p>
     </div>
   );

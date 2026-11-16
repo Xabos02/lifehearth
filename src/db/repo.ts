@@ -55,6 +55,20 @@ export async function createWithId<T extends BaseEntity>(
   return entity;
 }
 
+/** Несколько записей с заданными id — одной транзакцией и одной меткой
+ *  времени. Для кусков одного вложения: по одному их писать нельзя — убитая
+ *  между записями вкладка оставила бы кусок, из которого ничего не собрать,
+ *  а разные метки дали бы синку решать «кто новее» по каждому куску отдельно. */
+export async function createManyWithId<T extends BaseEntity>(
+  table: Table<T, string>,
+  items: ReadonlyArray<{ id: string; data: Omit<T, keyof BaseEntity> }>,
+): Promise<void> {
+  if (items.length === 0) return;
+  const ts = now();
+  await table.bulkPut(items.map(({ id, data }) => ({ ...data, id, createdAt: ts, updatedAt: ts, deletedAt: null }) as T));
+  scheduleSyncSoon();
+}
+
 export async function update<T extends BaseEntity>(
   table: Table<T, string>,
   id: string,

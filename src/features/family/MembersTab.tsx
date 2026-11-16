@@ -189,7 +189,7 @@ export function MembersTab({
     <div className="space-y-6 pb-4">
       <section className="flex flex-col items-center pt-1 text-center">
         {partner ? (
-          <MemberAvatar member={partner} className="size-20 text-3xl font-light" />
+          <MemberAvatar member={partner} className="size-20 text-3xl font-extralight" />
         ) : (
           <GroupAvatar className="size-20" glyph={ICON.display} />
         )}
@@ -202,7 +202,7 @@ export function MembersTab({
           {partner && (
             <QuickTile
               icon={Phone}
-              label={t('Звонок')}
+              label={t('Позвонить')}
               onClick={() => void callManager.startCall(familyId, partner.id)}
             />
           )}
@@ -348,7 +348,7 @@ export function MembersTab({
           <ActionRow
             icon={GTrash}
             label={t('Удалить группу')}
-            hint={t('Чат и задачи исчезнут у всех участников')}
+            hint={t('Сервер сотрёт переписку и задачи, у участников останется уже пришедшее')}
             onClick={() => void removeGroup()}
             danger
           />

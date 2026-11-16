@@ -1559,6 +1559,14 @@ export const EN: Record<string, string> = {
   'Открыть фото': 'Open photo',
   'Удалить фото': 'Delete photo',
   'Добавить фото': 'Add photo',
+  // Фото-панель наверху «Задач»
+  'Фотопанель': 'Photo board',
+  'Добавить фото на панель': 'Add photo to the board',
+  'Убрать фото с панели?': 'Remove the photo from the board?',
+  'Убрать с панели': 'Remove from board',
+  'На панели уже {n} фото — уберите одно, чтобы добавить новое':
+    'The board already holds {n} photos — remove one to add another',
+  'На панели помещается {n} фото — лишние не добавлены': 'The board holds {n} photos — the extra ones weren’t added',
   'Теги': 'Tags',
   'через запятую: работа, дом': 'comma-separated: work, home',
   'Проект': 'Project',
@@ -2239,7 +2247,6 @@ export const EN: Record<string, string> = {
     'Whoever joins with this invite will also see past messages. Only the group’s creator can remove them.',
   // Редизайн экранов, часть 2
   '4 недели': '4 weeks',
-  'Видны всем в группе. То, что поручено вам, попадёт в «Сегодня».': 'Visible to everyone in the group. Tasks assigned to you appear in “Today”.',
   'Владелец группы': 'Group owner',
   'Все · {n}': 'All · {n}',
   'Выполненные · {n}': 'Completed · {n}',
@@ -2264,7 +2271,6 @@ export const EN: Record<string, string> = {
   'Прогресс круга': 'Round progress',
   'Сменить': 'Change',
   'Факт': 'Actual',
-  'Чат и задачи исчезнут у всех участников': 'Chat and tasks will disappear for all members',
   'Шифрование': 'Encryption',
   'Я поручил': 'Assigned by me',
   'ваш темп': 'your pace',
@@ -2340,4 +2346,15 @@ export const EN: Record<string, string> = {
   'Шаг {n} из {total}': 'Step {n} of {total}',
   'Последний шаг': 'Last step',
   'Поднимите важное наверх и скройте лишнее: первые {n} сразу видны в «Ещё». Порядок можно менять в настройках.': 'Move what matters to the top and hide the rest: the first {n} show right away in “More”. You can change the order in settings.',
+  // Ревью PR #20: подписи, сводка энергии, обучение
+  'Видны всем в группе': 'Visible to everyone in the group',
+  'Сервер сотрёт переписку и задачи, у участников останется уже пришедшее': 'The server will erase messages and tasks; what members already received stays with them',
+  'Свернуть список': 'Show less',
+  'страница из {n}': 'of {n} pages',
+  'урок из {n}': 'of {n} lessons',
+  'ч из {n}': 'of {n} h',
+  'из 100%': 'of 100%',
+  '4 недели, от ранней к текущей: {list}': '4 weeks, oldest to current: {list}',
+  'нет отметок': 'no entries',
+  'В архиве': 'Archived',
 };

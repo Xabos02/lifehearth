@@ -728,3 +728,32 @@ test('карточка группы: строки участников и «Вы
   const height = (l: typeof own) => l.locator('..').evaluate((el) => el.clientHeight);
   expect(await height(page.getByRole('button', { name: 'Позвонить Отец' }))).toBe(await height(own));
 });
+
+test('фотопанель «Задач» и просмотр снимка: зоны не меньше 44 и не налезают', async ({ page }) => {
+  await openApp(page, '/tasks');
+  // Снимки крайних пропорций вперемешку — именно на них плитки мельчают.
+  await page.evaluate(async () => {
+    const { addBoardPhoto } = await import('/src/lib/photoBoard.ts');
+    const shapes: Array<[number, number]> = [[1179, 2556], [1600, 400], [800, 600], [600, 800], [1600, 900], [700, 700], [1179, 2556], [1200, 800], [400, 1600]];
+    for (const [i, [w, h]] of shapes.entries()) {
+      const c = document.createElement('canvas');
+      c.width = 40;
+      c.height = 40;
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = `hsl(${i * 40} 60% 50%)`;
+      ctx.fillRect(0, 0, 40, 40);
+      await addBoardPhoto(c.toDataURL('image/png'), w / h);
+    }
+  });
+  await page.goto('/tasks');
+  await expect(page.locator('section[aria-label="Фотопанель"] button')).toHaveCount(9);
+
+  const bad: string[] = [];
+  for (const b of await small(page)) bad.push(`фотопанель: ${b}`);
+  for (const o of await overlapsOn(page)) bad.push(`фотопанель: ${o}`);
+  await page.locator('section[aria-label="Фотопанель"] button').first().click();
+  await expect(page.getByRole('button', { name: 'Удалить фото' })).toBeVisible();
+  for (const b of await small(page, '[data-testid="photo-viewer"]')) bad.push(`просмотр: ${b}`);
+  for (const o of await overlapsOn(page, '[data-testid="photo-viewer"]')) bad.push(`просмотр: ${o}`);
+  expect(bad).toEqual([]);
+});

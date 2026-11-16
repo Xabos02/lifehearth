@@ -48,6 +48,7 @@ import { QuickAddBar } from './QuickAddBar';
 import { TaskEditSheet } from './TaskEditSheet';
 import { FreezeSheet } from './FreezeSheet';
 import { GoalsProgress } from './GoalsProgress';
+import { AddBoardPhotoButton, PhotoBoard } from './PhotoBoard';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
 import { autoScrollStep } from './autoScroll';
@@ -1351,18 +1352,26 @@ export function TasksPage() {
       title={t('Задачи')}
       subtitle={headerStats}
       right={
-        // Голубой «морозный» кружок со свечением — видно, что это кнопка.
-        // Метрика и зона касания 44×44 — из IconButton; здесь только заливка.
-        <IconButton
-          icon={Snowflake}
-          label={t('Заморозить задачи')}
-          onClick={() => setFreezeSheetOpen(true)}
-          tone="frost"
-          strokeWidth={STROKE_STRONG}
-          className="bg-frost/15 transition-transform active:scale-90"
-        />
+        // gap-4: у IconButton -mx-1 и зона касания 44 — при меньшем зазоре
+        // центры соседних кнопок сходятся ближе 44px (PROTOCOL §5.1).
+        <div className="flex items-center gap-4">
+          <AddBoardPhotoButton />
+          {/* Голубой «морозный» кружок со свечением — видно, что это кнопка.
+              Метрика и зона касания 44×44 — из IconButton; здесь только заливка. */}
+          <IconButton
+            icon={Snowflake}
+            label={t('Заморозить задачи')}
+            onClick={() => setFreezeSheetOpen(true)}
+            tone="frost"
+            strokeWidth={STROKE_STRONG}
+            className="bg-frost/15 transition-transform active:scale-90"
+          />
+        </div>
       }
     >
+      {/* Фото-панель — в самом верху, над строкой добавления: так попросил
+          владелец (16.11.2026). Пустая она не занимает места. */}
+      <PhotoBoard />
       <QuickAddBar onCreated={revealTask} />
 
       {tagOptions.length > 0 && (
@@ -1385,8 +1394,9 @@ export function TasksPage() {
       )}
 
       {/* Приближение к целям — под строкой добавления и фильтром тегов (как в
-          макете). Выше строки нельзя: первое, зачем открывают экран задач, —
-          записать задачу. */}
+          макете). Выше строки не ставим: первое, зачем открывают экран задач, —
+          записать задачу. Единственное исключение — фотопанель, по прямой
+          просьбе владельца, и пустая она места не занимает. */}
       <GoalsProgress />
 
       {empty ? (

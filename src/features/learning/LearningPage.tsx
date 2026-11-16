@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { AlertCircle, Clock } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -16,12 +16,13 @@ import { LogSessionSheet } from './LogSessionSheet';
 import { repairPercentScale } from './plan';
 import { KIND_ICONS, KIND_LABEL } from './kinds';
 import { pace, unitLabel } from '../../lib/learningPace';
-import { dateLocale, fromKey, toKey } from '../../lib/dates';
+import { formatRu, toKey } from '../../lib/dates';
 import { formatMinutes } from '../health/workoutStats';
-import { format, startOfWeek } from 'date-fns';
+import { startOfWeek } from 'date-fns';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import {
+  GCheckCircle,
   GLearning as GraduationCap,
 } from '../../components/ui/glyphs';
 
@@ -81,7 +82,7 @@ function LearningCard({
   const meta = [
     t(KIND_LABEL[item.kind]),
     item.dueDate && !finished
-      ? t('до {date}', { date: format(fromKey(item.dueDate), 'd MMMM', { locale: dateLocale() }) })
+      ? t('до {date}', { date: formatRu(item.dueDate) })
       : null,
   ]
     .filter(Boolean)
@@ -129,7 +130,7 @@ function LearningCard({
             {sched.overdue ? (
               <AlertCircle size={ICON.inline} />
             ) : sched.onTrack ? (
-              <CheckCircle2 size={ICON.inline} />
+              <GCheckCircle size={ICON.inline} />
             ) : (
               <AlertCircle size={ICON.inline} />
             )}
@@ -185,14 +186,13 @@ export function LearningPage() {
   const rows = useLiveQuery(() => db.learningItems.toArray(), []);
   const loaded = useLoaded(rows);
   const weekFrom = toKey(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const weekMinutes = useLiveQuery(
-    async () =>
-      alive(await db.learningLogs.where('date').aboveOrEqual(weekFrom).toArray()).reduce(
-        (sum, l) => sum + (l.minutes || 0),
-        0,
-      ),
-    [weekFrom],
-  );
+  const weekMinutes = useLiveQuery(async () => {
+    // Логи удалённого материала живут до очистки корзины — его минуты не в счёт.
+    const live = new Set(alive(await db.learningItems.toArray()).map((i) => i.id));
+    return alive(await db.learningLogs.where('date').aboveOrEqual(weekFrom).toArray())
+      .filter((l) => live.has(l.itemId))
+      .reduce((sum, l) => sum + (l.minutes || 0), 0);
+  }, [weekFrom]);
   useEffect(() => {
     void repairPercentScale();
   }, []);
