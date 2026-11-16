@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
+import { useLiveQuery } from 'dexie-react-hooks';
 import {
   ClipboardPaste,
   NotebookPen,
 } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
-import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
@@ -16,7 +16,8 @@ import { parseQuickTask } from '../../lib/nlDate';
 // про переносы Windows (\r\n), табуляцию между колонками и отступы — текст,
 // пойманный на iPhone «Вставить из буфера», приезжал слипшимся.
 import { plainTextToNoteHtml } from '../notes/pasteHtml';
-import { t } from '../../lib/i18n';
+import { t, tPlur } from '../../lib/i18n';
+import { formatDueDate, toKey } from '../../lib/dates';
 import { ICON } from '../../components/ui/icons';
 import {
   GTasks as ListTodo,
@@ -46,6 +47,23 @@ export function SharePage() {
   const [value, setValue] = useState(initial);
   const [busy, setBusy] = useState(false);
   const canCreate = value.trim().length > 0;
+  const lineCount = value.split('\n').filter((l) => l.trim()).length;
+
+  // Последние три записи — задачи и заметки вместе, по времени создания.
+  // Отдельного признака «пришло через захват» у записей нет, поэтому честно
+  // «Недавно добавлено», а не «сохранено отсюда».
+  const recent = useLiveQuery(async () => {
+    const [tasks, notes] = await Promise.all([
+      db.tasks.filter((x) => !x.deletedAt).toArray(),
+      db.notes.filter((x) => !x.deletedAt).toArray(),
+    ]);
+    return [
+      ...tasks.map((x) => ({ id: x.id, kind: 'task' as const, title: x.title, createdAt: x.createdAt, to: '/tasks' })),
+      ...notes.map((x) => ({ id: x.id, kind: 'note' as const, title: x.title, createdAt: x.createdAt, to: `/notes/${x.id}` })),
+    ]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 3);
+  }, []) ?? [];
 
   async function pasteFromClipboard() {
     try {
@@ -108,42 +126,101 @@ export function SharePage() {
   }
 
   return (
-    <Screen title={t('Захват')} backTo="/">
-      <div className="flex flex-col gap-4">
-        <p className="text-sm text-lh-text-secondary">
-          {t(
-            'Вставьте или отредактируйте текст и сохраните его задачей или заметкой. Для задачи дата и время из текста подставятся сами — например «завтра в 10 позвонить маме».',
-          )}
+    <Screen
+      title={t('Захват')}
+      right={
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="flex h-11 items-center px-3 text-base text-lh-accent active:opacity-60"
+        >
+          {t('Закрыть')}
+        </button>
+      }
+    >
+      <div className="flex flex-col gap-6">
+        <p className="-mt-2 text-sm text-lh-text-secondary">
+          {t('Быстро сохраните мысль, ссылку или текст из другого приложения — разложите по полкам потом.')}
         </p>
 
-        <AutoGrowTextarea
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={t('Что сохранить?')}
-          className="min-h-[7rem]"
-          autoFocus={!initial}
-        />
+        <section className="card p-4 transition-[border-color,box-shadow] focus-within:border-lh-accent-border focus-within:ring-2 focus-within:ring-lh-accent-dim">
+          <AutoGrowTextarea
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={t('Что сохранить?')}
+            aria-label={t('Что сохранить?')}
+            className="min-h-[9rem] !border-0 !bg-transparent !p-0 text-base leading-relaxed focus:!ring-0"
+            autoFocus={!initial}
+          />
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-lh-border pt-3">
+            <button
+              type="button"
+              onClick={() => void pasteFromClipboard()}
+              className="flex h-11 items-center gap-2 px-1 text-sm text-lh-accent active:opacity-60"
+            >
+              <ClipboardPaste size={ICON.inline} />
+              {t('Вставить из буфера')}
+            </button>
+            {lineCount > 0 && (
+              <span className="shrink-0 text-2xs tabular-nums text-lh-text-secondary">
+                {tPlur(lineCount, ['строка', 'строки', 'строк'])}
+              </span>
+            )}
+          </div>
+        </section>
 
-        <Button variant="secondary" onClick={() => void pasteFromClipboard()}>
-          <ClipboardPaste size={ICON.base} />
-          {t('Вставить из буфера')}
-        </Button>
-
-        <div className="mt-1 flex gap-2">
-          <Button className="flex-1" disabled={!canCreate || busy} onClick={() => void createTask()}>
-            <ListTodo size={ICON.base} />
-            {t('В задачи')}
-          </Button>
-          <Button
-            variant="secondary"
-            className="flex-1"
-            disabled={!canCreate || busy}
-            onClick={() => void createNote()}
-          >
-            <NotebookPen size={ICON.base} />
-            {t('В заметки')}
-          </Button>
+        <div className="flex flex-col gap-2">
+          <section className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              disabled={!canCreate || busy}
+              onClick={() => void createTask()}
+              className="flex h-[104px] flex-col items-center justify-center gap-2.5 rounded-[16px] bg-lh-accent text-lh-bg active:opacity-80 disabled:opacity-40"
+            >
+              <ListTodo size={ICON.accent} />
+              <span className="text-base font-semibold">{t('В задачи')}</span>
+            </button>
+            <button
+              type="button"
+              disabled={!canCreate || busy}
+              onClick={() => void createNote()}
+              className="card flex h-[104px] flex-col items-center justify-center gap-2.5 text-lh-text-primary active:opacity-80 disabled:opacity-40"
+            >
+              <NotebookPen size={ICON.accent} className="text-lh-accent" />
+              <span className="text-base font-semibold">{t('В заметки')}</span>
+            </button>
+          </section>
+          <p className="px-6 text-center text-xs text-lh-text-secondary">
+            {t('Дата и время из текста подставятся в задачу сами — например «завтра в 10 позвонить маме».')}
+          </p>
         </div>
+
+        {recent.length > 0 && (
+          <section aria-labelledby="share-recent">
+            <h2 id="share-recent" className="mb-2.5 px-1 lh-section">
+              {t('Недавно добавлено')}
+            </h2>
+            <ul className="card divide-y divide-lh-border overflow-hidden">
+              {recent.map((r) => {
+                const Icon = r.kind === 'task' ? ListTodo : NotebookPen;
+                return (
+                  <li key={r.id}>
+                    <Link
+                      to={r.to}
+                      className="flex min-h-11 items-center gap-3 px-4 py-3 active:bg-lh-surface-2"
+                    >
+                      <Icon size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+                      <span className="min-w-0 flex-1 truncate text-sm">{r.title || t('Без названия')}</span>
+                      <span className="shrink-0 text-2xs tabular-nums text-lh-text-secondary">
+                        {formatDueDate(toKey(new Date(r.createdAt)))}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
       </div>
     </Screen>
   );

@@ -81,6 +81,7 @@ const EN_PLURALS: Record<string, [string, string]> = {
   просрочено: ['overdue', 'overdue'],
   папок: ['folder', 'folders'],
   открытых: ['open', 'open'],
+  строк: ['line', 'lines'],
 };
 
 /** Склонение с учётом языка: русские формы — как в plural(), английская пара

@@ -2313,4 +2313,7 @@ export const EN: Record<string, string> = {
   'На карте': 'On the map',
   'Места, вещи и советы, которые не хочется забыть': "Places, things and tips you don't want to forget",
   'Название, город или от кого': 'Name, city or who recommended',
+  'Быстро сохраните мысль, ссылку или текст из другого приложения — разложите по полкам потом.': 'Quickly save a thought, link or text from another app — sort it out later.',
+  'Дата и время из текста подставятся в задачу сами — например «завтра в 10 позвонить маме».': 'Dates and times in the text fill into the task automatically — e.g. “call mom tomorrow at 10”.',
+  'Недавно добавлено': 'Recently added',
 };
