@@ -157,3 +157,51 @@ test('«Новый проект» под списком: экран доезжа
   });
   await expect.poll(() => onScreen(page, `[data-drop-key="${id}"]`)).toBe(true);
 });
+
+// Владелец, 16.11.2026, выбирая между двумя правилами: «важные над новыми».
+// Новая обычная встаёт первой среди обычных — сразу под важными, что стоят
+// во главе списка; новая важная — на самый верх.
+test('важные во главе остаются над новой обычной задачей', async ({ page }) => {
+  await openApp(page, '/tasks');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    const task = (id: string, title: string, priority: number, sortOrder: number) => ({
+      ...base(id), title, notes: '', projectId: null, goalId: null, priority,
+      dueDate: null, dueTime: null, duration: null, remindBefore: null,
+      completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder,
+    });
+    await db.projects.clear();
+    await db.tasks.clear();
+    await db.tasks.bulkPut([
+      // Поднятая выбором «Высокого» и стоящая после переноса.
+      task('t1', 'Оплатить свет', 3, -Date.now() + 60_000),
+      task('t2', 'Продлить страховку', 3, 1000),
+      task('t3', 'Снять деньги', 0, 2000),
+    ] as never[]);
+  });
+  await page.goto('/tasks');
+  await expect(page.getByText('Снять деньги')).toBeVisible();
+
+  const input = page.getByPlaceholder('Что нужно сделать?');
+  await input.fill('Купить лампочки');
+  await input.press('Enter');
+  await expect(page.getByText('Купить лампочки', { exact: true })).toBeVisible();
+  await expect(input).toHaveValue('');
+  await expect.poll(() => tasksShown(page)).toEqual(['Оплатить свет', 'Продлить страховку', 'Купить лампочки', 'Снять деньги']);
+
+  // Следующая обычная — выше предыдущей новой, но всё ещё под важными.
+  await input.fill('Вынести мусор');
+  await input.press('Enter');
+  await expect(page.getByText('Вынести мусор', { exact: true })).toBeVisible();
+  await expect(input).toHaveValue('');
+  await expect.poll(() => tasksShown(page)).toEqual([
+    'Оплатить свет', 'Продлить страховку', 'Вынести мусор', 'Купить лампочки', 'Снять деньги',
+  ]);
+
+  // Новая важная — на самый верх.
+  await input.fill('Отправить отчёт !!! ');
+  await input.press('Enter');
+  await expect.poll(() => tasksShown(page).then((l) => l[0])).toBe('Отправить отчёт');
+});

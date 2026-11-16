@@ -121,6 +121,25 @@ test('высокий приоритет поднимает семейную за
   await expect(page.getByRole('button', { name: 'Изменить задачу' }).first()).toContainText('Забрать колёса');
 });
 
+test('новая семейная задача встаёт наверх, но под важной во главе', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await seed(page);
+  await page.getByText('Забрать колёса', { exact: true }).click();
+  await page.getByRole('button', { name: 'Высокий', exact: true }).click();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect.poll(async () => (await order(page))[0]?.split(':')[0]).toBe('Забрать колёса');
+
+  await page.getByRole('button', { name: 'Новая задача' }).click();
+  await page.getByPlaceholder('Название задачи').fill('Полить цветы');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect.poll(async () => (await order(page)).map((s) => s.split(':')[0])).toEqual([
+    'Забрать колёса',
+    'Полить цветы',
+    'Купить хлеб',
+    'Позвонить бабушке',
+  ]);
+});
+
 test('перенос пальцем: задача встаёт туда, где её отпустили', async ({ page }) => {
   const errors = collectErrors(page);
   await openApp(page, '/more/family');
