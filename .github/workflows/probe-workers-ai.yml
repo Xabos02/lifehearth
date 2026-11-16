@@ -1,0 +1,20 @@
+name: Probe Workers AI (temporary)
+# Временная проверка Workers AI: tools + stream. Ветка удаляется после прогона.
+on:
+  push:
+    branches: [probe/workers-ai]
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node .github/probe/probe.mjs
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PROBE_MODE: all
+          MAX_TOKENS: '8192'
