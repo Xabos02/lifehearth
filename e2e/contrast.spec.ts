@@ -401,7 +401,7 @@ test('золото на своей подложке и на surface-2: конт�
   bad.push(...(await scanThemes(page, 'задачи: подсказка и свайп')));
 
   await page.goto('/more/cycle');
-  await page.getByRole('button', { name: 'Отметить', exact: true }).click();
+  await page.getByRole('button', { name: 'Отметить сегодня', exact: true }).click();
   await page.getByRole('button', { name: 'Усталость' }).click();
   await expect(page.getByRole('button', { name: 'Усталость' })).toHaveAttribute('aria-pressed', 'true');
   bad.push(...(await scanThemes(page, 'отметка дня: выбранный симптом')));
@@ -634,7 +634,7 @@ test('шторки «Исключить» и «Очистить день»: кр
     } as never);
     await repo.rebuildCycles();
   });
-  await page.getByRole('button', { name: 'Отметить', exact: true }).click();
+  await page.getByRole('button', { name: 'Отметить сегодня', exact: true }).click();
   const clear = sheet.getByRole('button', { name: 'Очистить день' });
   await expect(clear).toBeVisible();
   await expect(sheet.getByRole('button', { name: /Умеренно/ })).toHaveAttribute('aria-pressed', 'true');

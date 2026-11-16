@@ -1,8 +1,7 @@
-import { useMemo, useState, useSyncExternalStore } from 'react';
-import { Printer } from 'lucide-react';
+import { Fragment, useMemo, useState, useSyncExternalStore } from 'react';
+import { FileText, Printer } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Screen } from '../../components/layout/Screen';
-import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
 import { formatDayRange, formatRangeToWord, formatRu } from '../../lib/dates';
@@ -21,8 +20,7 @@ const WINDOW_OPTIONS: { value: DoctorReportWindow; label: string }[] = [
 
 /** «28 дней», но «28,4 дня» — как в CyclePage.tsx: при дробном числе нужен
  *  родительный падеж единственного числа, а не форма по последней цифре
- *  (иначе «28.4 дней»). Своя копия здесь, а не импорт из CyclePage: там
- *  функция не экспортирована, а трогать этот файл в рамках задачи нельзя. */
+ *  (иначе «28.4 дней»). Своя копия здесь: в CyclePage функция не экспортирована. */
 function formatDays(v: number): string {
   const isFraction = !Number.isInteger(v);
   const ru = getLang() === 'ru';
@@ -30,11 +28,25 @@ function formatDays(v: number): string {
   return `${text}\u00A0${isFraction && ru ? 'дня' : tPlural(v, ['день', 'дня', 'дней'])}`;
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+/** Плитка ключевой цифры в шапке отчёта. Нет данных — прочерк, а не ноль:
+ *  ноль дней менструации врач прочтёт как факт. */
+function Kpi({ value, label, first }: { value?: number | string; label: string; first?: boolean }) {
+  const text = value === undefined ? '—' : typeof value === 'number' ? fmtNum(value) : value;
   return (
-    <div className="flex items-baseline justify-between gap-3 py-3">
-      <span className="min-w-[6rem] flex-1 text-sm text-lh-text-secondary">{label}</span>
-      <span className="shrink-0 font-semibold tabular-nums">{value}</span>
+    <div className={`min-w-0 px-4 py-4 ${first ? '' : 'border-l border-lh-border'}`}>
+      <div className="text-2xl font-light leading-none tabular-nums">{text}</div>
+      <div className="mt-1.5 text-xs leading-snug text-lh-text-secondary">{label}</div>
+    </div>
+  );
+}
+
+const fmtNum = (v: number) => (getLang() === 'ru' ? String(v).replace('.', ',') : String(v));
+
+function Block({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border-t border-lh-border px-5 pb-4 pt-3.5">
+      <h3 className="mb-2 text-sm font-semibold">{title}</h3>
+      {children}
     </div>
   );
 }
@@ -66,116 +78,147 @@ export function CycleReportPage() {
 
   const periodText = formatDayRange(report.periodFrom, report.periodTo, { year: true });
 
+  const maxSymptomDays = Math.max(1, ...report.symptomFrequency.map((x) => x.days));
+
   return (
-    <Screen title={t('Отчёт для врача')} backTo="/more/cycle/settings">
+    <Screen
+      title={t('Отчёт для врача')}
+      subtitle={locked ? undefined : t('Сводка циклов и симптомов, которую удобно показать на приёме. Формируется на устройстве.')}
+      backTo="/more/cycle"
+    >
       {locked ? (
         <CycleLock settings={data.settings} onUnlock={() => undefined} />
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {/* Переключатель окна — только на экране, в печать не идёт. */}
-          <div className="print:hidden">
+          <section className="print:hidden">
+            <h2 className="mb-2.5 px-1 lh-section">{t('Период')}</h2>
             <SegmentedControl
               options={WINDOW_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
               value={reportWindow}
               onChange={setReportWindow}
             />
-          </div>
+          </section>
 
-          {/* Дальше — само содержимое отчёта: то, что уходит на печать целиком. */}
-          <div className="space-y-5">
-            <div className="card p-4">
-              <p className="text-sm text-lh-text-secondary">
+          {/* Дальше — сам отчёт: то, что уходит на печать целиком. */}
+          <article className="card overflow-hidden">
+            <div className="px-5 pb-4 pt-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-[.08em] text-lh-text-secondary print:hidden">
+                    {t('Предпросмотр')}
+                  </p>
+                  <p className="mt-1.5 text-[19px] font-semibold">{t('Менструальный цикл')}</p>
+                  <p className="mt-0.5 text-sm text-lh-text-secondary tabular-nums">
+                    {periodText} · {tPlur(report.cycles.length, ['цикл', 'цикла', 'циклов'])}
+                  </p>
+                </div>
+                <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
+                  <FileText size={ICON.base} />
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-lh-text-secondary">
                 {t('Составлено {date}', { date: formatRu(report.generatedAt, 'd MMMM yyyy') })}
               </p>
-              <p className="mt-0.5 font-semibold">{t('Период: {period}', { period: periodText })}</p>
             </div>
 
-            <section>
-              <h2 className="mb-1.5 px-1 lh-section">{t('Циклы периода')}</h2>
-              {report.cycles.length === 0 ? (
-                <div className="card p-4">
-                  <p className="text-sm text-lh-text-secondary">{t('За выбранный период отметок нет.')}</p>
-                </div>
-              ) : (
-                <div className="card divide-y divide-lh-border px-4">
-                  {report.cycles.map((c) => (
-                    <div key={c.startDate} className="py-3">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="font-medium">{formatRu(c.startDate, 'd MMMM yyyy')}</span>
-                        <span className="shrink-0 text-sm tabular-nums text-lh-text-secondary">
-                          {c.lengthDays !== undefined ? formatDays(c.lengthDays) : t('Текущий')}
-                        </span>
-                      </div>
-                      {c.periodLengthDays !== undefined && (
-                        <p className="mt-0.5 text-sm text-lh-text-secondary">
-                          {t('Менструация: {days}', { days: formatDays(c.periodLengthDays) })}
-                        </p>
-                      )}
-                      {c.excluded && (
-                        <p className="mt-0.5 text-sm text-lh-text-secondary">
-                          {t('Исключён из статистики{reason}', {
-                            reason: c.excludeReasonLabel ? ` — ${c.excludeReasonLabel}` : '',
-                          })}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
+            <div className="grid grid-cols-3 border-t border-lh-border">
+              <Kpi first value={report.stats.medianLength} label={t('Обычный цикл, дн.')} />
+              <Kpi value={report.stats.averagePeriodLength} label={t('Менструация, дн.')} />
+              <Kpi value={report.stats.spread} label={t('Размах, дн.')} />
+            </div>
 
-            {report.stats.n > 0 && (
-              <section>
-                <h2 className="mb-1.5 px-1 lh-section">{t('Статистика периода')}</h2>
-                <div className="card divide-y divide-lh-border px-4">
-                  <Row label={t('Завершённых циклов')} value={String(report.stats.n)} />
-                  {report.stats.medianLength !== undefined && (
-                    <Row label={t('Медианная длина')} value={formatDays(report.stats.medianLength)} />
-                  )}
-                  {report.stats.shortestLength !== undefined && report.stats.longestLength !== undefined && (
-                    <Row
-                      label={t('Мин. и макс. длина')}
-                      value={t('{min} и {max}', {
+            <Block title={t('Циклы')}>
+              {report.cycles.length === 0 ? (
+                <p className="text-sm text-lh-text-secondary">{t('За выбранный период отметок нет.')}</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-[1fr_auto_auto] gap-x-5 border-b border-lh-border pb-1.5 text-xs text-lh-text-secondary">
+                    <span>{t('Начало')}</span>
+                    <span className="text-right">{t('Длина')}</span>
+                    <span className="w-14 text-right">{t('Менстр.')}</span>
+                  </div>
+                  <div className="divide-y divide-lh-border text-sm tabular-nums">
+                    {report.cycles.map((c) => (
+                      <div key={c.startDate} className="py-2.5">
+                        <div className="grid grid-cols-[1fr_auto_auto] gap-x-5">
+                          <span>{formatRu(c.startDate, 'd MMMM yyyy')}</span>
+                          <span className={`text-right ${c.lengthDays === undefined ? 'text-lh-text-secondary' : ''}`}>
+                            {c.lengthDays ?? t('идёт')}
+                          </span>
+                          <span className="w-14 text-right">{c.periodLengthDays ?? '—'}</span>
+                        </div>
+                        {c.excluded && (
+                          <p className="mt-0.5 text-xs text-lh-text-secondary">
+                            {t('Исключён из статистики{reason}', {
+                              reason: c.excludeReasonLabel ? ` — ${c.excludeReasonLabel}` : '',
+                            })}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </Block>
+
+            {report.stats.n > 0 &&
+              report.stats.shortestLength !== undefined &&
+              report.stats.longestLength !== undefined && (
+                <Block title={t('Статистика периода')}>
+                  <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-[13px]">
+                    <span className="text-lh-text-secondary">{t('Завершённых циклов')}</span>
+                    <span className="text-right tabular-nums">{report.stats.n}</span>
+                    <span className="text-lh-text-secondary">{t('Мин. и макс. длина')}</span>
+                    <span className="text-right tabular-nums">
+                      {t('{min} и {max}', {
                         min: report.stats.shortestLength,
                         max: formatDays(report.stats.longestLength),
                       })}
-                    />
-                  )}
-                  {report.stats.spread !== undefined && (
-                    <Row label={t('Размах')} value={formatDays(report.stats.spread)} />
-                  )}
-                </div>
-              </section>
-            )}
+                    </span>
+                  </div>
+                </Block>
+              )}
 
             {report.symptomFrequency.length > 0 && (
-              <section>
-                <h2 className="mb-1.5 px-1 lh-section">{t('Симптомы')}</h2>
-                <div className="card divide-y divide-lh-border px-4">
-                  {report.symptomFrequency.map((s) => (
-                    <Row key={s.key} label={s.label} value={tPlur(s.days, ['день', 'дня', 'дней'])} />
+              <Block title={t('Частые симптомы')}>
+                <div className="space-y-2.5 text-[13px]">
+                  {report.symptomFrequency.map((x) => (
+                    <div key={x.key} className="flex items-center gap-3">
+                      <span className="w-28 min-w-0 shrink-0 break-words">{x.label}</span>
+                      <span aria-hidden className="h-1.5 flex-1 overflow-hidden rounded-full bg-lh-surface-2">
+                        <i
+                          className="block h-full bg-lh-accent"
+                          style={{ width: `${Math.round((x.days / maxSymptomDays) * 100)}%` }}
+                        />
+                      </span>
+                      <span className="w-14 shrink-0 text-right tabular-nums text-lh-text-secondary">
+                        {tPlur(x.days, ['день', 'дня', 'дней'])}
+                      </span>
+                    </div>
                   ))}
                 </div>
-              </section>
+              </Block>
             )}
 
-            <section>
-              <h2 className="mb-1.5 px-1 lh-section">{t('Кровотечение по дням')}</h2>
-              <div className="card divide-y divide-lh-border px-4">
+            <Block title={t('Кровотечение по дням')}>
+              <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-[13px]">
                 {report.bleedingDays.map((b) => (
-                  <Row key={b.level} label={b.label} value={tPlur(b.days, ['день', 'дня', 'дней'])} />
+                  <Fragment key={b.level}>
+                    <span className="text-lh-text-secondary">{b.label}</span>
+                    <span className="text-right tabular-nums">{tPlur(b.days, ['день', 'дня', 'дней'])}</span>
+                  </Fragment>
                 ))}
               </div>
-            </section>
+            </Block>
 
             {report.episodes.length > 0 && (
-              <section>
-                <h2 className="mb-1.5 px-1 lh-section">{t('Эпизоды')}</h2>
-                <div className="card divide-y divide-lh-border px-4">
+              <Block title={t('Эпизоды')}>
+                <div className="space-y-2 text-[13px]">
                   {report.episodes.map((e, i) => (
-                    <div key={`${e.kind}-${e.startDate}-${i}`} className="py-3">
+                    <div key={`${e.kind}-${e.startDate}-${i}`}>
                       <p className="font-medium">{e.label}</p>
-                      <p className="mt-0.5 text-sm text-lh-text-secondary">
+                      <p className="text-lh-text-secondary">
                         {e.endDate
                           ? formatDayRange(e.startDate, e.endDate, { year: true })
                           : formatRangeToWord(e.startDate, t('продолжается'), 'd MMMM yyyy')}
@@ -183,37 +226,39 @@ export function CycleReportPage() {
                     </div>
                   ))}
                 </div>
-              </section>
+              </Block>
             )}
 
             {report.anomalies.length > 0 && (
-              <section>
-                <h2 className="mb-1.5 px-1 lh-section">{t('Стоит обратить внимание')}</h2>
-                <div className="card divide-y divide-lh-border px-4">
+              <Block title={t('Стоит обратить внимание')}>
+                <div className="space-y-2 text-[13px]">
                   {report.anomalies.map((a) => (
-                    <div key={a.kind} className="py-3">
+                    <div key={a.kind}>
                       <p className="font-medium">{a.title}</p>
-                      <p className="mt-0.5 text-sm leading-snug text-lh-text-secondary">{a.detail}</p>
+                      <p className="leading-snug text-lh-text-secondary">{a.detail}</p>
                     </div>
                   ))}
                 </div>
-              </section>
+              </Block>
             )}
 
             {/* Дисклеймер — часть отчёта, печатается вместе с остальным
-                содержимым: врач должен видеть его на бумаге, а не только на
-                экране перед печатью. */}
-            <p className="px-1 text-xs leading-snug text-lh-text-secondary">
+                содержимым: врач должен видеть его на бумаге. */}
+            <p className="border-t border-lh-border px-5 py-3.5 text-xs leading-snug text-lh-text-secondary">
               {t('Составлено по отметкам в приложении. Приложение ничего не измеряет и не ставит диагнозов.')}
             </p>
-          </div>
+          </article>
 
           <div className="print:hidden space-y-2">
-            <Button className="w-full" onClick={() => window.print()}>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
+            >
               <Printer size={ICON.base} strokeWidth={2} />
               {t('Распечатать или сохранить в PDF')}
-            </Button>
-            <p className="px-1 text-xs leading-snug text-lh-text-secondary">
+            </button>
+            <p className="px-1 text-center text-xs leading-snug text-lh-text-secondary">
               {t('Распечатка и сохранённый файл не защищены замком раздела.')}
             </p>
           </div>

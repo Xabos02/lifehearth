@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Sheet } from '../../components/ui/Sheet';
-import { Button } from '../../components/ui/Button';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { APP_VERSION, RELEASES, compareVersions } from '../../lib/changelog';
@@ -77,30 +76,34 @@ export function WhatsNew() {
 
   return (
     <Sheet open onClose={close} title={t('Что нового')}>
-      <div className="flex flex-col gap-4 pb-2">
+      <div className="flex flex-col gap-6 pb-2">
         {list.map((r) => (
           <section key={r.version}>
-            <div className="mb-2 flex items-baseline gap-2">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-lh-accent-dim text-lh-accent">
-                <Sparkles size={ICON.inline} />
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <span className="inline-flex h-7 items-center rounded-full bg-lh-accent-dim px-3 text-xs font-semibold tabular-nums text-lh-accent">
+                {t('Версия')} {r.version}
               </span>
-              {/* min-w-0 у левой части: без него дата ужимает версию до буквы. */}
-              <span className="min-w-0 flex-1 font-semibold">{t('Версия')} {r.version}</span>
-              <span className="shrink-0 text-xs text-lh-text-secondary">{formatRu(r.date, 'd MMMM')}</span>
+              <span className="text-xs text-lh-text-secondary">{formatRu(r.date, 'd MMMM')}</span>
             </div>
-            <ul className="space-y-2">
+            <ul className="mt-4 space-y-4">
               {r.items.map((it, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm leading-snug">
-                  <span aria-hidden className="mt-1.5 size-1.5 shrink-0 rounded-full bg-lh-accent/60" />
-                  <span className="min-w-0 flex-1 text-lh-text-primary/90">{it}</span>
+                <li key={i} className="flex items-start gap-4">
+                  <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
+                    <Sparkles size={ICON.inline} />
+                  </span>
+                  <span className="min-w-0 flex-1 pt-1.5 text-sm leading-[1.45] text-lh-text-primary/90">{it}</span>
                 </li>
               ))}
             </ul>
           </section>
         ))}
-        <Button className="w-full" onClick={close}>
+        <button
+          type="button"
+          onClick={close}
+          className="flex h-[52px] w-full items-center justify-center rounded-xl bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
+        >
           {t('Понятно')}
-        </Button>
+        </button>
       </div>
     </Sheet>
   );

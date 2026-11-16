@@ -152,22 +152,22 @@ export function ConsentGate() {
           места, куда пролистали краткий вид. */}
       <div
         key={details ? 'details' : 'short'}
-        className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-[calc(env(safe-area-inset-top)+16px)] pb-4"
+        className="relative mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)+16px)] pb-6"
       >
         {details ? (
           <>
             <button
               type="button"
               onClick={() => setDetails(false)}
-              className="-ml-1 flex min-h-11 items-center gap-0.5 self-start pr-1 text-lh-accent active:opacity-60"
+              className="flex min-h-11 items-center gap-0.5 self-start pr-1 text-[17px] text-lh-accent active:opacity-60"
             >
               <GChevronLeft size={ICON.accent} strokeWidth={STROKE_STRONG} />
               {t('Коротко')}
             </button>
-            <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="mt-2 text-lg font-light tracking-tight">
+            <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="mt-2 px-2 text-[30px] font-light leading-[1.15] tracking-[-.6px] outline-none">
               {t('Что уходит с телефона')}
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-lh-text-secondary">
+            <p className="mt-2.5 px-2 text-[15px] leading-normal text-lh-text-secondary">
               {t('Всё, что вы записываете, хранится на этом телефоне и работает без интернета. Часть функций выходит в сеть. Согласие одно — на всё сразу.')}
             </p>
             <Group
@@ -182,28 +182,33 @@ export function ConsentGate() {
               subtitle={t('Открытый текст или ваш IP-адрес')}
               rows={VISIBLE.map((id) => ({ id, ...rows[id] }))}
             />
-            <p className="mt-5 text-xs leading-relaxed text-lh-text-secondary">
+            <p className="mt-5 px-2 text-xs leading-relaxed text-lh-text-secondary">
               <span className="font-semibold text-lh-text-primary">{t('И без согласия.')}</span>{' '}
               {t('Приложение загружается и обновляется с GitHub Pages — GitHub видит IP-адрес и время. Ссылки и «Открыть на карте» открывают чужие сайты, только когда вы нажмёте; картам Apple уходит адрес места.')}
             </p>
           </>
         ) : (
           <>
-            <div className="mt-6 mb-6 flex flex-col items-center gap-3 text-center">
-              <div className="flex size-14 items-center justify-center rounded-2xl tile-lh text-lh-accent">
-                {reason ? REASON_ICON[reason] : <GPhoneOut size={ICON.accent} />}
+            <div className="px-2 pb-5 pt-2">
+              <div className="flex size-12 items-center justify-center rounded-2xl border border-lh-border bg-lh-surface text-lh-accent">
+                {reason ? REASON_ICON[reason] : <GPhoneOut size={ICON.header} />}
               </div>
-              <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="text-lg font-light tracking-tight">
+              <h2
+                id="consent-title"
+                ref={titleRef}
+                tabIndex={-1}
+                className="mt-5 text-[30px] font-light leading-[1.15] tracking-[-.6px] outline-none"
+              >
                 {reason && !review ? t(REASON_TITLES[reason]) : t('Что уходит с телефона')}
               </h2>
               {reason && !review && (
-                <p className="text-sm leading-relaxed text-lh-text-secondary">
+                <p className="mt-2.5 text-[15px] leading-normal text-lh-text-secondary">
                   {t('Согласие одно — на всё внешнее сразу: семья, ассистент и остальное второй раз этого окна не покажут.')}
                 </p>
               )}
             </div>
             {pausing && (
-              <div className="mb-5 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3.5">
+              <div className="mb-6 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3.5">
                 <p className="text-sm font-semibold">{t('Сейчас у вас включено')}</p>
                 <div className="my-2 flex flex-wrap gap-1.5">
                   {on.map((k) => (
@@ -217,37 +222,42 @@ export function ConsentGate() {
                 </p>
               </div>
             )}
-            <ul className="flex flex-col gap-4">
-              <Point icon={<Smartphone size={ICON.header} strokeWidth={STROKE_STRONG} className="text-success" />}>
-                <span className="font-semibold">{t('Записи хранятся на телефоне')}</span>{' '}
-                <span className="text-lh-text-secondary">{t('и работают без интернета — задачи, заметки, цели, деньги, здоровье.')}</span>
-              </Point>
-              <Point icon={<GLock size={ICON.header} className="text-lh-accent" />}>
-                <span className="font-semibold">{t('Синхронизация, напоминания и семья')}</span>{' '}
-                <span className="text-lh-text-secondary">
-                  {t('передают записи на наш сервер зашифрованными. Сервер видит служебное: когда, из какого раздела, кто в сети, название семейной группы и ваш IP-адрес. При звонке IP-адрес виден ещё серверам связи и собеседнику.')}
-                </span>
-              </Point>
-              <Point icon={<Eye size={ICON.header} strokeWidth={STROKE_STRONG} className="text-warning" />}>
-                <span className="font-semibold">{t('Ассистент, голосовой ввод и погода')}</span>{' '}
-                <span className="text-lh-text-secondary">
-                  {t('передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Polza.ai, Anthropic, Google, Apple, Microsoft, Open-Meteo.')}
-                </span>
-              </Point>
-            </ul>
+            <section>
+              <h3 className="mb-2.5 px-2 lh-section">{t('Коротко')}</h3>
+              <ul className="card divide-y divide-lh-border">
+                <Point
+                  tone="text-success"
+                  icon={<Smartphone size={ICON.base} strokeWidth={STROKE_STRONG} />}
+                  title={t('Записи хранятся на телефоне')}
+                  text={t('и работают без интернета — задачи, заметки, цели, деньги, здоровье.')}
+                />
+                <Point
+                  tone="text-lh-accent"
+                  icon={<GLock size={ICON.base} />}
+                  title={t('Синхронизация, напоминания и семья')}
+                  text={t('передают записи на наш сервер зашифрованными. Сервер видит служебное: когда, из какого раздела, кто в сети, название семейной группы и ваш IP-адрес. При звонке IP-адрес виден ещё серверам связи и собеседнику.')}
+                />
+                <Point
+                  tone="text-warning"
+                  icon={<Eye size={ICON.base} strokeWidth={STROKE_STRONG} />}
+                  title={t('Ассистент, голосовой ввод и погода')}
+                  text={t('передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Polza.ai, Anthropic, Google, Apple, Microsoft, Open-Meteo.')}
+                />
+              </ul>
+            </section>
             <button
               type="button"
               onClick={() => setDetails(true)}
-              className="mt-5 flex min-h-12 w-full items-center justify-between gap-2 card px-4 text-left text-sm font-semibold active:bg-lh-surface-2"
+              className="mt-6 flex min-h-[52px] w-full items-center justify-between gap-2 card px-4 text-left text-[15px] active:bg-lh-surface-2"
             >
               {t('Подробно, по каждой функции')}
-              <GChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
+              <GChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
             </button>
           </>
         )}
       </div>
 
-      <div className="relative flex flex-col gap-1 px-6 pt-3 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+      <div className="relative mx-auto flex w-full max-w-md flex-col gap-1 border-t border-lh-border px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+20px)]">
         {review ? (
           <button
             type="button"
@@ -255,7 +265,7 @@ export function ConsentGate() {
               setDetails(false);
               closeConsent();
             }}
-            className="flex w-full items-center justify-center rounded-2xl bg-lh-accent px-5 py-3.5 font-semibold text-lh-bg shadow-[var(--shadow-accent)] active:opacity-80"
+            className="flex h-[52px] w-full items-center justify-center rounded-xl bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
           >
             {t('Понятно')}
           </button>
@@ -266,14 +276,14 @@ export function ConsentGate() {
             <button
               type="button"
               onClick={() => done(true)}
-              className="flex w-full items-center justify-center rounded-2xl bg-lh-accent px-5 py-3.5 font-semibold text-lh-bg shadow-[var(--shadow-accent)] active:opacity-80"
+              className="flex h-[52px] w-full items-center justify-center rounded-xl bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
             >
               {t('Принимаю')}
             </button>
             <button
               type="button"
               onClick={() => done(false)}
-              className="flex min-h-11 w-full items-center justify-center text-sm font-medium text-lh-accent active:opacity-60"
+              className="flex min-h-11 w-full items-center justify-center text-sm text-lh-text-secondary active:opacity-60"
             >
               {pausing ? t('Не принимать — поставить на паузу') : t('Не сейчас')}
             </button>
@@ -289,11 +299,16 @@ export function ConsentGate() {
   );
 }
 
-function Point({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+function Point({ icon, tone, title, text }: { icon: ReactNode; tone: string; title: string; text: string }) {
   return (
-    <li className="flex items-start gap-3">
-      <span className="mt-0.5 shrink-0">{icon}</span>
-      <p className="min-w-0 text-sm leading-relaxed">{children}</p>
+    <li className="flex gap-3.5 p-4">
+      <span aria-hidden className={`flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 ${tone}`}>
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[15px] font-semibold">{title}</p>
+        <p className="mt-0.5 text-[13px] leading-[1.45] text-lh-text-secondary">{text}</p>
+      </div>
     </li>
   );
 }
@@ -310,8 +325,8 @@ function Group({
   rows: { id: ConsentChannel; title: string; text: string }[];
 }) {
   return (
-    <section className="mt-5">
-      <div className="mb-2 flex items-center gap-2 px-1">
+    <section className="mt-6">
+      <div className="mb-2.5 flex items-center gap-2 px-2">
         <span className="shrink-0">{icon}</span>
         <div className="min-w-0">
           <h3 className="text-sm font-bold">{title}</h3>
@@ -320,9 +335,9 @@ function Group({
       </div>
       <div className="card">
         {rows.map((r) => (
-          <div key={r.id} data-channel={r.id} className="border-t border-lh-border px-4 py-3 first:border-t-0">
-            <p className="text-sm font-semibold">{r.title}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-lh-text-secondary">{r.text}</p>
+          <div key={r.id} data-channel={r.id} className="border-t border-lh-border px-4 py-3.5 first:border-t-0">
+            <p className="text-[15px]">{r.title}</p>
+            <p className="mt-1 text-[13px] leading-[1.45] text-lh-text-secondary">{r.text}</p>
           </div>
         ))}
       </div>
