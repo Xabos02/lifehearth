@@ -6,6 +6,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { GChevronRight as ChevronRight, GEnergy as Activity } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { Haptic } from '../../components/ui/Haptic';
 import { useToast } from '../../components/ui/toastContext';
 import { t, tPlural } from '../../lib/i18n';
 import { addDaysKey, dateLocale, fromKey, todayKey } from '../../lib/dates';
@@ -143,6 +144,9 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
               className={`flex size-9 items-center justify-center rounded-full border border-lh-border-strong text-lh-text-secondary active:scale-90 ${HIT_SLOP_44}`}
             >
               −
+              {/* Шаг «−/+» щёлкает (PROTOCOL §6.4); на краю 1–7 шаг ничего не
+                  меняет — накладка пропускает тап. */}
+              <Haptic off={goal <= 1} />
             </button>
             <span className="w-8 text-center text-base font-semibold tabular-nums" data-testid="weekly-goal">
               {goal}
@@ -154,6 +158,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
               className={`flex size-9 items-center justify-center rounded-full border border-lh-border-strong text-lh-text-secondary active:scale-90 ${HIT_SLOP_44}`}
             >
               +
+              <Haptic off={goal >= 7} />
             </button>
           </div>
         </div>
