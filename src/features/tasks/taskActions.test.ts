@@ -11,7 +11,7 @@ import { db } from '../../db/db';
 import { create } from '../../db/repo';
 import { scheduleReminder } from '../../lib/push';
 import type { Task } from '../../db/types';
-import { isSleeping, launchTasks, skipTask, toggleTask } from './taskActions';
+import { isSleeping, launchTasks, newTaskSortOrder, skipTask, toggleTask } from './taskActions';
 import { todayKey } from '../../lib/dates';
 
 const { reminderFireAt } = await vi.importActual<typeof import('../../lib/push')>('../../lib/push');
@@ -241,3 +241,35 @@ describe('ручной повтор: отметка усыпляет, запус
   });
 });
 
+
+// Место новой задачи считается по тому же списку, что на экране: при
+// выключенной группировке временные стоят вперемешку с обычными, а задачи
+// удалённого проекта — в «Без проекта». Иначе новая вставала над важной.
+describe('newTaskSortOrder: список как на экране', () => {
+  const row = (id: string, priority: 0 | 3, sortOrder: number, extra: Partial<Task> = {}) => ({
+    id, title: id, notes: '', projectId: null, goalId: null, priority, dueDate: null, dueTime: null,
+    duration: null, remindBefore: null, completedAt: null, checklist: [], recurrence: null, tags: [],
+    sortOrder, createdAt: '', updatedAt: '', deletedAt: null, ...extra,
+  });
+  beforeEach(async () => {
+    await db.tasks.clear();
+    await db.projects.clear();
+    await db.settings.clear();
+  });
+
+  it('группировка выключена — важная временная во главе держит новую ниже себя', async () => {
+    await db.settings.put({ id: 'app', groupTemporary: false } as never);
+    await db.tasks.bulkPut([row('h', 3, 1000, { temporary: true }), row('n', 0, 2000)] as never[]);
+    const order = await newTaskSortOrder(null, 0, false);
+    expect(order).toBeGreaterThan(1000);
+    expect(order).toBeLessThan(2000);
+  });
+
+  it('задача удалённого проекта стоит в «Без проекта» — и учитывается', async () => {
+    await db.projects.put({ id: 'gone', name: 'x', color: '#000', emoji: '', parentId: null, sortOrder: 1, archivedAt: null, createdAt: '', updatedAt: '', deletedAt: '2026-11-16' } as never);
+    await db.tasks.bulkPut([row('h', 3, 1000, { projectId: 'gone' }), row('n', 0, 2000)] as never[]);
+    const order = await newTaskSortOrder(null, 0, false);
+    expect(order).toBeGreaterThan(1000);
+    expect(order).toBeLessThan(2000);
+  });
+});
