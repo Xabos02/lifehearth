@@ -132,7 +132,7 @@ export function SharePage() {
         <button
           type="button"
           onClick={() => navigate('/')}
-          className="flex h-11 items-center px-3 text-base text-lh-accent active:opacity-60"
+          className="flex h-11 items-center px-3 text-base font-medium text-lh-accent active:opacity-60"
         >
           {t('Закрыть')}
         </button>

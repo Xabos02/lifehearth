@@ -310,15 +310,20 @@ export function SectionsSettingsPage() {
           draggable ? 'touch-pan-y cursor-grab select-none [-webkit-touch-callout:none] [-webkit-user-select:none] active:cursor-grabbing' : ''
         }`}
       >
-        {/* Ручка — подсказка, что строку можно перетащить; у несдвигаемых
-            вместо неё замок. Сам жест — удержание всей строки. */}
-        <span aria-hidden className="flex w-4 shrink-0 justify-center text-lh-text-tertiary">
-          {locked ? <Lock size={ICON.inline} /> : <GripVertical size={ICON.inline} />}
+        {/* Ручка — у всех включённых строк: их можно перетащить, включая
+            «Сегодня» и «Настройки» (их нельзя только выключить — это говорит
+            «всегда»). У выключенных ручки нет — они не двигаются, пустой слот
+            держит выравнивание. Замок — только у якоря «Ещё» (anchorRow), он
+            не двигается. Сам жест — удержание всей строки. Цвет secondary:
+            значимой иконке нужно 3:1, tertiary давал 1.96 в тёмной и 2.74 в
+            светлой, secondary — 5.12 и 5.53 на карточке. */}
+        <span aria-hidden className="flex w-4 shrink-0 justify-center text-lh-text-secondary">
+          {draggable && <GripVertical size={ICON.inline} />}
         </span>
         {/* Номер приоритета — только у разделов «Ещё»: панель и так видна
             целиком. Число — позиция в списке экрана «Ещё», а не абстрактный
             ранг: 1 значит «первым увидите там». Пустой слот держит выравнивание. */}
-        <span className="w-5 shrink-0 text-center text-[13px] tabular-nums text-lh-text-secondary">
+        <span className="w-5 shrink-0 text-center text-xs tabular-nums text-lh-text-secondary">
           {opts.homeIndex ?? ''}
         </span>
         <span aria-hidden className={`flex w-6 shrink-0 justify-center ${hidden ? 'text-lh-text-secondary' : 'text-lh-text-primary'}`}>
@@ -327,7 +332,7 @@ export function SectionsSettingsPage() {
         {/* min-w-0 + truncate: недостачу ширины берёт название, а бейдж
             и тумблер остаются целыми. */}
         <div className="min-w-0 grow basis-auto">
-          <p className={`truncate text-[15px] ${hidden ? 'text-lh-text-secondary' : ''}`}>{t(sec.label)}</p>
+          <p className={`truncate text-sm ${hidden ? 'text-lh-text-secondary' : ''}`}>{t(sec.label)}</p>
           {hidden ? (
             <p className="truncate text-xs text-lh-text-secondary">{t('Записи сохранены, раздел скрыт')}</p>
           ) : (
@@ -340,7 +345,7 @@ export function SectionsSettingsPage() {
           // 16.25px, пряча замок (12px иконка + 4.25px зазор): слово «всегда»
           // несёт смысл само, а замок здесь лишь украшение. Плюс 4.25px на
           // сжатии боковых полей — этого хватает, чтобы «Настройки» влезли.
-          <span className="shrink-0 text-[13px] text-lh-text-secondary">{t('всегда')}</span>
+          <span className="shrink-0 text-xs text-lh-text-secondary">{t('всегда')}</span>
         ) : (
           <button
             type="button"
@@ -374,15 +379,15 @@ export function SectionsSettingsPage() {
   // как у обычной строки (см. row): те же зазоры, тот же неусыхаемый бейдж.
   const anchorRow = anchor && (
     <div className="flex min-h-14 items-center gap-3 px-4 py-2 max-[375px]:gap-2 max-[375px]:px-3">
-      <span aria-hidden className="flex w-4 shrink-0 justify-center text-lh-text-tertiary">
+      <span aria-hidden className="flex w-4 shrink-0 justify-center text-lh-text-secondary">
         <Lock size={ICON.inline} />
       </span>
       <span className="w-5 shrink-0" />
       <span aria-hidden className="flex w-6 shrink-0 justify-center text-lh-text-secondary">
         <anchor.icon size={ICON.base} />
       </span>
-      <span className="min-w-0 grow basis-auto truncate text-[15px]">{t(anchor.label)}</span>
-      <span className="shrink-0 text-[13px] text-lh-text-secondary">{t('всегда')}</span>
+      <span className="min-w-0 grow basis-auto truncate text-sm">{t(anchor.label)}</span>
+      <span className="shrink-0 text-xs text-lh-text-secondary">{t('всегда')}</span>
     </div>
   );
 
@@ -434,7 +439,7 @@ export function SectionsSettingsPage() {
                   }`}
                 >
                   <s.icon size={ICON.base} />
-                  <span className={`max-w-full truncate text-[11px] ${i === 0 ? 'font-semibold' : ''}`}>{t(s.label)}</span>
+                  <span className={`max-w-full truncate text-2xs ${i === 0 ? 'font-semibold' : ''}`}>{t(s.label)}</span>
                 </div>
               ) : null,
             )}
@@ -476,7 +481,7 @@ export function SectionsSettingsPage() {
         <button
           type="button"
           onClick={reset}
-          className="h-12 w-full rounded-xl text-[15px] text-lh-accent active:opacity-60"
+          className="h-12 w-full rounded-xl text-sm text-lh-accent active:opacity-60"
         >
           {t('Сбросить по умолчанию')}
         </button>

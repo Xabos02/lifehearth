@@ -169,7 +169,8 @@ export function ProfilePage() {
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
+    // По кодовой точке, а не w[0]: у «🌸 Аня» w[0] — половина суррогатной пары.
+    .map((w) => Array.from(w)[0]!.toUpperCase())
     .join('');
   const birthAge = ageFrom(form.birthDate);
   const formBmi = bmiFrom(parseNumber(form.heightCm), parseNumber(form.weightKg)) ?? (draft ? null : bmi);
@@ -229,7 +230,7 @@ export function ProfilePage() {
         <section>
           <h2 className="lh-section mb-2.5 px-1">{t('О вас')}</h2>
           <div className="card divide-y divide-lh-border">
-            <label className="flex h-14 items-center gap-3 px-4">
+            <label className="flex h-14 items-center gap-3 px-4 focus-within:ring-2 focus-within:ring-inset focus-within:ring-lh-accent">
               <span className="shrink-0 whitespace-nowrap text-base text-lh-text-secondary">{t('Имя')}</span>
               <input
                 value={form.name}
@@ -247,10 +248,14 @@ export function ProfilePage() {
             <label className="relative flex min-h-14 items-center gap-3 px-4 py-2 focus-within:ring-2 focus-within:ring-inset focus-within:ring-lh-accent">
               <span className="shrink-0 whitespace-nowrap text-base text-lh-text-secondary">{t('Дата рождения')}</span>
               <span className="flex min-w-0 flex-1 flex-wrap justify-end gap-x-1 text-right text-base tabular-nums">
-                {form.birthDate && birthAge != null ? (
+                {/* Дата без возраста (будущая, старше 130 лет) всё равно видна:
+                    поле прозрачное, и иначе ошибочное значение негде увидеть. */}
+                {form.birthDate ? (
                   <>
                     <span className="whitespace-nowrap">{formatRu(form.birthDate, 'd MMMM yyyy')}</span>
-                    <span className="whitespace-nowrap text-lh-text-secondary">· {yearsLabel(birthAge)}</span>
+                    {birthAge != null && (
+                      <span className="whitespace-nowrap text-lh-text-secondary">· {yearsLabel(birthAge)}</span>
+                    )}
                   </>
                 ) : (
                   <span className="text-lh-text-secondary">{t('Не указана')}</span>
@@ -275,25 +280,28 @@ export function ProfilePage() {
 
         <section>
           <h2 className="lh-section mb-2.5 px-1">{t('Тело')}</h2>
+          {/* text-2xl! — с `!`: правило полей font-size: 16px (iOS, index.css)
+              стоит вне слоёв и перебивает утилиту без него. Фокус карточки —
+              обводкой, а не ring: box-shadow у .card тоже вне слоёв. */}
           <div className="grid grid-cols-2 gap-3">
-            <label className="card block px-4 py-3.5">
+            <label className="card block px-4 py-3.5 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-lh-accent">
               <span className="text-sm text-lh-text-secondary">{t('Рост, см')}</span>
               <input
                 inputMode="numeric"
                 value={form.heightCm}
                 onChange={(e) => set({ heightCm: e.target.value.replace(/[^\d]/g, '') })}
                 placeholder={t('—')}
-                className="mt-1 block w-full bg-transparent text-[26px] font-light tabular-nums outline-none placeholder:text-lh-text-secondary"
+                className="mt-1 block w-full bg-transparent text-2xl! font-light tabular-nums outline-none placeholder:text-lh-text-secondary"
               />
             </label>
-            <label className="card block px-4 py-3.5">
+            <label className="card block px-4 py-3.5 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-lh-accent">
               <span className="text-sm text-lh-text-secondary">{t('Вес, кг')}</span>
               <input
                 inputMode="decimal"
                 value={form.weightKg}
                 onChange={(e) => set({ weightKg: e.target.value.replace(/[^\d.,]/g, '') })}
                 placeholder={t('—')}
-                className="mt-1 block w-full bg-transparent text-[26px] font-light tabular-nums outline-none placeholder:text-lh-text-secondary"
+                className="mt-1 block w-full bg-transparent text-2xl! font-light tabular-nums outline-none placeholder:text-lh-text-secondary"
               />
             </label>
           </div>

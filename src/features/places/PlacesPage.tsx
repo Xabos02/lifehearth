@@ -176,11 +176,12 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
             <StatusBadge status={item.status} />
           </div>
           <h2 className="mt-0.5 text-base font-semibold leading-snug">{item.title}</h2>
-          {(item.description || from) && (
-            <p className="mt-1 line-clamp-2 text-xs text-lh-text-secondary">
-              {[item.description, from].filter(Boolean).join(' · ')}
-            </p>
+          {item.description && (
+            <p className="mt-1 line-clamp-2 text-xs text-lh-text-secondary">{item.description}</p>
           )}
+          {/* «От кого» — своей строкой, как на карточке с фото: в одном абзаце
+              с описанием line-clamp уносил его за многоточие. */}
+          {from && <p className="mt-1 break-words text-xs text-lh-text-secondary">{from}</p>}
         </div>
       </div>
       {/* Метки и действия — на всю ширину карточки: в колонке справа от плитки

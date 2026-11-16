@@ -562,7 +562,6 @@ export const EN: Record<string, string> = {
     'Log the days of your last period and the calendar will appear. Predictions turn on once you have at least one full cycle.',
   'День цикла': 'Cycle day',
   'Цикл': 'Cycle',
-  'в среднем {v}': 'average {v}',
   'Следующая менструация': 'Next period',
   'Примерно {range}': 'About {range}',
   'Пока это оценка по усреднённым данным, а не по вашим: циклов слишком мало.':
@@ -593,7 +592,6 @@ export const EN: Record<string, string> = {
   'Прогноз в среднем на {bias} позже факта.': 'On average, the forecast was {bias} late.',
   'Точность прогноза считается по вашим циклам: обещанный диапазон против факта. Разброс — биологический, а не ошибка программы.':
     'Forecast accuracy is calculated from your cycles: the predicted range compared to what actually happened. The variation is biological, not a bug.',
-  'Обзор за год →': 'Year overview →',
   'Отметить сегодня': 'Log today',
   'Убрать код? Раздел будет открываться без него.':
     'Remove the code? The section will open without it.',
@@ -788,8 +786,6 @@ export const EN: Record<string, string> = {
   'Женский': 'Female',
   'Мужской': 'Male',
   'Ваш пол': 'Your gender',
-  'От ответа зависит набор разделов: например, «Женские дни» — календарь цикла и самочувствия — есть только в женском профиле. Изменить выбор можно потом в профиле.':
-    'The answer decides which sections you get: for example, “Cycle” — the cycle and wellbeing calendar — exists only in the female profile. You can change this later in your profile.',
   'Пол': 'Gender',
 
   // === Цикл: отчёт-страница и календарь ===
@@ -806,19 +802,13 @@ export const EN: Record<string, string> = {
   '6 месяцев': '6 months',
   '12 месяцев': '12 months',
   'Составлено {date}': 'Generated {date}',
-  'Период: {period}': 'Range: {period}',
-  'Циклы периода': 'Cycles in this range',
   'За выбранный период отметок нет.': 'No entries for the selected period.',
-  'Текущий': 'Current',
   'Менструация: {days}': 'Period: {days}',
   'Исключён из статистики{reason}': 'Excluded from statistics{reason}',
   'Статистика периода': 'Period statistics',
   'Завершённых циклов': 'Completed cycles',
-  'Медианная длина': 'Median length',
   'Мин. и макс. длина': 'Min. and max. length',
   '{min} и {max}': '{min} and {max}',
-  'Размах': 'Spread',
-  'Симптомы': 'Symptoms',
   'Кровотечение по дням': 'Bleeding by day',
   'Эпизоды': 'Episodes',
   'продолжается': 'ongoing',
@@ -847,7 +837,6 @@ export const EN: Record<string, string> = {
   'Идея': 'Idea',
   'Хочу': 'Want',
   'Был': 'Been',
-  'Открыть на карте': 'Open on the map',
   'Сохраняйте места, вещи и советы, чтобы не забыть.': 'Save places, things and tips so you don’t forget.',
   'Ничего не найдено. Попробуйте другой запрос или фильтр.':
     'Nothing found. Try a different search or filter.',
@@ -881,8 +870,6 @@ export const EN: Record<string, string> = {
   'всегда': 'always',
   'Включить раздел {name}': 'Turn on {name}',
   'Выключить раздел {name}': 'Turn off {name}',
-  'Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Ещё») — задержите строку пальцем и перетащите.':
-    'A tap on the toggle turns a section on or off. To reorder, or move a section across the line into the bottom bar (up to {n} slots, not counting Home) — press and hold a row, then drag.',
   'Выключено': 'Off',
   'Сбросить по умолчанию': 'Reset to defaults',
   'Как будет выглядеть панель': 'How the bar will look',
@@ -950,25 +937,15 @@ export const EN: Record<string, string> = {
     'Add tasks, goals or other entries — a productivity overview will appear here',
   'Поделиться отчётом': 'Share report',
   'Эффективность': 'Efficiency',
-  'Выполнено из всех': 'Completion rate',
   'всего активных': 'total active',
-  'выполнено': 'completed',
-  'не выполнено': 'not done',
-  'частично': 'partial',
   'в корзине': 'in trash',
   'срок сегодня': 'due today',
   'чек-листы': 'checklists',
   'Время на задачи': 'Time on tasks',
-  'Сегодня на задачи': 'Today on tasks',
   '0м': '0m',
   '{h}ч': '{h}h',
   'За неделю': 'This week',
-  'За неделю всего:': 'Total this week:',
   'активных': 'active',
-  'средний прогресс': 'average progress',
-  'Обучение:': 'Learning:',
-  'расходы в месяц': 'spending per month',
-  'баланс': 'balance',
   'Данные защищены от автоочистки браузером{suffix}.':
     'Data is protected from browser auto-cleanup{suffix}.',
   ', занято {used}': ', {used} used',
@@ -1264,7 +1241,6 @@ export const EN: Record<string, string> = {
   'Рядом, когда нужно': 'Here when you need it',
   'Ничего не нужно заучивать. LifeHearth подскажет удобные мелочи тогда, когда пригодятся: жесты, быстрый ввод, даже то, что кнопку «+» можно перетащить куда удобно. А дальше — просто жить, остальное рядом.':
     "Nothing to memorize. LifeHearth points out handy little things exactly when they're useful: gestures, quick input, even that the “+” button can be dragged wherever's convenient. After that, just live — the rest is close by.",
-  'Шаг {n}': 'Step {n}',
   'Пропустить': 'Skip',
   'Начать': 'Get started',
   'Далее': 'Next',
@@ -1683,8 +1659,6 @@ export const EN: Record<string, string> = {
     'Deleted items live here. You can restore them or delete them forever.',
   'удалено {date}': 'deleted {date}',
   // Захват
-  'Вставьте или отредактируйте текст и сохраните его задачей или заметкой. Для задачи дата и время из текста подставятся сами — например «завтра в 10 позвонить маме».':
-    'Paste or edit text and save it as a task or a note. For a task, date and time fill in from the text — e.g. “tomorrow at 10 call mom”.',
   'Вставить из буфера': 'Paste from clipboard',
   'В задачи': 'To Tasks',
   'В заметки': 'To Notes',
@@ -2121,8 +2095,6 @@ export const EN: Record<string, string> = {
   // === Расстановка приоритетов разделов (онбординг + настройки) ===
   'Показать ещё {n}': 'Show {n} more',
   'Что для вас важнее всего?': 'What\u2019s most important to you?',
-  'Расставьте разделы по важности — верхние {n} сразу видны в «Ещё», остальные откроются по кнопке «Показать ещё». Стрелками меняете порядок, переключателем — скрываете ненужное.':
-    'Arrange sections by importance \u2014 the top {n} are shown right on \u201CHome\u201D, the rest open behind the \u201CShow more\u201D button. Use the arrows to reorder, the switch to hide what you don\u2019t need.',
   'дальше — за кнопкой «Показать ещё»': 'the rest are behind the \u201CShow more\u201D button',
   'Поднять «{name}»': 'Move \u201C{name}\u201D up',
   'Опустить «{name}»': 'Move \u201C{name}\u201D down',
@@ -2130,8 +2102,6 @@ export const EN: Record<string, string> = {
   'Скрыто': 'Hidden',
   'Показать раздел {name}': 'Show {name} section',
   'в «Ещё» — за кнопкой «Показать ещё»': 'in \u201CMore\u201D \u2014 behind the \u201CShow more\u201D button',
-  'Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Ещё») — задержите строку пальцем и перетащите. Номер у раздела — его место в списке «Ещё»: первые {home} видны сразу, остальные — за кнопкой «Показать ещё».':
-    'The switch turns a section on and off with a tap. To reorder or move a section across the line into the bottom bar (up to {n} spots, not counting \u201CHome\u201D) \u2014 hold the row and drag it. The number next to a section is its place in the \u201CHome\u201D list: the first {home} are shown right away, the rest are behind the \u201CShow more\u201D button.',
   'Расстановка приоритетов': 'Priority ranking',
 
   // === Окно согласия «Что уходит с телефона» (задача 34) ===
@@ -2330,7 +2300,7 @@ export const EN: Record<string, string> = {
   'Менструальный цикл': 'Menstrual cycle',
   'Обычный цикл, дн.': 'Typical cycle, days',
   'Менструация, дн.': 'Period, days',
-  'Размах, дн.': 'Range, days',
+  'Размах, дн.': 'Spread, days',
   'Циклы': 'Cycles',
   'Длина': 'Length',
   'Менстр.': 'Period',

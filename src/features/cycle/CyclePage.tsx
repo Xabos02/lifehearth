@@ -1,9 +1,10 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
-import { Lightbulb, SlidersHorizontal, ChevronRight } from 'lucide-react';
+import { Lightbulb, SlidersHorizontal } from 'lucide-react';
 import {
   GPlus as Plus,
   GDrop as Droplet,
+  GChevronRight as ChevronRight,
 } from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -19,6 +20,7 @@ import { isUnlocked, subscribeLock } from './lockState';
 import type { CyclePredictionResult } from '../../lib/cycle/predict';
 import { IconButton } from '../../components/ui/IconButton';
 import { ICON } from '../../components/ui/icons';
+import { buildPhases } from './phases';
 
 /** Как называем прогноз словами.
  *
@@ -82,14 +84,22 @@ export function CyclePage() {
   const open = useSyncExternalStore(subscribeLock, isUnlocked, () => false);
   const locked = settings.lock === 'pin' && settings.pin !== undefined && !open;
 
-  // Полоса фаз строится по средней длине цикла: менструация — средней
-  // длительностью от старта текущего цикла, фертильные дни — по той же карте
-  // вероятностей, что и календарь. Без среднего полосу не рисуем: «где я в
-  // цикле» без длины цикла — выдумка.
+  // Полоса фаз строится по средней длине цикла: менструация — по факту
+  // текущего цикла (среднее дорисовывает только её продолжение, phases.ts),
+  // фертильные дни — по той же карте вероятностей, что и календарь. Без
+  // среднего полосу не рисуем: «где я в цикле» без длины цикла — выдумка.
   const cycleLen = stats.averageLength !== undefined ? Math.round(stats.averageLength) : undefined;
+  const start = currentDay !== undefined ? addDaysKey(todayKey(), 1 - currentDay) : undefined;
   const phases =
-    currentDay !== undefined && cycleLen !== undefined && cycleLen > 0
-      ? buildPhases(cycleLen, Math.round(stats.averagePeriodLength ?? 5), addDaysKey(todayKey(), 1 - currentDay), data.fertile, currentDay)
+    start !== undefined && cycleLen !== undefined && cycleLen > 0
+      ? buildPhases(
+          cycleLen,
+          data.cycles.find((c) => c.startDate === start)?.periodLengthDays ?? 0,
+          Math.round(stats.averagePeriodLength ?? 5),
+          start,
+          data.fertile,
+          currentDay,
+        )
       : null;
   const showStats = data.cycles.some((c) => c.lengthDays !== undefined && c.excluded === 0);
 
@@ -131,7 +141,7 @@ export function CyclePage() {
                   <p className="text-sm text-lh-text-secondary">
                     {currentDay !== undefined ? t('День цикла') : t('Цикл')}
                   </p>
-                  <p className="mt-1 text-[56px] font-light leading-none tracking-[-1.5px] tabular-nums">
+                  <p className="mt-1 text-5xl font-extralight tabular-nums">
                     {currentDay ?? '—'}
                   </p>
                 </div>
@@ -169,7 +179,7 @@ export function CyclePage() {
               {forecast && (
                 <div className={`${phases ? '' : 'mt-4'} border-t border-lh-border pt-3`}>
                   <p className="text-sm text-lh-text-secondary">{t('Следующая менструация')}</p>
-                  <p className="mt-0.5 text-xl font-light">{forecast.title}</p>
+                  <p className="mt-0.5 text-lg font-light">{forecast.title}</p>
                   {forecast.note && (
                     <p className="mt-1 text-xs leading-snug text-lh-text-secondary">{forecast.note}</p>
                   )}
@@ -331,31 +341,6 @@ export function CyclePage() {
   );
 }
 
-type PhaseKind = 'period' | 'fertile' | 'plain';
-
-/** Склеивает дни цикла в отрезки одной фазы для полосы на карточке «сейчас».
- *  Если цикл уже длиннее среднего, полоса растягивается до текущего дня —
- *  маркер не должен упираться в край, будто дальше ничего нет. */
-function buildPhases(
-  avgLen: number,
-  periodLen: number,
-  start: string,
-  fertile: Map<string, number>,
-  currentDay?: number,
-): { runs: { kind: PhaseKind; days: number }[]; total: number; marker: number } {
-  const day = currentDay ?? 1;
-  const total = Math.max(avgLen, day);
-  const runs: { kind: PhaseKind; days: number }[] = [];
-  for (let i = 0; i < total; i++) {
-    const kind: PhaseKind =
-      i < periodLen ? 'period' : (fertile.get(addDaysKey(start, i)) ?? 0) > 0.15 ? 'fertile' : 'plain';
-    const last = runs[runs.length - 1];
-    if (last && last.kind === kind) last.days++;
-    else runs.push({ kind, days: 1 });
-  }
-  return { runs, total, marker: ((day - 0.5) / total) * 100 };
-}
-
 /** «28 дней», но «28,4 дня»: при дробном числе русский требует родительного
  *  падежа единственного числа, и обычная плюрализация по последней цифре здесь
  *  даёт «28.4 дней». Заодно переводим точку в запятую. */
@@ -378,8 +363,11 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function LinkRow({ to, label }: { to: string; label: string }) {
   return (
+    // state — откуда пришли: по нему «Отчёт для врача» ведёт «Назад» сюда, а
+    // не в настройки раздела, куда ведёт вход из них (CycleReportPage).
     <Link
       to={to}
+      state={{ from: '/more/cycle' }}
       className="flex min-h-12 items-center justify-between gap-3 px-4 text-[15px] text-lh-accent active:opacity-60"
     >
       <span>{label}</span>

@@ -159,7 +159,7 @@ export function ConsentGate() {
             <button
               type="button"
               onClick={() => setDetails(false)}
-              className="flex min-h-11 items-center gap-0.5 self-start pr-1 text-[17px] text-lh-accent active:opacity-60"
+              className="flex min-h-11 items-center gap-0.5 self-start pr-1 text-base text-lh-accent active:opacity-60"
             >
               <GChevronLeft size={ICON.accent} strokeWidth={STROKE_STRONG} />
               {t('Коротко')}
@@ -167,7 +167,7 @@ export function ConsentGate() {
             <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="mt-2 px-2 text-[30px] font-light leading-[1.15] tracking-[-.6px] outline-none">
               {t('Что уходит с телефона')}
             </h2>
-            <p className="mt-2.5 px-2 text-[15px] leading-normal text-lh-text-secondary">
+            <p className="mt-2.5 px-2 text-sm leading-normal text-lh-text-secondary">
               {t('Всё, что вы записываете, хранится на этом телефоне и работает без интернета. Часть функций выходит в сеть. Согласие одно — на всё сразу.')}
             </p>
             <Group
@@ -190,8 +190,8 @@ export function ConsentGate() {
         ) : (
           <>
             <div className="px-2 pb-5 pt-2">
-              <div className="flex size-12 items-center justify-center rounded-2xl border border-lh-border bg-lh-surface text-lh-accent">
-                {reason ? REASON_ICON[reason] : <GPhoneOut size={ICON.header} />}
+              <div className="flex size-14 items-center justify-center rounded-2xl border border-lh-border bg-lh-surface text-lh-accent">
+                {reason ? REASON_ICON[reason] : <GPhoneOut size={ICON.accent} />}
               </div>
               <h2
                 id="consent-title"
@@ -202,7 +202,7 @@ export function ConsentGate() {
                 {reason && !review ? t(REASON_TITLES[reason]) : t('Что уходит с телефона')}
               </h2>
               {reason && !review && (
-                <p className="mt-2.5 text-[15px] leading-normal text-lh-text-secondary">
+                <p className="mt-2.5 text-sm leading-normal text-lh-text-secondary">
                   {t('Согласие одно — на всё внешнее сразу: семья, ассистент и остальное второй раз этого окна не покажут.')}
                 </p>
               )}
@@ -248,7 +248,7 @@ export function ConsentGate() {
             <button
               type="button"
               onClick={() => setDetails(true)}
-              className="mt-6 flex min-h-[52px] w-full items-center justify-between gap-2 card px-4 text-left text-[15px] active:bg-lh-surface-2"
+              className="mt-6 flex min-h-[52px] w-full items-center justify-between gap-2 card px-4 text-left text-sm active:bg-lh-surface-2"
             >
               {t('Подробно, по каждой функции')}
               <GChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
@@ -306,8 +306,8 @@ function Point({ icon, tone, title, text }: { icon: ReactNode; tone: string; tit
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-[15px] font-semibold">{title}</p>
-        <p className="mt-0.5 text-[13px] leading-[1.45] text-lh-text-secondary">{text}</p>
+        <p className="text-sm font-semibold">{title}</p>
+        <p className="mt-0.5 text-xs leading-[1.45] text-lh-text-secondary">{text}</p>
       </div>
     </li>
   );
@@ -336,8 +336,8 @@ function Group({
       <div className="card">
         {rows.map((r) => (
           <div key={r.id} data-channel={r.id} className="border-t border-lh-border px-4 py-3.5 first:border-t-0">
-            <p className="text-[15px]">{r.title}</p>
-            <p className="mt-1 text-[13px] leading-[1.45] text-lh-text-secondary">{r.text}</p>
+            <p className="text-sm">{r.title}</p>
+            <p className="mt-1 text-xs leading-[1.45] text-lh-text-secondary">{r.text}</p>
           </div>
         ))}
       </div>

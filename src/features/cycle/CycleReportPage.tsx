@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState, useSyncExternalStore } from 'react';
 import { FileText, Printer } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLocation } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
@@ -34,7 +35,7 @@ function Kpi({ value, label, first }: { value?: number | string; label: string; 
   const text = value === undefined ? '—' : typeof value === 'number' ? fmtNum(value) : value;
   return (
     <div className={`min-w-0 px-4 py-4 ${first ? '' : 'border-l border-lh-border'}`}>
-      <div className="text-2xl font-light leading-none tabular-nums">{text}</div>
+      <div className="text-2xl font-extralight leading-none tabular-nums">{text}</div>
       <div className="mt-1.5 text-xs leading-snug text-lh-text-secondary">{label}</div>
     </div>
   );
@@ -56,6 +57,11 @@ export function CycleReportPage() {
   const episodes = useLiveQuery(() => db.cycleEpisodes.toArray(), []) ?? [];
   const symptomDefs = useLiveQuery(() => db.cycleSymptoms.toArray(), []) ?? [];
   const [reportWindow, setReportWindow] = useState<DoctorReportWindow>('6months');
+  // «Назад» — туда, откуда открыли: из «Статистики» на корне раздела (ссылка
+  // передаёт state) — на корень, иначе — на родителя по §12, в настройки.
+  // Принимаем только известное значение: state живёт в истории и может быть
+  // любым.
+  const fromRoot = (useLocation().state as { from?: string } | null)?.from === '/more/cycle';
 
   // Замок раздела — тот же паттерн, что в CyclePage.tsx: разблокировка живёт в
   // памяти модуля и не переживает перезагрузку страницы.
@@ -84,7 +90,7 @@ export function CycleReportPage() {
     <Screen
       title={t('Отчёт для врача')}
       subtitle={locked ? undefined : t('Сводка циклов и симптомов, которую удобно показать на приёме. Формируется на устройстве.')}
-      backTo="/more/cycle"
+      backTo={fromRoot ? '/more/cycle' : '/more/cycle/settings'}
     >
       {locked ? (
         <CycleLock settings={data.settings} onUnlock={() => undefined} />
@@ -105,16 +111,16 @@ export function CycleReportPage() {
             <div className="px-5 pb-4 pt-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[.08em] text-lh-text-secondary print:hidden">
+                  <p className="lh-section print:hidden">
                     {t('Предпросмотр')}
                   </p>
-                  <p className="mt-1.5 text-[19px] font-semibold">{t('Менструальный цикл')}</p>
+                  <p className="mt-1.5 text-lg font-semibold">{t('Менструальный цикл')}</p>
                   <p className="mt-0.5 text-sm text-lh-text-secondary tabular-nums">
                     {periodText} · {tPlur(report.cycles.length, ['цикл', 'цикла', 'циклов'])}
                   </p>
                 </div>
                 <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-                  <FileText size={ICON.base} />
+                  <FileText size={ICON.header} />
                 </span>
               </div>
               <p className="mt-3 text-xs text-lh-text-secondary">
@@ -133,7 +139,9 @@ export function CycleReportPage() {
                 <p className="text-sm text-lh-text-secondary">{t('За выбранный период отметок нет.')}</p>
               ) : (
                 <>
-                  <div className="grid grid-cols-[1fr_auto_auto] gap-x-5 border-b border-lh-border pb-1.5 text-xs text-lh-text-secondary">
+                  {/* Шапка колонок прозвучала бы один раз над всеми строками — диктору
+                      она не нужна: каждая ячейка ниже несёт свою подпись (sr-only). */}
+                  <div aria-hidden className="grid grid-cols-[1fr_auto_auto] gap-x-5 border-b border-lh-border pb-1.5 text-xs text-lh-text-secondary">
                     <span>{t('Начало')}</span>
                     <span className="text-right">{t('Длина')}</span>
                     <span className="w-14 text-right">{t('Менстр.')}</span>
@@ -144,9 +152,19 @@ export function CycleReportPage() {
                         <div className="grid grid-cols-[1fr_auto_auto] gap-x-5">
                           <span>{formatRu(c.startDate, 'd MMMM yyyy')}</span>
                           <span className={`text-right ${c.lengthDays === undefined ? 'text-lh-text-secondary' : ''}`}>
-                            {c.lengthDays ?? t('идёт')}
+                            <span aria-hidden>{c.lengthDays ?? t('идёт')}</span>
+                            <span className="sr-only">
+                              {`${t('Длина')}: ${c.lengthDays === undefined ? t('идёт') : formatDays(c.lengthDays)}`}
+                            </span>
                           </span>
-                          <span className="w-14 text-right">{c.periodLengthDays ?? '—'}</span>
+                          <span className="w-14 text-right">
+                            <span aria-hidden>{c.periodLengthDays ?? '—'}</span>
+                            <span className="sr-only">
+                              {t('Менструация: {days}', {
+                                days: c.periodLengthDays === undefined ? '—' : formatDays(c.periodLengthDays),
+                              })}
+                            </span>
+                          </span>
                         </div>
                         {c.excluded && (
                           <p className="mt-0.5 text-xs text-lh-text-secondary">

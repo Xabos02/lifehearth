@@ -17,11 +17,12 @@ import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchField } from '../../components/ui/Input';
+import { Chip } from '../../components/ui/Chip';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { searchMessages } from '../../lib/family/searchMessages';
 import { t } from '../../lib/i18n';
-import { formatRu } from '../../lib/dates';
+import { formatRu, toKey } from '../../lib/dates';
 import { ICON } from '../../components/ui/icons';
 
 const PER_SECTION = 8;
@@ -77,7 +78,9 @@ function Highlight({ text, q }: { text: string; q: string }) {
   for (let at = hay.indexOf(q); at >= 0; at = hay.indexOf(q, at + q.length)) {
     if (at > i) parts.push(text.slice(i, at));
     parts.push(
-      <mark key={at} className="rounded-sm bg-lh-accent/25 text-inherit">
+      // Подложка акцента — токен, текст на ней — основным цветом (§1.2, §1.7):
+      // унаследованный серый на золоте давал 2.8–3.8:1.
+      <mark key={at} className="rounded-sm bg-lh-accent-dim text-lh-text-primary">
         {text.slice(at, at + q.length)}
       </mark>,
     );
@@ -202,7 +205,7 @@ export function SearchPage() {
           findAt(task.notes ?? '', q) >= 0
             ? task.notes
             : task.completedAt
-              ? t('Выполнено {date}', { date: formatRu(task.completedAt.slice(0, 10)) })
+              ? t('Выполнено {date}', { date: formatRu(toKey(new Date(task.completedAt))) })
               : task.dueDate
                 ? t('до {date}', { date: formatRu(task.dueDate) })
                 : '',
@@ -287,27 +290,16 @@ export function SearchPage() {
           результатами: один чип «Всё» рядом с одним разделом ничего не
           отбирает. */}
       {sections.length > 1 && (
-        <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
+        // py-1.5, а не ChipRow: overflow-x-auto режет и по вертикали, а зона
+        // касания чипа (~36px) выступает на 4px — без отступа её срезало бы
+        // (§5.1).
+        <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 py-1.5 [scrollbar-width:none]">
           {chips.map((c) => {
             const on = c.key === active;
             return (
-              <button
-                key={c.key}
-                type="button"
-                aria-pressed={on}
-                onClick={() => setFilter(c.key)}
-                className="flex h-11 shrink-0 items-center"
-              >
-                <span
-                  className={`flex h-8 items-center rounded-full px-3 text-sm tabular-nums ${
-                    on
-                      ? 'bg-lh-text-primary font-semibold text-lh-bg'
-                      : 'border border-lh-border text-lh-text-secondary'
-                  }`}
-                >
-                  {c.label} · {c.total}
-                </span>
-              </button>
+              <Chip key={c.key} active={on} hapticOff={on} onClick={() => setFilter(c.key)}>
+                {c.label} · {c.total}
+              </Chip>
             );
           })}
         </div>
