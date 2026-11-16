@@ -2289,5 +2289,8 @@ export const EN: Record<string, string> = {
   'устарела': 'out of date',
   'Файл на телефоне или в iCloud': 'File on your phone or in iCloud',
   'Восстановить из файла': 'Restore from file',
+  'Выполнено {date}': 'Done {date}',
+  'Всё': 'All',
+  'Ищем в задачах, заметках, целях, напоминаниях, чате, местах, обучении, энергии и финансах': 'Searching tasks, notes, goals, reminders, chat, places, learning, energy and finance',
   'Перед восстановлением покажем, что в копии и что изменится, — ничего не пропадёт молча.': "Before restoring we'll show what's in the backup and what will change — nothing disappears silently.",
 };
