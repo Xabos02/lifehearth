@@ -2248,4 +2248,8 @@ export const EN: Record<string, string> = {
   'срок прошёл': 'overdue',
   'цель «{title}»': 'goal “{title}”',
   'через {x}': 'in {x}',
+  // Форма задачи: группы
+  'Основное': 'Basics',
+  '{done} из {n}': '{done} of {n}',
+  'Найти в приложении': 'Search the app',
 };
