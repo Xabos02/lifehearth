@@ -98,7 +98,7 @@ export function SharePage() {
         checklist: [],
         recurrence: null,
         tags: p.tags,
-        sortOrder: newSortOrder(p.priority),
+        sortOrder: newSortOrder(),
       });
       toast(t('Задача создана'));
       navigate('/tasks');

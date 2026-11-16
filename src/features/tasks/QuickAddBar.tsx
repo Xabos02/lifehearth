@@ -38,7 +38,7 @@ export function QuickAddBar({
   defaultDueDate?: string | null;
   defaultProjectId?: string | null;
   /** Задача создана — родитель может прокрутить к ней: новая ложится в
-   *  конец «Без проекта», ниже всех папок, и без прокрутки её не видно. */
+   *  начало «Без проекта», а он ниже всех папок, и без прокрутки её не видно. */
   onCreated?: (id: string) => void;
 }) {
   const [text, setText] = useState('');
@@ -66,7 +66,7 @@ export function QuickAddBar({
       checklist: [],
       recurrence: null,
       tags: p.tags,
-      sortOrder: newSortOrder(p.priority),
+      sortOrder: newSortOrder(),
     });
     setText('');
     // Задача добавлена этой строкой — значит подсказка про неё свою работу
