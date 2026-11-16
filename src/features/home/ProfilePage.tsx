@@ -246,11 +246,11 @@ export function ProfilePage() {
                 а видно дату по-человечески и сразу возраст. */}
             <label className="relative flex min-h-14 items-center gap-3 px-4 py-2 focus-within:ring-2 focus-within:ring-inset focus-within:ring-lh-accent">
               <span className="shrink-0 whitespace-nowrap text-base text-lh-text-secondary">{t('Дата рождения')}</span>
-              <span className="min-w-0 flex-1 text-right text-base tabular-nums">
+              <span className="flex min-w-0 flex-1 flex-wrap justify-end gap-x-1 text-right text-base tabular-nums">
                 {form.birthDate && birthAge != null ? (
                   <>
                     <span className="whitespace-nowrap">{formatRu(form.birthDate, 'd MMMM yyyy')}</span>
-                    <span className="whitespace-nowrap text-lh-text-secondary"> · {yearsLabel(birthAge)}</span>
+                    <span className="whitespace-nowrap text-lh-text-secondary">· {yearsLabel(birthAge)}</span>
                   </>
                 ) : (
                   <span className="text-lh-text-secondary">{t('Не указана')}</span>
@@ -337,7 +337,7 @@ export function ProfilePage() {
         {/* Отметку рендерим ТОЛЬКО когда есть что сказать, а не прячем
             прозрачностью: элемент с opacity:0 остаётся в дереве — скринридер в
             aria-live читает его, а браузерные тесты считают видимым. */}
-        <div className="min-h-5 px-1" aria-live="polite">
+        <div className="-my-3 min-h-5 px-1" aria-live="polite">
           {saved && <p className="animate-fade-in text-sm text-success">{t('Сохранено')}</p>}
         </div>
 
