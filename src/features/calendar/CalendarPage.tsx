@@ -20,13 +20,12 @@ import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
-import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { addDaysKey, formatRu, todayKey, toKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { taskOnDay } from '../../lib/taskDates';
 import { cycleAllowed } from '../../lib/sections';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
-import { t } from '../../lib/i18n';
+import { t, tPlur } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 
 /** Дни менструации из раздела «Женские дни» — но только если человек включил
@@ -114,7 +113,20 @@ export function CalendarPage() {
     [tasks, selectedDate],
   );
 
-  const monthLabel = grid.monthLabel.charAt(0).toUpperCase() + grid.monthLabel.slice(1);
+  const monthName = format(grid.monthDate, 'LLLL', { locale: dateLocale() });
+  const monthTitle = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  const monthPrefix = monthKey.slice(0, 7);
+  const monthCount = tasks.filter((x) => !x.completedAt && x.dueDate?.startsWith(monthPrefix)).length;
+  // «Дальше на неделе» — что ждёт после выбранного дня, чтобы не листать дни по одному.
+  const weekAhead = useMemo(() => {
+    const end = addDaysKey(selectedDate, 7);
+    return tasks
+      // Задача с периодом, идущим через выбранный день, уже есть в списке дня — не дублируем.
+      .filter((x) => !x.completedAt && x.dueDate && x.dueDate > selectedDate && x.dueDate <= end && !taskOnDay(x, selectedDate))
+      .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!) || (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99'))
+      .slice(0, 6);
+  }, [tasks, selectedDate]);
+  const selectedWeekday = format(new Date(`${selectedDate}T00:00:00`), 'EEEE', { locale: dateLocale() });
 
   function shiftMonth(delta: number) {
     setMonthKey((cur) => toKey(addMonths(new Date(`${cur.slice(0, 7)}-01T00:00:00`), delta)));
@@ -136,7 +148,8 @@ export function CalendarPage() {
   return (
     <Screen
       title={t('Календарь')}
-      backTo="/tasks"
+      subtitle={t('Задачи по дням. Точка — на день что-то запланировано.')}
+      backTo="/home"
       // «Сегодня» переехала сюда из строки месяца. Втроём с двумя стрелками она
       // забирала 170px из 252px, доступных внутри карточки на 320px, и на
       // заголовок оставалось 71px — обрезались все 12 месяцев, «Сентябрь 2026»
@@ -146,53 +159,43 @@ export function CalendarPage() {
         <button
           type="button"
           onClick={goToday}
-          className="shrink-0 rounded-lg px-2 py-2.5 text-base font-medium text-lh-accent active:opacity-60"
+          className="min-h-11 shrink-0 rounded-lg px-2 py-2.5 text-base font-medium text-lh-accent active:opacity-60"
         >
           {t('Сегодня')}
         </button>
       }
     >
-      <div className="card p-4">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          {/* Название месяца не переносим: иначе шапка растёт на две строки.
-              Кегль ужимается только на узких экранах: «Сентябрь 2026» при 19px
-              требует 162px, при 17px — 145px, и запас до стрелок вырастает с
-              3px до 20px. От 400px и шире держим исходные 19px.
-              truncate (overflow:hidden) заодно снимает min-width:auto — без него
-              флекс-элемент не ужимается и распирает строку. */}
-          <h2 className="min-w-0 truncate text-lg font-light">
-            {monthLabel}
-          </h2>
-          <div className="flex shrink-0 items-center gap-2">
-            {/* Сами стрелки 32.75px (иконка 20 + p-1.5 при root 17px) — меньше 44px
-                минимума. Увеличивать их нельзя: шапка распухнет и месяц срежется
-                сильнее, поэтому добираем невидимой хит-зоной. */}
-            <button
-              type="button"
-              aria-label={t('Предыдущий месяц')}
-              onClick={() => shiftMonth(-1)}
-              className={`shrink-0 rounded-lg p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
-            >
-              <ChevronLeft size={ICON.header} />
-            </button>
-            {/* ml-1 поверх gap-2: зона 44px вылезает за кнопку на (44-32.75)/2 = 5.625px
-                с каждой стороны, значит между стрелками нужно ≥11.25px, иначе тап у
-                края уйдёт соседней стрелке — месяц перелистнётся не в ту сторону.
-                8.5 + 4.25 = 12.75px, запас 1.5px. */}
-            <button
-              type="button"
-              aria-label={t('Следующий месяц')}
-              onClick={() => shiftMonth(1)}
-              className={`ml-1 shrink-0 rounded-lg p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
-            >
-              <ChevronRight size={ICON.header} />
-            </button>
+      <div className="card p-3 pb-4">
+        <div className="mb-2 flex items-center justify-between px-1">
+          <button
+            type="button"
+            aria-label={t('Предыдущий месяц')}
+            onClick={() => shiftMonth(-1)}
+            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-lh-text-secondary active:opacity-60"
+          >
+            <ChevronLeft size={ICON.action} />
+          </button>
+          <div className="min-w-0 text-center">
+            <h2 className="truncate font-semibold">{`${monthTitle} ${monthPrefix.slice(0, 4)}`}</h2>
+            {monthCount > 0 && (
+              <p className="text-2xs text-lh-text-secondary tabular-nums">
+                {tPlur(monthCount, ['задача', 'задачи', 'задач'])}
+              </p>
+            )}
           </div>
+          <button
+            type="button"
+            aria-label={t('Следующий месяц')}
+            onClick={() => shiftMonth(1)}
+            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-lh-text-secondary active:opacity-60"
+          >
+            <ChevronRight size={ICON.action} />
+          </button>
         </div>
 
         <div className="grid grid-cols-7">
           {WEEKDAY_LABELS.map((label) => (
-            <div key={label} className="pb-1 text-center text-xs font-medium text-lh-text-secondary">
+            <div key={label} className="pb-1.5 text-center text-2xs text-lh-text-secondary">
               {t(label)}
             </div>
           ))}
@@ -216,7 +219,7 @@ export function CalendarPage() {
                   // иначе выбранный день висел на краю чужого месяца.
                   if (!day.inMonth) setMonthKey(day.key);
                 }}
-                className={`relative flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition-colors ${
+                className={`relative flex aspect-square flex-col items-center justify-center rounded-xl text-sm tabular-nums transition-colors ${
                   isSelected
                     ? 'bg-lh-accent font-semibold text-lh-bg'
                     : day.inMonth
@@ -257,12 +260,21 @@ export function CalendarPage() {
             );
           })}
         </div>
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-lh-border px-2 pt-3 text-2xs text-lh-text-secondary">
+          <span className="flex items-center gap-1.5"><span aria-hidden className="size-1.5 rounded-full bg-lh-accent" />{t('Задачи')}</span>
+          <span className="flex items-center gap-1.5"><span aria-hidden className="size-1.5 rounded-full bg-danger" />{t('Просрочено')}</span>
+          <span className="flex items-center gap-1.5"><span aria-hidden className="size-3.5 rounded-sm ring-1 ring-lh-accent" />{t('Сегодня')}</span>
+        </div>
       </div>
 
-      <section className="mt-5">
-        <h2 className="mb-2 px-1 lh-section">
-          {t('Задачи на {date}', { date: formatRu(selectedDate) })}
-        </h2>
+      <section className="mt-6">
+        <div className="mb-2.5 flex items-baseline justify-between gap-2 px-1">
+          <h2 className="lh-section">{t('Задачи на {date}', { date: formatRu(selectedDate) })}</h2>
+          <span className="shrink-0 text-xs text-lh-text-secondary tabular-nums">
+            {selectedWeekday}
+            {dayTasks.length > 0 && ` · ${dayTasks.length}`}
+          </span>
+        </div>
         {dayTasks.length > 0 ? (
           <div className="card divide-y divide-lh-border px-4">
             {dayTasks.map((t) => (
@@ -280,11 +292,37 @@ export function CalendarPage() {
         <button
           type="button"
           onClick={() => openTask(null)}
-          className="mt-2 flex min-h-11 items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-lh-accent active:opacity-60"
+          className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-lh-accent-border text-sm text-lh-accent active:opacity-60"
         >
           <Plus size={ICON.inline} /> {t('Задача на этот день')}
         </button>
       </section>
+
+      {weekAhead.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-2.5 px-1 lh-section">{t('Дальше на неделе')}</h2>
+          <div className="card divide-y divide-lh-border">
+            {weekAhead.map((task) => {
+              const d = new Date(`${task.dueDate}T00:00:00`);
+              return (
+                <button
+                  key={task.id}
+                  type="button"
+                  onClick={() => openTask(task)}
+                  className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left active:bg-lh-surface-2"
+                >
+                  <span className="w-10 shrink-0 text-center">
+                    <span className="block text-2xs text-lh-text-secondary">{format(d, 'EEEEEE', { locale: dateLocale() })}</span>
+                    <span className="block tabular-nums">{format(d, 'd')}</span>
+                  </span>
+                  <span className="min-w-0 flex-1 break-words text-sm">{task.title}</span>
+                  {task.dueTime && <span className="shrink-0 text-xs text-lh-text-secondary tabular-nums">{task.dueTime}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <TaskEditSheet
         open={sheetOpen}

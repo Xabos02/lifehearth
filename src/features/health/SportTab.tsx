@@ -1,11 +1,10 @@
-import { useMemo, useRef, type ChangeEvent } from 'react';
+import { useMemo, useRef, type ChangeEvent, type ReactNode } from 'react';
 import { format } from 'date-fns';
 import { db } from '../../db/db';
-import { ProgressRing } from '../../components/ui/ProgressRing';
+import { FileUp, Minus } from 'lucide-react';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { GChevronRight as ChevronRight, GEnergy as Activity } from '../../components/ui/glyphs';
+import { GChevronRight as ChevronRight, GEnergy as Activity, GPlus as Plus } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { Haptic } from '../../components/ui/Haptic';
 import { useToast } from '../../components/ui/toastContext';
 import { t, tPlural } from '../../lib/i18n';
@@ -125,78 +124,77 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <section className="card p-4" data-testid="sport-status">
-        <div className="flex items-center gap-4">
-          <ProgressRing value={(week.done / week.goal) * 100} size={64} strokeWidth={6} label={`${week.done}/${week.goal}`} />
-          <div className="min-w-0 flex-1">
-            <p className="text-lg font-light leading-tight tracking-tight">{adviceTitle(advice)}</p>
-            <p className="mt-1 text-sm leading-snug text-lh-text-secondary">{lastLine(last, today)}</p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs text-lh-text-secondary">{t('Цель на неделю')}</p>
+            {/* «1/3» одним текстом: число и цель стоят рядом, e2e читает их
+                вместе, а цель отдельно — по data-testid. */}
+            <p className="text-2xl font-extralight leading-tight tabular-nums">
+              {week.done}
+              <span className="text-lh-text-secondary">/</span>
+              <span data-testid="weekly-goal">{goal}</span>
+              <span className="ml-1.5 text-base text-lh-text-secondary">
+                {tPlural(goal, ['день', 'дня', 'дней'])}
+              </span>
+            </p>
           </div>
-        </div>
-        <div className="mt-3 flex items-center justify-between border-t border-lh-border pt-3">
-          <span className="text-sm text-lh-text-secondary">{t('Цель на неделю')}</span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              aria-label={t('Цель: меньше')}
-              onClick={() => void updateSettings({ workoutWeeklyGoal: Math.max(1, goal - 1) })}
-              className={`flex size-9 items-center justify-center rounded-full border border-lh-border-strong text-lh-text-secondary active:scale-90 ${HIT_SLOP_44}`}
-            >
-              −
+          <div className="flex shrink-0 items-center gap-2">
+            <StepButton label={t('Цель: меньше')} onClick={() => void updateSettings({ workoutWeeklyGoal: Math.max(1, goal - 1) })}>
+              <Minus size={ICON.action} />
               {/* Шаг «−/+» щёлкает (PROTOCOL §6.4); на краю 1–7 шаг ничего не
                   меняет — накладка пропускает тап. */}
               <Haptic off={goal <= 1} />
-            </button>
-            <span className="w-8 text-center text-base font-semibold tabular-nums" data-testid="weekly-goal">
-              {goal}
-            </span>
-            <button
-              type="button"
-              aria-label={t('Цель: больше')}
-              onClick={() => void updateSettings({ workoutWeeklyGoal: Math.min(7, goal + 1) })}
-              className={`flex size-9 items-center justify-center rounded-full border border-lh-border-strong text-lh-text-secondary active:scale-90 ${HIT_SLOP_44}`}
-            >
-              +
+            </StepButton>
+            <StepButton label={t('Цель: больше')} onClick={() => void updateSettings({ workoutWeeklyGoal: Math.min(7, goal + 1) })}>
+              <Plus size={ICON.action} />
               <Haptic off={goal >= 7} />
-            </button>
+            </StepButton>
           </div>
+        </div>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-lh-surface-2" aria-hidden>
+          <div
+            className="h-full rounded-full bg-lh-accent transition-[width] duration-300"
+            style={{ width: `${Math.min(100, (week.done / Math.max(1, week.goal)) * 100)}%` }}
+          />
+        </div>
+        <div className="mt-4 border-t border-lh-border pt-3">
+          <p className="leading-snug">{adviceTitle(advice)}</p>
+          <p className="mt-0.5 text-xs leading-snug text-lh-text-secondary">{lastLine(last, today)}</p>
         </div>
       </section>
 
       <WorkoutCalendar workouts={workouts} selected={selected} onSelect={onSelect} scale={scale} onScale={onScale} />
 
-      <section className="card p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="px-1 lh-section">
+      <section>
+        <div className="mb-2.5 flex items-center justify-between gap-3 px-1">
+          <h2 className="lh-section">
             {selected === today ? t('Сегодня') : format(fromKey(selected), 'd MMMM, EEEE', { locale: dateLocale() })}
           </h2>
           <button
             type="button"
             onClick={() => onAddFor(selected)}
-            className={`text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
+            className="-my-3 min-h-11 text-xs text-lh-accent active:opacity-60"
           >
             {t('+ Тренировка')}
           </button>
         </div>
+        <div className="card">
         {selectedList.length === 0 ? (
-          <p className="px-1 text-sm text-lh-text-secondary">{t('Тренировок не отмечено.')}</p>
+          <p className="px-4 py-3.5 text-sm text-lh-text-secondary">{t('Тренировок не отмечено.')}</p>
         ) : (
-          // Своя обёртка: «последняя строка без линии» считается среди строк,
-          // а не среди всего, что лежит в карточке ниже.
-          <div>
-            {selectedList.map((w) => (
-              <WorkoutRow key={w.id} w={w} onClick={() => onEdit(w)} />
-            ))}
+          <div className="divide-y divide-lh-border">
+            {selectedList.map((w) => <WorkoutRow key={w.id} w={w} onClick={() => onEdit(w)} />)}
           </div>
         )}
         {/* Шаблоны — там же, где день (канва design/sport-templates): чип
             открывает запись на выбранный день уже заполненной. Раньше до них
             было три касания через «Новую тренировку». */}
         {templates && (
-        <div className="mt-3 border-t border-lh-border pt-1" data-testid="day-templates">
+        <div className="border-t border-lh-border px-4 pb-3 pt-1" data-testid="day-templates">
           <div className="flex min-h-11 items-center justify-between">
-            <span className="px-1 text-sm text-lh-text-secondary">{templates.length > 0 ? t('По шаблону') : t('Шаблонов пока нет.')}</span>
+            <span className="text-sm text-lh-text-secondary">{templates.length > 0 ? t('По шаблону') : t('Шаблонов пока нет.')}</span>
             <button type="button" onClick={onTemplates} className="flex min-h-11 items-center gap-0.5 text-sm font-medium text-lh-accent active:opacity-60">
               {t('Шаблоны')}
               <ChevronRight size={ICON.inline} />
@@ -221,66 +219,76 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
           )}
         </div>
         )}
+        </div>
       </section>
 
-      <div className="flex gap-3">
-        <Stat value={String(week.done)} label={t('дней на неделе')} />
+      <section className="grid grid-cols-2 gap-3">
         <Stat value={String(monthSessions)} label={t('тренировок за месяц')} />
         <Stat value={formatHours(month.minutes, t)} label={t('часов за месяц')} />
-      </div>
-      <div className="flex gap-3">
         <Stat value={interval === null ? '—' : interval.toFixed(1).replace('.', ',')} label={t('дней между тренировками')} />
-        <Stat value={String(streak)} label={t('недель подряд с целью')} />
-      </div>
+        <Stat value={String(streak)} label={t('недель подряд с целью')} accent={streak > 0} />
+      </section>
 
       {kinds.length > 0 && (
-        <section className="card p-4">
-          <h2 className="mb-2 px-1 lh-section">{t('За 30 дней по видам')}</h2>
-          {kinds.map((k) => {
-            const kind = resolveKind(k);
-            return (
-              <div key={`${k.type}-${k.customLabel ?? ''}`} className="flex items-center gap-3 py-1.5">
-                <span className="w-20 shrink-0 truncate text-sm font-medium">{k.type === 'custom' ? kind.label : t(kind.label)}</span>
-                <span className="h-2 flex-1 overflow-hidden rounded-full bg-lh-border">
-                  <span
-                    className="block h-full rounded-full"
-                    style={{
-                      width: `${Math.max(4, maxKindMinutes > 0 ? (k.minutes / maxKindMinutes) * 100 : (k.count / maxKindCount) * 100)}%`,
-                      background: kind.color,
-                    }}
-                  />
-                </span>
-                <span className="shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-lh-text-secondary">
-                  {/* Вид без времени (одни упражнения) — числом занятий, а не «0 мин». */}
-                  {k.minutes > 0 ? formatMinutes(k.minutes, t) : `${k.count} ${tPlural(k.count, ['раз', 'раза', 'раз'])}`}
-                  {kind.hasDistance && k.distanceKm > 0 ? ` · ${formatKm(k.distanceKm)}` : ''}
-                </span>
-              </div>
-            );
-          })}
+        <section>
+          <h2 className="mb-2.5 px-1 lh-section">{t('За 30 дней по видам')}</h2>
+          <div className="card space-y-3.5 p-4">
+            {kinds.map((k) => {
+              const kind = resolveKind(k);
+              return (
+                <div key={`${k.type}-${k.customLabel ?? ''}`}>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate">{k.type === 'custom' ? kind.label : t(kind.label)}</span>
+                    <span className="shrink-0 tabular-nums text-lh-text-secondary">
+                      {/* Вид без времени (одни упражнения) — числом занятий, а не
+                          «0 мин»; первое число — минуты, по ним и полоса. */}
+                      {k.minutes > 0 ? formatMinutes(k.minutes, t) : `${k.count} ${tPlural(k.count, ['раз', 'раза', 'раз'])}`}
+                      {kind.hasDistance && k.distanceKm > 0 ? ` · ${formatKm(k.distanceKm)}` : ''}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-lh-surface-2">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.max(4, maxKindMinutes > 0 ? (k.minutes / maxKindMinutes) * 100 : (k.count / maxKindCount) * 100)}%`,
+                        background: kind.color,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 
-      <section className="card p-4">
-        <h2 className="mb-2 px-1 lh-section">{t('Недавние')}</h2>
+      <section>
+        <h2 className="mb-2.5 px-1 lh-section">{t('Недавние')}</h2>
         {recent.length === 0 ? (
-          <EmptyState icon={Activity} title={t('Пока пусто')} hint={t('Нажмите «+», чтобы отметить тренировку.')} />
+          <div className="card">
+            <EmptyState icon={Activity} title={t('Пока пусто')} hint={t('Нажмите «+», чтобы отметить тренировку.')} />
+          </div>
         ) : (
-          recent.map((w) => <WorkoutRow key={w.id} w={w} onClick={() => onEdit(w)} withDate />)
+          <div className="card divide-y divide-lh-border">
+            {recent.map((w) => <WorkoutRow key={w.id} w={w} onClick={() => onEdit(w)} withDate />)}
+          </div>
         )}
       </section>
 
-      <section className="card p-4">
-        <h2 className="mb-1 px-1 lh-section">{t('Из других приложений')}</h2>
-        <p className="px-1 text-xs leading-snug text-lh-text-secondary">
-          {t('Apple Health веб-приложению закрыт, а Strava пускает к данным только по платной подписке. Зато файл выгрузки есть у всех: подойдёт activities.csv из Strava, выгрузка Garmin или своя таблица с датой, видом и минутами.')}
-        </p>
+      <section className="card">
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          className="mt-3 w-full rounded-xl bg-lh-surface-2 px-4 py-3 text-center font-semibold active:opacity-80"
+          className="flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-80"
         >
-          {t('Импорт из CSV')}
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-text-secondary">
+            <FileUp size={ICON.header} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block">{t('Из других приложений')}</span>
+            <span className="block text-xs text-lh-text-secondary">{t('Импорт из CSV — Strava, Garmin или своя таблица')}</span>
+          </span>
+          <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
         </button>
         <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => void importCsv(e)} data-testid="workout-csv" />
       </section>
@@ -288,11 +296,24 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
+function StepButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
   return (
-    <div className="flex-1 rounded-2xl bg-lh-surface-2 p-3 text-center">
-      <p className="text-lg font-light leading-tight tabular-nums">{value}</p>
-      <p className="mt-0.5 text-xs leading-snug text-lh-text-secondary">{label}</p>
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className="flex size-11 items-center justify-center rounded-full border border-lh-border-strong text-lh-text-secondary active:scale-95"
+    >
+      {children}
+    </button>
+  );
+}
+
+function Stat({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
+  return (
+    <div className="card min-w-0 p-4">
+      <p className={`text-2xl font-extralight leading-none tabular-nums ${accent ? 'text-lh-accent' : ''}`}>{value}</p>
+      <p className="mt-2 text-xs leading-snug text-lh-text-secondary">{label}</p>
     </div>
   );
 }
@@ -317,11 +338,13 @@ function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () 
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 border-b border-lh-border py-2.5 text-left last:border-b-0 active:opacity-70"
+      className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-70"
     >
-      <span className="size-2.5 shrink-0 rounded-full" style={{ background: kind.color }} aria-hidden />
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2" aria-hidden>
+        <span className="size-2.5 rounded-full" style={{ background: kind.color }} />
+      </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{w.type === 'custom' ? kind.label : t(kind.label)}</span>
+        <span className="block truncate">{w.type === 'custom' ? kind.label : t(kind.label)}</span>
         {sub && <span className="block truncate text-xs text-lh-text-secondary">{sub}</span>}
       </span>
       <span className="shrink-0 text-right text-sm tabular-nums">
@@ -332,4 +355,3 @@ function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () 
     </button>
   );
 }
-

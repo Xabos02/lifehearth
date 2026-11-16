@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { PiggyBank } from 'lucide-react';
 import {
-  GCheck as Check,
   GPlus as Plus,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, now, update } from '../../db/repo';
 import type { SavingsDeposit, SavingsGoal } from '../../db/types';
-import { formatRub, wrapRub } from '../../lib/finance';
+import { wrapRub } from '../../lib/finance';
 import { goalSaved, isReached, monthlyNeeded, progressPct, remaining } from '../../lib/savings';
 import { todayKey } from '../../lib/dates';
 import { SavingsGoalSheet } from './SavingsGoalSheet';
@@ -51,101 +50,69 @@ function GoalCard({
           onEdit();
         }
       }}
-      className="card p-4 active:opacity-90"
+      className="px-4 py-4 active:opacity-90"
     >
-      <div className="mb-3.5 flex items-center gap-2.5">
-        <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-xl text-lg leading-none"
-          style={{ background: `color-mix(in oklch, ${goal.color} 16%, transparent)` }}
-        >
-          {goal.emoji}
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="min-w-0 flex-1 truncate">
+          {goal.emoji && <span className="mr-1.5" aria-hidden>{goal.emoji}</span>}
+          {goal.title}
         </span>
-        <span className="min-w-0 flex-1 truncate font-semibold">{goal.title}</span>
-        {/* Процент — цветом текста, не цели: пастельные цвета палитры на
-            светлой карточке давали 1,5–2,8 против нормы 4,5. Цвет несёт кольцо
-            и полоса, числу он не нужен. */}
-        <span className="shrink-0 font-semibold tracking-tight">{Math.round(pct)}%</span>
+        {/* Процент — цветом текста, не цели: пастельные цвета палитры не
+            держали 4.5. Цвет несёт полоса, числу он не нужен. */}
+        <span className="shrink-0 text-xs tabular-nums text-lh-text-secondary">{Math.round(pct)}%</span>
       </div>
 
-      <div className="h-2.5 overflow-hidden rounded-full bg-lh-surface-2">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-lh-surface-2">
         <div
-          className="h-full rounded-full transition-[width] duration-300"
-          style={{
-            width: `${pct}%`,
-            background: reached
-              ? 'var(--app-success)'
-              : goal.color,
-          }}
+          className={`h-full rounded-full transition-[width] duration-300 ${reached ? 'bg-success' : 'bg-lh-accent'}`}
+          style={{ width: `${pct}%` }}
         />
       </div>
 
-      {/* До 380px значение и цель стоят в столбик: в строку они физически не
-          влезают — на 320px внутри карточки 250px против 135 + 8 + 132 = 275,
-          и хвост правого блока молча срезался .card{overflow:hidden}. Обрезался
-          именно знак валюты («цель 3 500 00» вместо «цель 3 500 000 ₽») — это
-          уже другое сообщение, а не косметика.
-          min-w-0 + wrapRub — страховка для широкой раскладки: без min-w-0
-          flex-элемент не сожмётся ниже min-content своей суммы, а без обычных
-          пробелов сумма остаётся монолитом и переносить её некуда. С ними
-          длинные суммы переносятся по разрядам вместо тихой обрезки. */}
-      <div className="mt-3 flex flex-col gap-0.5 min-[380px]:flex-row min-[380px]:items-baseline min-[380px]:justify-between min-[380px]:gap-2">
-        <span className="min-w-0 text-lg font-light tabular-nums tracking-tight">
-          {wrapRub(saved)}
-        </span>
-        <span className="min-w-0 text-sm text-lh-text-secondary tabular-nums">
-          {t('цель')} {wrapRub(goal.targetAmount)}
-        </span>
-      </div>
-
-      <div className="mt-2.5 flex items-center justify-between gap-3">
+      {/* Одна переносимая строка: «X из Y ₽ · по N/мес». wrapRub даёт точки
+          переноса — на 320px сумма с NBSP была монолитом, и хвост («₽»)
+          молча срезался .card{overflow:hidden}. */}
+      <p className="mt-2 min-w-0 text-xs tabular-nums text-lh-text-secondary">
         {reached ? (
-          <span className="flex items-center gap-1.5 text-sm font-semibold text-success">
-            <Check size={ICON.action} /> {t('Цель достигнута')}
-          </span>
+          <span className="font-semibold text-success">{t('Цель достигнута')} · {wrapRub(saved)}</span>
         ) : (
-          // Та же болезнь в узком боксе: рядом стоит shrink-0-кнопка, строке
-          // остаётся ~131px на 320px, а «1 041 667 ₽/мес» с неразрывными
-          // пробелами — неразбиваемый кусок под 120px. Обычные пробелы дают
-          // строке точки переноса, иначе хвост уходит под overflow:hidden.
-          <span className="min-w-0 text-sm text-lh-text-secondary">
-            {/* Порядок слов различается («осталось X» / «X left») — ветка, не словарь. */}
-            {getLang() === 'en' ? (
-              <>
-                <b className="text-lh-text-primary tabular-nums">{wrapRub(rem)}</b> left
-              </>
-            ) : (
-              <>
-                осталось <b className="text-lh-text-primary tabular-nums">{wrapRub(rem)}</b>
-              </>
-            )}
-            {monthly ? ` · ${t('по {sum}/мес', { sum: wrapRub(monthly) })}` : ''}
-          </span>
+          <>
+            {t('{done} из {total}', {
+              done: wrapRub(saved).replace(/\s?₽$/, ''),
+              total: wrapRub(goal.targetAmount),
+            })}
+            {monthly
+              ? ` · ${t('по {sum}/мес', { sum: wrapRub(monthly) })}`
+              : ` · ${getLang() === 'en' ? `${wrapRub(rem)} left` : `осталось ${wrapRub(rem)}`}`}
+          </>
         )}
-        {reached ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClaim();
-            }}
-            className="shrink-0 rounded-xl bg-lh-surface-2 px-4 py-2.5 text-sm font-semibold active:opacity-70"
-          >
-            {t('Забрать')}
-          </button>
-        ) : (
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {!reached && (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onDeposit();
             }}
-            // Тон цели подложкой, а не заливкой под белый текст: белое ни на
-            // одном из восьми цветов палитры не читалось (1,5–2,8). Высота
-            // py-2.5 — 44px касания.
-            className="shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold text-lh-text-primary active:opacity-80"
-            style={{ background: `color-mix(in oklab, ${goal.color} 26%, transparent)` }}
+            className="h-11 rounded-xl bg-lh-surface-2 px-4 text-sm text-lh-accent active:opacity-70"
           >
             {t('Пополнить')}
+          </button>
+        )}
+        {(reached || saved > 0) && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClaim();
+            }}
+            className={`h-11 rounded-xl px-4 text-sm active:opacity-70 ${
+              reached ? 'bg-lh-surface-2 font-semibold text-lh-text-primary' : 'text-lh-text-secondary'
+            }`}
+          >
+            {t('Забрать')}
           </button>
         )}
       </div>
@@ -194,39 +161,49 @@ export function SavingsSection() {
 
   return (
     <section>
-      <div className="mb-2 flex items-end justify-between gap-2 px-1">
-        <h2 className="flex items-center gap-1.5 px-1 lh-section">
-          <PiggyBank size={ICON.inline} className="shrink-0" />
-          {t('Накопления')}
-        </h2>
-        {goals.length > 0 && (
-          <div className="text-right">
-            <p className="text-2xs font-medium text-lh-text-secondary">{t('Всего накоплено')}</p>
-            <p className="font-bold tabular-nums tracking-tight">{formatRub(total)}</p>
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-3">
-        {goals.map((g) => (
-          <GoalCard
-            key={g.id}
-            goal={g}
-            deposits={deposits}
-            onEdit={() => openEdit(g)}
-            onDeposit={() => setDepositGoal(g)}
-            onClaim={() => claim(g)}
-          />
-        ))}
-
+      <div className="mb-2.5 flex items-center justify-between gap-3 px-1">
+        <h2 className="lh-section">{t('Накопления')}</h2>
         <button
           type="button"
           onClick={openNew}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-lh-border-strong py-3.5 text-sm font-semibold text-lh-text-secondary active:opacity-70"
+          className="-my-3 inline-flex min-h-11 items-center gap-1 text-xs text-lh-accent active:opacity-70"
         >
-          <Plus size={ICON.action} /> {goals.length === 0 ? t('Цель накопления') : t('Новая цель')}
+          <Plus size={ICON.inline} />
+          {goals.length === 0 ? t('Цель накопления') : t('Новая цель')}
         </button>
       </div>
+
+      {goals.length > 0 ? (
+        <div className="card divide-y divide-lh-border">
+          <div className="px-4 py-4">
+            <p className="text-xs text-lh-text-secondary">{t('Всего накоплено')}</p>
+            <p className="mt-0.5 text-2xl font-extralight tabular-nums tracking-tight">{wrapRub(total)}</p>
+          </div>
+          {goals.map((g) => (
+            <GoalCard
+              key={g.id}
+              goal={g}
+              deposits={deposits}
+              onEdit={() => openEdit(g)}
+              onDeposit={() => setDepositGoal(g)}
+              onClaim={() => claim(g)}
+            />
+          ))}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={openNew}
+          className="card flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-80"
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
+            <PiggyBank size={ICON.base} />
+          </span>
+          <span className="min-w-0 flex-1 text-sm text-lh-text-secondary">
+            {t('Отложите на подушку, отпуск или крупную покупку — прогресс будет виден здесь.')}
+          </span>
+        </button>
+      )}
 
       <SavingsGoalSheet open={goalSheet} onClose={() => setGoalSheet(false)} goal={editingGoal} />
       <DepositSheet

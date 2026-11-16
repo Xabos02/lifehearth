@@ -1,18 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { GChevronDown as ChevronDown, GPause as Pause, GPlay as Play, GRepeat as RotateCcw } from '../../components/ui/glyphs';
-import { SkipForward } from 'lucide-react';
+import { GPause as Pause, GPlay as Play, GRepeat as RotateCcw, GSun as Sun } from '../../components/ui/glyphs';
+import { Minimize2, SkipForward } from 'lucide-react';
 import { ICON } from '../../components/ui/icons';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
 import { formatClock, usePomodoro } from './pomodoro';
 
-const R = 130;
-const STROKE = 10;
-const CIRC = 2 * Math.PI * R;
-
 const PHASE_LABEL = { work: 'Фокус', break: 'Перерыв', long: 'Длинный перерыв' } as const;
 
-/** Режим на весь экран: только время, круг и кнопки на тёмном фоне — как
+/** Режим на весь экран: только время, полоса прогресса и кнопки на тёмном фоне — как
  *  «На весь экран» в Focus To-Do. Пока круг идёт, экран не гаснет (Wake Lock;
  *  в Safari с 16.4 работает и в установленном приложении). */
 export function FocusFullscreen({ onClose }: { onClose: () => void }) {
@@ -58,63 +53,65 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
 
   const isWork = p.phase === 'work';
   const color = isWork ? 'var(--focus-accent)' : 'var(--app-success)';
-  const frac = p.totalMs > 0 ? 1 - p.remainingMs / p.totalMs : 0;
+  const frac = p.totalMs > 0 ? Math.min(1, Math.max(0, 1 - p.remainingMs / p.totalMs)) : 0;
+  const elapsedMs = Math.max(0, p.totalMs - p.remainingMs);
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex flex-col items-center justify-between px-6 pb-12 pt-[calc(env(safe-area-inset-top)+16px)] text-lh-text-primary"
-      style={{ background: 'radial-gradient(80% 50% at 50% 0%, oklch(0.26 0.06 290), oklch(0.12 0.01 283) 70%)' }}
+      className="fixed inset-0 z-[70] flex flex-col bg-lh-bg px-2 pb-[calc(env(safe-area-inset-bottom)+40px)] pt-[env(safe-area-inset-top)] text-lh-text-primary"
       data-testid="focus-fullscreen"
     >
-      <div className="flex w-full items-center">
+      <div className="flex items-center justify-between">
         <button
           type="button"
-          aria-label={t('Свернуть')}
           onClick={onClose}
-          className={`flex size-11 items-center justify-center rounded-full text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
+          className="flex h-11 items-center gap-2 px-2 text-base text-lh-accent active:opacity-60"
         >
-          <ChevronDown size={ICON.accent} />
+          <Minimize2 size={ICON.action} /> {t('Свернуть')}
         </button>
+        <span className="mr-2 flex h-8 items-center gap-2 rounded-full border border-lh-border bg-lh-surface px-3 text-xs text-lh-text-secondary">
+          <span className="size-1.5 rounded-full" style={{ background: color }} />
+          {t(PHASE_LABEL[p.phase])}
+        </span>
       </div>
 
-      <div className="text-center">
-        <p className="text-sm font-semibold" style={{ color }}>
-          {t(PHASE_LABEL[p.phase])} · {t('Круг {n} из {total}', { n: String(Math.min(p.cycle.done + 1, p.cycle.total)), total: String(p.cycle.total) })}
+      <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+        <p className="text-xs tabular-nums text-lh-text-secondary">
+          {t('Круг {n} из {total}', { n: String(Math.min(p.cycle.done + 1, p.cycle.total)), total: String(p.cycle.total) })}
         </p>
-        {p.taskTitle && <p className="mt-1.5 max-w-[80vw] truncate text-base">{p.taskTitle}</p>}
-      </div>
-
-      <div className="relative">
-        <svg viewBox="0 0 300 300" className="w-[300px] max-w-[80vw]">
-          <circle cx="150" cy="150" r={R} fill="none" stroke="oklch(1 0 0 / 0.1)" strokeWidth={STROKE} />
-          <circle
-            cx="150"
-            cy="150"
-            r={R}
-            fill="none"
-            stroke={color}
-            strokeWidth={STROKE}
-            strokeLinecap="round"
-            strokeDasharray={CIRC}
-            strokeDashoffset={CIRC * (1 - frac)}
-            transform="rotate(-90 150 150)"
-            style={{ transition: p.running ? 'stroke-dashoffset 0.5s linear' : 'none' }}
+        <span
+          className="mt-4 text-[72px] font-light leading-none tabular-nums tracking-tight"
+          data-testid="fullscreen-clock"
+        >
+          {formatClock(p.remainingMs)}
+        </span>
+        <div
+          className="mt-8 h-[3px] w-[260px] max-w-full overflow-hidden rounded-full bg-lh-surface-2"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(frac * 100)}
+          aria-label={t('Прогресс круга')}
+        >
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${frac * 100}%`, background: color, transition: p.running ? 'width 0.5s linear' : 'none' }}
           />
-        </svg>
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="text-[72px] font-light tabular-nums tracking-tight" data-testid="fullscreen-clock">
-            {formatClock(p.remainingMs)}
-          </span>
         </div>
+        <div className="mt-3 flex w-[260px] max-w-full justify-between text-xs tabular-nums text-lh-text-secondary">
+          <span>{t('прошло {time}', { time: formatClock(elapsedMs) })}</span>
+          <span>{t('из {time}', { time: formatClock(p.totalMs) })}</span>
+        </div>
+        {p.taskTitle && <p className="mt-10 line-clamp-2 max-w-[300px] text-base leading-snug">{p.taskTitle}</p>}
       </div>
 
-      <div className="flex flex-col items-center gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col items-center">
+        <div className="flex items-center gap-8">
           <button
             type="button"
             onClick={p.reset}
             aria-label={t('Сбросить')}
-            className="flex size-12 items-center justify-center rounded-full border border-white/15 text-lh-text-secondary active:scale-90"
+            className="flex size-14 items-center justify-center rounded-full border border-lh-border bg-lh-surface text-lh-text-primary active:scale-90"
           >
             <RotateCcw size={ICON.header} />
           </button>
@@ -132,12 +129,14 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
             onClick={p.skip}
             disabled={!p.active}
             aria-label={isWork ? t('Завершить круг') : t('Пропустить перерыв')}
-            className="flex size-12 items-center justify-center rounded-full border border-white/15 text-lh-text-secondary active:scale-90 disabled:opacity-40"
+            className="flex size-14 items-center justify-center rounded-full border border-lh-border bg-lh-surface text-lh-text-primary active:scale-90 disabled:opacity-40"
           >
             <SkipForward size={ICON.header} />
           </button>
         </div>
-        <p className="text-xs text-lh-text-secondary">{t('Экран не гаснет, пока идёт круг')}</p>
+        <p className="mt-8 flex items-center gap-2 text-xs text-lh-text-secondary">
+          <Sun size={ICON.inline} /> {t('Экран не гаснет, пока идёт круг')}
+        </p>
       </div>
     </div>
   );

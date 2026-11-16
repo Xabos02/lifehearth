@@ -24,38 +24,51 @@ export function EnergyJournal({ byDate }: Props) {
 
   return (
     <section>
-      <h2 className="mb-2 flex items-center justify-between px-1 lh-section">
-        <span>{t('Последние две недели')}</span>
-        <span className="text-xs font-normal">
-          {t('{done} из {total}', { done: marked, total: JOURNAL_DAYS })}
-        </span>
-      </h2>
-      <div className="card grid grid-cols-7 gap-1 p-3">
-        {days.map((date) => {
-          const level = byDate.get(date) ?? null;
-          const isToday = date === today;
-          return (
-            <button
-              key={date}
-              type="button"
-              aria-label={`${formatRu(date)} — ${level ? t(ENERGY_LABEL[level]) : t('нет отметки')}`}
-              onClick={() => setEditing(date)}
-              className="flex min-h-11 min-w-11 flex-1 flex-col items-center gap-1 py-1 active:opacity-70"
-            >
-              <span
-                aria-hidden
-                className={`flex size-8 items-center justify-center rounded-full text-sm font-semibold ${
-                  level
-                    ? 'bg-lh-accent text-lh-bg'
-                    : 'border border-dashed border-lh-border'
-                } ${isToday ? 'ring-2 ring-lh-accent ring-offset-2 ring-offset-lh-surface' : ''}`}
+      <div className="mb-1 flex items-center justify-between gap-2 px-1">
+        <h2 className="lh-section">{t('Последние две недели')}</h2>
+        <button
+          type="button"
+          onClick={() => setEditing(today)}
+          className="-mr-1 flex h-11 items-center px-1 text-sm text-lh-accent active:opacity-60"
+        >
+          {t('Отметить сегодня')}
+        </button>
+      </div>
+      <div className="card p-3">
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((date, i) => {
+            const level = byDate.get(date) ?? null;
+            const isToday = date === today;
+            return (
+              <button
+                key={date}
+                type="button"
+                aria-label={`${formatRu(date)} — ${level ? t(ENERGY_LABEL[level]) : t('нет отметки')}`}
+                onClick={() => setEditing(date)}
+                className="flex min-h-11 min-w-11 flex-col items-center gap-1 px-1 pt-1 active:opacity-70"
               >
-                {level ?? ''}
-              </span>
-              <span className="text-2xs text-lh-text-secondary">{formatRu(date, 'd')}</span>
-            </button>
-          );
-        })}
+                <span aria-hidden className="flex h-10 w-full items-end">
+                  <span
+                    className={`w-full rounded-sm ${
+                      level ? `bg-lh-accent ${i < 7 ? 'opacity-60' : ''}` : 'bg-lh-surface-2'
+                    } ${isToday ? 'ring-1 ring-lh-accent' : ''}`}
+                    style={{ height: level ? `${(level / 5) * 100}%` : 4 }}
+                  />
+                </span>
+                <span
+                  className={`text-2xs tabular-nums ${
+                    isToday ? 'font-semibold text-lh-accent' : 'text-lh-text-secondary'
+                  }`}
+                >
+                  {formatRu(date, 'd')}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 px-1 text-2xs text-lh-text-secondary">
+          {t('{done} из {total}', { done: marked, total: JOURNAL_DAYS })}
+        </p>
       </div>
       <EnergyLevelSheet
         open={editing !== null}
