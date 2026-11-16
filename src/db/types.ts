@@ -539,6 +539,9 @@ export interface Settings {
   /** Цель по тренировкам в неделю (раздел «Здоровье»). undefined = 3 —
    *  ритм «через день», с которого начал владелец. Device-local, как тема. */
   workoutWeeklyGoal?: number;
+  /** Цвет отметки тренировки — значение из WORKOUT_COLORS (features/health/
+   *  workouts.ts). undefined = зелёный. Device-local, как тема. */
+  workoutColor?: string;
   /** Версия, список изменений которой человек уже видел. Отсутствует у тех,
    *  кто пользовался приложением до появления окна «что нового». */
   lastSeenVersion?: string;

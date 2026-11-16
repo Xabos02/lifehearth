@@ -12,7 +12,7 @@ import { t, tPlural } from '../../lib/i18n';
 import { addDaysKey, dateLocale, fromKey, todayKey } from '../../lib/dates';
 import { updateSettings, useSettings } from '../../hooks/useSettings';
 import type { Workout, WorkoutTemplate } from '../../db/types';
-import { DEFAULT_WEEKLY_GOAL, EFFORT_LABELS, PACE_TYPES, resolveKind } from './workouts';
+import { DEFAULT_WEEKLY_GOAL, EFFORT_LABELS, PACE_TYPES, resolveKind, workoutColor } from './workouts';
 import {
   avgIntervalDays,
   byType,
@@ -53,6 +53,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
   const today = todayKey();
   const settings = useSettings();
   const goal = settings.workoutWeeklyGoal ?? DEFAULT_WEEKLY_GOAL;
+  const color = workoutColor(settings.workoutColor);
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const templates = useTemplates();
@@ -186,7 +187,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
           // а не среди всего, что лежит в карточке ниже.
           <div>
             {selectedList.map((w) => (
-              <WorkoutRow key={w.id} w={w} onClick={() => onEdit(w)} />
+              <WorkoutRow key={w.id} w={w} color={color} onClick={() => onEdit(w)} />
             ))}
           </div>
         )}
@@ -246,7 +247,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
                     className="block h-full rounded-full"
                     style={{
                       width: `${Math.max(4, maxKindMinutes > 0 ? (k.minutes / maxKindMinutes) * 100 : (k.count / maxKindCount) * 100)}%`,
-                      background: kind.color,
+                      background: color,
                     }}
                   />
                 </span>
@@ -266,7 +267,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
         {recent.length === 0 ? (
           <EmptyState icon={Activity} title={t('Пока пусто')} hint={t('Нажмите «+», чтобы отметить тренировку.')} />
         ) : (
-          recent.map((w) => <WorkoutRow key={w.id} w={w} onClick={() => onEdit(w)} withDate />)
+          recent.map((w) => <WorkoutRow key={w.id} w={w} color={color} onClick={() => onEdit(w)} withDate />)
         )}
       </section>
 
@@ -297,7 +298,7 @@ function Stat({ value, label }: { value: string; label: string }) {
   );
 }
 
-function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () => void; withDate?: boolean }) {
+function WorkoutRow({ w, color, onClick, withDate = false }: { w: Workout; color: string; onClick: () => void; withDate?: boolean }) {
   const kind = resolveKind(w);
   const effort = EFFORT_LABELS.find((e) => e.value === w.effort)?.label;
   // Темп для бега и ходьбы: прогресс на 3–5 км — это темп, а не минуты.
@@ -319,7 +320,7 @@ function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () 
       onClick={onClick}
       className="flex w-full items-center gap-3 border-b border-lh-border py-2.5 text-left last:border-b-0 active:opacity-70"
     >
-      <span className="size-2.5 shrink-0 rounded-full" style={{ background: kind.color }} aria-hidden />
+      <span className="size-2.5 shrink-0 rounded-full" style={{ background: color }} aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{w.type === 'custom' ? kind.label : t(kind.label)}</span>
         {sub && <span className="block truncate text-xs text-lh-text-secondary">{sub}</span>}

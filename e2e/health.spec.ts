@@ -213,13 +213,43 @@ test('виды занятия — в порядке ввода: в карточ�
     await expect(rows).toHaveCount(4);
     expect((await rows.allInnerTexts()).map((s) => s.split('\n')[0])).toEqual(order);
   }
-  // Точки дня в ленте — первые три вида, тоже по вводу: бег, силовая, растяжка.
+  // Точка дня в ленте — одна на день и цвета отметки, а не по точке на вид
+  // (до 16.11.2026 их было три: бег, силовая, растяжка — каждая своим цветом).
   const dots = page.getByTestId('workout-week').locator('button').last().locator('span.rounded-full');
   expect(await dots.evaluateAll((els) => els.map((e) => (e as HTMLElement).style.background))).toEqual([
-    'var(--lh-accent)',
-    'var(--focus-accent)',
-    'var(--app-accent-2)',
+    'var(--app-success)',
   ]);
+});
+
+test('цвет отметки: по умолчанию зелёный, выбранный перекрашивает точки и переживает перезагрузку', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-16T12:00:00'));
+  await openApp(page, '/more/health');
+  await seedWorkout(page, '2026-09-15');
+  await page.getByRole('button', { name: 'Месяц' }).click();
+  // Один цвет на все места с точкой: ячейка месяца и строка «Недавних».
+  const cellDot = page
+    .getByTestId('workout-month')
+    .getByRole('button', { name: /^15 сентября 2026, тренировок: 1/ })
+    .locator('.rounded-full');
+  const rowDot = page
+    .locator('section', { has: page.getByRole('heading', { name: 'Недавние', exact: true }) })
+    .getByRole('button', { name: /^Гири/ })
+    .locator('.rounded-full');
+  const colors = async () => [
+    await cellDot.evaluate((e) => (e as HTMLElement).style.background),
+    await rowDot.evaluate((e) => (e as HTMLElement).style.background),
+  ];
+  await expect.poll(colors).toEqual(['var(--app-success)', 'var(--app-success)']);
+
+  await page.getByRole('button', { name: 'Цвет отметки' }).click();
+  await expect(page.getByRole('radio', { name: 'Зелёный' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Голубой' }).click();
+  await expect(page.getByRole('radio', { name: 'Голубой' })).toHaveAttribute('aria-checked', 'true');
+  await expect.poll(colors).toEqual(['var(--app-frost)', 'var(--app-frost)']);
+
+  await page.reload();
+  await page.getByRole('button', { name: 'Месяц' }).click();
+  await expect.poll(colors).toEqual(['var(--app-frost)', 'var(--app-frost)']);
 });
 
 test('числа в форме: «30.5» минут — 31, а не 305; у км предел, лишний разделитель не стирает км', async ({ page }) => {

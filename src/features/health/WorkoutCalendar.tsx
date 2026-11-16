@@ -7,7 +7,9 @@ import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
 import { WEEKDAY_LABELS, addDaysKey, dateLocale, fromKey, monthGridKeys, todayKey, toKey } from '../../lib/dates';
 import type { Workout } from '../../db/types';
-import { resolveKind } from './workouts';
+import { workoutColor } from './workouts';
+import { useSettings } from '../../hooks/useSettings';
+import { WorkoutColorSheet } from './WorkoutColorSheet';
 import { sessionCount } from './workoutStats';
 import { playTick, unlockTick } from './tick';
 
@@ -24,13 +26,16 @@ interface Props {
 }
 
 /** Спортивный календарь: дни барабаном или месяц сеткой, масштаб
- *  переключается. Точка под числом — вид тренировки своим цветом;
- *  занятие из нескольких видов даёт несколько точек, а считается одним. Владелец: «горизонтальный мини-календарь с возможностью
+ *  переключается. Точка под числом — день с тренировкой, одна на день и одного
+ *  цвета, который человек выбирает сам (WORKOUT_COLORS; до 16.11.2026 точек
+ *  было до трёх — по цвету вида). Владелец: «горизонтальный мини-календарь с возможностью
  *  менять масштаб, месячный, недельный». С 22.10.2026 (задача 38) вместо
  *  недели Пн–Вс — барабан, как колесо будильника iOS: «крутить пальцем, там
  *  есть и звук, и характерное пролистывание». Канва design/sport-exercises (А). */
 export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }: Props) {
   const today = todayKey();
+  const color = workoutColor(useSettings().workoutColor);
+  const [colorOpen, setColorOpen] = useState(false);
   // Опорный день месяца. Стартует с выбранного, а не с сегодня: после «Спорт →
   // Замеры → Спорт» календарь перемонтируется и должен показать месяц
   // выбранного дня.
@@ -65,12 +70,6 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
   // В барабане заголовок — месяц выбранного дня: недели как рамки больше нет.
   const label = scale === 'week' ? format(fromKey(selected), 'LLLL yyyy', { locale: dateLocale() }) : month.label;
   const title = label.charAt(0).toUpperCase() + label.slice(1);
-
-  const dots = (key: string) => {
-    const list = byDay.get(key) ?? [];
-    // Не больше трёх точек: четвёртая уже не читается на 40px.
-    return list.slice(0, 3).map((w) => resolveKind(w).color);
-  };
 
   // Свайп пальцем влево/вправо в месячной сетке — на месяц, как в Apple
   // Fitness. preventDefault не зовём: вертикальная прокрутка страницы через
@@ -129,7 +128,7 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
       </div>
 
       {scale === 'week' ? (
-        <DayWheel byDay={byDay} selected={selected} today={today} onSelect={onSelect} />
+        <DayWheel byDay={byDay} selected={selected} today={today} color={color} onSelect={onSelect} />
       ) : (
         <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <div className="grid grid-cols-7" data-testid="workout-month">
@@ -143,7 +142,7 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
                 key={d.key}
                 dateKey={d.key}
                 day={format(fromKey(d.key), 'd')}
-                dots={dots(d.key)}
+                dot={byDay.has(d.key) ? color : null}
                 isToday={d.key === today}
                 isSelected={d.key === selected}
                 muted={!d.inMonth}
@@ -162,9 +161,22 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
         </div>
       )}
 
-      {/* Узкий, справа: во всю ширину он читался как вторые вкладки экрана
-          под «Спорт | Замеры» и как переключатель того, что ниже него. */}
-      <div className="mt-3 flex justify-end">
+      {/* Масштаб — узкий, справа: во всю ширину он читался как вторые вкладки
+          экрана под «Спорт | Замеры» и как переключатель того, что ниже него.
+          Слева от него — цвет отметки: рядом с точками, которые он
+          перекрашивает, и на месте, которое было пустым, — карточка не растёт
+          (канва design/sport-color, выбран Б). */}
+      <div className="mt-3 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setColorOpen(true)}
+          aria-label={t('Цвет отметки')}
+          className="flex min-h-11 items-center gap-2 text-sm font-medium text-lh-text-secondary active:opacity-70"
+        >
+          <span className="size-3 rounded-full" style={{ background: color }} aria-hidden />
+          {t('Цвет')}
+        </button>
+        <WorkoutColorSheet open={colorOpen} onClose={() => setColorOpen(false)} />
         <div className="w-40">
           <SegmentedControl<Scale>
             options={[
@@ -186,7 +198,7 @@ export function WorkoutCalendar({ workouts, selected, onSelect, scale, onScale }
 function DayCell({
   dateKey,
   day,
-  dots,
+  dot,
   isToday,
   isSelected,
   muted,
@@ -196,7 +208,8 @@ function DayCell({
 }: {
   dateKey: string;
   day: string;
-  dots: string[];
+  /** Цвет точки тренировки; null — тренировок в этот день нет. */
+  dot: string | null;
   isToday: boolean;
   isSelected: boolean;
   muted: boolean;
@@ -224,10 +237,8 @@ function DayCell({
       } ${isToday && !isSelected ? 'ring-1 ring-lh-accent' : ''}`}
     >
       <span>{day}</span>
-      <span className="flex h-1.5 items-center gap-0.5" aria-hidden>
-        {dots.map((c, i) => (
-          <span key={i} className="size-1.5 rounded-full" style={{ background: isSelected ? 'white' : c }} />
-        ))}
+      <span className="flex h-1.5 items-center" aria-hidden>
+        {dot && <span className="size-1.5 rounded-full" style={{ background: isSelected ? 'white' : dot }} />}
       </span>
     </button>
   );
@@ -241,7 +252,6 @@ const WHEEL_BACK = 120;
 
 interface WheelInfo {
   key: string;
-  dots: string[];
   count: number;
 }
 
@@ -254,11 +264,13 @@ function DayWheel({
   byDay,
   selected,
   today,
+  color,
   onSelect,
 }: {
   byDay: Map<string, Workout[]>;
   selected: string;
   today: string;
+  color: string;
   onSelect: (key: string) => void;
 }) {
   const first = useMemo(() => {
@@ -269,9 +281,7 @@ function DayWheel({
   const info = useMemo(() => {
     const out: WheelInfo[] = [];
     for (let key = first; key <= today; key = addDaysKey(key, 1)) {
-      const list = byDay.get(key) ?? [];
-      // Не больше трёх точек: четвёртая уже не читается.
-      out.push({ key, dots: list.slice(0, 3).map((w) => resolveKind(w).color), count: sessionCount(list, key, key) });
+      out.push({ key, count: sessionCount(byDay.get(key) ?? [], key, key) });
     }
     return out;
   }, [first, today, byDay]);
@@ -463,7 +473,7 @@ function DayWheel({
         >
           <div aria-hidden className="w-[calc(50%_-_24px)] shrink-0" />
           {info.map((d, i) => (
-            <WheelDay key={d.key} d={d} index={i} sel={i === center} setFace={setFace} onPick={pick} />
+            <WheelDay key={d.key} d={d} index={i} sel={i === center} color={color} setFace={setFace} onPick={pick} />
           ))}
           <div aria-hidden className="w-[calc(50%_-_24px)] shrink-0" />
         </div>
@@ -480,12 +490,14 @@ const WheelDay = memo(function WheelDay({
   d,
   index,
   sel,
+  color,
   setFace,
   onPick,
 }: {
   d: WheelInfo;
   index: number;
   sel: boolean;
+  color: string;
   setFace: (i: number, el: HTMLSpanElement | null) => void;
   onPick: (i: number) => void;
 }) {
@@ -510,10 +522,8 @@ const WheelDay = memo(function WheelDay({
           {t(WEEKDAY_LABELS[(date.getDay() + 6) % 7])}
         </span>
         <span className={`text-lg tabular-nums ${sel ? 'font-bold text-lh-accent' : 'font-medium text-lh-text-primary'}`}>{format(date, 'd')}</span>
-        <span className="flex h-1.5 items-center gap-0.5" aria-hidden>
-          {d.dots.map((c, i) => (
-            <span key={i} className="size-1.5 rounded-full" style={{ background: c }} />
-          ))}
+        <span className="flex h-1.5 items-center" aria-hidden>
+          {d.count > 0 && <span className="size-1.5 rounded-full" style={{ background: color }} />}
         </span>
       </span>
     </button>

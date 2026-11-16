@@ -108,9 +108,9 @@ export function exerciseRow(e?: WorkoutExercise): ExerciseRow {
   };
 }
 
-export function kindOfItem(it: Pick<Item, 'type' | 'customLabel' | 'customColor'>): WorkoutKind {
+export function kindOfItem(it: Pick<Item, 'type' | 'customLabel'>): WorkoutKind {
   if (it.type === 'custom') {
-    return { value: 'custom', label: it.customLabel ?? '', color: it.customColor ?? 'var(--lh-text-secondary)', hasDistance: false, defaultMinutes: 30 };
+    return { value: 'custom', label: it.customLabel ?? '', hasDistance: false, defaultMinutes: 30 };
   }
   return workoutKind(it.type);
 }

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Спорт — как сейчас</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+  <style>
+    body{margin:0;font-family:Inter,-apple-system,system-ui,sans-serif}
+    .cap{height:40px;box-sizing:border-box;margin:0;padding:16px 16px 0;font-size:12px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase}
+    img{display:block;width:375px}
+  </style>
+</helmet>
+<div style="width: 770px; display: flex; gap: 20px; background: #f6f6fa">
+  <div style="width: 375px; background: #08080f; color: rgba(240,238,232,0.52)">
+    <p class="cap">Тёмная · календарь, месяц</p>
+    <img src="shots/now-dark-top.webp" alt="Карточка цели и месячный календарь: точки разных цветов по видам">
+    <p class="cap">Барабан дней</p>
+    <img src="shots/now-dark-wheel.webp" alt="Барабан дней с точками">
+    <p class="cap">Ниже: день, по видам, недавние</p>
+    <img src="shots/now-dark-lists.webp" alt="Строки тренировок и полосы по видам, каждая своим цветом">
+  </div>
+  <div style="width: 375px; background: #f6f6fa; color: #6e6e7a">
+    <p class="cap">Светлая · календарь, месяц</p>
+    <img src="shots/now-light-top.webp" alt="То же в светлой теме">
+    <p class="cap">Барабан дней</p>
+    <img src="shots/now-light-wheel.webp" alt="Барабан дней в светлой теме">
+    <p class="cap">Ниже: день, по видам, недавние</p>
+    <img src="shots/now-light-lists.webp" alt="Строки и полосы в светлой теме">
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":770,"height":2032}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
