@@ -76,7 +76,15 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
       assigneeId,
     };
     // Напоминание ставит и снимает сам репозиторий — по тому, что изменилось.
-    if (task) await updateFamilyTask(familyId, task.id, data);
+    // Высокий приоритет выбрали только что — задача встаёт наверх: список
+    // семейных идёт по убыванию порядка, и сейчас больше любого из них.
+    // Новая задача и так встаёт наверх (createFamilyTask ставит Date.now()).
+    if (task)
+      await updateFamilyTask(
+        familyId,
+        task.id,
+        data.priority === 3 && task.priority !== 3 ? { ...data, sortOrder: Date.now() } : data,
+      );
     else await createFamilyTask(familyId, data);
     onClose();
   }

@@ -106,6 +106,21 @@ async function finger(page: Page, x: number) {
 
 const START = ['Купить хлеб:3000', 'Позвонить бабушке:2000', 'Забрать колёса:1000'];
 
+test('высокий приоритет поднимает семейную задачу наверх списка', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await seed(page);
+  await page.getByText('Забрать колёса', { exact: true }).click();
+  await page.getByRole('button', { name: 'Высокий', exact: true }).click();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect.poll(async () => (await order(page)).map((s) => s.split(':')[0])).toEqual([
+    'Забрать колёса',
+    'Купить хлеб',
+    'Позвонить бабушке',
+  ]);
+  // И на экране — первой строкой.
+  await expect(page.getByRole('button', { name: 'Изменить задачу' }).first()).toContainText('Забрать колёса');
+});
+
 test('перенос пальцем: задача встаёт туда, где её отпустили', async ({ page }) => {
   const errors = collectErrors(page);
   await openApp(page, '/more/family');

@@ -39,7 +39,7 @@ import { t } from '../../lib/i18n';
 import { useAutoCapitalizeTextarea } from '../../lib/useAutoCapitalizeTextarea';
 import { usePomodoroActions } from '../focus/pomodoro';
 import { ICON } from '../../components/ui/icons';
-import { isSleeping, scheduleNext } from './taskActions';
+import { isSleeping, newSortOrder, scheduleNext } from './taskActions';
 import { confirmAction } from '../../components/ui/confirmStore';
 import { Haptic } from '../../components/ui/Haptic';
 
@@ -328,14 +328,18 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
       };
       let savedId: string;
       if (task) {
-        await update(db.tasks, task.id, data);
+        // Высокий приоритет выбрали только что — задача встаёт наверх списка.
+        const changes =
+          priority === 3 && task.priority !== 3 ? { ...data, sortOrder: newSortOrder(priority) } : data;
+        await update(db.tasks, task.id, changes);
         savedId = task.id;
         // Спящую ручную задачу перевели на расписание: она уже сделана —
-        // следующий круг заводим сразу, как сделала бы отметка.
+        // следующий круг заводим сразу, как сделала бы отметка. Копия берёт
+        // и поднятое место: иначе наверх встала бы выполненная, а не она.
         const rec = data.recurrence;
-        if (isSleeping(task) && rec && rec.type !== 'manual') await scheduleNext({ ...task, ...data }, rec);
+        if (isSleeping(task) && rec && rec.type !== 'manual') await scheduleNext({ ...task, ...changes }, rec);
       } else {
-        const created = await create(db.tasks, { ...data, completedAt: null, sortOrder: Date.now() });
+        const created = await create(db.tasks, { ...data, completedAt: null, sortOrder: newSortOrder(priority) });
         savedId = created.id;
       }
       // Снимки раскладываем кусками в свою таблицу — параллельно тому, что они
