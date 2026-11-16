@@ -37,7 +37,7 @@ export function SectionsPriorityGate() {
   useEffect(() => {
     if (inited.current || !settings || !settings.onboardingDone || settings.sectionsPriorityDone) return;
     inited.current = true;
-    const l = computeNavLayout(sectionsFor(settings.gender, settings.aiEnabled), settings.navConfig, LAYOUT_OPTS);
+    const l = computeNavLayout(sectionsFor(settings.gender), settings.navConfig, LAYOUT_OPTS);
     // «Настройки» показываются на «Главной» отдельной карточкой внизу экрана
     // (см. HomePage) — расставлять им приоритет здесь нечего, они и так видны
     // всегда.

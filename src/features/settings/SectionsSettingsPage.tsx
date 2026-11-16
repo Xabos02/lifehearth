@@ -62,7 +62,7 @@ export function SectionsSettingsPage() {
     inited.current = true;
     // Реестр с учётом пола: в мужском профиле «Женские дни» не существуют и
     // на этом экране — ни в списке, ни среди выключенных.
-    const l = computeNavLayout(sectionsFor(settingsRow.gender, settingsRow.aiEnabled), settingsRow.navConfig, LAYOUT_OPTS);
+    const l = computeNavLayout(sectionsFor(settingsRow.gender), settingsRow.navConfig, LAYOUT_OPTS);
     setState({ enabled: [...l.bottom.filter((id) => id !== ANCHOR_ID), ...l.more], hidden: l.hidden });
     // Только фиксируем стартовое состояние — переход «выключен⇄включён» ниже
     // должен реагировать на нажатия тумблера, а не на саму загрузку экрана.
@@ -254,19 +254,19 @@ export function SectionsSettingsPage() {
   };
 
   const reset = () => {
-    const l = computeNavLayout(sectionsFor(settingsRow?.gender, settingsRow?.aiEnabled), undefined, LAYOUT_OPTS);
+    const l = computeNavLayout(sectionsFor(settingsRow?.gender), undefined, LAYOUT_OPTS);
     setState({ enabled: [...l.bottom.filter((id) => id !== ANCHOR_ID), ...l.more], hidden: l.hidden });
   };
 
   const previewBottom = useMemo(() => {
     if (!state) return [];
     const l = computeNavLayout(
-      sectionsFor(settingsRow?.gender, settingsRow?.aiEnabled),
+      sectionsFor(settingsRow?.gender),
       { bottom: state.enabled.slice(0, MAX_BOTTOM), hidden: state.hidden },
       LAYOUT_OPTS,
     );
     return l.bottom.map((id) => SECTION_BY_ID.get(id)).filter((s) => Boolean(s));
-  }, [state, settingsRow?.gender, settingsRow?.aiEnabled]);
+  }, [state, settingsRow?.gender]);
 
   if (!state) {
     return (

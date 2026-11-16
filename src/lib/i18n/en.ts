@@ -1786,7 +1786,6 @@ export const EN: Record<string, string> = {
   // === Раздел ИИ ===
   'ИИ': 'AI',
   'Чат с языковой моделью': 'Chat with a language model',
-  'Раздел «ИИ»': '“AI” section',
   'Чат с языковой моделью. Нужна включённая синхронизация — ею идёт авторизация.':
     'Chat with a language model. Requires sync to be on — it handles authorization.',
   'Скрыт': 'Hidden',
@@ -1813,17 +1812,10 @@ export const EN: Record<string, string> = {
   'Экспорт в markdown': 'Export as markdown',
   'Диалог экспортирован': 'Chat exported',
   'Не удалось поделиться. Попробуйте ещё раз': 'Could not share. Try again',
-  'за вопрос': 'per question',
-  'Проверка интерфейса без трат — отвечает сервер приложения.':
-    'Interface check with zero cost — the app server answers.',
-  'Рабочая лошадка: быстрая, умная, для повседневных вопросов.':
-    'The workhorse: fast, smart, for everyday questions.',
-  'Подешевле и попроще — для коротких вопросов без глубины.':
-    'Cheaper and simpler — for short questions without depth.',
-  'Максимум качества для сложных разборов. Дорогая — включайте осознанно.':
-    'Top quality for complex analysis. Expensive — switch on deliberately.',
-  'Точная стоимость каждого ответа видна под ним и в шапке чата.':
-    'The exact cost of each reply is shown under it and in the chat header.',
+  'Бесплатно, с дневным лимитом на всех. Проще Claude, но с обычными вопросами справляется.':
+    'Free, with a daily limit shared by everyone. Simpler than Claude, but fine for everyday questions.',
+  'Бесплатно и умнее Gemma, но отвечает дольше и тратит общий лимит раз в шесть быстрее.':
+    'Free and smarter than Gemma, but slower, and it uses up the shared limit about six times faster.',
   'Спросите о своём': 'Ask about your own data',
   'Ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.':
     'The assistant reads your tasks, notes, finance and habits — and answers with facts.',
@@ -1842,14 +1834,14 @@ export const EN: Record<string, string> = {
   'Скопировать': 'Copy',
   'Повторить': 'Retry',
   'Не удалось скопировать': 'Could not copy',
-  'Заглушка (бесплатно)': 'Stub (free)',
+  'Gemma 4 (бесплатно)': 'Gemma 4 (free)',
+  'Qwen 3.8 (бесплатно)': 'Qwen 3.8 (free)',
   'бесплатно': 'free',
-  'Включите синхронизацию в Настройках — она нужна для авторизации.':
-    'Turn on sync in Settings — it is required for authorization.',
   'Сервер не признал аккаунт. Проверьте синхронизацию.':
     'The server did not recognize the account. Check sync.',
   'Аккаунт не в списке разрешённых на сервере.': 'The account is not on the server allowlist.',
   'Слишком часто. Подождите немного.': 'Too many requests. Wait a moment.',
+  'Бесплатный лимит на сегодня исчерпан, обновится в {time}': 'Today’s free limit is used up. It resets at {time}',
   'Провайдер отказал: {msg}': 'Provider refused: {msg}',
   'Нет связи с сервером.': 'No connection to the server.',
   'Запрос отменён.': 'Request cancelled.',
@@ -2118,8 +2110,8 @@ export const EN: Record<string, string> = {
   'передают записи на наш сервер зашифрованными. Сервер видит служебное: когда, из какого раздела, кто в сети, название семейной группы и ваш IP-адрес. При звонке IP-адрес виден ещё серверам связи и собеседнику.':
     'send your records to our server encrypted. The server sees the metadata: when, which section, who is online, the family group name and your IP address. During a call your IP address is also visible to the relay servers and the other person.',
   'Ассистент, голосовой ввод и погода': 'The assistant, voice input and weather',
-  'передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Polza.ai, Anthropic, Google, Apple, Microsoft, Open-Meteo.':
-    'send what you give them in plain text — to our server and third-party services: Polza.ai, Anthropic, Google, Apple, Microsoft, Open-Meteo.',
+  'передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Cloudflare, Google, Apple, Microsoft, Open-Meteo.':
+    'send what you give them in plain text — to our server and third-party services: Cloudflare, Google, Apple, Microsoft, Open-Meteo.',
   'Подробно, по каждой функции': 'Details for each feature',
   'Коротко': 'In short',
   'Всё, что вы записываете, хранится на этом телефоне и работает без интернета. Часть функций выходит в сеть. Согласие одно — на всё сразу.':
@@ -2136,8 +2128,8 @@ export const EN: Record<string, string> = {
   'Сообщения, фото, голосовые, файлы и общие задачи зашифрованы. Серверу видны название группы, кто и когда писал, кто в сети.':
     'Messages, photos, voice notes, files and shared tasks are encrypted. The server sees the group name, who wrote and when, and who is online.',
   'Ассистент': 'Assistant',
-  'Вопрос — и прочитанные записи, если включены «Данные», — через наш сервер к Polza.ai и модели Claude компании Anthropic (США).':
-    'Your question — and the records it reads, if “Data” is on — goes through our server to Polza.ai and Anthropic’s Claude model (USA).',
+  'Вопрос — и прочитанные записи, если включены «Данные», — через наш сервер к модели на серверах Cloudflare (США). Cloudflare их не хранит и не учит на них модели.':
+    'Your question — and the records it reads, if “Data” is on — goes through our server to a model on Cloudflare servers (USA). Cloudflare does not store it or train models on it.',
   '«Женские дни» ассистенту недоступны.': 'The assistant has no access to “Cycle”.',
   'Звонки в семье': 'Family calls',
   'Разговор шифруется. Соединение идёт напрямую или через серверы связи Cloudflare и Metered, запасной — Google: им и собеседнику виден ваш IP-адрес.':

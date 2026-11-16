@@ -63,6 +63,8 @@ export interface Section {
   nonHideable?: boolean;
   /** Не показывать, пока человек сам не включит (см. navLayout). */
   hiddenByDefault?: boolean;
+  /** Новинка — первой на «Главной», пока человек её не расставлял (см. navLayout). */
+  featured?: boolean;
   /** Подпись в списке «Главной» (у Сегодня/Задач/Заметок/Семьи её не показываем). */
   subtitle?: string;
 }
@@ -136,15 +138,16 @@ export const SECTIONS: Section[] = [
     subtitle: 'Цикл, самочувствие и прогноз',
     hiddenByDefault: true,
   },
-  // Раздел «ИИ» существует в реестре только при включённом флаге (Настройки):
-  // фича дописывается, и до готовности её не видно ни в панели, ни в списке
-  // «Главной», ни в «Настроить разделы» — как «Женские дни» при мужском профиле.
+  // Раздел «ИИ» до 1.65.0 был за флагом в Настройках; с запуска бесплатного
+  // ассистента — обычный раздел, прячется через «Настроить разделы». Новинка:
+  // первый на «Главной», пока человек его сам не переставил.
   {
     id: 'ai',
     label: 'ИИ',
     to: '/more/ai',
     icon: Bot,
     subtitle: 'Чат с языковой моделью',
+    featured: true,
   },
   {
     id: 'settings',
@@ -177,10 +180,8 @@ export function cycleAllowed(gender: 'female' | 'male' | undefined): boolean {
  *  дни» исключается целиком: навигация, настройка разделов и всё, что строится
  *  из реестра, обязаны идти через эту функцию, а не через SECTIONS напрямую —
  *  иначе раздел «протечёт» в какой-нибудь список у мужского профиля. */
-export function sectionsFor(gender: 'female' | 'male' | undefined, aiEnabled?: boolean): Section[] {
-  return SECTIONS.filter(
-    (s) => (s.id !== 'cycle' || cycleAllowed(gender)) && (s.id !== 'ai' || aiEnabled),
-  );
+export function sectionsFor(gender: 'female' | 'male' | undefined): Section[] {
+  return SECTIONS.filter((s) => s.id !== 'cycle' || cycleAllowed(gender));
 }
 
 /** Сколько пользовательских разделов помещается в панель слева от «Главной». */

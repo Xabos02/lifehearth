@@ -22,12 +22,10 @@ export function useNavLayout(): ResolvedNavLayout {
   const settings = useSettings();
   const navConfig = settings.navConfig;
   const gender = settings.gender;
-  const aiEnabled = settings.aiEnabled;
   return useMemo(() => {
     // Реестр берётся с учётом пола: у мужского профиля раздела «Женские дни»
     // не существует ни в панели, ни в списке «Главной», ни среди спрятанных.
-    // Раздел «ИИ» так же существует только при включённом флаге из Настроек.
-    const layout = computeNavLayout(sectionsFor(gender, aiEnabled), navConfig, {
+    const layout = computeNavLayout(sectionsFor(gender), navConfig, {
       maxBottom: MAX_BOTTOM,
       defaultBottom: DEFAULT_BOTTOM,
       anchorId: ANCHOR_ID,
@@ -35,5 +33,5 @@ export function useNavLayout(): ResolvedNavLayout {
     const resolve = (ids: string[]) =>
       ids.map((id) => SECTION_BY_ID.get(id)).filter((s): s is Section => Boolean(s));
     return { bottom: resolve(layout.bottom), more: resolve(layout.more), hidden: layout.hidden };
-  }, [navConfig, gender, aiEnabled]);
+  }, [navConfig, gender]);
 }
