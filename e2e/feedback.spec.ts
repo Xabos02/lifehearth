@@ -158,3 +158,41 @@ test('у выбранного чипа накладка молчит, а зон�
   );
   expect(hit).toBe('Убрать');
 });
+
+test('«Спорт»: выбранный вид и единица молчат, смена вида и шаг цели щёлкают', async ({ page }) => {
+  await stubFeedback(page);
+  await openApp(page, '/more/health');
+
+  // Шаг цели на неделю — щелчок и вибрация.
+  await page.getByRole('button', { name: 'Цель: больше' }).click();
+  await expect(page.getByTestId('weekly-goal')).toHaveText('4');
+  expect(await switches(page)).toBe(1);
+  expect(await vib(page)).toEqual([10]);
+
+  // Новая тренировка — бег по умолчанию. Тап по уже выбранному виду ничего не
+  // меняет и не щёлкает: раньше переключатель срабатывал и здесь.
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  const run = page.getByRole('button', { name: 'Бег', exact: true });
+  await expect(run).toHaveAttribute('aria-pressed', 'true');
+  await run.click();
+  expect(await switches(page)).toBe(1);
+
+  // Смена вида щёлкает один раз, повторный тап по нему — снова тишина.
+  const strength = page.getByRole('button', { name: 'Силовая', exact: true });
+  await strength.click();
+  await expect(strength).toHaveAttribute('aria-pressed', 'true');
+  expect(await switches(page)).toBe(2);
+  await strength.click();
+  expect(await switches(page)).toBe(2);
+
+  // Единица упражнения — тот же выбор одного варианта.
+  await page.getByRole('button', { name: 'Упражнение', exact: true }).click();
+  const reps = page.getByRole('button', { name: 'повторы', exact: true });
+  await expect(reps).toHaveAttribute('aria-pressed', 'true');
+  await reps.click();
+  expect(await switches(page)).toBe(2);
+  await page.getByRole('button', { name: 'сек', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'сек', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(await switches(page)).toBe(3);
+  expect(await vib(page)).toEqual([10, 10, 10]);
+});

@@ -5,6 +5,7 @@ import { FileUp, Minus } from 'lucide-react';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { GChevronRight as ChevronRight, GEnergy as Activity, GPlus as Plus } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
+import { Haptic } from '../../components/ui/Haptic';
 import { useToast } from '../../components/ui/toastContext';
 import { t, tPlural } from '../../lib/i18n';
 import { addDaysKey, dateLocale, fromKey, todayKey } from '../../lib/dates';
@@ -142,9 +143,13 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
           <div className="flex shrink-0 items-center gap-2">
             <StepButton label={t('Цель: меньше')} onClick={() => void updateSettings({ workoutWeeklyGoal: Math.max(1, goal - 1) })}>
               <Minus size={ICON.action} />
+              {/* Шаг «−/+» щёлкает (PROTOCOL §6.4); на краю 1–7 шаг ничего не
+                  меняет — накладка пропускает тап. */}
+              <Haptic off={goal <= 1} />
             </StepButton>
             <StepButton label={t('Цель: больше')} onClick={() => void updateSettings({ workoutWeeklyGoal: Math.min(7, goal + 1) })}>
               <Plus size={ICON.action} />
+              <Haptic off={goal >= 7} />
             </StepButton>
           </div>
         </div>

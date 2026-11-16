@@ -1,5 +1,8 @@
 import { useEffect, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { t } from '../../lib/i18n';
+import { GTrash } from './glyphs';
+import { HIT_SLOP_44_POSITIONED } from './hitSlop';
+import { ICON, STROKE_STRONG } from './icons';
 
 /** Снимок на весь экран.
  *
@@ -11,15 +14,20 @@ import { t } from '../../lib/i18n';
  *  Отличие от чатовой версии: снимков может быть несколько, поэтому между ними
  *  листают свайпом, а в углу видно, какой по счёту. В чате список всегда из
  *  одного — счётчик и свайп там просто не появляются.
+ *
+ *  onDelete — кнопка «Удалить фото» в углу. Нужна фото-панели «Задач»: там у
+ *  снимка нет своей формы, где его можно убрать, кроме этого просмотра.
  */
 export function PhotoViewer({
   photos,
   index = 0,
   onClose,
+  onDelete,
 }: {
   photos: string[];
   index?: number;
   onClose: () => void;
+  onDelete?: (index: number) => void;
 }) {
   const [i, setI] = useState(index);
   const [dx, setDx] = useState(0);
@@ -87,6 +95,20 @@ export function PhotoViewer({
         <span className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+12px)] right-4 rounded-full bg-black/50 px-2.5 py-1 text-xs font-medium text-white">
           {i + 1} / {photos.length}
         </span>
+      )}
+      {onDelete && (
+        <button
+          type="button"
+          aria-label={t('Удалить фото')}
+          // Клик не должен дойти до фона — там он закрывает просмотр.
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(Math.max(0, Math.min(photos.length - 1, i)));
+          }}
+          className={`absolute top-[calc(env(safe-area-inset-top)+8px)] left-3 flex size-9 items-center justify-center rounded-full bg-black/50 text-white active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
+        >
+          <GTrash size={ICON.base} strokeWidth={STROKE_STRONG} aria-hidden />
+        </button>
       )}
     </div>
   );

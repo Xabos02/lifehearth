@@ -166,17 +166,22 @@ export function ItemFields({
 
       {!item.collapsed && (
         <div className="space-y-3 pb-3 pt-1">
+          {/* Вид — единственный выбор: тап по выбранному ничего не меняет
+              (pickType выходит сразу) и не щёлкает (PROTOCOL §6.4). */}
           <div className="flex flex-wrap gap-2">
             {WORKOUT_KINDS.map((k) => (
-              <Chip key={k.value} active={item.type === k.value} onClick={() => pickType(k.value)}>
+              <Chip key={k.value} active={item.type === k.value} hapticOff={item.type === k.value} onClick={() => pickType(k.value)}>
                 {t(k.label)}
               </Chip>
             ))}
-            {aliveDefs.map((d) => (
-              <Chip key={d.id} active={item.type === 'custom' && item.customLabel === d.label} onClick={() => pickType('custom', d.label, d.color)}>
-                {d.label}
-              </Chip>
-            ))}
+            {aliveDefs.map((d) => {
+              const on = item.type === 'custom' && item.customLabel === d.label;
+              return (
+                <Chip key={d.id} active={on} hapticOff={on} onClick={() => pickType('custom', d.label, d.color)}>
+                  {d.label}
+                </Chip>
+              );
+            })}
             {/* Закрыли поле — передумали: набранное уходит вместе с ним, иначе
                 скрытый текст держал бы «Сохранить» выключенной. */}
             <Chip active={item.newKind !== null} onClick={() => onChange({ newKind: item.newKind === null ? '' : null })}>
@@ -386,7 +391,7 @@ function ExerciseEditor({
       </div>
       <div className="flex flex-wrap gap-2" role="group" aria-label={t('В чём считать')}>
         {UNIT_OPTIONS.map((u) => (
-          <Chip key={u.chip} active={ex.unit === u.value} onClick={() => onChange({ unit: u.value })}>
+          <Chip key={u.chip} active={ex.unit === u.value} hapticOff={ex.unit === u.value} onClick={() => onChange({ unit: u.value })}>
             {t(u.chip)}
           </Chip>
         ))}
