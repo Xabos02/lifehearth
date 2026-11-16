@@ -43,6 +43,7 @@ import { useToast } from '../../components/ui/toastContext';
 import { t, tPlur } from '../../lib/i18n';
 import { todayKey } from '../../lib/dates';
 import { taskOnDay } from '../../lib/taskDates';
+import { projectProgress } from '../../lib/progress';
 import { ProjectEditSheet } from './ProjectEditSheet';
 import { QuickAddBar } from './QuickAddBar';
 import { TaskEditSheet } from './TaskEditSheet';
@@ -1382,6 +1383,8 @@ export function TasksPage() {
                     onEdit={editTask}
                     expanded={expandedCompleted.has(sub.id)}
                     onToggle={() => toggleCompleted(sub.id)}
+                    progress={projectProgress(subList, subDone)}
+                    color={sub.color}
                   />
                 )}
                 <AddTaskRow
@@ -1546,6 +1549,8 @@ export function TasksPage() {
                       onEdit={editTask}
                       expanded={expandedCompleted.has(p.id)}
                       onToggle={() => toggleCompleted(p.id)}
+                      progress={projectProgress(list, doneList)}
+                      color={p.color}
                     />
                   )}
                   <AddTaskRow
