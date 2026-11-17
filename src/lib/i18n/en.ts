@@ -1970,6 +1970,7 @@ export const EN: Record<string, string> = {
   'По шаблону': 'From template',
   'По шаблону: {name}': 'From template: {name}',
   'Выберите шаблон — тренировка заполнится сама. Карандаш — изменить.': 'Pick a template and the workout fills itself in. The pencil edits it.',
+  'Выберите шаблон — тренировка заполнится сама. Удерживайте шаблон, чтобы переставить. Карандаш — изменить.': 'Pick a template and the workout fills itself in. Hold a template to move it. The pencil edits it.',
   'Изменить шаблон «{name}»': 'Edit template “{name}”',
   'Удалить шаблон «{name}»?': 'Delete template “{name}”?',
   'Записанные тренировки останутся.': 'Logged workouts will stay.',
