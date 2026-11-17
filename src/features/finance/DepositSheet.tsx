@@ -16,6 +16,7 @@ import { formatRu, todayKey } from '../../lib/dates';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -137,10 +138,10 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     // Деньги и необратимо: соседний шит на том же экране
                     // спрашивает, а этот молча стирал запись по тапу.
-                    if (window.confirm('Удалить эту запись?')) void remove(db.savingsDeposits, d.id);
+                    if (await confirmAction(t('Удалить эту запись?'))) void remove(db.savingsDeposits, d.id);
                   }}
                   aria-label="Удалить запись"
                   className={`p-1.5 text-lh-text-secondary active:text-danger ${HIT_SLOP_44}`}

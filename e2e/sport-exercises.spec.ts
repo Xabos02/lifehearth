@@ -12,8 +12,8 @@ test('шаблон из упражнений без минут: сохраняе
   // Шаблон стартует с силовой и пустыми минутами — сохранять можно сразу.
   await page.getByRole('button', { name: 'Упражнение' }).last().click();
   await page.getByLabel('Название упражнения').last().fill('Отжимания');
-  await page.getByLabel('Подходов').last().fill('3');
-  await page.getByLabel('Повторов').last().fill('15');
+  await page.getByLabel('Подходы').last().fill('3');
+  await page.getByLabel('Повторы', { exact: true }).last().fill('15');
   // Пустая строка упражнения не сохраняется — это недописанная строка.
   await page.getByRole('button', { name: 'Упражнение' }).last().click();
   await page.getByRole('button', { name: 'Сохранить шаблон' }).click();
@@ -33,9 +33,15 @@ test('шаблон из упражнений без минут: сохраняе
   ]);
 
   await tpl.click();
+  // Упражнение из шаблона читается строкой (канва design/sport-templates, Б);
+  // тап раскрывает её для правки.
+  const line = page.getByTestId('exercise-row');
+  await expect(line).toContainText('Отжимания');
+  await expect(line).toContainText('3 × 15');
+  await line.click();
   await expect(page.getByLabel('Название упражнения')).toHaveValue('Отжимания');
   // Сегодня сделал на подход больше — правка в тренировке, не в шаблоне.
-  await page.getByLabel('Подходов').fill('4');
+  await page.getByLabel('Подходы').fill('4');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
 
   const row = page.getByRole('button', { name: /^Силовая/ }).first();
@@ -49,8 +55,10 @@ test('шаблон из упражнений без минут: сохраняе
   await page.getByRole('button', { name: 'Силовая', exact: true }).click();
   await page.getByRole('button', { name: '+ Отжимания' }).click();
   // 4, а не 3 из шаблона: подсказка берёт подходы с последней тренировки.
-  await expect(page.getByLabel('Подходов')).toHaveValue('4');
-  await expect(page.getByLabel('Повторов')).toHaveValue('15');
+  await expect(page.getByTestId('exercise-row')).toContainText('4 × 15');
+  await page.getByTestId('exercise-row').click();
+  await expect(page.getByLabel('Подходы')).toHaveValue('4');
+  await expect(page.getByLabel('Повторы', { exact: true })).toHaveValue('15');
 });
 
 test('барабан дат: щелчок на каждом пройденном дне, выбор — когда лента встала', async ({ page }) => {
@@ -95,4 +103,23 @@ test('барабан дат: щелчок на каждом пройденном
   await wheel.locator('button[aria-pressed="true"]').focus();
   await page.keyboard.press('ArrowLeft');
   await expect(page.getByRole('heading', { name: '12 сентября, суббота' })).toBeVisible();
+});
+
+test('барабан дат: три стрелки подряд без пауз — три дня, ни одна не теряется', async ({ page }) => {
+  // Следующий день считался от дня под полосой, а он меняется, только когда
+  // лента проходит середину шага: быстрые нажатия целились в тот же день.
+  await page.clock.setFixedTime(new Date('2026-09-16T12:00:00'));
+  await openApp(page, '/more/health');
+  const wheel = page.getByTestId('workout-week');
+  await wheel.locator('button[aria-pressed="true"]').focus();
+  // Каждое нажатие — своей задачей, как настоящие: три page.keyboard.press под
+  // нагрузкой расходятся дольше, чем доезжает лента, и ошибка бы не проявилась.
+  await page.evaluate(async () => {
+    for (let i = 0; i < 3; i++) {
+      document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  });
+  await expect(page.getByTestId('wheel-caption')).toHaveText('Воскресенье, 13 сентября');
+  await expect(page.getByRole('heading', { name: '13 сентября, воскресенье' })).toBeVisible();
 });

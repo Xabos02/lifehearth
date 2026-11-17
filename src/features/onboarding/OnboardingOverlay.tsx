@@ -2,10 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { ComponentType } from 'react';
-import {
-  GChevronLeft as ChevronLeft,
-  GChevronRight as ChevronRight,
-} from '../../components/ui/glyphs';
+import { ArrowRight } from 'lucide-react';
 import {
   DataIllo,
   FamilyIllo,
@@ -20,8 +17,7 @@ import { now } from '../../db/repo';
 import { updateSettings } from '../../hooks/useSettings';
 import { REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
 import { t } from '../../lib/i18n';
-import { ICON } from '../../components/ui/icons';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
 
 // Тексты слайдов — 11-16 слов каждый, одна мысль на слайд.
 //
@@ -115,113 +111,122 @@ export function OnboardingOverlay() {
   const last = step === SLIDES.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-lh-bg">
-      {/* key={step} перезапускает fade-in при смене слайда.
-
-          Свайп влево/вправо листает слайды — на телефоне это первый жест,
-          который пробуют, и до 11.09.2026 он не делал ничего. touch-action
-          pan-y оставляет вертикальную прокрутку браузеру, а горизонталь
-          забираем себе. Порог 48px отличает свайп от дрожи пальца. */}
-      <div
-        key={step}
-        onPointerDown={(e) => {
-          swipeStart.current = { x: e.clientX, y: e.clientY };
-        }}
-        onPointerUp={(e) => {
-          const from = swipeStart.current;
-          swipeStart.current = null;
-          if (!from) return;
-          const dx = e.clientX - from.x;
-          const dy = e.clientY - from.y;
-          if (Math.abs(dx) < 48 || Math.abs(dy) > Math.abs(dx)) return;
-          if (dx < 0 && !last) setStep((s) => s + 1);
-          if (dx > 0 && step > 0) setStep((s) => s - 1);
-        }}
-        style={{ touchAction: 'pan-y' }}
-        className="relative flex min-h-0 flex-1 animate-fade-in flex-col items-center justify-center gap-5 px-8 text-center"
-      >
-        {Art === 'app-icon' ? (
-          // Своя иконка, а не плитка: то, что человек только что поставил на
-          // «Домой». Тень тёплая — от углей на самой иконке.
-          <img
-            src={`${import.meta.env.BASE_URL}icons/icon-192.png`}
-            alt=""
-            width={160}
-            height={160}
-            className="onb-app-icon"
-          />
-        ) : (
-          <Art />
-        )}
-        <h2 className="text-2xl font-extralight tracking-tight">{t(slide.title)}</h2>
-        <p className="max-w-sm text-sm leading-relaxed text-lh-text-secondary">{t(slide.text)}</p>
-      </div>
-
-      <div className="relative flex items-center justify-center gap-9 pb-5">
-        {SLIDES.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            aria-label={t('Шаг {n}', { n: i + 1 })}
-            onClick={() => setStep(i)}
-            className={`h-2 rounded-full transition-all ${HIT_SLOP_44} ${
-              i === step ? 'w-5 bg-lh-accent' : 'w-2 bg-lh-text-tertiary/40'
-            }`}
-          />
-        ))}
-      </div>
-
-      <div className="relative flex items-center gap-3 px-6 pb-[calc(env(safe-area-inset-bottom)+20px)]">
-        {/* На первом шаге слева «Пропустить», дальше — «Назад»: вернуться к
-            предыдущему слайду было нельзя вовсе, только точками внизу, а их
-            как кнопки никто не читает. «Пропустить» на остальных шагах не
-            теряется: тот, кто хочет выйти, жмёт «Далее» до «Начать». */}
-        {step === 0 ? (
+    <div className="fixed inset-0 z-[80] flex flex-col overflow-y-auto bg-lh-bg">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-6 pt-[env(safe-area-inset-top)]">
+        {/* «Пропустить» — на каждом шаге и в одном и том же месте сверху:
+            тот, кто хочет выйти, не должен пролистывать до «Начать». */}
+        <div className="flex h-12 items-center justify-between">
+          <span className="text-sm tabular-nums text-lh-text-secondary">
+            {t('Шаг {n} из {total}', { n: step + 1, total: SLIDES.length })}
+          </span>
           <button
             type="button"
             onClick={finish}
-            className="px-3 py-3 text-sm font-medium text-lh-text-secondary active:opacity-60"
+            className="-mr-3 flex h-11 items-center px-3 text-sm text-lh-text-secondary active:opacity-60"
           >
             {t('Пропустить')}
           </button>
-        ) : (
+        </div>
+
+        {/* key={step} перезапускает fade-in при смене слайда.
+
+            Свайп влево/вправо листает слайды — на телефоне это первый жест,
+            который пробуют. touch-action pan-y оставляет вертикальную
+            прокрутку браузеру, а горизонталь забираем себе. Порог 48px
+            отличает свайп от дрожи пальца. */}
+        <div
+          key={step}
+          onPointerDown={(e) => {
+            swipeStart.current = { x: e.clientX, y: e.clientY };
+          }}
+          onPointerUp={(e) => {
+            const from = swipeStart.current;
+            swipeStart.current = null;
+            if (!from) return;
+            const dx = e.clientX - from.x;
+            const dy = e.clientY - from.y;
+            if (Math.abs(dx) < 48 || Math.abs(dy) > Math.abs(dx)) return;
+            if (dx < 0 && !last) setStep((s) => s + 1);
+            if (dx > 0 && step > 0) setStep((s) => s - 1);
+          }}
+          style={{ touchAction: 'pan-y' }}
+          className="flex animate-fade-in flex-col"
+        >
+          <div className="mt-4 flex h-[clamp(200px,36vh,360px)] items-center justify-center overflow-hidden rounded-3xl border border-lh-border bg-lh-surface">
+            {Art === 'app-icon' ? (
+              // Своя иконка, а не плитка: то, что человек только что поставил
+              // на «Домой». Тень тёплая — от углей на самой иконке.
+              <img
+                src={`${import.meta.env.BASE_URL}icons/icon-192.png`}
+                alt=""
+                width={160}
+                height={160}
+                className="onb-app-icon"
+              />
+            ) : (
+              <Art />
+            )}
+          </div>
+          <h2 className="mt-[clamp(20px,3.5vh,32px)] text-[30px] font-extralight leading-[1.15] tracking-[-.6px]">{t(slide.title)}</h2>
+          <p className="mt-2.5 text-base leading-normal text-lh-text-secondary">{t(slide.text)}</p>
+        </div>
+
+        {/* Точки — только индикатор, не кнопки. Кнопками они не помещаются:
+            центры соседних кнопок не ближе 44px (PROTOCOL §5.1), и восемь
+            точек с таким шагом занимают 24 + 7×6 + 7×38 = 332px, а колонка
+            на 375px — 327px, на 320px — 272px. При gap-4 зоны 44×44 налезали
+            бы друг на друга на 22px, и тап уходил соседней точке. Шаг
+            называет строка «Шаг N из 8» сверху (поэтому ряд aria-hidden),
+            листают «Назад»/«Далее» и свайп. */}
+        <div aria-hidden className="mt-6 flex items-center gap-4 pl-1">
+          {SLIDES.map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 rounded-full transition-all ${
+                i === step ? 'w-6 bg-lh-accent' : 'w-1.5 bg-lh-text-tertiary/50'
+              }`}
+            />
+          ))}
+        </div>
+
+        <div className="mt-auto pb-[calc(env(safe-area-inset-bottom)+12px)] pt-6">
+          <div className="flex gap-3">
+            {/* На первом шаге «Назад» нет — возвращаться некуда. */}
+            {step > 0 && (
+              <button
+                type="button"
+                onClick={() => setStep((s) => s - 1)}
+                className="h-[52px] rounded-xl border border-lh-border bg-lh-surface px-6 text-base active:opacity-70"
+              >
+                {t('Назад')}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={last ? finish : () => setStep((s) => s + 1)}
+              className="flex h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
+            >
+              {last ? t('Начать') : t('Далее')}
+              {!last && <ArrowRight size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
+            </button>
+          </div>
+
+          {/* Развилка для того, кто переезжает, а не начинает: на первом шаге
+              и на последнем. Человек с новым телефоном не хочет смотреть
+              семь слайдов, ему надо вернуть свои записи; новичку же вход
+              первым экраном — стена. На средних слайдах строка прячется
+              (invisible, а не удаляется — кнопки не прыгают). */}
           <button
             type="button"
-            onClick={() => setStep((s) => s - 1)}
-            aria-label={t('Назад')}
-            className="flex items-center gap-1 px-3 py-3 text-sm font-medium text-lh-text-secondary active:opacity-60"
+            onClick={restore}
+            className={`mt-3 flex h-11 w-full items-center justify-center text-sm text-lh-accent active:opacity-60 ${
+              step === 0 || last ? '' : 'invisible'
+            }`}
           >
-            <ChevronLeft size={ICON.base} />
-            {t('Назад')}
+            {t('У меня уже были данные — восстановить')}
           </button>
-        )}
-        <button
-          type="button"
-          onClick={last ? finish : () => setStep((s) => s + 1)}
-          className="flex flex-1 items-center justify-center gap-1 rounded-2xl bg-lh-accent px-5 py-3.5 font-semibold text-lh-bg shadow-[var(--shadow-accent)] active:opacity-80"
-        >
-          {last ? t('Начать') : t('Далее')}
-          {!last && <ChevronRight size={ICON.base} />}
-        </button>
+        </div>
       </div>
-
-      {/* Развилка для того, кто переезжает, а не начинает.
-
-          На ПЕРВОМ шаге и на последнем. Владелец просил вход до обучения:
-          человек с новым телефоном не хочет смотреть семь слайдов, ему надо
-          вернуть свои записи. Но для новичка вход первым экраном — стена до
-          того, как он понял, зачем приложение. Поэтому развилка, а не
-          порядок: на первом экране оба пути видны, на средних слайдах строка
-          прячется, чтобы не сбивать знакомство, на последнем возвращается. */}
-      <button
-        type="button"
-        onClick={restore}
-        className={`relative px-6 pb-[calc(env(safe-area-inset-bottom)+16px)] text-sm font-medium text-lh-accent active:opacity-60 ${
-          step === 0 || last ? '' : 'invisible'
-        }`}
-      >
-        {t('У меня уже были данные — восстановить')}
-      </button>
     </div>
   );
 }

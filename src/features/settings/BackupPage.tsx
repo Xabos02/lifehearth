@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { Download, FileArchive, FolderOpen, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getLang, t } from '../../lib/i18n';
 import { Screen } from '../../components/layout/Screen';
-import { Select } from '../../components/ui/Input';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { GAlert, GCheck, GChevronRight, GCloud } from '../../components/ui/glyphs';
+import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { useToast } from '../../components/ui/toastContext';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { db } from '../../db/db';
@@ -26,13 +29,14 @@ import { formatRu } from '../../lib/dates';
 import { usePersistentStorage } from './usePersistentStorage';
 import { ensurePersistentStorage, formatBytes, type StorageState } from '../../lib/storage';
 import { TABLE_RU } from './tableNames';
-import { ButtonRow, Row, Section } from './SettingsSection';
+import { Row } from './SettingsSection';
 import { Switch } from '../../components/ui/Switch';
 import { useConsent } from '../../lib/consent';
+import { confirmAction } from '../../components/ui/confirmStore';
 
-/** Состояние локального хранилища. Показываем ровно тогда, когда есть что
- *  сказать: браузер отказал в постоянном хранении — значит данные могут быть
- *  стёрты системой, и копия становится не рекомендацией, а необходимостью. */
+/** Карточка сохранности наверху экрана (макет «Копии»). Браузер отказал в
+ *  постоянном хранении — данные могут быть стёрты системой, и копия становится
+ *  не рекомендацией, а необходимостью: тогда карточка жёлтая и говорит прямо. */
 function StorageStatus() {
   const [state, setState] = useState<StorageState | null>(null);
   useEffect(() => {
@@ -41,25 +45,68 @@ function StorageStatus() {
 
   if (!state || state.persisted === undefined) return null;
   const used = state.usage !== undefined ? formatBytes(state.usage) : null;
+  const free =
+    state.usage !== undefined && state.quota !== undefined && state.quota > state.usage
+      ? formatBytes(state.quota - state.usage)
+      : null;
+  const pct =
+    state.usage !== undefined && state.quota ? Math.max(2, Math.min(100, (state.usage / state.quota) * 100)) : null;
+  const ok = state.persisted;
+  const Icon = ok ? ShieldCheck : ShieldAlert;
 
-  return state.persisted ? (
-    <p className="text-sm text-lh-text-secondary">
-      {t('Данные защищены от автоочистки браузером{suffix}.', {
-        suffix: used ? t(', занято {used}', { used }) : '',
-      })}
-    </p>
-  ) : (
-    <p className="text-sm leading-snug">
-      <span className="font-semibold text-warning">
-        {t('Браузер не гарантирует сохранность данных.')}
-      </span>{' '}
-      <span className="text-lh-text-secondary">
-        {t(
-          'Если открывать приложение как обычную вкладку, Safari стирает данные сайта после недели без визитов. Установите приложение на экран «Домой» и держите копию{suffix}.',
-          { suffix: used ? t(' (сейчас занято {used})', { used }) : '' },
-        )}
+  return (
+    <section className="card flex gap-3.5 p-4">
+      <span
+        className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 ${ok ? 'text-success' : 'text-warning'}`}
+      >
+        <Icon size={ICON.base} strokeWidth={STROKE_STRONG} />
       </span>
-    </p>
+      <div className="min-w-0 flex-1">
+        {ok ? (
+          <>
+            <p className="text-base font-semibold">{t('Данные в безопасности')}</p>
+            <p className="mt-0.5 text-sm leading-snug text-lh-text-secondary">
+              {t('Данные защищены от автоочистки браузером{suffix}.', {
+                suffix: used ? t(', занято {used}', { used }) : '',
+              })}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-base font-semibold text-warning">{t('Браузер не гарантирует сохранность данных.')}</p>
+            <p className="mt-0.5 text-sm leading-snug text-lh-text-secondary">
+              {t(
+                'Если открывать приложение как обычную вкладку, Safari стирает данные сайта после недели без визитов. Установите приложение на экран «Домой» и держите копию{suffix}.',
+                { suffix: used ? t(' (сейчас занято {used})', { used }) : '' },
+              )}
+            </p>
+          </>
+        )}
+        {pct != null && used && (
+          <div aria-hidden="true">
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-lh-surface-2">
+              <i className={`block h-full ${ok ? 'bg-success' : 'bg-warning'}`} style={{ width: `${pct}%` }} />
+            </div>
+            <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-lh-text-secondary">
+              <span>{used}</span>
+              {free && <span>{t('доступно ~ {free}', { free })}</span>}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** Плитка значка раздела — нейтральная поверхность, цвет задаёт смысл. */
+function Tile({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 ${className}`}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -168,7 +215,7 @@ export function BackupPage() {
         workouts: p.counts.workouts ?? 0,
       },
     );
-    if (!window.confirm(msg)) return;
+    if (!(await confirmAction({ title: msg, confirmLabel: t('Восстановить') }))) return;
     await importBackup(backup);
     toast(t('Данные восстановлены'));
   }
@@ -216,12 +263,10 @@ export function BackupPage() {
         const when = e.remoteDate
           ? t(' от {date}', { date: formatRu(e.remoteDate.slice(0, 10), 'd MMMM yyyy') })
           : '';
-        const ok = window.confirm(
-          t(
+        const ok = (await confirmAction({ title: t(
             'В облаке лежит копия{when}, и в ней БОЛЬШЕ данных, чем на этом устройстве:\n\n{lines}\n\nЗаменить её копией с этого устройства? Разницу вернуть будет неоткуда.',
             { when, lines: lines.join('\n') },
-          ),
-        );
+          ), confirmLabel: t('Заменить') }));
         if (ok) await handleCloudBackupNow(true);
         return;
       }
@@ -249,133 +294,184 @@ export function BackupPage() {
   }
 
 
+  const lastFile = settings.lastBackupAt;
+  const freshDays = (settings.autoBackupEvery ?? 'daily') === 'weekly' ? 8 : 2;
+  const cloudFresh =
+    cloudDate?.state === 'have' && Date.now() - new Date(cloudDate.updatedAt).getTime() < freshDays * 86_400_000;
+
   return (
     <Screen title={t('Резервные копии')} backTo="/more/settings">
       <div className="space-y-6">
-        <Section
-          title={t('Копия в облаке')}
-          footnote={
-            syncOn
-              ? t('Зашифрована вашим ключом: на сервере только шифротекст. Переживает потерю или замену телефона.')
-              : paused
-                ? t('На паузе, пока нет согласия на внешнее: Настройки → Что уходит с телефона')
-                : t('Доступна при включённой синхронизации — ею идёт авторизация.')
-          }
-        >
+        <StorageStatus />
+
+        <section>
+          <h2 className="lh-section mb-2.5 px-1">{t('Копия в облаке')}</h2>
           <div className="card">
-            <Row label={t('Автоматическая копия')}>
-              {syncOn ? (
-                <Switch
-                  checked={settings.autoBackup === 'cloud'}
-                  onChange={(on) => void updateSettings({ autoBackup: on ? 'cloud' : 'off' })}
-                  label={t('Автоматическая копия')}
-                />
-              ) : paused ? (
-                <span className="shrink-0 text-sm font-medium text-warning">{t('На паузе')}</span>
-              ) : (
-                <span className="shrink-0 text-sm text-lh-text-secondary">{t('Недоступна')}</span>
-              )}
-            </Row>
-            {/* Восстановление вынесено ИЗ-ПОД тумблера автозаписи: раньше и
-                «Сохранить сейчас», и «Восстановить из облака» показывались
-                только при включённой автокопии. На новом телефоне тумблер
-                выключен по умолчанию, и человек, приехавший сюда возвращать
-                данные, видел один выключатель и делал вывод, что копии нет.
-                Тумблер — про расписание, восстановление — про беду. */}
+            <div className="flex gap-3.5 p-4">
+              <Tile className="text-lh-accent">
+                <GCloud size={ICON.base} />
+              </Tile>
+              <div className="min-w-0 flex-1">
+                {syncOn ? (
+                  <>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-base">{t('Последняя копия')}</span>
+                      {cloudDate?.state === 'have' && (
+                        <span
+                          className={`flex items-center gap-1 text-sm ${cloudFresh ? 'text-success' : 'text-warning'}`}
+                        >
+                          {cloudFresh && <GCheck size={ICON.inline} />}
+                          {cloudFresh ? t('актуальна') : t('устарела')}
+                        </span>
+                      )}
+                    </div>
+                    {/* Дата — С СЕРВЕРА, а не из settings. Локальная отметка между
+                        устройствами не синхронизируется, и на втором телефоне тут
+                        всегда горело «ещё не создана» — ровно тот текст, который
+                        толкает нажать «Сохранить сейчас» и затереть единственную
+                        полную копию снапшотом пустого устройства. */}
+                    <p className="mt-0.5 text-xl font-light tabular-nums">
+                      {cloudDate === undefined ? (
+                        <span className="text-lh-text-secondary">{t('проверяем…')}</span>
+                      ) : cloudDate.state === 'have' ? (
+                        formatRu(cloudDate.updatedAt.slice(0, 10), 'd MMMM yyyy')
+                      ) : cloudDate.state === 'unknown' ? (
+                        <span className="text-lh-text-secondary">{t('не удалось проверить')}</span>
+                      ) : (
+                        <span className="text-warning">{t('ещё не создана')}</span>
+                      )}
+                    </p>
+                    <p className="mt-1.5 text-sm leading-snug text-lh-text-secondary">
+                      {t('Зашифрована вашим ключом: на сервере только шифротекст. Переживает потерю или замену телефона.')}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-base">{paused ? t('На паузе') : t('Недоступна')}</p>
+                    <p className="mt-0.5 text-sm leading-snug text-lh-text-secondary">
+                      {paused
+                        ? t('На паузе, пока нет согласия на внешнее: Настройки → Что уходит с телефона')
+                        : t('Доступна при включённой синхронизации — ею идёт авторизация.')}
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+            {/* Восстановление НЕ зависит от тумблера автозаписи: на новом
+                телефоне тумблер выключен по умолчанию, и человек, приехавший
+                возвращать данные, видел один выключатель и решал, что копии
+                нет. Тумблер — про расписание, восстановление — про беду. */}
             {syncOn && (
-              <ButtonRow
-                label={t('Восстановить из облака')}
-                action={t('Начать')}
-                onClick={() => void handleCloudRestore()}
-              />
-            )}
-            {syncOn && settings.autoBackup === 'cloud' && (
-              <>
-                <Row label={t('Как часто')}>
-                  {/* compact-Select: под системную стрелку уходило ~40px внутри
-                      поля, и «Каждую неделю» не помещалось — читалось
-                      «Каждую не…». */}
-                  <Select
-                    compact
-                    className="font-medium"
-                    aria-label={t('Как часто')}
-                    value={settings.autoBackupEvery ?? 'daily'}
-                    onChange={(e) =>
-                      void updateSettings({ autoBackupEvery: e.target.value as 'daily' | 'weekly' })
-                    }
-                  >
-                    <option value="daily">{t('Каждый день')}</option>
-                    <option value="weekly">{t('Каждую неделю')}</option>
-                  </Select>
-                </Row>
-                {/* Дата — С СЕРВЕРА, а не из settings. Локальная отметка между
-                    устройствами не синхронизируется, и на втором телефоне тут
-                    всегда горело «ещё не создана» — ровно тот текст, который
-                    толкает нажать «Сохранить сейчас» и затереть единственную
-                    полную копию снапшотом пустого устройства. Пока ответ не
-                    пришёл, не пишем ничего. */}
-                <Row
-                  label={t('Последняя копия')}
-                  value={
-                    cloudDate === undefined ? (
-                      <span className="opacity-60">{t('проверяем…')}</span>
-                    ) : cloudDate.state === 'have' ? (
-                      formatRu(cloudDate.updatedAt.slice(0, 10), 'd MMMM yyyy')
-                    ) : cloudDate.state === 'unknown' ? (
-                      <span className="text-lh-text-secondary">{t('не удалось проверить')}</span>
-                    ) : (
-                      <span className="font-semibold text-warning">{t('ещё не создана')}</span>
-                    )
-                  }
-                />
-                <ButtonRow
-                  label={t('Сохранить сейчас')}
-                  action={t('Создать')}
+              <div className="grid grid-cols-2 gap-2.5 px-4 pb-4">
+                <button
+                  type="button"
                   onClick={() => void handleCloudBackupNow()}
-                />
-              </>
+                  className="h-12 rounded-lh-btn bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
+                >
+                  {t('Сохранить сейчас')}
+                </button>
+                <button
+                  type="button"
+                  aria-label={t('Восстановить из облака')}
+                  onClick={() => void handleCloudRestore()}
+                  className="h-12 rounded-lh-btn bg-lh-surface-2 text-base active:opacity-80"
+                >
+                  {t('Восстановить')}
+                </button>
+              </div>
             )}
+            <div className="border-t border-lh-border">
+              <Row label={t('Автоматическая копия')}>
+                {syncOn ? (
+                  <Switch
+                    checked={settings.autoBackup === 'cloud'}
+                    onChange={(on) => void updateSettings({ autoBackup: on ? 'cloud' : 'off' })}
+                    label={t('Автоматическая копия')}
+                  />
+                ) : paused ? (
+                  <span className="shrink-0 text-sm font-medium text-warning">{t('На паузе')}</span>
+                ) : (
+                  <span className="shrink-0 text-sm text-lh-text-secondary">{t('Недоступна')}</span>
+                )}
+              </Row>
+              {syncOn && settings.autoBackup === 'cloud' && (
+                <div className="px-4 pb-3">
+                  <p className="mb-2 text-sm text-lh-text-secondary">{t('Как часто')}</p>
+                  <SegmentedControl<'daily' | 'weekly'>
+                    options={[
+                      { value: 'daily', label: t('Каждый день') },
+                      { value: 'weekly', label: t('Каждую неделю') },
+                    ]}
+                    value={settings.autoBackupEvery ?? 'daily'}
+                    onChange={(v) => void updateSettings({ autoBackupEvery: v })}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           {settings.cloudBackupBlocked && (
-            <p className="mt-2 px-1 text-xs leading-snug text-warning">
+            <p className="mt-2 px-1 text-sm leading-snug text-warning">
               {t(
                 'Автокопия приостановлена: в облаке лежит копия полнее, чем данные на этом устройстве. Нажмите «Сохранить сейчас», чтобы решить, что с этим делать.',
               )}
             </p>
           )}
-        </Section>
+        </section>
 
         {/* Прямо о том, что в файле. Копия в облако шифруется ключом на
             устройстве, а файл — обычный JSON: он читается любым, кто его
             откроет. Человек имеет право знать это ДО того, как отправит файл
             себе в мессенджер. */}
-        <Section
-          title={t('Копия файлом')}
-          footnote={t(
-            'В файл входит всё: задачи, заметки, финансы, семейный чат и «Женские дни», если вы им пользуетесь. Файл НЕ зашифрован — храните там, куда нет доступа у посторонних.',
-          )}
-        >
+        <section>
+          <h2 className="lh-section mb-2.5 px-1">{t('Копия файлом')}</h2>
           <div className="card">
-            <Row
-              label={t('Последняя копия')}
-              value={
-                settings.lastBackupAt ? (
-                  formatRu(settings.lastBackupAt.slice(0, 10), 'd MMMM yyyy')
-                ) : (
-                  <span className="font-semibold text-warning">{t('никогда')}</span>
-                )
-              }
-            />
-            <ButtonRow
-              label={t('Сохранить в файл')}
-              action={t('Создать')}
-              onClick={() => void handleExport()}
-            />
-            <ButtonRow
-              label={t('Восстановить')}
-              action={t('Выбрать файл')}
-              onClick={() => fileRef.current?.click()}
-            />
+            <div className="flex gap-3.5 p-4">
+              <Tile className="text-lh-text-secondary">
+                <FileArchive size={ICON.base} />
+              </Tile>
+              <div className="min-w-0 flex-1">
+                <p className="text-base">{t('Файл на телефоне или в iCloud')}</p>
+                <p className="mt-1 flex gap-1.5 text-sm leading-snug text-warning">
+                  <GAlert size={ICON.inline} className="mt-[3px] shrink-0" />
+                  <span>
+                    {t(
+                      'В файл входит всё: задачи, заметки, финансы, семейный чат и «Женские дни», если вы им пользуетесь. Файл НЕ зашифрован — храните там, куда нет доступа у посторонних.',
+                    )}
+                  </span>
+                </p>
+              </div>
+            </div>
+            <div className="divide-y divide-lh-border border-t border-lh-border">
+              {/* Дата — своей строкой с подписью, а не хвостом кнопки: внутри
+                  она становилась частью названия («Сохранить в файл никогда»). */}
+              <Row
+                label={t('Последняя копия')}
+                value={
+                  lastFile ? (
+                    formatRu(lastFile.slice(0, 10), 'd MMMM yyyy')
+                  ) : (
+                    <span className="font-semibold text-warning">{t('никогда')}</span>
+                  )
+                }
+              />
+              <button
+                type="button"
+                onClick={() => void handleExport()}
+                className="flex h-14 w-full items-center gap-3 px-4 text-left text-base text-lh-accent active:bg-lh-surface-2"
+              >
+                <Download size={ICON.header} />
+                <span className="min-w-0 flex-1 truncate">{t('Сохранить в файл')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="flex h-14 w-full items-center gap-3 px-4 text-left text-base active:bg-lh-surface-2"
+              >
+                <FolderOpen size={ICON.header} className="text-lh-text-secondary" />
+                <span className="min-w-0 flex-1 truncate">{t('Восстановить из файла')}</span>
+                <GChevronRight size={ICON.action} className="text-lh-text-secondary" />
+              </button>
+            </div>
             <input
               ref={fileRef}
               type="file"
@@ -384,9 +480,10 @@ export function BackupPage() {
               onChange={(e) => void handleImport(e)}
             />
           </div>
-        </Section>
+        </section>
 
-        <Section title={t('Хранилище')}>
+        <section>
+          <h2 className="lh-section mb-2.5 px-1">{t('Хранилище')}</h2>
           <div className="card">
             <Row
               label={t('Защищённое хранилище')}
@@ -415,8 +512,10 @@ export function BackupPage() {
               }
             />
           </div>
-          <StorageStatus />
-        </Section>
+          <p className="mt-2.5 px-1 text-sm leading-snug text-lh-text-secondary">
+            {t('Перед восстановлением покажем, что в копии и что изменится, — ничего не пропадёт молча.')}
+          </p>
+        </section>
       </div>
     </Screen>
   );

@@ -106,6 +106,40 @@ async function finger(page: Page, x: number) {
 
 const START = ['Купить хлеб:3000', 'Позвонить бабушке:2000', 'Забрать колёса:1000'];
 
+test('высокий приоритет поднимает семейную задачу наверх списка', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await seed(page);
+  await page.getByText('Забрать колёса', { exact: true }).click();
+  await page.getByRole('button', { name: 'Высокий', exact: true }).click();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect.poll(async () => (await order(page)).map((s) => s.split(':')[0])).toEqual([
+    'Забрать колёса',
+    'Купить хлеб',
+    'Позвонить бабушке',
+  ]);
+  // И на экране — первой строкой.
+  await expect(page.getByRole('button', { name: 'Изменить задачу' }).first()).toContainText('Забрать колёса');
+});
+
+test('новая семейная задача встаёт наверх, но под важной во главе', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await seed(page);
+  await page.getByText('Забрать колёса', { exact: true }).click();
+  await page.getByRole('button', { name: 'Высокий', exact: true }).click();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect.poll(async () => (await order(page))[0]?.split(':')[0]).toBe('Забрать колёса');
+
+  await page.getByRole('button', { name: 'Новая задача' }).click();
+  await page.getByPlaceholder('Название задачи').fill('Полить цветы');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect.poll(async () => (await order(page)).map((s) => s.split(':')[0])).toEqual([
+    'Забрать колёса',
+    'Полить цветы',
+    'Купить хлеб',
+    'Позвонить бабушке',
+  ]);
+});
+
 test('перенос пальцем: задача встаёт туда, где её отпустили', async ({ page }) => {
   const errors = collectErrors(page);
   await openApp(page, '/more/family');
@@ -217,6 +251,8 @@ test('удержание на кружке отметки и отпускани�
   // Отпускание без движения Chromium завершает кликом по кружку.
   await touch('touchEnd');
   await expect(raised(page)).toHaveCount(0);
+  // И без щелчка: отбитый клик отменён, переключатель накладки стоит (§6.4).
+  await expect(check('Позвонить бабушке').locator('[data-haptic] input')).not.toBeChecked();
 
   // Отметка ложится в базу не сразу. Чтобы не ждать наугад, отмечаем соседнюю
   // задачу обычным нажатием: её отметка идёт тем же путём и позже — когда она

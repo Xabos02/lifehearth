@@ -8,6 +8,7 @@ import { db } from '../../db/db';
 import { alive, create, now, remove, update } from '../../db/repo';
 import { t } from '../../lib/i18n';
 import type { LearningItem, LearningKind } from '../../db/types';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 type EditableStatus = 'planned' | 'inProgress' | 'done';
 type ProgressUnit = LearningItem['progressUnit'];
@@ -112,7 +113,7 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm(t('Удалить материал?'))) return;
+    if (!(await confirmAction(t('Удалить материал?')))) return;
     await remove(db.learningItems, item.id);
     onClose();
   };

@@ -3,6 +3,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { AutoGrowTextarea, Field, Input, Select } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Chip } from '../../components/ui/Chip';
+import { Haptic } from '../../components/ui/Haptic';
 import type { FamilyTask, FamilyMember, Priority } from '../../db/types';
 import { createFamilyTask, updateFamilyTask, deleteFamilyTask } from '../../lib/family/familyRepo';
 import { addDaysKey, todayKey } from '../../lib/dates';
@@ -12,6 +13,7 @@ import { GCheck as Check } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 type PStr = '0' | '1' | '2' | '3';
 // Цвет полосы приоритета — тот же, что и в личных задачах (TaskItem.PRIORITY_BAR):
@@ -74,14 +76,22 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
       assigneeId,
     };
     // Напоминание ставит и снимает сам репозиторий — по тому, что изменилось.
-    if (task) await updateFamilyTask(familyId, task.id, data);
+    // Высокий приоритет выбрали только что — задача встаёт наверх: список
+    // семейных идёт по убыванию порядка, и сейчас больше любого из них.
+    // Новая встаёт наверх, обычная — под важными во главе (createFamilyTask).
+    if (task)
+      await updateFamilyTask(
+        familyId,
+        task.id,
+        data.priority === 3 && task.priority !== 3 ? { ...data, sortOrder: Date.now() } : data,
+      );
     else await createFamilyTask(familyId, data);
     onClose();
   }
 
   async function remove() {
     if (!task) return;
-    if (!window.confirm(t('Удалить задачу?'))) return;
+    if (!(await confirmAction(t('Удалить задачу?')))) return;
     await deleteFamilyTask(familyId, task.id);
     onClose();
   }
@@ -104,6 +114,8 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
             className={`rounded-full px-3 py-1.5 text-sm ${HIT_SLOP_44} ${assigneeId === null ? 'bg-lh-accent text-lh-bg' : 'bg-lh-surface-2 text-lh-text-secondary'}`}
           >
             {t('Всем')}
+            {/* Выбор исполнителя щёлкает, как чип (PROTOCOL §6.4); выбранный — нет. */}
+            <Haptic off={assigneeId === null} />
           </button>
           {alive.map((m) => (
             <button
@@ -114,6 +126,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
               style={assigneeId === m.id ? { background: m.color } : undefined}
             >
               {m.displayName}
+              <Haptic off={assigneeId === m.id} />
             </button>
           ))}
         </div>
@@ -134,6 +147,8 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
             >
               <span className={`size-2 shrink-0 rounded-full ${o.dot}`} />
               {t(o.label)}
+              {/* Сегмент щёлкает, как SegmentedControl (PROTOCOL §6.4). */}
+              <Haptic off={priority === o.value} />
             </button>
           ))}
         </div>
@@ -168,18 +183,22 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
       <Field label={t('Срок')}>
         <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         <div className="mt-2 flex flex-wrap gap-2">
-          <Chip active={dueDate === todayKey()} onClick={() => setDueDate(todayKey())}>
+          <Chip active={dueDate === todayKey()} hapticOff={dueDate === todayKey()} onClick={() => setDueDate(todayKey())}>
             {t('Сегодня')}
           </Chip>
-          <Chip active={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>
+          <Chip active={dueDate === tomorrow} hapticOff={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>
             {t('Завтра')}
           </Chip>
           {dueDate && (
             <Chip
-              onClick={() => {
-                setDueDate('');
-                setRemindBefore(null);
-              }}
+              // Чип исчезает с самим сроком — тем же тиком он ушёл бы раньше
+              // щелчка своего переключателя (PROTOCOL §6.4).
+              onClick={() =>
+                setTimeout(() => {
+                  setDueDate('');
+                  setRemindBefore(null);
+                })
+              }
             >
               {t('Убрать')}
             </Chip>

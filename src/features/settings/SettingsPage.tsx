@@ -19,7 +19,7 @@ import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/s
 import { RINGTONES, previewRingtone, type RingtoneKind } from '../../lib/family/ringtone';
 import { Screen } from '../../components/layout/Screen';
 import { Select } from '../../components/ui/Input';
-import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { Haptic } from '../../components/ui/Haptic';
 import { useToast } from '../../components/ui/toastContext';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { db } from '../../db/db';
@@ -42,6 +42,22 @@ const THEME_OPTIONS: { value: Settings['theme']; label: string }[] = [
   { value: 'light', label: 'Светлая' },
   { value: 'system', label: 'Системная' },
 ];
+
+/** Мини-превью темы: полоса акцента и «карточка» на фоне темы. */
+function ThemePreview({ kind }: { kind: Settings['theme'] }) {
+  const pane = (bg: string, card: string) => (
+    <span className="flex flex-1 flex-col gap-1.5 p-2" style={{ background: bg }}>
+      <span className="h-1.5 w-2/3 rounded-full bg-lh-accent" />
+      <span className="h-3 rounded" style={{ background: card }} />
+    </span>
+  );
+  return (
+    <span aria-hidden className="flex h-14 w-full overflow-hidden rounded-lg border border-lh-border">
+      {kind !== 'light' && pane('#08080F', '#18181F')}
+      {kind !== 'dark' && pane('#F4F1EA', '#FFFFFF')}
+    </span>
+  );
+}
 
 /** Возврат скрытых подсказок. Отдельной строкой от сброса обучения, с живым
  *  счётчиком: кнопка без обратной связи выглядит как сломанная — нажал, ничего
@@ -166,14 +182,41 @@ export function SettingsPage() {
     <Screen title={t('Настройки')} backTo="/home">
       <div className="space-y-6">
         <ConsentPausedBanner />
-        <Section title={t('Оформление')}>
+        <Section
+          title={t('Оформление')}
+          footnote={t(
+            'Лёгкий щелчок под пальцем, когда что-то переключаете или отмечаете. Барабаны щёлкают звуком — в беззвучном режиме он молчит.',
+          )}
+        >
           <div className="card">
+            {/* Макет «Настройки»: тема — три плитки с мини-превью, выбранная
+                в золотой рамке. Цвета превью — декоративные образцы тем. */}
             <div className="p-4">
-              <SegmentedControl
-                options={THEME_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
-                value={settings.theme}
-                onChange={(theme) => void updateSettings({ theme })}
-              />
+              <p className="mb-3 text-sm">{t('Тема')}</p>
+              <div className="grid grid-cols-3 gap-3" role="group" aria-label={t('Тема')}>
+                {THEME_OPTIONS.map((o) => {
+                  const on = settings.theme === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => void updateSettings({ theme: o.value })}
+                      className={`flex flex-col items-center gap-2 rounded-xl border-2 p-1.5 pb-2 transition-colors ${
+                        on ? 'border-lh-accent' : 'border-transparent'
+                      }`}
+                    >
+                      <ThemePreview kind={o.value} />
+                      <span className={`text-xs ${on ? 'font-semibold text-lh-text-primary' : 'text-lh-text-secondary'}`}>
+                        {t(o.label)}
+                      </span>
+                      {/* Смена темы щёлкает, как сегмент; тап по выбранной ничего не
+                          меняет — накладка пропускает его (PROTOCOL §6.4). */}
+                      <Haptic off={on} />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             {/* Смена языка перерисовывает приложение перезагрузкой: строки
                 читаются в момент рендера, reload — честный способ обновить
@@ -197,6 +240,16 @@ export function SettingsPage() {
                 <option value="en">English</option>
               </Select>
             </div>
+            {/* Один выключатель на весь отклик (канва design/tap-feedback,
+                выбран А): тактильный щелчок, вибрация Android и щелчок
+                барабанов. Сам он тоже щёлкает — последний раз при выключении. */}
+            <Row label={t('Отклик на касания')}>
+              <Switch
+                checked={settings.tapFeedback !== false}
+                onChange={(on) => void updateSettings({ tapFeedback: on })}
+                label={t('Отклик на касания')}
+              />
+            </Row>
           </div>
         </Section>
 

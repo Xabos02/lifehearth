@@ -14,7 +14,8 @@ import { addWorkout, addWorkoutSession, removeWorkout, updateWorkout, type Worko
 import { addTemplate } from './templateRepo';
 import { TemplatesSheet } from './TemplatesSheet';
 import { ItemFields } from './ItemFields';
-import { itemFromSaved, newItem, savedFromItem, type Item } from './workoutItem';
+import { itemFromSaved, kindPending, newItem, savedFromItem, type Item } from './workoutItem';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -23,6 +24,8 @@ interface Props {
   workout: Workout | null;
   /** День по умолчанию для новой (выбранный в календаре). */
   date: string;
+  /** Новая тренировка сразу по шаблону — чип в карточке дня. */
+  template?: WorkoutTemplate | null;
 }
 
 /** Форма тренировки. Обязательное — дата и вид (минуты подставляются по
@@ -32,17 +35,37 @@ interface Props {
  *  Новая запись — это набор ИЗ ОДНОГО ИЛИ НЕСКОЛЬКИХ видов «в одно целое»:
  *  можно добавить ещё вид кнопкой, загрузить шаблон и убрать из него то, чего
  *  сегодня не делали. Правка уже сохранённой записи — как раньше, один вид. */
-export function WorkoutSheet({ open, onClose, workout, date }: Props) {
+export function WorkoutSheet({ open, onClose, workout, date, template = null }: Props) {
   return (
     <Sheet open={open} onClose={onClose} title={workout ? t('Тренировка') : t('Новая тренировка')}>
-      {open && <WorkoutForm key={(workout?.id ?? 'new') + date} workout={workout} date={date} onClose={onClose} />}
+      {open && (
+        <WorkoutForm key={(workout?.id ?? 'new') + date + (template?.id ?? '')} workout={workout} date={date} template={template} onClose={onClose} />
+      )}
     </Sheet>
   );
 }
 
-function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date: string; onClose: () => void }) {
+/** Виды шаблона → строки формы, свёрнутые до заголовков: их читают как
+ *  программу. Пустой шаблон — обычная новая форма. */
+function itemsFromTemplate(tpl: WorkoutTemplate): Item[] {
+  return tpl.items.length ? tpl.items.map((i) => itemFromSaved(i, true)) : [newItem()];
+}
+
+function WorkoutForm({
+  workout,
+  date,
+  template,
+  onClose,
+}: {
+  workout: Workout | null;
+  date: string;
+  template: WorkoutTemplate | null;
+  onClose: () => void;
+}) {
   const [day, setDay] = useState(workout?.date ?? date);
-  const [items, setItems] = useState<Item[]>(() => (workout ? [itemFromSaved(workout)] : [newItem()]));
+  const [items, setItems] = useState<Item[]>(() =>
+    workout ? [itemFromSaved(workout)] : template ? itemsFromTemplate(template) : [newItem()],
+  );
   const [effort, setEffort] = useState<Workout['effort']>(workout?.effort ?? null);
   const [note, setNote] = useState(workout?.note ?? '');
   const [templatesOpen, setTemplatesOpen] = useState(false);
@@ -50,21 +73,22 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
 
   // Минуты по желанию (задача 38): вид без времени — тоже тренировка.
   const validDay = /^\d{4}-\d{2}-\d{2}$/.test(day) && day <= todayKey();
-  const canSave = validDay && items.length > 0;
+  const pending = kindPending(items);
+  const canSave = validDay && items.length > 0 && !pending;
 
   function updateItem(key: string, patch: Partial<Item>) {
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
   }
 
   function applyTemplate(tpl: WorkoutTemplate) {
-    setItems(tpl.items.length ? tpl.items.map(itemFromSaved) : [newItem()]);
+    setItems(itemsFromTemplate(tpl));
     setTemplatesOpen(false);
   }
 
   async function saveAsTemplate() {
     const name = window.prompt(t('Название шаблона:'))?.trim();
     if (!name) return;
-    await addTemplate(name, items.map(savedFromItem));
+    await addTemplate({ name, items: items.map(savedFromItem) });
   }
 
   const save = async () => {
@@ -93,7 +117,7 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
 
   const del = async () => {
     if (!workout) return;
-    if (!window.confirm(t('Удалить тренировку?'))) return;
+    if (!(await confirmAction(t('Удалить тренировку?')))) return;
     await removeWorkout(workout.id);
     onClose();
   };
@@ -104,11 +128,10 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
         <Input type="date" value={day} max={todayKey()} onChange={(e: ChangeEvent<HTMLInputElement>) => setDay(e.target.value)} />
       </Field>
 
-      {items.map((it, idx) => (
+      {items.map((it) => (
         <ItemFields
           key={it.key}
           item={it}
-          index={idx}
           removable={!workout && items.length > 1}
           onRemove={() => setItems((prev) => prev.filter((x) => x.key !== it.key))}
           onChange={(patch) => updateItem(it.key, patch)}
@@ -161,7 +184,8 @@ function WorkoutForm({ workout, date, onClose }: { workout: Workout | null; date
         <button
           type="button"
           onClick={() => void saveAsTemplate()}
-          className={`w-full text-center text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
+          disabled={pending}
+          className={`w-full text-center text-sm font-medium text-lh-accent active:opacity-70 disabled:opacity-40 ${HIT_SLOP_44}`}
         >
           {t('Сделать из этого набора шаблон')}
         </button>

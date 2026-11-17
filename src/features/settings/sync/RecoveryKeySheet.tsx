@@ -19,6 +19,8 @@ import { updateSettings } from '../../../hooks/useSettings';
 import { now } from '../../../db/repo';
 import { t } from '../../../lib/i18n';
 import { ICON } from '../../../components/ui/icons';
+import { confirmAction } from '../../../components/ui/confirmStore';
+import { Haptic } from '../../../components/ui/Haptic';
 
 interface Props {
   open: boolean;
@@ -121,12 +123,14 @@ export function RecoveryKeySheet({ open, saved, onClose }: Props) {
     toast(t('Ключ сохранён и проверен'));
   }
 
-  function handleClose() {
+  async function handleClose() {
     if (
       !confirmed &&
-      !window.confirm(
-        t('Ключ восстановления не сохранён. Без него записи из облака не вернуть ничем. Всё равно закрыть?'),
-      )
+      !(await confirmAction({
+        title: t('Ключ восстановления не сохранён'),
+        message: t('Ключ восстановления не сохранён. Без него записи из облака не вернуть ничем. Всё равно закрыть?'),
+        confirmLabel: t('Закрыть'),
+      }))
     )
       return;
     onClose();
@@ -156,6 +160,7 @@ export function RecoveryKeySheet({ open, saved, onClose }: Props) {
         >
           {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
           {copied ? t('Скопировано') : t('Скопировать ключ')}
+          <Haptic />
         </Button>
 
         <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">

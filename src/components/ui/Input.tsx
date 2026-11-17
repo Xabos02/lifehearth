@@ -233,6 +233,11 @@ export function SearchField({
   );
 }
 
+/** Подпись поля формы. Отдельно — для подписи над контролом, который в Field
+ *  не кладётся (кнопка, растянутая под соседнее поле): иначе своя копия
+ *  классов расходится с Field при первой же смене стиля. */
+export const FIELD_CAPTION = 'mb-2 block px-1 text-xs text-lh-text-secondary';
+
 /** Подпись + контрол — стандартная строка формы в шитах. */
 export function Field({
   label,
@@ -257,7 +262,7 @@ export function Field({
         if (first && first.tagName === 'BUTTON') e.preventDefault();
       }}
     >
-      <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{label}</span>
+      <span className={FIELD_CAPTION}>{label}</span>
       {children}
     </label>
   );

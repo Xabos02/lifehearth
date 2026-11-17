@@ -1,4 +1,4 @@
-import { test, expect, openApp } from './fixtures';
+import { test, expect, openApp, answerConfirm } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // Задача 15: хвост разбора «Задач» от 08.09, подтверждённый 12.09 —
@@ -136,13 +136,8 @@ test('заполненная форма задачи не закрывается
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
   await page.getByRole('button', { name: 'Новая задача', exact: true }).click();
   await page.locator('textarea').first().fill('Важное дело');
-  let asked = false;
-  page.once('dialog', (d) => {
-    asked = true;
-    void d.dismiss();
-  });
-  await page.getByRole('button', { name: 'Закрыть' }).click();
-  expect(asked).toBe(true);
+  await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
+  expect(await answerConfirm(page, false)).toContain('Закрыть без сохранения');
   await expect(page.getByRole('heading', { name: 'Новая задача' })).toBeVisible();
 });
 

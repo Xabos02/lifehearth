@@ -150,6 +150,19 @@ export async function seedFamilyChats(page: Page) {
   });
 }
 
+/** Отвечает на шит подтверждения (ConfirmHost — замена window.confirm).
+ *  accept — нажать кнопку-глагол, иначе «Не сейчас». Возвращает заголовок и
+ *  пояснение вопроса — тесты проверяют, что человеку сказали правду. */
+export async function answerConfirm(page: Page, accept: boolean): Promise<string> {
+  const sheet = page.getByTestId('confirm-sheet');
+  await expect(sheet).toBeVisible();
+  const asked = `${(await sheet.getAttribute('aria-label')) ?? ''}\n${await sheet.innerText()}`;
+  const buttons = sheet.getByRole('button');
+  await (accept ? buttons.first() : buttons.last()).click();
+  await expect(sheet).toBeHidden();
+  return asked;
+}
+
 export function collectErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));

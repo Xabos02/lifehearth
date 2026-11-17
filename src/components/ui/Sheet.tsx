@@ -29,6 +29,14 @@ const DRAG_START = 12;
  *  жест отпускаем совсем, панель не двигается и не закрывается. */
 const DRAG_X_ABORT = 10;
 
+/** Сколько открытых шторок сейчас держат прокрутку приложения. Запрет
+ *  ставит первая, снимает последняя. Раньше каждая запоминала прежнее
+ *  значение и возвращала его сама: шторка поверх шторки запоминала уже
+ *  выставленный запрет, и когда обе уходили разом (системное «Назад», тап
+ *  по пушу), внешняя возвращала прокрутку, а внутренняя следом — запрет.
+ *  Лента после этого не листалась ни на одном экране до перезапуска. */
+let scrollLocks = 0;
+
 /** Bottom sheet — стандартный контейнер быстрых форм создания/редактирования.
  *  Закрывается свайпом вниз по «ручке»/шапке. */
 export function Sheet({ open, onClose, title, children }: Props) {
@@ -55,6 +63,30 @@ export function Sheet({ open, onClose, title, children }: Props) {
     active: boolean;
   } | null>(null);
 
+  // Панель въезжает четверть секунды и принимала касания уже в пути: второй
+  // тап двойного касания по кнопке, открывшей шторку, попадал в её содержимое
+  // — убирал вид из формы тренировки, раскрывал строку. До конца въезда клики
+  // по содержимому панели гасим.
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!open) return;
+    settled.current = false;
+    // Страховка: без анимации («Уменьшение движения») animationend не придёт.
+    const id = window.setTimeout(() => {
+      settled.current = true;
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [open]);
+
+  // Клавиатура поднимает панель и на свою высоту срезает её снизу: поле в
+  // фокусе, стоявшее у нижнего края длинной формы, оказывалось под краем —
+  // печатаешь и не видишь. Докручиваем панель к нему.
+  useEffect(() => {
+    if (keyboardInset <= 0) return;
+    const el = document.activeElement;
+    if (el instanceof HTMLElement && panelRef.current?.contains(el)) el.scrollIntoView({ block: 'nearest' });
+  }, [keyboardInset]);
+
   // При открытии сбрасываем прокрутку шита наверх — формы открываются с верха,
   // а не «доскроленными» вниз (баг iOS с автофокусом/восстановлением скролла).
   useEffect(() => {
@@ -75,11 +107,11 @@ export function Sheet({ open, onClose, title, children }: Props) {
     if (!open) return;
     const scroller = document.querySelector<HTMLElement>('[data-app-scroll]');
     if (!scroller) return;
-    const prev = scroller.style.overflowY;
     const at = scroller.scrollTop;
-    scroller.style.overflowY = 'hidden';
+    // Своего overflowY в разметке у контейнера нет — снятый запрет это ''.
+    if (scrollLocks++ === 0) scroller.style.overflowY = 'hidden';
     return () => {
-      scroller.style.overflowY = prev;
+      if (--scrollLocks === 0) scroller.style.overflowY = '';
       scroller.scrollTop = at;
     };
   }, [open]);
@@ -178,6 +210,17 @@ export function Sheet({ open, onClose, title, children }: Props) {
       />
       <div
         ref={panelRef}
+        // Только свой въезд: animationend всплывает и от анимаций внутри панели.
+        onAnimationEnd={(e) => {
+          if (e.target === e.currentTarget) settled.current = true;
+        }}
+        // Гасим только клики по содержимому панели: затемнение ведёт свой счёт
+        // касаний («первый тап убирает клавиатуру, второй закрывает»).
+        onClickCapture={(e) => {
+          if (settled.current) return;
+          e.stopPropagation();
+          e.preventDefault();
+        }}
         // overscroll-none, а не contain: оба не дают прокрутке перетечь на
         // страницу ПОД панелью, но contain оставлял пружину внутри неё —
         // долистал форму до конца, потянул дальше, и края окна отъезжали.
@@ -186,7 +229,7 @@ export function Sheet({ open, onClose, title, children }: Props) {
         // минимальную ширину), и вся форма уезжала пальцем вбок. Владелец
         // (20.09): «это окно должно быть мёртвым и никуда не двигаться
         // вправо-влево, не плавать».
-        className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto overflow-x-hidden overscroll-none rounded-t-[1.6rem] border-t border-lh-border-strong bg-lh-surface pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
+        className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto overflow-x-hidden overscroll-none rounded-t-3xl border-t border-lh-border-strong bg-lh-surface pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
         style={{
           // Панель поднимается ровно на высоту клавиатуры, а её потолок на ту
           // же величину опускается — иначе поднятая панель упёрлась бы в

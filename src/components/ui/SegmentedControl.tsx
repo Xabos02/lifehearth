@@ -1,3 +1,5 @@
+import { Haptic } from './Haptic';
+
 interface Option<T extends string> {
   value: T;
   label: string;
@@ -29,13 +31,16 @@ export function SegmentedControl<T extends string>({ options, value, onChange, c
           type="button"
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`min-h-11 flex-1 whitespace-nowrap rounded-lh-sm px-1 py-2.5 text-sm font-medium transition-all duration-200 ${
+          className={`min-h-11 flex-1 whitespace-nowrap rounded-lh-sm px-1 py-2.5 text-sm transition-all duration-200 ${
             value === o.value
-              ? 'bg-lh-accent text-lh-bg shadow-[0_2px_10px_-3px_rgba(201,168,76,0.45)]'
+              ? 'bg-lh-accent font-semibold text-lh-bg'
               : 'text-lh-text-secondary active:text-lh-text-primary'
           }`}
         >
           {o.label}
+          {/* Смена выбора щёлкает (§6.4); тап по уже выбранному ничего не
+              меняет — накладка пропускает его сквозь себя. */}
+          <Haptic off={value === o.value} />
         </button>
       ))}
     </div>

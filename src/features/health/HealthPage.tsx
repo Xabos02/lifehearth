@@ -1,44 +1,100 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
-import { alive } from '../../db/repo';
 import { Screen } from '../../components/layout/Screen';
 import { Fab } from '../../components/layout/Fab';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { t } from '../../lib/i18n';
 import { todayKey } from '../../lib/dates';
 import { useLoaded } from '../../hooks/useLoaded';
-import type { Workout } from '../../db/types';
+import type { Workout, WorkoutTemplate } from '../../db/types';
 import { SportTab } from './SportTab';
 import type { Scale } from './WorkoutCalendar';
 import { MeasuresTab } from './MeasuresTab';
 import { WorkoutSheet } from './WorkoutSheet';
+import { TemplatesSheet } from './TemplatesSheet';
+import { shownWorkouts } from './workoutRepo';
 
 type Tab = 'sport' | 'health';
+
+/** Перерисовка на смене суток: «сегодня» считается при рендере, и без неё
+ *  открытая с вечера страница утром показывала вчерашний день как «Сегодня».
+ *  ponytail: опрос раз в минуту и сразу при возврате в приложение, а не
+ *  таймер до полуночи — длинный таймер в фоне и во сне телефона сдвигается;
+ *  открытый экран до минуты после полуночи ещё может показывать прежний день. */
+function useDayRollover() {
+  const [, setDay] = useState(todayKey);
+  useEffect(() => {
+    const roll = () => setDay(todayKey());
+    const id = window.setInterval(roll, 60_000);
+    document.addEventListener('visibilitychange', roll);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', roll);
+    };
+  }, []);
+}
 
 /** Раздел «Здоровье»: спорт (календарь тренировок, ритм, сводки) и замеры.
  *  Задача 14 набора 10.09.2026; канва «Здоровье и спорт», design/health/. */
 export function HealthPage() {
   const [tab, setTab] = useState<Tab>('sport');
-  const [selected, setSelected] = useState(todayKey());
+  // Выбранный день; null — «сегодня», какое оно сейчас. Иначе день, открытый
+  // вечером, переживал полночь, и «Отметить тренировку» молча записывала
+  // тренировку на вчера. Выбор сегодняшнего дня тоже идёт за сутками.
+  useDayRollover();
+  const [picked, setPicked] = useState<string | null>(null);
+  const selected = picked ?? todayKey();
+  const setSelected = (key: string) => setPicked(key === todayKey() ? null : key);
+  // Дата для формы — на нажатии, а не из рендера: до минуты после полуночи
+  // экран ещё прежний, а запись уже должна уйти на новые сутки.
+  const selectedNow = () => picked ?? todayKey();
   const [scale, setScale] = useState<Scale>('week');
-  const [sheet, setSheet] = useState<{ open: boolean; workout: Workout | null; date: string }>({
+  const [sheet, setSheet] = useState<{ open: boolean; workout: Workout | null; date: string; template: WorkoutTemplate | null }>({
     open: false,
     workout: null,
     date: todayKey(),
+    template: null,
   });
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   // Сырое значение и «загружено ли» — раздельно: иначе на первом кадре у
   // человека с сотней тренировок мелькало «Первая тренировка сегодня?».
-  const rows = useLiveQuery(() => db.workouts.toArray(), []);
+  // По времени записи, а не по id (случайный uuid): виды одного занятия идут
+  // в порядке ввода и в точках дня, и в списках (addWorkoutSession).
+  const rows = useLiveQuery(async () => (await db.workouts.toArray()).sort((a, b) => a.createdAt.localeCompare(b.createdAt)), []);
   const loaded = useLoaded(rows);
-  const workouts = alive(rows ?? []);
+  // Один и тот же список между кадрами: сводки вкладки считаются по нему.
+  const workouts = useMemo(() => shownWorkouts(rows ?? []), [rows]);
 
-  const openNew = (date: string) => setSheet({ open: true, workout: null, date });
-  const openEdit = (w: Workout) => setSheet({ open: true, workout: w, date: w.date });
+  const openNew = (date: string) => setSheet({ open: true, workout: null, date, template: null });
+  const openEdit = (w: Workout) => setSheet({ open: true, workout: w, date: w.date, template: null });
+  // По шаблону — на выбранный день: чип в карточке дня и выбор в списке.
+  const openTemplate = (tpl: WorkoutTemplate) => {
+    setTemplatesOpen(false);
+    setSheet({ open: true, workout: null, date: selectedNow(), template: tpl });
+  };
   const close = () => setSheet((s) => ({ ...s, open: false }));
 
   return (
-    <Screen title={t('Здоровье')} backTo="/home">
+    <Screen
+      title={t('Здоровье')}
+      backTo="/home"
+      // Вход в шаблоны — в шапке вкладки «Спорт» (канва design/template-entry,
+      // вариант А): «Шаблоны ›» внизу карточки дня на 375 px стоял ниже
+      // первого экрана, и новичок не находил, где завести шаблон. Шапка
+      // липкая — вход виден и при прокрутке. Чипы остаются в карточке дня.
+      right={
+        tab === 'sport' ? (
+          <button
+            type="button"
+            onClick={() => setTemplatesOpen(true)}
+            className="min-h-11 shrink-0 rounded-lg px-2 py-2.5 text-base font-medium text-lh-accent active:opacity-60"
+          >
+            {t('Шаблоны')}
+          </button>
+        ) : undefined
+      }
+    >
       <div className="mb-4">
         <SegmentedControl<Tab>
           options={[
@@ -56,7 +112,11 @@ export function HealthPage() {
             selected={selected}
             onSelect={setSelected}
             onEdit={openEdit}
-            onAddFor={openNew}
+            // Дата — на нажатии, как у плавающей кнопки: до минуты после
+            // полуночи карточка дня ещё вчерашняя.
+            onAddFor={() => openNew(selectedNow())}
+            onTemplate={openTemplate}
+            onTemplates={() => setTemplatesOpen(true)}
             scale={scale}
             onScale={setScale}
           />
@@ -64,8 +124,9 @@ export function HealthPage() {
       ) : (
         <MeasuresTab />
       )}
-      {tab === 'sport' && loaded && <Fab onClick={() => openNew(selected)} label={t('Отметить тренировку')} />}
-      <WorkoutSheet open={sheet.open} onClose={close} workout={sheet.workout} date={sheet.date} />
+      {tab === 'sport' && loaded && <Fab onClick={() => openNew(selectedNow())} label={t('Отметить тренировку')} />}
+      <WorkoutSheet open={sheet.open} onClose={close} workout={sheet.workout} date={sheet.date} template={sheet.template} />
+      <TemplatesSheet open={templatesOpen} onClose={() => setTemplatesOpen(false)} onPick={openTemplate} />
     </Screen>
   );
 }

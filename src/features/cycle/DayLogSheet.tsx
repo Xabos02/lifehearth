@@ -5,6 +5,7 @@ import {
 } from '../../components/ui/glyphs';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
+import { Haptic } from '../../components/ui/Haptic';
 import { Field, Textarea } from '../../components/ui/Input';
 import { db } from '../../db/db';
 import type { BleedingLevel, Severity, SymptomEntry } from '../../db/cycleTypes';
@@ -13,6 +14,7 @@ import { SYMPTOM_GROUP_LABELS } from '../../lib/cycle/symptoms';
 import { formatRu } from '../../lib/dates';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 /** Шкала кровотечения. Пять значений вместо принятого у Apple и Google
  *  разделения на «поток» и «межменструальное кровотечение»: человеку проще
@@ -112,7 +114,7 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
   }
 
   async function clear() {
-    if (!window.confirm(t('Удалить все отметки за {date}?', { date: formatRu(date) }))) return;
+    if (!(await confirmAction(t('Удалить все отметки за {date}?', { date: formatRu(date) })))) return;
     await deleteDay(date);
     onClose();
   }
@@ -150,6 +152,8 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
                     )}
                   </span>
                   <span className="max-w-full truncate">{t(l.label)}</span>
+                  {/* Выбор щёлкает (PROTOCOL §6.4); повторный тап ничего не меняет. */}
+                  <Haptic off={active} />
                 </button>
               );
             })}
@@ -184,6 +188,8 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
                           {t(SEVERITY_LABELS[e.severity])}
                         </span>
                       )}
+                      {/* Каждый тап меняет отметку (степень, снятие) — щёлкает, §6.4. */}
+                      <Haptic />
                     </button>
                   );
                 })}

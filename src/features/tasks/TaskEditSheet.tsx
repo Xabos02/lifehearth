@@ -12,7 +12,7 @@ import {
   GCopy as Copy,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
-import { alive, create, remove, uid, update } from '../../db/repo';
+import { alive, create, remove, restore, uid, update } from '../../db/repo';
 import type { ChecklistItem, Priority, Project, Recurrence, Task } from '../../db/types';
 import { MAX_DEPTH } from './dragTuning';
 import { Sheet } from '../../components/ui/Sheet';
@@ -39,7 +39,9 @@ import { t } from '../../lib/i18n';
 import { useAutoCapitalizeTextarea } from '../../lib/useAutoCapitalizeTextarea';
 import { usePomodoroActions } from '../focus/pomodoro';
 import { ICON } from '../../components/ui/icons';
-import { isSleeping, scheduleNext } from './taskActions';
+import { isSleeping, newSortOrder, newTaskSortOrder, scheduleNext } from './taskActions';
+import { confirmAction } from '../../components/ui/confirmStore';
+import { Haptic } from '../../components/ui/Haptic';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'manual';
 type PriorityStr = '0' | '1' | '2' | '3';
@@ -96,6 +98,8 @@ function formatRemind(min: number): string {
 
 type TaskEditProps = {
   onClose: () => void;
+  /** Создана новая задача (не правка) — родитель может прокрутить к ней. */
+  onCreated?: (id: string) => void;
   task?: Task | null;
   defaults?: { projectId?: string | null; goalId?: string | null; dueDate?: string | null };
 };
@@ -116,7 +120,7 @@ export function TaskEditSheet({ open, ...rest }: TaskEditProps & { open: boolean
   return <TaskEditForm {...rest} />;
 }
 
-function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
+function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
   const projectsRaw = useLiveQuery(
     async () =>
       alive(await db.projects.toArray())
@@ -326,14 +330,22 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
       };
       let savedId: string;
       if (task) {
-        await update(db.tasks, task.id, data);
+        // Высокий приоритет выбрали только что — задача встаёт наверх списка.
+        const changes =
+          priority === 3 && task.priority !== 3 ? { ...data, sortOrder: newSortOrder() } : data;
+        await update(db.tasks, task.id, changes);
         savedId = task.id;
         // Спящую ручную задачу перевели на расписание: она уже сделана —
-        // следующий круг заводим сразу, как сделала бы отметка.
+        // следующий круг заводим сразу, как сделала бы отметка. Копия берёт
+        // и поднятое место: иначе наверх встала бы выполненная, а не она.
         const rec = data.recurrence;
-        if (isSleeping(task) && rec && rec.type !== 'manual') await scheduleNext({ ...task, ...data }, rec);
+        if (isSleeping(task) && rec && rec.type !== 'manual') await scheduleNext({ ...task, ...changes }, rec);
       } else {
-        const created = await create(db.tasks, { ...data, completedAt: null, sortOrder: Date.now() });
+        const created = await create(db.tasks, {
+          ...data,
+          completedAt: null,
+          sortOrder: await newTaskSortOrder(projectId, priority, temporary),
+        });
         savedId = created.id;
       }
       // Снимки раскладываем кусками в свою таблицу — параллельно тому, что они
@@ -354,6 +366,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         remindBefore: data.remindBefore,
       });
       onClose();
+      if (!task) onCreated?.(savedId);
     } finally {
       savingRef.current = false;
     }
@@ -361,10 +374,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
   const handleDelete = async () => {
     if (!task) return;
-    if (!window.confirm(t('Удалить задачу?'))) return;
     void cancelReminder(task.id, task.remindBefore != null);
     await remove(db.tasks, task.id);
     onClose();
+    toast(t('Задача удалена'), { action: { label: t('Вернуть'), onClick: () => void restore(db.tasks, task.id) } });
   };
 
   const handleCreateProject = async () => {
@@ -374,7 +387,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
       name,
       color: newProjectColor,
       emoji: newProjectEmoji.trim() || '📁',
-      sortOrder: Date.now(),
+      sortOrder: newSortOrder(),
       archivedAt: null,
     });
     setProjectId(project.id);
@@ -417,7 +430,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
   /** Удалить записанное вложение: мягко, каждый чанк — синк разнесёт. */
   const deleteSavedFile = async (fileId: string) => {
-    if (!window.confirm(t('Удалить файл из задачи?'))) return;
+    if (!(await confirmAction(t('Удалить файл из задачи?')))) return;
     const rows = await db.taskFiles.where('fileId').equals(fileId).toArray();
     for (const r of rows) await remove(db.taskFiles, r.id);
   };
@@ -517,8 +530,8 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
     (task ? projectId !== (task.projectId ?? null) : projectId !== (defaults?.projectId ?? null)) ||
     (task ? remindBefore !== (task.remindBefore ?? null) : remindBefore !== null) ||
     tagsText.trim() !== (task?.tags ?? []).join(', ').trim();
-  const requestClose = () => {
-    if (dirty && !window.confirm(t('Закрыть без сохранения?'))) return;
+  const requestClose = async () => {
+    if (dirty && !(await confirmAction({ title: t('Закрыть без сохранения?'), confirmLabel: t('Закрыть без сохранения') }))) return;
     onClose();
   };
 
@@ -538,6 +551,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <Copy size={ICON.inline} />
+              {title.length > 0 && <Haptic />}
             </button>
           </div>
           <div className="flex items-start gap-2">
@@ -572,6 +586,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
               <Copy size={ICON.inline} />
+              {notes.length > 0 && <Haptic />}
             </button>
           </div>
           <div className="flex items-start gap-2">
@@ -721,361 +736,377 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
           />
         </Field>
 
-        <div>
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-sm font-medium text-lh-text-secondary">{t('Проект')}</span>
-            {!showNewProject && (
-              <button
-                type="button"
-                className={`text-sm font-medium text-lh-accent ${HIT_SLOP_44}`}
-                onClick={() => setShowNewProject(true)}
-              >
-                {t('+ Новый')}
-              </button>
+        <section className="flex flex-col gap-4">
+          <h3 className="lh-section flex items-baseline justify-between px-1">
+            <span>{t('Когда')}</span>
+          </h3>
+          <div>
+            {/* Период: «сдать с 10 по 25». Начало — отдельным полем над сроком,
+                срок остаётся дедлайном (просрочка и напоминание — по нему). */}
+            {startDate !== null && (
+              <Field label={t('Начало')} className="mb-3">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value || null)}
+                />
+              </Field>
             )}
-          </div>
-          {showNewProject ? (
-            <div className="flex flex-col gap-3 rounded-lh-card border border-lh-border bg-lh-surface p-3">
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newProjectEmoji}
-                  placeholder="📁"
-                  onChange={(e) => setNewProjectEmoji(e.target.value)}
-                  className="w-14! shrink-0 text-center"
-                />
-                <Input
-                  value={newProjectName}
-                  placeholder={t('Название проекта')}
-                  autoFocus
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  onClear={() => setNewProjectName('')}
-                  className="min-w-0 flex-1"
-                />
-              </div>
-              {/* gap-4: кружки по 28px, зона касания у каждого 44 — при
-                  зазоре 10px зоны соседей налезали на 6px. 16px дают шаг
-                  сетки ровно 44 в обе стороны. */}
-              <div className="flex flex-wrap gap-4">
-                {PRESET_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-label={t('Цвет {c}', { c })}
-                    onClick={() => setNewProjectColor(c)}
-                    className={`size-7 rounded-full transition-transform active:scale-90 ${HIT_SLOP_44}`}
-                    style={{
-                      backgroundColor: c,
-                      outline: newProjectColor === c ? `2px solid ${c}` : 'none',
-                      outlineOffset: '2px',
-                    }}
-                  />
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  className="flex-1"
+            <Field label={startDate !== null ? t('Сдать до') : t('Срок')}>
+              <Input
+                type="date"
+                value={dueDate ?? ''}
+                onChange={(e) => setDueDate(e.target.value || null)}
+              />
+            </Field>
+            {/* Перенос, а не прокрутка: четвёртый чип «Убрать» уезжал за правый
+                край на 393px, а полоса прокрутки скрыта — догадаться нельзя. */}
+            <div className="mt-2">
+              <div className="flex flex-wrap gap-2">
+                <Chip active={dueDate === todayKey()} hapticOff={dueDate === todayKey()} onClick={() => setDueDate(todayKey())}>
+                  {t('Сегодня')}
+                </Chip>
+                <Chip active={dueDate === tomorrow} hapticOff={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>
+                  {t('Завтра')}
+                </Chip>
+                <Chip
+                  active={startDate !== null}
                   onClick={() => {
-                    setShowNewProject(false);
-                    setNewProjectName('');
+                    if (startDate !== null) {
+                      setStartDate(null);
+                      return;
+                    }
+                    // Типовой период начинается сегодня; без дедлайна период не
+                    // имеет смысла — ставим и его, человек поправит оба поля.
+                    if (!dueDate) setDueDate(todayKey());
+                    setStartDate(todayKey());
                   }}
                 >
-                  {t('Отмена')}
-                </Button>
-                <Button
-                  className="flex-1"
-                  disabled={!newProjectName.trim()}
-                  onClick={handleCreateProject}
+                  {t('Период')}
+                </Chip>
+                <Chip
+                  hapticOff={!dueDate && !dueTime && !startDate}
+                  onClick={() => {
+                    setDueDate(null);
+                    setDueTime(null);
+                    setStartDate(null);
+                  }}
                 >
-                  {t('Создать')}
-                </Button>
+                  {t('Убрать')}
+                </Chip>
               </div>
             </div>
-          ) : (
-            <Select value={projectId ?? ''} onChange={(e) => setProjectId(e.target.value || null)}>
-              <option value="">{t('Без проекта')}</option>
-              {orderedProjects.map(({ p, depth }) => (
-                <option key={p.id} value={p.id}>
-                  {/* Отступ по глубине, nbsp: обычные пробелы в iOS-пикере схлопываются. */}
-                  {depth > 0 ? '\u00A0\u00A0\u00A0'.repeat(depth) + '↳ ' : ''}
-                  {p.emoji} {p.name}
+          </div>
+
+          {dueDate && (
+            <>
+              <Field label={t('Время начала')}>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="time"
+                    className="flex-1"
+                    value={dueTime ?? ''}
+                    onChange={(e) => setDueTime(e.target.value || null)}
+                  />
+                  {dueTime && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setDueTime(null);
+                        // «за 30 мин» без времени невозможно — сбрасываем, чтобы
+                        // поле не показывало «Выкл» при живом значении в state.
+                        if (remindBefore != null && !REMIND_PRESETS_ALLDAY.includes(remindBefore)) setRemindBefore(null);
+                      }}
+                      className="shrink-0 rounded-lh-btn border border-lh-border-strong px-3.5 py-3 text-sm text-lh-text-secondary active:opacity-60"
+                    >
+                      {t('Убрать')}
+                    </button>
+                  )}
+                </div>
+              </Field>
+              <Field label={t('Длительность')}>
+                <Select
+                  value={duration ?? ''}
+                  onChange={(e) => setDuration(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">{t('Нет')}</option>
+                  {DURATION_PRESETS.map((m) => (
+                    <option key={m} value={m}>
+                      {formatDuration(m)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {/* Напоминание доступно любой задаче со сроком, а не только той, у
+                  которой задано время. «Завтра сдать отчёт» пишут без часа — и
+                  именно такой задаче напоминание нужнее всего; раньше поле для
+                  неё просто не показывалось. */}
+              <Field label={t('Напоминание')}>
+                <Select
+                  value={remindBefore ?? ''}
+                  onChange={(e) =>
+                    setRemindBefore(e.target.value === '' ? null : Number(e.target.value))
+                  }
+                >
+                  <option value="">{t('Выкл')}</option>
+                  {/* Порядок — по ходу времени: от самого дальнего «за неделю» к
+                      самому близкому «за 5 минут», и в конце — момент задачи.
+                      Так человек и думает о напоминании: издалека к сроку.
+                      Раньше список шёл наоборот, и чтобы поставить «за неделю»,
+                      надо было пролистать его до дна. Массивы не перевёрнуты
+                      намеренно — их порядок читают и другие места; меняется
+                      только вывод. «Выкл» остаётся первым: это не точка на шкале,
+                      а «напоминания нет», и место ему как у значения по
+                      умолчанию. */}
+                  {[...(dueTime ? REMIND_PRESETS : REMIND_PRESETS_ALLDAY)].reverse().map((m) => (
+                    <option key={m} value={m}>
+                      {t('за {d}', { d: formatRemind(m) })}
+                    </option>
+                  ))}
+                  <option value="0">{dueTime ? t('Вовремя') : t('В день задачи')}</option>
+                </Select>
+                {!dueTime && remindBefore != null && (
+                  <p className="mt-1.5 text-xs leading-snug text-lh-text-secondary">
+                    {t('У задачи без времени напоминание приходит утром, в {time}', {
+                      time: ALLDAY_REMIND_TIME,
+                    })}
+                  </p>
+                )}
+              </Field>
+            </>
+          )}
+
+          <Field label={t('Повторение')}>
+            <SegmentedControl
+              options={REC_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
+              // Шесть сегментов в строку на 320px не влезают (315 из 288) —
+              // две строки по три, слова целиком (канва design/manual-repeat).
+              columns={3}
+              value={recType}
+              onChange={setRecType}
+            />
+            {recType === 'manual' && (
+              <p className="mt-1.5 text-xs leading-snug text-lh-text-secondary">
+                {t('Отмеченная задача останется на месте в списке. Когда снова пора — запустите её кнопкой справа.')}
+              </p>
+            )}
+          </Field>
+
+          {recType !== 'none' && recType !== 'manual' && (
+            <Field label={t(REC_INTERVAL_LABELS[recType])}>
+              <Input
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={recInterval}
+                onChange={(e) => setRecInterval(e.target.value)}
+              />
+            </Field>
+          )}
+
+          {recType === 'weekly' && (
+            <ChipRow>
+              {WEEKDAY_LABELS.map((label, i) => {
+                const day = i + 1;
+                const on = recWeekdays.includes(day);
+                return (
+                  <Chip
+                    key={day}
+                    active={on}
+                    onClick={() =>
+                      setRecWeekdays(
+                        on ? recWeekdays.filter((d) => d !== day) : [...recWeekdays, day],
+                      )
+                    }
+                  >
+                    {t(label)}
+                  </Chip>
+                );
+              })}
+            </ChipRow>
+          )}
+
+          {recType === 'monthly' && (
+            <Field label={t('День месяца')}>
+              <Input
+                type="number"
+                min={1}
+                max={31}
+                inputMode="numeric"
+                value={recDayOfMonth}
+                onChange={(e) => setRecDayOfMonth(e.target.value)}
+              />
+            </Field>
+          )}
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <h3 className="lh-section flex items-baseline justify-between px-1">
+            <span>{t('Основное')}</span>
+          </h3>
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-sm font-medium text-lh-text-secondary">{t('Проект')}</span>
+              {!showNewProject && (
+                <button
+                  type="button"
+                  className={`text-sm font-medium text-lh-accent ${HIT_SLOP_44}`}
+                  onClick={() => setShowNewProject(true)}
+                >
+                  {t('+ Новый')}
+                </button>
+              )}
+            </div>
+            {showNewProject ? (
+              <div className="flex flex-col gap-3 rounded-lh-card border border-lh-border bg-lh-surface p-3">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newProjectEmoji}
+                    placeholder="📁"
+                    onChange={(e) => setNewProjectEmoji(e.target.value)}
+                    className="w-14! shrink-0 text-center"
+                  />
+                  <Input
+                    value={newProjectName}
+                    placeholder={t('Название проекта')}
+                    autoFocus
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    onClear={() => setNewProjectName('')}
+                    className="min-w-0 flex-1"
+                  />
+                </div>
+                {/* gap-4: кружки по 28px, зона касания у каждого 44 — при
+                    зазоре 10px зоны соседей налезали на 6px. 16px дают шаг
+                    сетки ровно 44 в обе стороны. */}
+                <div className="flex flex-wrap gap-4">
+                  {PRESET_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      aria-label={t('Цвет {c}', { c })}
+                      onClick={() => setNewProjectColor(c)}
+                      className={`size-7 rounded-full transition-transform active:scale-90 ${HIT_SLOP_44}`}
+                      style={{
+                        backgroundColor: c,
+                        outline: newProjectColor === c ? `2px solid ${c}` : 'none',
+                        outlineOffset: '2px',
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => {
+                      setShowNewProject(false);
+                      setNewProjectName('');
+                    }}
+                  >
+                    {t('Отмена')}
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    disabled={!newProjectName.trim()}
+                    onClick={handleCreateProject}
+                  >
+                    {t('Создать')}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Select value={projectId ?? ''} onChange={(e) => setProjectId(e.target.value || null)}>
+                <option value="">{t('Без проекта')}</option>
+                {orderedProjects.map(({ p, depth }) => (
+                  <option key={p.id} value={p.id}>
+                    {/* Отступ по глубине, nbsp: обычные пробелы в iOS-пикере схлопываются. */}
+                    {depth > 0 ? '\u00A0\u00A0\u00A0'.repeat(depth) + '↳ ' : ''}
+                    {p.emoji} {p.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </div>
+
+          <Field label={t('Цель')}>
+            <Select value={goalId ?? ''} onChange={(e) => setGoalId(e.target.value || null)}>
+              <option value="">{t('Без цели')}</option>
+              {goals.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.title}
                 </option>
               ))}
             </Select>
-          )}
-        </div>
+          </Field>
 
-        <Field label={t('Цель')}>
-          <Select value={goalId ?? ''} onChange={(e) => setGoalId(e.target.value || null)}>
-            <option value="">{t('Без цели')}</option>
-            {goals.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.title}
-              </option>
-            ))}
-          </Select>
-        </Field>
+          <Field label={t('Приоритет')}>
+            <SegmentedControl
+              options={PRIORITY_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
+              value={String(priority) as PriorityStr}
+              onChange={(v) => setPriority(Number(v) as Priority)}
+            />
+          </Field>
 
-        <Field label={t('Приоритет')}>
-          <SegmentedControl
-            options={PRIORITY_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
-            value={String(priority) as PriorityStr}
-            onChange={(v) => setPriority(Number(v) as Priority)}
-          />
-        </Field>
-
-        {/* Разовое поручение. Пометка ставится руками, а не угадывается по
-            сроку: дедлайн у постоянной задачи бывает не реже, чем у разовой,
-            и догадка врала бы ровно на них. */}
-        <div className="flex items-center justify-between gap-3 py-1">
-          <span className="min-w-0">
-            <span className="block text-sm font-medium">{t('Временная')}</span>
-            <span className="block text-xs leading-snug text-lh-text-secondary">
-              {t('Соберётся отдельной группой внизу проекта')}
+          {/* Разовое поручение. Пометка ставится руками, а не угадывается по
+              сроку: дедлайн у постоянной задачи бывает не реже, чем у разовой,
+              и догадка врала бы ровно на них. */}
+          <div className="flex items-center justify-between gap-3 py-1">
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">{t('Временная')}</span>
+              <span className="block text-xs leading-snug text-lh-text-secondary">
+                {t('Соберётся отдельной группой внизу проекта')}
+              </span>
             </span>
-          </span>
-          <Switch
-            checked={temporary}
-            onChange={setTemporary}
-            label={t('Временная')}
-          />
-        </div>
-
-        <div>
-          {/* Период: «сдать с 10 по 25». Начало — отдельным полем над сроком,
-              срок остаётся дедлайном (просрочка и напоминание — по нему). */}
-          {startDate !== null && (
-            <Field label={t('Начало')} className="mb-3">
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value || null)}
-              />
-            </Field>
-          )}
-          <Field label={startDate !== null ? t('Сдать до') : t('Срок')}>
-            <Input
-              type="date"
-              value={dueDate ?? ''}
-              onChange={(e) => setDueDate(e.target.value || null)}
+            <Switch
+              checked={temporary}
+              onChange={setTemporary}
+              label={t('Временная')}
             />
-          </Field>
-          {/* Перенос, а не прокрутка: четвёртый чип «Убрать» уезжал за правый
-              край на 393px, а полоса прокрутки скрыта — догадаться нельзя. */}
-          <div className="mt-2">
-            <div className="flex flex-wrap gap-2">
-              <Chip active={dueDate === todayKey()} onClick={() => setDueDate(todayKey())}>
-                {t('Сегодня')}
-              </Chip>
-              <Chip active={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>
-                {t('Завтра')}
-              </Chip>
-              <Chip
-                active={startDate !== null}
-                onClick={() => {
-                  if (startDate !== null) {
-                    setStartDate(null);
-                    return;
-                  }
-                  // Типовой период начинается сегодня; без дедлайна период не
-                  // имеет смысла — ставим и его, человек поправит оба поля.
-                  if (!dueDate) setDueDate(todayKey());
-                  setStartDate(todayKey());
-                }}
-              >
-                {t('Период')}
-              </Chip>
-              <Chip
-                onClick={() => {
-                  setDueDate(null);
-                  setDueTime(null);
-                  setStartDate(null);
-                }}
-              >
-                {t('Убрать')}
-              </Chip>
-            </div>
           </div>
-        </div>
+        </section>
 
-        {dueDate && (
-          <>
-            <Field label={t('Время начала')}>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="time"
-                  className="flex-1"
-                  value={dueTime ?? ''}
-                  onChange={(e) => setDueTime(e.target.value || null)}
-                />
-                {dueTime && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setDueTime(null);
-                      // «за 30 мин» без времени невозможно — сбрасываем, чтобы
-                      // поле не показывало «Выкл» при живом значении в state.
-                      if (remindBefore != null && !REMIND_PRESETS_ALLDAY.includes(remindBefore)) setRemindBefore(null);
-                    }}
-                    className="shrink-0 rounded-lh-btn border border-lh-border-strong px-3.5 py-3 text-sm text-lh-text-secondary active:opacity-60"
-                  >
-                    {t('Убрать')}
-                  </button>
-                )}
-              </div>
-            </Field>
-            <Field label={t('Длительность')}>
-              <Select
-                value={duration ?? ''}
-                onChange={(e) => setDuration(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">{t('Нет')}</option>
-                {DURATION_PRESETS.map((m) => (
-                  <option key={m} value={m}>
-                    {formatDuration(m)}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            {/* Напоминание доступно любой задаче со сроком, а не только той, у
-                которой задано время. «Завтра сдать отчёт» пишут без часа — и
-                именно такой задаче напоминание нужнее всего; раньше поле для
-                неё просто не показывалось. */}
-            <Field label={t('Напоминание')}>
-              <Select
-                value={remindBefore ?? ''}
-                onChange={(e) =>
-                  setRemindBefore(e.target.value === '' ? null : Number(e.target.value))
-                }
-              >
-                <option value="">{t('Выкл')}</option>
-                {/* Порядок — по ходу времени: от самого дальнего «за неделю» к
-                    самому близкому «за 5 минут», и в конце — момент задачи.
-                    Так человек и думает о напоминании: издалека к сроку.
-                    Раньше список шёл наоборот, и чтобы поставить «за неделю»,
-                    надо было пролистать его до дна. Массивы не перевёрнуты
-                    намеренно — их порядок читают и другие места; меняется
-                    только вывод. «Выкл» остаётся первым: это не точка на шкале,
-                    а «напоминания нет», и место ему как у значения по
-                    умолчанию. */}
-                {[...(dueTime ? REMIND_PRESETS : REMIND_PRESETS_ALLDAY)].reverse().map((m) => (
-                  <option key={m} value={m}>
-                    {t('за {d}', { d: formatRemind(m) })}
-                  </option>
-                ))}
-                <option value="0">{dueTime ? t('Вовремя') : t('В день задачи')}</option>
-              </Select>
-              {!dueTime && remindBefore != null && (
-                <p className="mt-1.5 text-xs leading-snug text-lh-text-secondary">
-                  {t('У задачи без времени напоминание приходит утром, в {time}', {
-                    time: ALLDAY_REMIND_TIME,
-                  })}
-                </p>
-              )}
-            </Field>
-          </>
-        )}
-
-        <Field label={t('Повторение')}>
-          <SegmentedControl
-            options={REC_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
-            // Шесть сегментов в строку на 320px не влезают (315 из 288) —
-            // две строки по три, слова целиком (канва design/manual-repeat).
-            columns={3}
-            value={recType}
-            onChange={setRecType}
-          />
-          {recType === 'manual' && (
-            <p className="mt-1.5 text-xs leading-snug text-lh-text-secondary">
-              {t('Отмеченная задача останется на месте в списке. Когда снова пора — запустите её кнопкой справа.')}
-            </p>
-          )}
-        </Field>
-
-        {recType !== 'none' && recType !== 'manual' && (
-          <Field label={t(REC_INTERVAL_LABELS[recType])}>
-            <Input
-              type="number"
-              min={1}
-              inputMode="numeric"
-              value={recInterval}
-              onChange={(e) => setRecInterval(e.target.value)}
-            />
-          </Field>
-        )}
-
-        {recType === 'weekly' && (
-          <ChipRow>
-            {WEEKDAY_LABELS.map((label, i) => {
-              const day = i + 1;
-              const on = recWeekdays.includes(day);
-              return (
-                <Chip
-                  key={day}
-                  active={on}
-                  onClick={() =>
-                    setRecWeekdays(
-                      on ? recWeekdays.filter((d) => d !== day) : [...recWeekdays, day],
+        <section className="flex flex-col gap-4">
+          <h3 className="lh-section flex items-baseline justify-between px-1">
+            <span>{t('Чеклист')}</span>
+            {checklist.length > 0 && <span className="tabular-nums normal-case tracking-normal">{t('{done} из {n}', { done: String(checklist.filter((i) => i.done).length), n: String(checklist.length) })}</span>}
+          </h3>
+          <div>
+            {/* min-h-11: строка 32px ставила чекбоксы и крестики соседних
+                пунктов в 32px друг от друга — зоны касания 44 налезали. */}
+            {checklist.map((item) => (
+              <div key={item.id} className="flex min-h-11 items-center gap-2.5">
+                <TaskCheck
+                  size={20}
+                  checked={item.done}
+                  onChange={() =>
+                    setChecklist((arr) =>
+                      arr.map((i) => (i.id === item.id ? { ...i, done: !i.done } : i)),
                     )
                   }
+                />
+                <span className={`flex-1 text-sm ${item.done ? 'text-lh-text-secondary line-through' : ''}`}>
+                  {item.text}
+                </span>
+                <button
+                  aria-label={t('Удалить пункт')}
+                  className={`shrink-0 p-1 text-lh-text-secondary ${HIT_SLOP_44}`}
+                  onClick={() => setChecklist((arr) => arr.filter((i) => i.id !== item.id))}
                 >
-                  {t(label)}
-                </Chip>
-              );
-            })}
-          </ChipRow>
-        )}
-
-        {recType === 'monthly' && (
-          <Field label={t('День месяца')}>
+                  <X size={ICON.action} />
+                </button>
+              </div>
+            ))}
             <Input
-              type="number"
-              min={1}
-              max={31}
-              inputMode="numeric"
-              value={recDayOfMonth}
-              onChange={(e) => setRecDayOfMonth(e.target.value)}
+              className="mt-1"
+              value={newItem}
+              placeholder={t('Добавить пункт')}
+              onChange={(e) => setNewItem(e.target.value)}
+              onKeyDown={handleNewItemKey}
+              onClear={() => setNewItem('')}
             />
-          </Field>
-        )}
-
-        <div>
-          <span className="mb-1.5 block text-sm font-medium text-lh-text-secondary">{t('Чеклист')}</span>
-          {/* min-h-11: строка 32px ставила чекбоксы и крестики соседних
-              пунктов в 32px друг от друга — зоны касания 44 налезали. */}
-          {checklist.map((item) => (
-            <div key={item.id} className="flex min-h-11 items-center gap-2.5">
-              <TaskCheck
-                size={20}
-                checked={item.done}
-                onChange={() =>
-                  setChecklist((arr) =>
-                    arr.map((i) => (i.id === item.id ? { ...i, done: !i.done } : i)),
-                  )
-                }
-              />
-              <span className={`flex-1 text-sm ${item.done ? 'text-lh-text-secondary line-through' : ''}`}>
-                {item.text}
-              </span>
-              <button
-                aria-label={t('Удалить пункт')}
-                className={`shrink-0 p-1 text-lh-text-secondary ${HIT_SLOP_44}`}
-                onClick={() => setChecklist((arr) => arr.filter((i) => i.id !== item.id))}
-              >
-                <X size={ICON.action} />
-              </button>
-            </div>
-          ))}
-          <Input
-            className="mt-1"
-            value={newItem}
-            placeholder={t('Добавить пункт')}
-            onChange={(e) => setNewItem(e.target.value)}
-            onKeyDown={handleNewItemKey}
-            onClear={() => setNewItem('')}
-          />
-        </div>
+          </div>
+        </section>
 
         {task && (
           <Button

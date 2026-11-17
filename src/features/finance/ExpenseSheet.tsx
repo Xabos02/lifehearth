@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Chip, ChipRow } from '../../components/ui/Chip';
+import { Haptic } from '../../components/ui/Haptic';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
@@ -9,6 +10,7 @@ import { create, remove, update } from '../../db/repo';
 import type { ExpenseItem, ExpenseKind, ExpenseRecurrence } from '../../db/types';
 import { EXPENSE_CATEGORY_SUGGESTIONS } from '../../lib/finance';
 import { t } from '../../lib/i18n';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -73,7 +75,7 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm(t('Удалить запись?'))) return;
+    if (!(await confirmAction(t('Удалить запись?')))) return;
     await remove(db.expenseItems, item.id);
     onClose();
   };
@@ -114,7 +116,7 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
           <div className="mb-2">
             <ChipRow>
               {EXPENSE_CATEGORY_SUGGESTIONS.map((c) => (
-                <Chip key={c} active={category === c} onClick={() => setCategory(c)}>
+                <Chip key={c} active={category === c} hapticOff={category === c} onClick={() => setCategory(c)}>
                   {t(c)}
                 </Chip>
               ))}
@@ -170,6 +172,8 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
         }`}
       >
         {active ? t('Учитывается в сводке') : t('Не учитывается в сводке')}
+        {/* Флажок-переключатель — щёлкает (PROTOCOL §6.4). */}
+        <Haptic />
       </button>
       <div className="flex gap-2 pt-1">
         {item && (

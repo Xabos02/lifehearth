@@ -10,6 +10,8 @@ import { renameFamily } from '../../lib/family/familyChat';
 import { leaveFamily } from '../../lib/family/familyLifecycle';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { confirmAction } from '../../components/ui/confirmStore';
+import { buzz } from '../../lib/feedback';
 
 const ROW_H = 60; // фиксированная высота строки — по ней считаем шаг перетаскивания
 
@@ -72,6 +74,8 @@ export function ManageGroupsSheet({
 
   function onHandleUp(e: PointerEvent<HTMLButtonElement>) {
     const wasDragging = Boolean(drag.current);
+    // Группа встала на новое место — короткая вибрация, только Android (PROTOCOL §6.4).
+    if (drag.current && order.indexOf(drag.current.id) !== drag.current.startIndex) buzz();
     drag.current = null;
     setDragId(null);
     try {
@@ -89,9 +93,7 @@ export function ManageGroupsSheet({
   }
 
   async function leaveGroup(id: string, name: string) {
-    const ok = window.confirm(
-      t('Выйти из «{name}»? Переписка этой группы удалится с этого устройства (у остальных участников она останется).', { name }),
-    );
+    const ok = (await confirmAction({ title: t('Выйти из «{name}»? Переписка этой группы удалится с этого устройства (у остальных участников она останется).', { name }), confirmLabel: t('Выйти') }));
     if (!ok) return;
     await leaveFamily(id);
     setOrder((o) => o.filter((x) => x !== id));

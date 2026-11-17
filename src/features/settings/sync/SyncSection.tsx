@@ -20,6 +20,8 @@ import { ICON } from '../../../components/ui/icons';
 import {
   GCopy as Copy,
 } from '../../../components/ui/glyphs';
+import { confirmAction } from '../../../components/ui/confirmStore';
+import { Haptic } from '../../../components/ui/Haptic';
 
 function formatSyncedAt(iso: string): string {
   if (!iso) return t('ещё не синхронизировано');
@@ -108,9 +110,7 @@ export function SyncSection() {
     if (busy) return;
     if (!(await askConsent('sync'))) return;
     if (
-      !window.confirm(
-        t('Перечитать всё заново? Приложение заново отправит и получит все записи. Ничего не потеряется — это займёт больше времени, чем обычный обмен.'),
-      )
+      !(await confirmAction({ title: t('Перечитать всё заново? Приложение заново отправит и получит все записи. Ничего не потеряется — это займёт больше времени, чем обычный обмен.'), confirmLabel: t('Перечитать'), danger: false }))
     )
       return;
     setBusy(true);
@@ -145,11 +145,9 @@ export function SyncSection() {
     // после него облачная копия превращается в нечитаемый шифротекст. Прежний
     // текст обещал ровно обратное — «локальные данные останутся на месте».
     if (
-      !window.confirm(
-        keySavedAt
+      !(await confirmAction({ title: keySavedAt
           ? t('Отключить синхронизацию на этом устройстве? Записи на телефоне останутся. Ключ с телефона будет стёрт — вернуть облако можно будет только сохранённым файлом ключа.')
-          : t('Отключить синхронизацию? Ключ восстановления НЕ сохранён, а отключение стирает его с телефона: облачные записи после этого не вернуть ничем. Сначала сохраните ключ.'),
-      )
+          : t('Отключить синхронизацию? Ключ восстановления НЕ сохранён, а отключение стирает его с телефона: облачные записи после этого не вернуть ничем. Сначала сохраните ключ.'), confirmLabel: t('Отключить') }))
     )
       return;
     await disableSync();
@@ -267,6 +265,7 @@ export function SyncSection() {
                 <span className="block font-mono text-xs break-all">{config.accountId}</span>
               </span>
               <Copy size={ICON.action} className="shrink-0 text-lh-text-secondary" />
+              <Haptic />
             </button>
             {/* Самая частая причина «данные не появляются» — устройства в
                 РАЗНЫХ аккаунтах: синхронизация настраивается на каждом

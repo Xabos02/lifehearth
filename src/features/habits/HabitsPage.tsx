@@ -18,7 +18,9 @@ import { HabitSheet } from './HabitSheet';
 import { HabitLogSheet } from './HabitLogSheet';
 import {
   GHabits as CalendarCheck,
+  GSparkle,
 } from '../../components/ui/glyphs';
+import { ICON } from '../../components/ui/icons';
 
 type Filter = 'active' | 'archived';
 
@@ -79,7 +81,8 @@ export function HabitsPage() {
   return (
     <Screen title={t('Привычки')} backTo="/home">
       <div className="space-y-3">
-        <div className="card p-4">
+        <div className="card flex items-start gap-3 p-4">
+          <GSparkle size={ICON.base} aria-hidden className="mt-0.5 shrink-0 text-lh-accent" />
           <p className="text-sm leading-relaxed text-lh-text-secondary">
             {t(
               'Отмечайте выполнение каждый день — серия 🔥 растёт, пока не пропустите запланированный день.',
@@ -129,11 +132,14 @@ export function HabitsPage() {
                   habit.archivedAt || frozen ? 'opacity-45' : ''
                 }`}
               >
-                <span className="text-2xl leading-none" aria-hidden>
+                <span
+                  className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-xl leading-none"
+                  aria-hidden
+                >
                   {habit.emoji}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{habit.name}</p>
+                  <p className="break-words leading-snug">{habit.name}</p>
                   {frozen ? (
                     <p className="mt-0.5 text-xs text-lh-text-secondary">
                       {t('Заморожена с {date}', { date: formatRu(frozenSince!) })}

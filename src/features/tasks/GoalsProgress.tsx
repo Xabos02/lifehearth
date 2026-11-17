@@ -11,6 +11,7 @@ import { compareAhead, deadlineLabel, remainingLabel } from '../../lib/goalsAhea
 import { GCheck } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 /**
  * Приближение к целям — лентой над списком задач.
@@ -29,41 +30,6 @@ import { ICON } from '../../components/ui/icons';
  * как на 58%. Мотивирует ОСТАТОК: «осталось 3 задачи» — это дистанция, которую
  * видно и можно пройти сегодня. Процент оставлен как второй план, мелким.
  */
-
-const RING = 36;
-const STROKE = 3.5;
-
-function Ring({ value, color }: { value: number; color: string }) {
-  const r = (RING - STROKE) / 2;
-  const c = 2 * Math.PI * r;
-  return (
-    <svg width={RING} height={RING} viewBox={`0 0 ${RING} ${RING}`} className="shrink-0" aria-hidden>
-      <circle
-        cx={RING / 2}
-        cy={RING / 2}
-        r={r}
-        fill="none"
-        stroke="var(--lh-surface-2)"
-        strokeWidth={STROKE}
-      />
-      {/* Поворот на -90°, чтобы дуга росла от 12 часов, а не от 3: снизу вверх
-          читается как «наполняется», сбоку — как «крутится». */}
-      <circle
-        cx={RING / 2}
-        cy={RING / 2}
-        r={r}
-        fill="none"
-        stroke={color}
-        strokeWidth={STROKE}
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={c * (1 - (Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0) / 100)}
-        transform={`rotate(-90 ${RING / 2} ${RING / 2})`}
-        className="transition-[stroke-dashoffset] duration-500 motion-reduce:transition-none"
-      />
-    </svg>
-  );
-}
 
 export function GoalsProgress() {
   const goalRows = useLiveQuery(() => db.goals.toArray(), []);
@@ -104,50 +70,51 @@ export function GoalsProgress() {
   // задач была бы упрёком, а не помощью: человек пришёл сюда работать.
   if (items.length === 0) return null;
 
+  // Макет «Задачи»: рубрика со ссылкой «Все цели», под ней карточки по две
+  // в ряд — название и процент, тонкая полоса, остаток и срок мелко. Лента
+  // осталась лентой (см. выше), просто карточка — ровно половина экрана.
   return (
-    <section className="mb-4" aria-label={t('Приближение к целям')}>
+    <section className="mb-5" aria-label={t('Приближение к целям')}>
+      <div className="mb-2.5 flex items-center justify-between px-1">
+        <h2 className="lh-section">{t('Приближение к целям')}</h2>
+        <Link to="/goals" className={`text-xs text-lh-accent ${HIT_SLOP_44} relative`}>
+          {t('Все цели')}
+        </Link>
+      </div>
       <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex gap-2.5">
+        <div className="flex gap-3">
           {items.map(({ goal, linked, value, days }) => {
             const reached = value >= 100;
             const deadline = deadlineLabel(days);
+            const pct = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
             return (
               <Link
                 key={goal.id}
                 to={`/goals/${goal.id}`}
-                // Ширина фиксированная: у карточек разной ширины лента
-                // выглядит осыпавшейся, а край экрана перестаёт подсказывать,
-                // что вправо есть ещё. 62% на 393px — следующая карточка
-                // выглядывает ровно настолько, чтобы её захотелось подтянуть.
-                className="card flex w-[min(62vw,15rem)] shrink-0 items-center gap-3 p-3 transition-transform active:scale-[0.98]"
+                className="card block w-[calc(50%-6px)] shrink-0 p-3.5 transition-transform active:scale-[0.98]"
               >
-                <div className="relative shrink-0">
-                  <Ring value={value} color={reached ? 'var(--app-success)' : goal.color} />
-                  <span className="absolute inset-0 flex items-center justify-center">
-                    {reached ? (
-                      <GCheck size={ICON.action} className="text-success" strokeWidth={2.4} />
-                    ) : (
-                      <span className="text-2xs font-bold tabular-nums">{value}</span>
-                    )}
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-base font-semibold">{goal.title}</p>
-                  <p
-                    className={`truncate text-xs ${reached ? 'text-success' : 'text-lh-text-secondary'}`}
-                  >
-                    {remainingLabel(goal, linked, value)}
-                  </p>
-                  {!reached && deadline && (
-                    <p
-                      className={`truncate text-xs font-medium ${
-                        deadline.tone === 'danger' ? 'text-danger' : 'text-warning'
-                      }`}
-                    >
-                      {deadline.text}
-                    </p>
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 break-words text-xs text-lh-text-secondary">{goal.title}</span>
+                  {reached ? (
+                    <GCheck size={ICON.inline} className="shrink-0 text-success" strokeWidth={2.4} aria-label={t('Цель достигнута')} />
+                  ) : (
+                    <span className="shrink-0 text-xs font-semibold tabular-nums">{pct}%</span>
                   )}
                 </div>
+                <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-lh-surface-2" aria-hidden>
+                  <div
+                    className="h-1 rounded-full transition-[width] duration-500 motion-reduce:transition-none"
+                    style={{ width: `${pct}%`, background: reached ? 'var(--app-success)' : goal.color || 'var(--lh-accent)' }}
+                  />
+                </div>
+                <p className={`mt-2 text-2xs ${reached ? 'text-success' : 'text-lh-text-secondary'}`}>
+                  {remainingLabel(goal, linked, value)}
+                </p>
+                {!reached && deadline && (
+                  <p className={`text-2xs font-medium ${deadline.tone === 'danger' ? 'text-danger' : 'text-warning'}`}>
+                    {deadline.text}
+                  </p>
+                )}
               </Link>
             );
           })}

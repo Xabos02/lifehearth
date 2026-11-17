@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   CircleAlert,
@@ -20,6 +20,7 @@ import {
 } from '../../components/ui/glyphs';
 import { IconButton } from '../../components/ui/IconButton';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { Haptic } from '../../components/ui/Haptic';
 import { ICON } from '../../components/ui/icons';
 import type { LlmChat, LlmMessage } from '../../db/types';
 import { aiErrorText } from '../../lib/ai/aiClient';
@@ -207,7 +208,12 @@ export function AiPage() {
     <div style={CC_THEME} className="h-full">
       <Screen
         title={chat?.title ?? t('ИИ')}
-        subtitle={chatCost > 0 ? t('за чат: {cost}', { cost: formatCost(chatCost) }) : undefined}
+        subtitle={[
+          modelLabel(chat?.model ?? null),
+          chatCost > 0 ? t('за чат: {cost}', { cost: formatCost(chatCost) }) : '',
+        ]
+          .filter(Boolean)
+          .join(' · ') || undefined}
         backTo="/home"
         fill
         right={
@@ -221,7 +227,7 @@ export function AiPage() {
         }
       >
         <div className="relative flex h-full min-h-0 flex-col">
-          <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-3">
+          <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-2 pb-4">
             {!messages.length && !busy && (
               <AiWelcome dataTools={chat?.dataTools === true} onAsk={(q) => void handleSend(q)} />
             )}
@@ -353,7 +359,7 @@ function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string
 function UserBubble({ message }: { message: LlmMessage }) {
   return (
     <div className="cc-msg-in flex justify-end">
-      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-lh-surface-2 px-3.5 py-2.5 whitespace-pre-wrap">
+      <div className="max-w-[80%] rounded-[24px] rounded-br-[6px] border border-lh-accent-border bg-[color-mix(in_oklab,var(--lh-ai-accent)_14%,var(--lh-surface))] px-4 py-2.5 text-base leading-snug whitespace-pre-wrap">
         {message.content}
       </div>
     </div>
@@ -375,87 +381,127 @@ function AssistantBlock({
 }) {
   const failed = message.status === 'error';
   const cost = formatCost(message.costRub);
+  const trace = !failed ? (message.toolTrace ?? []) : [];
   return (
-    <div className="cc-msg-in grid grid-cols-[1.25rem_1fr] gap-x-1">
-      <div aria-hidden className="pt-2">
-        <span className={`block size-1.5 rounded-full ${failed ? 'bg-danger' : 'bg-lh-accent'}`} />
-      </div>
-      <div className="min-w-0">
-        {failed ? (
-          // Ошибка — карточка с действием, а не строка мелким шрифтом:
-          // видно, что случилось, и что можно сделать прямо здесь.
-          <div className="rounded-xl border border-danger/25 bg-danger/10 px-3.5 py-3">
-            <p className="flex items-start gap-2 text-sm">
-              <CircleAlert size={ICON.action} className="mt-0.5 shrink-0 text-danger" />
-              <span className="min-w-0">{message.error}</span>
-            </p>
-            {/* Обводка, а не своя подложка: подложка поверх красной карточки
-                темнее одной, и красный текст на ней шёл на 3.45. */}
-            <button
-              className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-sm font-medium text-danger active:opacity-70 disabled:opacity-40"
-              disabled={busy}
-              onClick={onRetry}
-            >
-              <RotateCcw size={ICON.inline} />
-              {t('Повторить')}
-            </button>
-          </div>
-        ) : message.finishReason === 'content_filter' && !message.content.trim() ? (
-          // Отказ приходит HTTP 200 с пустым содержимым (§4.6) — без этой
-          // ветки на экране висел бы пустой блок со статусом «готово».
-          <p className="text-sm text-lh-text-secondary">{t('Модель отклонила запрос.')}</p>
-        ) : (
-          <Markdown text={message.content} />
-        )}
-        {!failed && !!message.toolTrace?.length && (
-          // След вызовов: что модель читала для этого ответа. Прозрачность —
-          // часть фичи: видно, на каких данных построен ответ.
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {message.toolTrace.map((tr, i) => (
-              <span
-                key={i}
-                className="rounded-md bg-lh-accent-dim px-1.5 py-0.5 font-mono text-[0.68rem] text-lh-accent"
-              >
-                {t(TOOL_LABELS[tr.tool] ?? tr.tool)} · {tr.count}
+    <article className="cc-msg-in min-w-0 space-y-3">
+      {/* Шапка ответа: знак ассистента, какая модель ответила и что она читала
+          для этого ответа — прозрачность часть фичи. След переносится, а не
+          режется: какие данные ушли провайдеру, должно быть видно целиком. */}
+      <AssistantHead failed={failed} wrap={trace.length > 0}>
+        {trace.length > 0 ? (
+          <>
+            {message.model && `${modelLabel(message.model)} · `}
+            {t('читаю:')}{' '}
+            {trace.map((tr, i) => (
+              <span key={i}>
+                {i > 0 && ', '}
+                <span className="whitespace-nowrap">
+                  {t(TOOL_LABELS[tr.tool] ?? tr.tool)} · {tr.count}
+                </span>
               </span>
             ))}
-          </div>
-        )}
-        {!failed && message.finishReason === 'length' && (
-          <div className="mt-1.5 flex items-center gap-2.5">
-            <p className="text-xs text-warning">{t('Ответ обрезан лимитом токенов.')}</p>
-            <button
-              className="rounded-lg bg-lh-accent-dim px-2.5 py-1 text-xs font-medium text-lh-accent active:opacity-70 disabled:opacity-40"
-              disabled={busy}
-              onClick={onContinue}
-            >
-              {t('Дописать')}
-            </button>
-          </div>
-        )}
-        <div className="mt-1.5 flex items-center gap-3 font-mono text-[0.7rem] text-lh-text-secondary">
-          {!failed && message.tokensIn !== null && (
-            <span>
-              {message.tokensIn}→{message.tokensOut}
-              {cost && ` · ${cost}`}
-            </span>
-          )}
-          {!failed && message.model && <span className="truncate">{modelLabel(message.model)}</span>}
-          {!failed && (
-            <button aria-label={t('Скопировать')} className={`p-1 active:opacity-60 ${HIT_SLOP_44}`} onClick={onCopy}>
-              <Copy size={ICON.inline} />
-            </button>
-          )}
+          </>
+        ) : !failed && message.model ? (
+          modelLabel(message.model)
+        ) : null}
+      </AssistantHead>
+      {failed ? (
+        // Ошибка — карточка с действием, а не строка мелким шрифтом:
+        // видно, что случилось, и что можно сделать прямо здесь.
+        <div className="rounded-[12px] border border-danger/25 bg-danger/10 px-3.5 py-3">
+          <p className="flex items-start gap-2 text-sm">
+            <CircleAlert size={ICON.action} className="mt-0.5 shrink-0 text-danger" />
+            <span className="min-w-0">{message.error}</span>
+          </p>
+          {/* Обводка, а не своя подложка: подложка поверх красной карточки
+              темнее одной, и красный текст на ней шёл на 3.45. */}
           <button
-            aria-label={t('Повторить')}
-            className={`p-1 active:opacity-60 disabled:opacity-30 ${HIT_SLOP_44}`}
+            className="mt-2 inline-flex h-11 items-center gap-1.5 rounded-[8px] border border-danger/30 px-3 text-sm font-medium text-danger active:opacity-70 disabled:opacity-40"
             disabled={busy}
             onClick={onRetry}
           >
             <RotateCcw size={ICON.inline} />
+            {t('Повторить')}
           </button>
         </div>
-      </div>
+      ) : message.finishReason === 'content_filter' && !message.content.trim() ? (
+        // Отказ приходит HTTP 200 с пустым содержимым (§4.6) — без этой
+        // ветки на экране висел бы пустой блок со статусом «готово».
+        <p className="text-sm text-lh-text-secondary">{t('Модель отклонила запрос.')}</p>
+      ) : (
+        <Markdown text={message.content} />
+      )}
+      {!failed && message.finishReason === 'length' && (
+        <div className="flex items-center gap-2.5">
+          <p className="text-xs text-warning">{t('Ответ обрезан лимитом токенов.')}</p>
+          <button
+            className="inline-flex h-11 items-center rounded-[8px] bg-lh-accent-dim px-3 text-xs font-medium text-lh-accent active:opacity-70 disabled:opacity-40"
+            disabled={busy}
+            onClick={onContinue}
+          >
+            {t('Дописать')}
+          </button>
+        </div>
+      )}
+      {!failed && (
+        // Переносится: на 320px две кнопки со словами и счётчик в строку не
+        // влезают, и без переноса лента листалась бы вбок.
+        <div className="-ml-2.5 flex flex-wrap items-center gap-1">
+          <button
+            className="inline-flex h-11 items-center gap-1.5 rounded-[8px] px-2.5 text-xs text-lh-text-secondary active:bg-lh-surface-2"
+            onClick={onCopy}
+          >
+            <Copy size={ICON.inline} />
+            {t('Скопировать')}
+            <Haptic />
+          </button>
+          <button
+            className="inline-flex h-11 items-center gap-1.5 rounded-[8px] px-2.5 text-xs text-lh-text-secondary active:bg-lh-surface-2 disabled:opacity-40"
+            disabled={busy}
+            onClick={onRetry}
+          >
+            <RotateCcw size={ICON.inline} />
+            {t('Повторить')}
+          </button>
+          {message.tokensIn !== null && (
+            <span className="ml-auto shrink-0 text-2xs tabular-nums text-lh-text-secondary">
+              {message.tokensIn}→{message.tokensOut}
+              {cost && ` · ${cost}`}
+            </span>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
+/** Знак ассистента — индиговый кружок с искрой — и строка рядом. */
+function AssistantHead({
+  failed = false,
+  pulse = false,
+  wrap = false,
+  children,
+}: {
+  failed?: boolean;
+  pulse?: boolean;
+  /** Строка переносится, кружок — по первой строке (pt-1 центрирует строку
+   *  13px·1.35 ≈ 17.5px на кружке 24px с точностью до 1px). */
+  wrap?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <div className={`flex min-w-0 gap-2 text-xs text-lh-text-secondary ${wrap ? 'items-start' : 'items-center'}`}>
+      <span
+        aria-hidden
+        className={`flex size-6 shrink-0 items-center justify-center rounded-full border ${
+          failed
+            ? 'border-danger/35 bg-danger/15 text-danger'
+            : 'border-lh-accent-border bg-lh-accent-dim text-lh-accent'
+        } ${pulse ? 'animate-pulse' : ''}`}
+      >
+        <GSparkle size={ICON.inline} />
+      </span>
+      <span className={wrap ? 'min-w-0 break-words pt-1' : 'min-w-0 truncate'}>{children}</span>
     </div>
   );
 }
@@ -464,40 +510,26 @@ function AssistantBlock({
  *  в конце — мигающая каретка, фирменный знак терминала. */
 function StreamingBlock({ text }: { text: string }) {
   return (
-    <div className="grid grid-cols-[1.25rem_1fr] gap-x-1">
-      <div aria-hidden className="pt-2">
-        <span className="block size-1.5 animate-pulse rounded-full bg-lh-accent" />
-      </div>
+    <article className="min-w-0 space-y-3">
+      <AssistantHead pulse />
       <div className="min-w-0">
         <Markdown text={text} />
         <span aria-hidden className="cc-caret" />
       </div>
-    </div>
+    </article>
   );
 }
 
 function Thinking() {
-  return (
-    <div className="grid grid-cols-[1.25rem_1fr] gap-x-1">
-      <div aria-hidden className="pt-2">
-        <span className="block size-1.5 animate-pulse rounded-full bg-lh-accent" />
-      </div>
-      <p className="font-mono text-xs text-lh-text-secondary">{t('думает…')}</p>
-    </div>
-  );
+  return <AssistantHead pulse>{t('думает…')}</AssistantHead>;
 }
 
-/** Исполняется инструмент: «читаю Задачи…» вместо безликого «думает». */
+/** Исполняется инструмент: «читаю: Задачи…» вместо безликого «думает». */
 function ToolLine({ label }: { label: string }) {
   return (
-    <div className="grid grid-cols-[1.25rem_1fr] gap-x-1">
-      <div aria-hidden className="pt-2">
-        <span className="block size-1.5 animate-pulse rounded-full bg-lh-accent" />
-      </div>
-      <p className="font-mono text-xs text-lh-text-secondary">
-        {t('читаю:')} <span className="text-lh-accent">{t(label)}</span>…
-      </p>
-    </div>
+    <AssistantHead pulse>
+      {t('читаю:')} <span className="text-lh-accent">{t(label)}</span>…
+    </AssistantHead>
   );
 }
 
@@ -519,29 +551,8 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
     // Один плотный блок вместо двух полупустых строк: поле во всю ширину,
     // под ним слева модель и доступ к данным, справа отправка. Ни одного
     // элемента, висящего в воздухе, — каждый угол занят делом.
-    <div className="shrink-0 border-t border-lh-border pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
-      <textarea
-        ref={ref}
-        value={value}
-        rows={1}
-        placeholder={t('Сообщение…')}
-        className="max-h-40 min-h-11 w-full resize-none rounded-2xl bg-lh-surface-2 px-3.5 py-2.5 outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-lh-accent/60"
-        onChange={(e) => {
-          onChange(e.target.value);
-          // Авторост: сбрасываем высоту перед замером, иначе поле не сжимается.
-          e.target.style.height = 'auto';
-          e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
-        }}
-        onKeyDown={(e) => {
-          // Enter отправляет только с курсором и физической клавиатурой:
-          // на телефоне это перевод строки, иначе писать многострочное нельзя.
-          if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) {
-            e.preventDefault();
-            onSend();
-          }
-        }}
-      />
-      <div className="mt-2 flex items-center gap-1.5">
+    <div className="shrink-0 border-t border-lh-border pt-2.5 pb-[calc(env(safe-area-inset-bottom)+8px)]">
+      <div className="mb-2 flex items-center gap-1.5">
         {/* Модель — у поля ввода, а не в настройках: смена посреди диалога
             законна (дальше отвечает новая) и запоминается в самом чате.
             Пилюля вместо системного select: тап открывает шит с ценами и
@@ -549,7 +560,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
         <button
           aria-label={t('Модель')}
           disabled={busy}
-          className={`inline-flex min-w-0 items-center gap-1 rounded-full border border-lh-border bg-lh-surface-2 py-1.5 pr-2 pl-3 text-[0.82rem] font-medium active:opacity-70 disabled:opacity-50 ${HIT_SLOP_44}`}
+          className={`inline-flex min-w-0 items-center gap-1 rounded-full border border-lh-border bg-lh-surface-2 py-1.5 pr-2 pl-3 text-xs font-medium active:opacity-70 disabled:opacity-50 ${HIT_SLOP_44}`}
           onClick={onModelTap}
         >
           <span className="truncate">{modelName}</span>
@@ -562,7 +573,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
           aria-label={t('Доступ к данным')}
           aria-pressed={dataTools}
           disabled={busy}
-          className={`inline-flex shrink-0 items-center gap-1 rounded-full border py-1.5 pr-2.5 pl-2 text-[0.82rem] font-medium transition-colors ${HIT_SLOP_44} ${
+          className={`inline-flex shrink-0 items-center gap-1 rounded-full border py-1.5 pr-2.5 pl-2 text-xs font-medium transition-colors ${HIT_SLOP_44} ${
             dataTools
               ? 'border-lh-accent/30 bg-lh-accent/12 text-lh-accent'
               : 'border-lh-border bg-lh-surface-2 text-lh-text-secondary'
@@ -571,12 +582,36 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
         >
           <Database size={ICON.inline} />
           {t('Данные')}
+          {/* Переключатель доступа — щёлкает (PROTOCOL §6.4). */}
+          {!busy && <Haptic />}
         </button>
-        <div className="flex-1" />
+      </div>
+      <div className="flex items-end gap-2">
+        <textarea
+          ref={ref}
+          value={value}
+          rows={1}
+          placeholder={t('Сообщение…')}
+          className="max-h-40 min-h-11 min-w-0 flex-1 resize-none rounded-[24px] border border-lh-border bg-lh-surface px-4 py-2.5 text-base outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-lh-accent/60"
+          onChange={(e) => {
+            onChange(e.target.value);
+            // Авторост: сбрасываем высоту перед замером, иначе поле не сжимается.
+            e.target.style.height = 'auto';
+            e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+          }}
+          onKeyDown={(e) => {
+            // Enter отправляет только с курсором и физической клавиатурой:
+            // на телефоне это перевод строки, иначе писать многострочное нельзя.
+            if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
+        />
         {busy ? (
           <button
             aria-label={t('Остановить')}
-            className={`grid size-10 shrink-0 place-items-center rounded-full border border-lh-border bg-lh-surface-2 active:opacity-70 ${HIT_SLOP_44}`}
+            className={`grid size-11 shrink-0 place-items-center rounded-full border border-lh-border bg-lh-surface-2 active:opacity-70 ${HIT_SLOP_44}`}
             onClick={onStop}
           >
             <Square size={ICON.action} />
@@ -585,7 +620,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
           <button
             aria-label={t('Отправить')}
             disabled={!value.trim()}
-            className={`grid size-10 shrink-0 place-items-center rounded-full text-white transition-opacity active:opacity-80 disabled:opacity-30 ${HIT_SLOP_44}`}
+            className={`grid size-11 shrink-0 place-items-center rounded-full text-white transition-opacity active:opacity-80 disabled:opacity-30 ${HIT_SLOP_44}`}
             style={{
               background: 'var(--app-accent-fill)',
               boxShadow: 'var(--shadow-accent)',

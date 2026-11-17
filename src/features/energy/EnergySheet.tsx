@@ -9,6 +9,8 @@ import { create, remove, update } from '../../db/repo';
 import { t } from '../../lib/i18n';
 import type { EnergyEffort, EnergyItem } from '../../db/types';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { confirmAction } from '../../components/ui/confirmStore';
+import { Haptic } from '../../components/ui/Haptic';
 
 const CATEGORY_SUGGESTIONS = [
   'Тело',
@@ -57,7 +59,10 @@ function EffectivenessPicker({
           className={`size-6 rounded-full transition-colors ${HIT_SLOP_44} ${
             n <= value ? 'bg-lh-accent' : 'bg-lh-surface-2 border border-lh-border'
           }`}
-        />
+        >
+          {/* Оценка щёлкает (PROTOCOL §6.4); тап по текущей ничего не меняет. */}
+          <Haptic off={n === value} />
+        </button>
       ))}
     </div>
   );
@@ -100,7 +105,7 @@ function ItemForm({ item, onClose }: { item: EnergyItem | null; onClose: () => v
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm(t('Удалить способ?'))) return;
+    if (!(await confirmAction(t('Удалить способ?')))) return;
     await remove(db.energyItems, item.id);
     onClose();
   };
@@ -132,7 +137,7 @@ function ItemForm({ item, onClose }: { item: EnergyItem | null; onClose: () => v
       </Field>
       <ChipRow>
         {CATEGORY_SUGGESTIONS.map((c) => (
-          <Chip key={c} active={category === c} onClick={() => setCategory(c)}>
+          <Chip key={c} active={category === c} hapticOff={category === c} onClick={() => setCategory(c)}>
             {t(c)}
           </Chip>
         ))}

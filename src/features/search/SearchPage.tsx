@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Bell, MessagesSquare, SearchX } from 'lucide-react';
 // Иконки разделов берём из РЕЕСТРА, а не держим свой список.
@@ -11,18 +11,18 @@ import { Bell, MessagesSquare, SearchX } from 'lucide-react';
 //
 // Реестр — единственный источник: сменится глиф раздела, сменится везде.
 import { SECTION_BY_ID } from '../../lib/sections';
-import {
-  GSearch as Search,
-} from '../../components/ui/glyphs';
+import { GCheck, GSearch as Search } from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchField } from '../../components/ui/Input';
+import { Chip } from '../../components/ui/Chip';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { searchMessages } from '../../lib/family/searchMessages';
 import { t } from '../../lib/i18n';
+import { formatRu, toKey } from '../../lib/dates';
 import { ICON } from '../../components/ui/icons';
 
 const PER_SECTION = 8;
@@ -49,6 +49,45 @@ interface Hit {
   to: string;
   title: string;
   context: string;
+  /** Выполненная задача: галочка и зачёркнутый заголовок, как в макете. */
+  done?: boolean;
+}
+
+/** Где в тексте совпадение. Нормализация (регистр, «ё» → «е») длину строки
+ *  не меняет, поэтому индексы нормализованного текста годятся и для исходного. */
+function findAt(text: string, q: string): number {
+  return q ? text.toLowerCase().replace(/ё/g, 'е').indexOf(q) : -1;
+}
+
+/** Кусок контекста вокруг совпадения: найденное слово в длинной заметке
+ *  иначе пряталось за обрезкой строки, и было непонятно, почему она нашлась. */
+function snippet(text: string, q: string, radius = 40): string {
+  const at = findAt(text, q);
+  if (at < 0 || text.length <= radius * 2) return text;
+  const from = Math.max(0, at - radius);
+  const to = Math.min(text.length, at + q.length + radius);
+  return `${from > 0 ? '…' : ''}${text.slice(from, to).trim()}${to < text.length ? '…' : ''}`;
+}
+
+/** Подсветка всех вхождений запроса. */
+function Highlight({ text, q }: { text: string; q: string }) {
+  if (!q) return <>{text}</>;
+  const parts: ReactNode[] = [];
+  const hay = text.toLowerCase().replace(/ё/g, 'е');
+  let i = 0;
+  for (let at = hay.indexOf(q); at >= 0; at = hay.indexOf(q, at + q.length)) {
+    if (at > i) parts.push(text.slice(i, at));
+    parts.push(
+      // Подложка акцента — токен, текст на ней — основным цветом (§1.2, §1.7):
+      // унаследованный серый на золоте давал 2.8–3.8:1.
+      <mark key={at} className="rounded-sm bg-lh-accent-dim text-lh-text-primary">
+        {text.slice(at, at + q.length)}
+      </mark>,
+    );
+    i = at + q.length;
+  }
+  if (i < text.length) parts.push(text.slice(i));
+  return <>{parts}</>;
 }
 
 interface SectionResult {
@@ -59,13 +98,26 @@ interface SectionResult {
   total: number;
 }
 
-function Row({ icon: Icon, hit }: { icon: LucideIcon; hit: Hit }) {
+function Row({ icon: Icon, hit, q }: { icon: LucideIcon; hit: Hit; q: string }) {
   return (
-    <Link to={hit.to} className="flex items-start gap-3 px-4 py-3 active:opacity-70">
-      <Icon size={ICON.base} className="mt-0.5 shrink-0 text-lh-accent" />
+    <Link to={hit.to} className="flex items-start gap-3 px-4 py-3 active:bg-lh-surface-2">
+      <span
+        aria-hidden="true"
+        className={`flex size-8 shrink-0 items-center justify-center rounded-lg bg-lh-surface-2 ${hit.done ? 'text-success' : 'text-lh-accent'}`}
+      >
+        {hit.done ? <GCheck size={ICON.action} /> : <Icon size={ICON.action} />}
+      </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{hit.title || t('Без названия')}</p>
-        {hit.context && <p className="truncate text-sm text-lh-text-secondary">{hit.context}</p>}
+        <p
+          className={`line-clamp-2 text-base leading-snug ${hit.done ? 'text-lh-text-secondary line-through decoration-lh-text-secondary/60' : ''}`}
+        >
+          {hit.title ? <Highlight text={hit.title} q={q} /> : t('Без названия')}
+        </p>
+        {hit.context && (
+          <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-lh-text-secondary">
+            <Highlight text={snippet(hit.context, q)} q={q} />
+          </p>
+        )}
       </div>
     </Link>
   );
@@ -85,6 +137,9 @@ let lastQuery = '';
 
 export function SearchPage() {
   const [query, setQueryState] = useState(lastQuery);
+  // Фильтр-чип «Всё / Задачи · 5 / …»: при выбранном разделе показываем его
+  // целиком, без обрезки в PER_SECTION.
+  const [filter, setFilter] = useState<string>('all');
   const setQuery = (v: string) => {
     lastQuery = v;
     setQueryState(v);
@@ -135,11 +190,26 @@ export function SearchPage() {
       label: string,
       icon: LucideIcon,
       all: Hit[],
-    ): SectionResult => ({ key, label, icon, hits: all.slice(0, PER_SECTION), total: all.length });
+    ): SectionResult => ({ key, label, icon, hits: all, total: all.length });
 
     const taskHits: Hit[] = alive(tasks ?? [])
       .filter((task) => norm(`${task.title}\n${task.notes}`).includes(q))
-      .map((task) => ({ id: task.id, to: '/tasks', title: task.title, context: task.notes }));
+      .map((task) => ({
+        id: task.id,
+        to: '/tasks',
+        title: task.title,
+        done: Boolean(task.completedAt),
+        // Совпало в описании — показываем его кусок; иначе — когда: срок или
+        // день выполнения, по нему задачу и узнают.
+        context:
+          findAt(task.notes ?? '', q) >= 0
+            ? task.notes
+            : task.completedAt
+              ? t('Выполнено {date}', { date: formatRu(toKey(new Date(task.completedAt))) })
+              : task.dueDate
+                ? t('до {date}', { date: formatRu(task.dueDate) })
+                : '',
+      }));
 
     const noteHits: Hit[] = alive(notes ?? [])
       .map((n) => ({ note: n, text: htmlToText(n.content) }))
@@ -201,6 +271,11 @@ export function SearchPage() {
     ].filter((s) => s.total > 0);
   }, [q, data]);
 
+  const active = sections.some((s) => s.key === filter) ? filter : 'all';
+  const shown = active === 'all' ? sections : sections.filter((s) => s.key === active);
+  const totalAll = sections.reduce((n, s) => n + s.total, 0);
+  const chips = [{ key: 'all', label: t('Всё'), total: totalAll }, ...sections];
+
   return (
     <Screen title={t('Поиск')} backTo="/">
       <SearchField
@@ -208,8 +283,27 @@ export function SearchPage() {
         value={query}
         onChange={setQuery}
         placeholder={t('Искать везде…')}
-        className="mb-4"
+        className="mb-1"
       />
+
+      {/* Чипы разделов — только когда есть больше одного раздела с
+          результатами: один чип «Всё» рядом с одним разделом ничего не
+          отбирает. */}
+      {sections.length > 1 && (
+        // py-1.5, а не ChipRow: overflow-x-auto режет и по вертикали, а зона
+        // касания чипа (~36px) выступает на 4px — без отступа её срезало бы
+        // (§5.1).
+        <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 py-1.5 [scrollbar-width:none]">
+          {chips.map((c) => {
+            const on = c.key === active;
+            return (
+              <Chip key={c.key} active={on} hapticOff={on} onClick={() => setFilter(c.key)}>
+                {c.label} · {c.total}
+              </Chip>
+            );
+          })}
+        </div>
+      )}
 
       {!q ? (
         <EmptyState
@@ -220,24 +314,34 @@ export function SearchPage() {
       ) : sections.length === 0 ? (
         <EmptyState icon={SearchX} title={t('Ничего не найдено')} hint={t('Попробуйте другой запрос')} />
       ) : (
-        <div className="space-y-5">
-          {sections.map((s) => (
-            <section key={s.key}>
-              <h2 className="mb-1.5 px-1 lh-section">
-                {s.label} · {s.total}
-              </h2>
-              <div className="card divide-y divide-lh-border">
-                {s.hits.map((hit) => (
-                  <Row key={hit.id} icon={s.icon} hit={hit} />
-                ))}
-              </div>
-              {s.total > s.hits.length && (
-                <p className="mt-1.5 px-1 text-sm text-lh-text-secondary">
-                  {t('и ещё {n}', { n: s.total - s.hits.length })}
-                </p>
-              )}
-            </section>
-          ))}
+        <div className="mt-3 space-y-5">
+          {shown.map((s) => {
+            const hits = active === 'all' ? s.hits.slice(0, PER_SECTION) : s.hits;
+            return (
+              <section key={s.key}>
+                <h2 className="mb-2 px-1 lh-section">
+                  {s.label} · {s.total}
+                </h2>
+                <div className="card divide-y divide-lh-border">
+                  {hits.map((hit) => (
+                    <Row key={hit.id} icon={s.icon} hit={hit} q={q} />
+                  ))}
+                  {s.total > hits.length && (
+                    <button
+                      type="button"
+                      onClick={() => setFilter(s.key)}
+                      className="flex h-11 w-full items-center px-4 text-left text-sm text-lh-accent active:bg-lh-surface-2"
+                    >
+                      {t('и ещё {n}', { n: s.total - hits.length })}
+                    </button>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+          <p className="px-1 pb-2 text-center text-xs text-lh-text-secondary">
+            {t('Ищем в задачах, заметках, целях, напоминаниях, чате, местах, обучении, энергии и финансах')}
+          </p>
         </div>
       )}
     </Screen>

@@ -1,11 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check } from 'lucide-react';
+import { Circle, CircleDot } from 'lucide-react';
 import { db } from '../../db/db';
 import type { LearningPart } from '../../db/types';
 import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
 import { unitLabel, type ProgressUnit } from '../../lib/learningPace';
-import { ICON } from '../../components/ui/icons';
+import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { GCheckCircle } from '../../components/ui/glyphs';
+import { Haptic } from '../../components/ui/Haptic';
 import { togglePart } from './plan';
 
 /** План материала: части, сгруппированные по разделам.
@@ -18,6 +20,8 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
     [parts[0]?.itemId],
   );
 
+  // Текущая часть — первая незакрытая: её значок отличается от будущих.
+  const currentId = parts.find((p) => !p.doneAt)?.id;
   const groups: { section: string; rows: LearningPart[] }[] = [];
   for (const part of parts) {
     const last = groups[groups.length - 1];
@@ -30,7 +34,7 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
       {groups.map((g) => (
         <div key={g.section || '—'}>
           {g.section && (
-            <p className="px-4 pb-1 pt-3 text-xs font-semibold text-lh-text-secondary">{g.section}</p>
+            <p className="lh-section px-4 pb-1 pt-3">{g.section}</p>
           )}
           {g.rows.map((part) => (
             <button
@@ -38,20 +42,18 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
               type="button"
               disabled={!item}
               onClick={() => item && void togglePart(part, item)}
-              className="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left active:opacity-70"
+              className="flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left active:opacity-70"
             >
-              <span
-                className={`flex size-[22px] shrink-0 items-center justify-center rounded-lg border-2 ${
-                  part.doneAt
-                    ? 'border-success bg-success text-bg'
-                    : 'border-lh-border-strong text-transparent'
-                }`}
-              >
-                <Check size={ICON.inline} strokeWidth={2.4} />
-              </span>
+              {part.doneAt ? (
+                <GCheckCircle size={ICON.base} strokeWidth={STROKE_STRONG} className="shrink-0 text-lh-accent" aria-hidden />
+              ) : part.id === currentId ? (
+                <CircleDot size={ICON.base} className="shrink-0 text-lh-accent" aria-hidden />
+              ) : (
+                <Circle size={ICON.base} className="shrink-0 text-lh-text-secondary" aria-hidden />
+              )}
               <span
                 className={`flex-1 truncate text-sm ${
-                  part.doneAt ? 'text-lh-text-secondary line-through' : 'text-lh-text-primary'
+                  part.doneAt ? 'text-lh-text-secondary' : 'text-lh-text-primary'
                 }`}
               >
                 {part.title}
@@ -64,6 +66,8 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
                   {unit !== 'percent' && `\u00A0${unitLabel(unit, part.estimate)}`}
                 </span>
               )}
+              {/* Отметка части щёлкает — и постановка, и снятие (PROTOCOL §6.4). */}
+              {item && <Haptic />}
             </button>
           ))}
         </div>

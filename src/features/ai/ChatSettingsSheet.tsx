@@ -15,6 +15,7 @@ import { ICON } from '../../components/ui/icons';
 import {
   GTrash as Trash2,
 } from '../../components/ui/glyphs';
+import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -69,7 +70,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
   }
 
   async function handleRemove() {
-    if (!window.confirm(t('Удалить чат «{title}» со всей перепиской?', { title: chat.title }))) return;
+    if (!(await confirmAction(t('Удалить чат «{title}» со всей перепиской?', { title: chat.title })))) return;
     await removeChat(chat.id);
     onRemoved();
   }

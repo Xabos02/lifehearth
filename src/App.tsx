@@ -5,7 +5,8 @@ import { LucideProvider } from 'lucide-react';
 import { db } from './db/db';
 import { t } from './lib/i18n';
 import { cycleAllowed } from './lib/sections';
-import { STROKE } from './components/ui/icons';
+import { ICON, STROKE } from './components/ui/icons';
+import { GAlert, GRepeat } from './components/ui/glyphs';
 import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
 import { SyncRunner } from './components/SyncRunner';
@@ -16,6 +17,7 @@ import { CallRunner } from './components/CallRunner';
 import { SwNavBridge } from './components/SwNavBridge';
 import { TabBar } from './components/layout/TabBar';
 import { ToastProvider } from './components/ui/Toast';
+import { ConfirmHost } from './components/ui/ConfirmHost';
 import { useSettings } from './hooks/useSettings';
 import { TodayPage } from './features/today/TodayPage';
 import { TasksPage } from './features/tasks/TasksPage';
@@ -114,17 +116,30 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
-          <p className="text-lg font-semibold">{t('Что-то пошло не так')}</p>
-          <p className="text-sm text-lh-text-secondary">
-            {t('Перезагрузите приложение — данные сохранены на устройстве.')}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="rounded-xl bg-lh-accent px-5 py-3 font-semibold text-lh-bg active:opacity-80"
-          >
-            {t('Перезагрузить')}
-          </button>
+        // Карточка по макету: иконка-предупреждение, заголовок, пояснение и
+        // кнопка на всю ширину. Глифы — свои, без зависимостей от страниц:
+        // экран ошибки обязан отрисоваться, даже если упало что-то общее.
+        <div role="alert" className="flex min-h-dvh items-center justify-center bg-lh-bg p-4">
+          <article className="card w-full max-w-sm p-5">
+            <div className="flex gap-3.5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-lh-surface-2 text-warning">
+                <GAlert size={ICON.header} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-semibold">{t('Что-то пошло не так')}</p>
+                <p className="mt-1 text-sm text-lh-text-secondary">
+                  {t('Перезагрузите приложение — данные сохранены на устройстве.')}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-lh-surface-2 text-sm text-lh-text-primary active:opacity-80"
+            >
+              <GRepeat size={ICON.inline} className="text-lh-accent" />
+              {t('Перезагрузить')}
+            </button>
+          </article>
         </div>
       );
     }
@@ -277,6 +292,9 @@ export default function App() {
               этого окна человек не узнаёт ни что версия сменилась, ни чем. */}
           <WhatsNew />
           <GenderGate />
+          {/* Подтверждения действий (шит вместо window.confirm) — последним,
+              чтобы вопрос вставал поверх шита, из которого его задали. */}
+          <ConfirmHost />
         </ErrorBoundary>
         </PomodoroProvider>
       </ToastProvider>

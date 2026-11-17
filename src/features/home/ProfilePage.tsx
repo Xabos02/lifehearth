@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Camera, User } from 'lucide-react';
-import {
-  GTrash as Trash2,
-} from '../../components/ui/glyphs';
+import { GLock, GTrash as Trash2 } from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
-import { Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
+import type { UserProfile } from '../../db/types';
 import { logMeasure } from '../health/measures';
 import { updateSettings } from '../../hooks/useSettings';
 import { getLang, t } from '../../lib/i18n';
@@ -19,8 +17,7 @@ import {
   ImageTooLargeError,
   MAX_INPUT_BYTES,
 } from '../../lib/image';
-import { ICON } from '../../components/ui/icons';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { ageFrom, bmiFrom, yearsLabel } from '../../lib/profile';
 
 /** Числовое поле профиля: пустая строка означает «не указано», а не ноль.
@@ -31,6 +28,17 @@ function parseNumber(raw: string): number | null {
   if (s === '') return null;
   const v = Number(s);
   return Number.isFinite(v) && v > 0 ? v : null;
+}
+
+/** Правка профиля поверх СВЕЖЕГО из базы, а не `p` кадра. Сохранение при
+ *  уходе с экрана зовётся из первого кадра, где база ещё не ответила и `p`
+ *  пуст: аватар стирался, а прежний вес считался новым. Фото так же
+ *  ложилось на профиль, снятый до сжатия, — сохранение, успевшее за время
+ *  сжатия, откатилось бы. Возвращает профиль до правки. */
+async function patchProfile(patch: UserProfile): Promise<UserProfile | undefined> {
+  const before = (await db.settings.get('app'))?.profile;
+  await updateSettings({ profile: { ...before, ...patch } });
+  return before;
 }
 
 export function ProfilePage() {
@@ -86,7 +94,14 @@ export function ProfilePage() {
   const formRef = useRef(form);
   formRef.current = form;
 
+  // Поля, которые человек менял в этом черновике, — в профиль пишутся только
+  // они. Вес теперь приходит и синком (sync.ts): черновик, начатый до него,
+  // иначе вернул бы в профиль и в дневник прежнее число, которого никто не
+  // вводил, — и оно ушло бы обратно на все устройства.
+  const touched = useRef(new Set<keyof typeof form>());
+
   const set = (patch: Partial<typeof form>) => {
+    for (const k of Object.keys(patch)) touched.current.add(k as keyof typeof form);
     const next = { ...form, ...patch };
     setDraft(next);
     clearTimeout(saveTimer.current);
@@ -98,19 +113,18 @@ export function ProfilePage() {
 
   async function commit(f: typeof form) {
     saveTimer.current = undefined;
+    const dirty = touched.current;
+    touched.current = new Set();
     const weightKg = parseNumber(f.weightKg);
-    await updateSettings({
-      profile: {
-        ...p,
-        name: f.name.trim() || undefined,
-        birthDate: f.birthDate || null,
-        heightCm: parseNumber(f.heightCm),
-        weightKg,
-      },
-    });
+    const patch: UserProfile = {};
+    if (dirty.has('name')) patch.name = f.name.trim() || undefined;
+    if (dirty.has('birthDate')) patch.birthDate = f.birthDate || null;
+    if (dirty.has('heightCm')) patch.heightCm = parseNumber(f.heightCm);
+    if (dirty.has('weightKg')) patch.weightKg = weightKg;
+    const before = await patchProfile(patch);
     // Вес из профиля — в дневник замеров («Здоровье»), чтобы источник был
     // один: раньше «Главная» показывала профильное число, а раздел — своё.
-    if (weightKg != null && weightKg !== p?.weightKg && weightKg >= 20 && weightKg <= 300) {
+    if (dirty.has('weightKg') && weightKg != null && weightKg !== before?.weightKg && weightKg >= 20 && weightKg <= 300) {
       await logMeasure('weight', todayKey(), weightKg);
     }
     setDraft(null);
@@ -136,7 +150,7 @@ export function ProfilePage() {
       // Аватар мельче фото в чате: он рисуется кружком 56px, и хранить под
       // него мегабайт незачем. 256px хватает и для будущих крупных мест.
       const dataUrl = await compressImage(file, 256, 0.75);
-      await updateSettings({ profile: { ...p, avatar: dataUrl } });
+      await patchProfile({ avatar: dataUrl });
     } catch (err) {
       if (err instanceof ImageTooLargeError) {
         toast(t('Файл больше {mb} МБ', { mb: Math.round(MAX_INPUT_BYTES / 1024 / 1024) }));
@@ -150,171 +164,247 @@ export function ProfilePage() {
     }
   }
 
+  const initials = form.name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    // По кодовой точке, а не w[0]: у «🌸 Аня» w[0] — половина суррогатной пары.
+    .map((w) => Array.from(w)[0]!.toUpperCase())
+    .join('');
+  const birthAge = ageFrom(form.birthDate);
+  const formBmi = bmiFrom(parseNumber(form.heightCm), parseNumber(form.weightKg)) ?? (draft ? null : bmi);
+  const decimal = (v: number) => v.toFixed(1).replace('.', getLang() === 'en' ? '.' : ',');
+
   return (
     <Screen title={t('Профиль')} backTo="/home">
-      <div className="space-y-5">
-        {/* ШАПКА. Раньше аватар с кнопкой занимали 300px до первого поля —
-          столбик по центру, где половина ширины пустует. Теперь строка: фото,
-          имя и сводка о себе рядом, а «сменить фото» — значком на самом
-          аватаре, как в мессенджерах: кнопка, повторяющая то, на что и так
-          нажимают, отдельной строки не стоит. */}
-      <div className="card flex items-center gap-3.5 p-3.5">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => fileRef.current?.click()}
-          aria-label={p?.avatar ? t('Заменить фото') : t('Добавить фото')}
-          className="relative shrink-0 rounded-full active:opacity-80"
-        >
-          {p?.avatar ? (
-            <img src={p.avatar} alt="" className="size-[72px] rounded-full object-cover" width={72} height={72} />
-          ) : (
-            <span className="flex size-[72px] items-center justify-center rounded-full bg-lh-surface-2 text-lh-text-secondary">
-              <User size={ICON.display} />
-            </span>
-          )}
-          <span className="absolute -right-0.5 -bottom-0.5 flex size-7 items-center justify-center rounded-full bg-lh-accent text-lh-bg ring-[3px] ring-lh-surface">
-            <Camera size={ICON.inline} />
-          </span>
-        </button>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-lg font-light">{form.name.trim() || t('Без имени')}</p>
-          {summary && <p className="truncate text-sm text-lh-text-secondary">{summary}</p>}
-        </div>
-        {p?.avatar && (
+      <div className="space-y-6">
+        {/* ШАПКА по макету: крупный аватар по центру, под ним имя и сводка.
+            Значок камеры — часть кнопки аватара, а не вторая кнопка с тем же
+            названием: две цели «Добавить фото» рядом путают скринридер. */}
+        <section className="flex flex-col items-center pt-1">
           <button
             type="button"
             disabled={busy}
-            aria-label={t('Удалить фото')}
-            onClick={() => void updateSettings({ profile: { ...p, avatar: null } })}
-            className={`shrink-0 p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
+            onClick={() => fileRef.current?.click()}
+            aria-label={p?.avatar ? t('Заменить фото') : t('Добавить фото')}
+            className="relative rounded-full active:opacity-80"
           >
-            <Trash2 size={ICON.action} />
-          </button>
-        )}
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            e.target.value = '';
-            if (f) void pickAvatar(f);
-          }}
-        />
-      </div>
-
-        <div className="card space-y-4 p-4">
-          <Field label={t('Имя')}>
-            <Input
-              value={form.name}
-              onChange={(e) => set({ name: e.target.value })}
-              placeholder={t('Как вас зовут')}
-              autoComplete="name"
-            />
-          </Field>
-          <Field label={t('Дата рождения')}>
-            <Input
-              type="date"
-              value={form.birthDate}
-              onChange={(e) => set({ birthDate: e.target.value })}
-            />
-            {/* Нативное поле показывает дату в формате СИСТЕМЫ, а не языка
-                приложения: «29 июня 1998» выглядело как 06/29/1998 — владелец
-                приложения посмотрел и спросил, что это за дата. Само поле
-                оставляем (системный календарь удобнее самодельного), но
-                подписываем по-человечески и добавляем главное — сколько лет. */}
-            {form.birthDate && ageFrom(form.birthDate) != null && (
-              <p className="mt-1.5 px-1 text-sm text-lh-text-secondary">
-                {formatRu(form.birthDate, 'd MMMM yyyy')} · {yearsLabel(ageFrom(form.birthDate)!)}
-              </p>
+            {p?.avatar ? (
+              <img src={p.avatar} alt="" className="size-24 rounded-full object-cover" width={96} height={96} />
+            ) : (
+              <span className="flex size-24 items-center justify-center rounded-full border border-lh-border bg-lh-surface-2 text-[32px] font-light text-lh-accent">
+                {initials || <User size={ICON.display} />}
+              </span>
             )}
-          </Field>
-          {/* Рост и вес рядом: числа короткие, а вместе они читаются как одна
-              строка о себе. Ниже 380px переносим — два поля по 118px оставляют
-              подписям меньше, чем нужно словам «Дата рождения». */}
-          <div className="flex flex-col gap-4 min-[380px]:flex-row">
-            <div className="min-w-0 flex-1">
-              <Field label={t('Рост, см')}>
-                <Input
-                  inputMode="numeric"
-                  value={form.heightCm}
-                  onChange={(e) => set({ heightCm: e.target.value.replace(/[^\d]/g, '') })}
-                  placeholder={t('—')}
-                />
-              </Field>
-            </div>
-            <div className="min-w-0 flex-1">
-              <Field label={t('Вес, кг')}>
-                <Input
-                  inputMode="decimal"
-                  value={form.weightKg}
-                  onChange={(e) => set({ weightKg: e.target.value.replace(/[^\d.,]/g, '') })}
-                  placeholder={t('—')}
-                />
-              </Field>
-            </div>
+            <span className="absolute -right-0.5 -bottom-0.5 flex size-11 items-center justify-center rounded-full border-[3px] border-lh-bg bg-lh-surface text-lh-accent">
+              <Camera size={ICON.inline} strokeWidth={STROKE_STRONG} />
+            </span>
+          </button>
+          <p className="mt-3 max-w-full truncate text-xl font-semibold">{form.name.trim() || t('Без имени')}</p>
+          {summary && <p className="max-w-full truncate text-sm text-lh-text-secondary">{summary}</p>}
+          {p?.avatar && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void patchProfile({ avatar: null })}
+              className="flex h-11 items-center gap-1.5 px-3 text-base text-lh-text-secondary active:opacity-60"
+            >
+              <Trash2 size={ICON.action} />
+              {t('Удалить фото')}
+            </button>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void pickAvatar(f);
+            }}
+          />
+        </section>
+
+        <section>
+          <h2 className="lh-section mb-2.5 px-1">{t('О вас')}</h2>
+          <div className="card divide-y divide-lh-border">
+            <label className="flex h-14 items-center gap-3 px-4 focus-within:ring-2 focus-within:ring-inset focus-within:ring-lh-accent">
+              <span className="shrink-0 whitespace-nowrap text-base text-lh-text-secondary">{t('Имя')}</span>
+              <input
+                value={form.name}
+                onChange={(e) => set({ name: e.target.value })}
+                placeholder={t('Как вас зовут')}
+                autoComplete="name"
+                className="min-w-0 flex-1 bg-transparent text-right text-base outline-none placeholder:text-lh-text-secondary"
+              />
+            </label>
+            {/* Нативное поле показывает дату в формате СИСТЕМЫ, а не языка
+                приложения: «29 июня 1998» выглядело как 06/29/1998. Поле
+                остаётся (системный календарь удобнее самодельного), но лежит
+                прозрачным поверх подписи словами — нажатие открывает календарь,
+                а видно дату по-человечески и сразу возраст. */}
+            <label className="relative flex min-h-14 items-center gap-3 px-4 py-2 focus-within:ring-2 focus-within:ring-inset focus-within:ring-lh-accent">
+              <span className="shrink-0 whitespace-nowrap text-base text-lh-text-secondary">{t('Дата рождения')}</span>
+              <span className="flex min-w-0 flex-1 flex-wrap justify-end gap-x-1 text-right text-base tabular-nums">
+                {/* Дата без возраста (будущая, старше 130 лет) всё равно видна:
+                    поле прозрачное, и иначе ошибочное значение негде увидеть. */}
+                {form.birthDate ? (
+                  <>
+                    <span className="whitespace-nowrap">{formatRu(form.birthDate, 'd MMMM yyyy')}</span>
+                    {birthAge != null && (
+                      <span className="whitespace-nowrap text-lh-text-secondary">· {yearsLabel(birthAge)}</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-lh-text-secondary">{t('Не указана')}</span>
+                )}
+              </span>
+              <input
+                type="date"
+                value={form.birthDate}
+                onChange={(e) => set({ birthDate: e.target.value })}
+                onClick={(e) => {
+                  try {
+                    e.currentTarget.showPicker?.();
+                  } catch {
+                    /* браузер без showPicker — откроется своим способом */
+                  }
+                }}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+            </label>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="lh-section mb-2.5 px-1">{t('Тело')}</h2>
+          {/* text-2xl! — с `!`: правило полей font-size: 16px (iOS, index.css)
+              стоит вне слоёв и перебивает утилиту без него. Фокус карточки —
+              обводкой, а не ring: box-shadow у .card тоже вне слоёв. */}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="card block px-4 py-3.5 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-lh-accent">
+              <span className="text-sm text-lh-text-secondary">{t('Рост, см')}</span>
+              <input
+                inputMode="numeric"
+                value={form.heightCm}
+                onChange={(e) => set({ heightCm: e.target.value.replace(/[^\d]/g, '') })}
+                placeholder={t('—')}
+                className="mt-1 block w-full bg-transparent text-2xl! font-light tabular-nums outline-none placeholder:text-lh-text-secondary"
+              />
+            </label>
+            <label className="card block px-4 py-3.5 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-lh-accent">
+              <span className="text-sm text-lh-text-secondary">{t('Вес, кг')}</span>
+              <input
+                inputMode="decimal"
+                value={form.weightKg}
+                onChange={(e) => set({ weightKg: e.target.value.replace(/[^\d.,]/g, '') })}
+                placeholder={t('—')}
+                className="mt-1 block w-full bg-transparent text-2xl! font-light tabular-nums outline-none placeholder:text-lh-text-secondary"
+              />
+            </label>
           </div>
           {/* Рост и вес человек уже ввёл — показать, что из них следует, дешевле,
               чем заставлять считать самому. Никаких советов: число, категория
-              ВОЗ одним словом, и всё. */}
-          {bmi && (
-            <div className="flex items-center gap-2 border-t border-lh-border pt-3">
-              <span className="flex-1 text-sm text-lh-text-secondary">{t('Индекс массы тела')}</span>
-              <span className="font-semibold tabular-nums">
-                {bmi.value.toFixed(1).replace('.', getLang() === 'en' ? '.' : ',')}
-              </span>
-              <span className={`text-sm ${bmi.tone === 'success' ? 'text-success' : 'text-warning'}`}>
-                {t(bmi.label)}
-              </span>
+              ВОЗ одним словом и шкала с границами 18,5 / 25 / 30. */}
+          {formBmi && (
+            <div className="card mt-3 px-4 py-4">
+              <div className="flex items-baseline gap-2">
+                <span className="flex-1 text-base">{t('Индекс массы тела')}</span>
+                <span className={`text-sm ${formBmi.tone === 'success' ? 'text-success' : 'text-warning'}`}>
+                  {t(formBmi.label)}
+                </span>
+                <span className="text-[26px] font-light tabular-nums">{decimal(formBmi.value)}</span>
+              </div>
+              <BmiScale value={formBmi.value} />
+              <p className="mt-2 text-xs text-lh-text-secondary">{t('Считается сам по росту и весу')}</p>
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Пол сохраняется сразу, мимо формы с кнопкой: от него зависит состав
-            приложения (раздел «Женские дни» существует только в женском
-            профиле), и отложенное «Сохранить» здесь только запутывало бы. */}
-        <div className="card space-y-2 p-4">
-          <Field label={t('Пол')}>
-            <SegmentedControl<'female' | 'male'>
-              options={[
-                { value: 'female', label: t('Женский') },
-                { value: 'male', label: t('Мужской') },
-              ]}
-              value={settings?.gender ?? 'female'}
-              onChange={(v) => void updateSettings({ gender: v })}
-            />
-          </Field>
-          <p className="text-xs leading-snug text-lh-text-secondary">
+        {/* Пол сохраняется сразу: от него зависит состав приложения (раздел
+            «Женские дни» существует только в женском профиле). */}
+        <section>
+          <h2 className="lh-section mb-2.5 px-1">{t('Пол')}</h2>
+          <SegmentedControl<'female' | 'male'>
+            options={[
+              { value: 'female', label: t('Женский') },
+              { value: 'male', label: t('Мужской') },
+            ]}
+            value={settings?.gender ?? 'female'}
+            onChange={(v) => void updateSettings({ gender: v })}
+          />
+          <p className="mt-2.5 px-1 text-sm leading-snug text-lh-text-secondary">
             {t(
               'Определяет набор разделов: «Женские дни» есть только в женском профиле. При смене пола записи раздела не удаляются — он просто скрывается, а задачи, которые он поставил сам, уходят в «Корзину», если вы их не меняли.',
             )}
           </p>
-        </div>
+        </section>
 
-        {/* Кнопки «Сохранить» больше нет: изменения записываются сами через
-            паузу после последнего нажатия. Отметка держится полторы секунды —
-            без неё автосохранение выглядит как «ничего не произошло».
-
-            Рендерим её ТОЛЬКО когда есть что сказать, а не прячем прозрачностью:
-            элемент с opacity:0 остаётся в дереве — скринридер в aria-live читает
-            его, а браузерные тесты считают видимым (на этом и попался первый
-            вариант теста: он проходил ещё до записи). */}
-        <div className="min-h-5 px-1" aria-live="polite">
+        {/* Отметку рендерим ТОЛЬКО когда есть что сказать, а не прячем
+            прозрачностью: элемент с opacity:0 остаётся в дереве — скринридер в
+            aria-live читает его, а браузерные тесты считают видимым. */}
+        <div className="-my-3 min-h-5 px-1" aria-live="polite">
           {saved && <p className="animate-fade-in text-sm text-success">{t('Сохранено')}</p>}
         </div>
 
-        {/* Профиль хранится там же, где остальные настройки приложения, — на
-            устройстве. Человек, заполняющий рост и вес, вправе знать, куда они
-            попадут, до того как их напишет. Вес ещё и замер «Здоровья»
-            (logMeasure), а замеры синхронизируются — было «никуда больше». */}
-        <p className="px-1 text-xs leading-snug text-lh-text-secondary">
-          {t(
-            'Эти данные хранятся на устройстве и в вашей резервной копии. Вес ещё записывается замером в «Здоровье» — с синхронизацией он зашифрованным идёт через наш сервер на ваши устройства; сервер видит дни замеров.',
-          )}
-        </p>
+        {/* Куда попадут рост и вес — человек вправе знать до того, как напишет.
+            Вес ещё и замер «Здоровья» (logMeasure), а замеры синхронизируются. */}
+        <div className="flex gap-3 px-1">
+          <GLock size={ICON.inline} className="mt-0.5 shrink-0 text-lh-text-secondary" />
+          <p className="text-sm leading-snug text-lh-text-secondary">
+            {t(
+              'Эти данные хранятся на устройстве и в вашей резервной копии. Вес ещё записывается замером в «Здоровье» — с синхронизацией он зашифрованным идёт через наш сервер на ваши устройства; сервер видит дни замеров.',
+            )}
+          </p>
+        </div>
       </div>
     </Screen>
+  );
+}
+
+/** Шкала ИМТ: четыре зоны ВОЗ, норма подсвечена, метка — текущее значение.
+ *  Края шкалы условные (15 и 35): за ними метка просто прижимается к краю. */
+const BMI_STOPS = [15, 18.5, 25, 30, 35];
+const BMI_WIDTHS = [18, 34, 24, 24];
+
+function bmiPos(v: number): number {
+  let acc = 0;
+  for (let i = 0; i < BMI_WIDTHS.length; i++) {
+    const lo = BMI_STOPS[i]!;
+    const hi = BMI_STOPS[i + 1]!;
+    if (v < hi || i === BMI_WIDTHS.length - 1) {
+      const frac = Math.min(1, Math.max(0, (v - lo) / (hi - lo)));
+      return acc + frac * BMI_WIDTHS[i]!;
+    }
+    acc += BMI_WIDTHS[i]!;
+  }
+  return 100;
+}
+
+function BmiScale({ value }: { value: number }) {
+  const sep = getLang() === 'en' ? '.' : ',';
+  return (
+    <div aria-hidden="true">
+      <div className="relative mt-3 flex h-1.5 gap-[3px]">
+        {BMI_WIDTHS.map((w, i) => (
+          <i
+            key={i}
+            className={`rounded-full ${i === 1 ? 'bg-success/55' : 'bg-lh-surface-2'}`}
+            style={{ width: `${w}%` }}
+          />
+        ))}
+        <i
+          className="absolute -top-[5px] h-4 w-[3px] -translate-x-1/2 rounded-full bg-lh-text-primary"
+          style={{ left: `${bmiPos(value)}%` }}
+        />
+      </div>
+      <div className="relative mt-2 h-4 text-[11px] tabular-nums text-lh-text-secondary">
+        <span className="absolute -translate-x-1/2" style={{ left: '18%' }}>{`18${sep}5`}</span>
+        <span className="absolute -translate-x-1/2" style={{ left: '52%' }}>25</span>
+        <span className="absolute -translate-x-1/2" style={{ left: '76%' }}>30</span>
+      </div>
+    </div>
   );
 }

@@ -21,11 +21,11 @@ import { computeNavLayout } from '../../lib/navLayout';
 import { freezeAllForSection, unfreezeSectionFrozen } from '../habits/habitRepo';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
-import {
-  GLock as Lock,
-  GRepeat as RotateCcw,
-} from '../../components/ui/glyphs';
+import { GripVertical } from 'lucide-react';
+import { GLock as Lock } from '../../components/ui/glyphs';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { Haptic } from '../../components/ui/Haptic';
+import { buzz } from '../../lib/feedback';
 
 const LAYOUT_OPTS = { maxBottom: MAX_BOTTOM, defaultBottom: DEFAULT_BOTTOM, anchorId: ANCHOR_ID };
 
@@ -142,6 +142,7 @@ export function SectionsSettingsPage() {
       dropIndexRef.current = null;
       setPointer({ x: pressStartRef.current.x, y: pressStartRef.current.y });
       setDragId(id);
+      buzz(); // «взял» — только Android, PROTOCOL §6.4
       setDropIndex(null);
       const el = pressRowRef.current;
       if (el) {
@@ -204,6 +205,11 @@ export function SectionsSettingsPage() {
       const id = dragIdRef.current;
       const idx = dropIndexRef.current;
       if (id && idx != null) applyMove(id, idx);
+      // Раздел встал на новое место — короткая вибрация, только Android
+      // (PROTOCOL §6.4). Разметка до отрисовки ещё в старом порядке: idx равен
+      // прежнему номеру строки — отпустил там же, где взял, и молчим.
+      const cards = [...document.querySelectorAll('[data-zone="enabled"] [data-sid]')];
+      if (id && idx != null && idx !== cards.findIndex((c) => c.getAttribute('data-sid') === id)) buzz();
       resetDragState();
     };
     // Системный обрыв жеста (звонок, шторка уведомлений) — не то же самое,
@@ -273,7 +279,7 @@ export function SectionsSettingsPage() {
   const dropLine = (index: number) =>
     dropIndex === index ? (
       <div
-        className="my-1 h-1 rounded-full bg-lh-accent"
+        className="mx-4 my-0.5 h-1 rounded-full bg-lh-accent"
         aria-hidden
       />
     ) : null;
@@ -298,32 +304,40 @@ export function SectionsSettingsPage() {
         // нужно 295px. px-2 вместо px-3 даёт 8.5px, gap-2 вместо gap-3 — ещё
         // 12.75px (три зазора). Вместе с ужатым бейджем этого хватает, чтобы
         // название влезало целиком (см. комментарии у бейджа).
-        className={`flex items-center gap-3 card p-3 transition-opacity max-[375px]:gap-2 max-[375px]:px-2 ${
-          hidden ? 'opacity-45' : ''
-        } ${dragId === id ? 'opacity-30' : ''} ${
+        className={`flex min-h-14 items-center gap-3 px-4 py-2 transition-opacity max-[375px]:gap-2 max-[375px]:px-3 ${
+          dragId === id ? 'opacity-30' : ''
+        } ${
           draggable ? 'touch-pan-y cursor-grab select-none [-webkit-touch-callout:none] [-webkit-user-select:none] active:cursor-grabbing' : ''
         }`}
       >
-        {/* Номер приоритета — только у разделов «Главной»: панель и так
-            видна целиком, спорить там не о чем. Число — это позиция в
-            списке HomePage, а не абстрактный ранг: 1 значит «первым увидите
-            на „Главной“». */}
-        {opts.homeIndex != null && (
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-xs font-bold text-lh-text-secondary">
-            {opts.homeIndex}
-          </span>
-        )}
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
-          <Icon size={ICON.header} />
-        </div>
-        {/* Обычный shrink (был shrink-[0.05]): при сумме flex-факторов меньше 1
-            браузер раздаёт только эту долю нехватки, поэтому строка не ужималась,
-            а вылезала за свой content-box — у «Статистики» на 7.53px в правый
-            паддинг, к тумблеру. Теперь недостачу целиком берёт на себя название
-            (min-w-0 + truncate), а бейдж остаётся целым. */}
+        {/* Ручка — у всех включённых строк: их можно перетащить, включая
+            «Сегодня» и «Настройки» (их нельзя только выключить — это говорит
+            «всегда»). У выключенных ручки нет — они не двигаются, пустой слот
+            держит выравнивание. Замок — только у якоря «Ещё» (anchorRow), он
+            не двигается. Сам жест — удержание всей строки. Цвет secondary:
+            значимой иконке нужно 3:1, tertiary давал 1.96 в тёмной и 2.74 в
+            светлой, secondary — 5.12 и 5.53 на карточке. */}
+        <span aria-hidden className="flex w-4 shrink-0 justify-center text-lh-text-secondary">
+          {draggable && <GripVertical size={ICON.inline} />}
+        </span>
+        {/* Номер приоритета — только у разделов «Ещё»: панель и так видна
+            целиком. Число — позиция в списке экрана «Ещё», а не абстрактный
+            ранг: 1 значит «первым увидите там». Пустой слот держит выравнивание. */}
+        <span className="w-5 shrink-0 text-center text-xs tabular-nums text-lh-text-secondary">
+          {opts.homeIndex ?? ''}
+        </span>
+        <span aria-hidden className={`flex w-6 shrink-0 justify-center ${hidden ? 'text-lh-text-secondary' : 'text-lh-text-primary'}`}>
+          <Icon size={ICON.base} />
+        </span>
+        {/* min-w-0 + truncate: недостачу ширины берёт название, а бейдж
+            и тумблер остаются целыми. */}
         <div className="min-w-0 grow basis-auto">
-          <p className="truncate font-semibold">{t(sec.label)}</p>
-          {sec.subtitle && <p className="truncate text-xs text-lh-text-secondary">{t(sec.subtitle)}</p>}
+          <p className={`truncate text-sm ${hidden ? 'text-lh-text-secondary' : ''}`}>{t(sec.label)}</p>
+          {hidden ? (
+            <p className="truncate text-xs text-lh-text-secondary">{t('Записи сохранены, раздел скрыт')}</p>
+          ) : (
+            sec.subtitle && <p className="truncate text-xs text-lh-text-secondary">{t(sec.subtitle)}</p>
+          )}
         </div>
         {locked ? (
           // shrink-0: бейдж короткий и осмысленный только целиком — «вс…» и тем
@@ -331,26 +345,28 @@ export function SectionsSettingsPage() {
           // 16.25px, пряча замок (12px иконка + 4.25px зазор): слово «всегда»
           // несёт смысл само, а замок здесь лишь украшение. Плюс 4.25px на
           // сжатии боковых полей — этого хватает, чтобы «Настройки» влезли.
-          <span className="flex shrink-0 items-center gap-1 rounded-full border border-lh-border px-2 py-1 text-xs text-lh-text-secondary max-[375px]:px-1.5">
-            <Lock size={ICON.inline} className="shrink-0 max-[375px]:hidden" /> <span>{t('всегда')}</span>
-          </span>
+          <span className="shrink-0 text-xs text-lh-text-secondary">{t('всегда')}</span>
         ) : (
           <button
             type="button"
             // Тумблер — своё отдельное действие по нажатию: гасим всплытие,
             // иначе pointerdown по нему же запускал бы таймер переноса строки.
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => toggle(id)}
+            // Переключение уводит строку в другой список, а системный
+            // переключатель накладки щёлкает уже после обработчика: тем же
+            // тиком строка исчезла бы раньше щелчка (PROTOCOL §6.4).
+            onClick={() => setTimeout(() => toggle(id))}
             aria-label={hidden ? t('Включить раздел {name}', { name: t(sec.label) }) : t('Выключить раздел {name}', { name: t(sec.label) })}
-            className={`h-6 w-11 shrink-0 rounded-full border transition-colors ${HIT_SLOP_44} ${
-              hidden ? 'border-lh-border-strong bg-lh-surface-2' : 'border-transparent bg-lh-accent'
+            className={`h-[31px] w-[51px] shrink-0 rounded-full transition-colors ${HIT_SLOP_44} ${
+              hidden ? 'bg-lh-surface-2 ring-1 ring-inset ring-lh-border-strong' : 'bg-lh-accent'
             }`}
           >
             <span
-              className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition-all ${
-                hidden ? 'left-0.5' : 'left-[22px]'
+              className={`absolute top-[2px] size-[27px] rounded-full shadow transition-all ${
+                hidden ? 'left-[2px] bg-lh-text-secondary' : 'left-[22px] bg-white'
               }`}
             />
+            <Haptic />
           </button>
         )}
       </div>
@@ -362,14 +378,16 @@ export function SectionsSettingsPage() {
   // без тумблера и без переноса. Раскладка и поведение при нехватке ширины —
   // как у обычной строки (см. row): те же зазоры, тот же неусыхаемый бейдж.
   const anchorRow = anchor && (
-    <div className="flex items-center gap-3 card p-3 max-[375px]:gap-2 max-[375px]:px-2">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
-        <anchor.icon size={ICON.header} />
-      </div>
-      <span className="min-w-0 grow basis-auto truncate font-semibold">{t(anchor.label)}</span>
-      <span className="flex shrink-0 items-center gap-1 rounded-full border border-lh-border px-2 py-1 text-xs text-lh-text-secondary max-[375px]:px-1.5">
-        <Lock size={ICON.inline} className="shrink-0 max-[375px]:hidden" /> <span>{t('всегда')}</span>
+    <div className="flex min-h-14 items-center gap-3 px-4 py-2 max-[375px]:gap-2 max-[375px]:px-3">
+      <span aria-hidden className="flex w-4 shrink-0 justify-center text-lh-text-secondary">
+        <Lock size={ICON.inline} />
       </span>
+      <span className="w-5 shrink-0" />
+      <span aria-hidden className="flex w-6 shrink-0 justify-center text-lh-text-secondary">
+        <anchor.icon size={ICON.base} />
+      </span>
+      <span className="min-w-0 grow basis-auto truncate text-sm">{t(anchor.label)}</span>
+      <span className="shrink-0 text-xs text-lh-text-secondary">{t('всегда')}</span>
     </div>
   );
 
@@ -378,12 +396,12 @@ export function SectionsSettingsPage() {
   // меньше MAX_BOTTOM, черта просто едет к концу списка.
   const dividerAt = Math.min(state.enabled.length, MAX_BOTTOM);
   const divider = (
-    <div className="my-1 flex items-center gap-2 px-1" aria-hidden={false}>
-      <span className="h-px flex-1 bg-lh-border-strong" />
-      <span className="shrink-0 lh-section">
-        {t('выше — панель · ниже — «Главная»')}
+    <div className="flex items-center gap-2 border-t border-lh-border bg-lh-bg/40 px-4 py-2.5">
+      <span className="h-px flex-1 bg-lh-accent/50" />
+      <span className="shrink-0 text-xs text-lh-accent">
+        {t('выше — панель · ниже — «Ещё»')}
       </span>
-      <span className="h-px flex-1 bg-lh-border-strong" />
+      <span className="h-px flex-1 bg-lh-accent/50" />
     </div>
   );
 
@@ -393,77 +411,80 @@ export function SectionsSettingsPage() {
   // порога — иначе делить нечего.
   const homeExpandAt = dividerAt + HOME_VISIBLE_STEP;
   const homeExpandDivider = (
-    <div className="my-1 flex items-center gap-2 px-1" aria-hidden={false}>
+    <div className="flex items-center gap-2 px-4 py-2">
       <span className="h-px flex-1 border-t border-dashed border-lh-border-strong" />
-      <span className="shrink-0 lh-section">
-        {t('на «Главной» — за кнопкой «Показать ещё»')}
+      <span className="shrink-0 text-xs text-lh-text-secondary">
+        {t('в «Ещё» — за кнопкой «Показать ещё»')}
       </span>
       <span className="h-px flex-1 border-t border-dashed border-lh-border-strong" />
     </div>
   );
 
   return (
-    <Screen title={t('Настроить разделы')} backTo="/more/settings">
-      <p className="mb-4 px-1 text-sm leading-relaxed text-lh-text-secondary">
-        {t('Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Главной») — задержите строку пальцем и перетащите. Номер у раздела — его место в списке «Главной»: первые {home} видны сразу, остальные — за кнопкой «Показать ещё».', { n: MAX_BOTTOM, home: HOME_VISIBLE_STEP })}
-      </p>
-
-      <div data-zone="enabled" className="mb-6 space-y-2">
-        {state.enabled.map((id, i) => (
-          <div key={id}>
-            {i === dividerAt && (
-              <>
-                {anchorRow}
-                {divider}
-              </>
+    <Screen
+      title={t('Настроить разделы')}
+      subtitle={t('Задержите строку пальцем и перетащите, чтобы поменять порядок. Первые {n} попадут в нижнюю панель рядом с «Ещё». Номер — место раздела на экране «Ещё»: первые {home} видны сразу.', { n: MAX_BOTTOM, home: HOME_VISIBLE_STEP })}
+      backTo="/more/settings"
+    >
+      <div className="space-y-6">
+        <section>
+          <h2 className="mb-2.5 px-1 lh-section">{t('Как будет выглядеть панель')}</h2>
+          <div className="card grid px-1 py-2.5" style={{ gridTemplateColumns: `repeat(${Math.max(1, previewBottom.length)}, minmax(0, 1fr))` }}>
+            {previewBottom.map((s, i) =>
+              s ? (
+                <div
+                  key={s.id}
+                  className={`flex min-w-0 flex-col items-center gap-1 ${
+                    i === 0 ? 'text-lh-accent' : s.id === ANCHOR_ID ? 'text-lh-text-secondary' : 'text-lh-text-primary'
+                  }`}
+                >
+                  <s.icon size={ICON.base} />
+                  <span className={`max-w-full truncate text-2xs ${i === 0 ? 'font-semibold' : ''}`}>{t(s.label)}</span>
+                </div>
+              ) : null,
             )}
-            {i === homeExpandAt && i > dividerAt && homeExpandDivider}
-            {dropLine(i)}
-            {row(id, i >= dividerAt ? { homeIndex: i - dividerAt + 1 } : {})}
           </div>
-        ))}
-        {dividerAt === state.enabled.length && (
-          <>
-            {anchorRow}
-            {divider}
-          </>
-        )}
-        {dropLine(state.enabled.length)}
-      </div>
+        </section>
 
-      {state.hidden.length > 0 && (
-        <>
-          <div className="mb-1.5 px-1 lh-section">
-            {t('Выключено')}
-          </div>
-          <div data-zone="hidden" className="mb-6 space-y-2">
-            {state.hidden.map((id) => row(id, { hidden: true }))}
-          </div>
-        </>
-      )}
-
-      <button
-        type="button"
-        onClick={reset}
-        className="mb-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-lh-border-strong py-3.5 text-sm font-semibold text-lh-text-secondary active:opacity-70"
-      >
-        <RotateCcw size={ICON.action} /> {t('Сбросить по умолчанию')}
-      </button>
-
-      {/* Превью панели */}
-      <div className="mb-2 px-1 lh-section">
-        {t('Как будет выглядеть панель')}
-      </div>
-      <div className="flex overflow-hidden rounded-2xl border border-lh-border bg-lh-surface-2">
-        {previewBottom.map((s) =>
-          s ? (
-            <div key={s.id} className="flex min-w-0 flex-1 flex-col items-center py-2.5">
-              <s.icon size={ICON.header} className="text-lh-text-secondary" />
-              {/* Подписей нет и в самой панели (TabBar) — имя только для диктора. */}
-              <span className="sr-only">{t(s.label)}</span>
+        <div data-zone="enabled" className="card divide-y divide-lh-border overflow-hidden">
+          {state.enabled.map((id, i) => (
+            <div key={id}>
+              {i === dividerAt && (
+                <div className="border-b border-lh-border">
+                  {anchorRow}
+                  {divider}
+                </div>
+              )}
+              {i === homeExpandAt && i > dividerAt && homeExpandDivider}
+              {dropLine(i)}
+              {row(id, i >= dividerAt ? { homeIndex: i - dividerAt + 1 } : {})}
             </div>
-          ) : null,
+          ))}
+          {dividerAt === state.enabled.length && (
+            <div>
+              {anchorRow}
+              {divider}
+            </div>
+          )}
+          {dropLine(state.enabled.length)}
+        </div>
+
+        {state.hidden.length > 0 && (
+          <section>
+            <h2 className="mb-2.5 px-1 lh-section">{t('Выключено')}</h2>
+            <div data-zone="hidden" className="card divide-y divide-lh-border overflow-hidden">
+              {state.hidden.map((id) => row(id, { hidden: true }))}
+            </div>
+          </section>
         )}
+
+        <button
+          type="button"
+          onClick={reset}
+          className="h-12 w-full rounded-xl text-sm text-lh-accent active:opacity-60"
+        >
+          {t('Сбросить по умолчанию')}
+        </button>
       </div>
 
       {dragId && (

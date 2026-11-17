@@ -10,7 +10,7 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 import { PhotoViewer } from '../../components/ui/PhotoViewer';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
-import { remove, update } from '../../db/repo';
+import { remove, restore, update } from '../../db/repo';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
 import { addDaysKey, formatDueDate, formatRu, toKey, todayKey } from '../../lib/dates';
 import { formatDueRange } from '../../lib/taskDates';
@@ -18,6 +18,7 @@ import { describeRecurrence } from '../../lib/recurrence';
 import { t } from '../../lib/i18n';
 import { isSleeping, launchTasks, skipTask, toggleTask } from './taskActions';
 import { ICON } from '../../components/ui/icons';
+import { buzz } from '../../lib/feedback';
 import {
   GRepeat as RepeatG,
   GSnowflake as Snowflake,
@@ -64,6 +65,7 @@ export const TaskItem = memo(function TaskItem({
   onEdit,
   onDragStart,
   isDragSource = false,
+  dropEdge = null,
   hideProject = false,
   launchable = false,
 }: {
@@ -75,6 +77,13 @@ export const TaskItem = memo(function TaskItem({
   onDragStart?: (t: Task, at: { x: number; y: number; pointerId: number }) => void;
   /** Управляемый родителем визуальный сигнал «эта задача сейчас тащится». */
   isDragSource?: boolean;
+  /** Линия вставки при переносе — у верхнего края строки или (последний зазор
+   *  списка) у нижнего. Рисуется поверх строки и не занимает высоты: линия в
+   *  потоке (было: отдельный блок 17px между строками) сдвигала на 17px всё
+   *  ниже себя на каждом переезде — строку под пальцем, на автопрокрутке
+   *  каждую проезжающую строку, при смене цели весь хвост списка. Владелец:
+   *  «когда я перемещаю задачи, мой экран начинает дёргаться». */
+  dropEdge?: 'top' | 'bottom' | null;
   /** Скрыть метку проекта — на TasksPage задача уже под заголовком проекта. */
   hideProject?: boolean;
   /** ↻ у спящей задачи ручного повтора — только в живом списке «Задач»: там
@@ -117,6 +126,8 @@ export const TaskItem = memo(function TaskItem({
     pointerId: 0,
     axis: 'none' as 'none' | 'x' | 'y', // directional lock: ось жеста, пока не определена — не свайпим
   });
+  // Порог «выполнить» уже отозвался вибрацией в этом жесте — второй раз не надо.
+  const swipeBuzzed = useRef(false);
   const [viewerAt, setViewerAt] = useState<number | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -200,10 +211,11 @@ export const TaskItem = memo(function TaskItem({
   };
 
   const handleDelete = () => {
-    if (window.confirm(t('Удалить задачу?'))) {
-      void cancelReminder(task.id, task.remindBefore != null);
-      void remove(db.tasks, task.id);
-    } else setDx(0);
+    // Без вопроса: удаление мягкое, и плашка «Вернуть» отменяет его одним
+    // касанием (макет: «Удалено · Вернуть» вместо системного confirm).
+    void cancelReminder(task.id, task.remindBefore != null);
+    void remove(db.tasks, task.id);
+    toast(t('Задача удалена'), { action: { label: t('Вернуть'), onClick: () => void restore(db.tasks, task.id) } });
   };
 
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -216,6 +228,7 @@ export const TaskItem = memo(function TaskItem({
       pointerId: e.pointerId,
       axis: 'none',
     };
+    swipeBuzzed.current = false;
     setDragging(true);
     // Long-press → drag-режим. Армируем только там, где перенос поддержан.
     if (onDragStart) {
@@ -266,6 +279,12 @@ export const TaskItem = memo(function TaskItem({
       drag.current.moved = true; // определившееся движение — это не тап
     }
     if (drag.current.axis === 'y') return; // вертикальный скролл — не свайпим
+    // Свайп вправо перешёл порог: отпустишь — задача выполнится. Только Android,
+    // на iPhone сигнал — сама плашка (PROTOCOL §6.4). Влево — без отклика.
+    if (!swipeBuzzed.current && drag.current.dx + d > SWIPE_THRESHOLD) {
+      swipeBuzzed.current = true;
+      buzz();
+    }
     setDx(Math.max(-ACTIONS_WIDTH, Math.min(ACTIONS_WIDTH, drag.current.dx + d)));
   };
   const onUp = () => {
@@ -295,6 +314,17 @@ export const TaskItem = memo(function TaskItem({
 
   return (
     <div className="relative -mx-4 overflow-hidden">
+      {/* inset-x-4 — ширина прежней линии (по контенту карточки, а не от края
+          до края); z-[1] — над фоном строки, внутри своего контекста .card. */}
+      {dropEdge && (
+        <span
+          aria-hidden
+          data-testid="task-drop-line"
+          className={`pointer-events-none absolute inset-x-4 z-[1] h-1 rounded-full bg-lh-accent ${
+            dropEdge === 'top' ? 'top-0' : 'bottom-0'
+          }`}
+        />
+      )}
       {/* Действия рендерим ТОЛЬКО при свайпе влево. В покое (dx=0) красной
           кнопки нет в DOM — иначе на iOS она торчала квадратным углом за
           скругление родительской .card (translateX у строки ломает обрезку). */}
@@ -339,7 +369,7 @@ export const TaskItem = memo(function TaskItem({
         // gap-3, а не gap-2.5: зона касания чекбокса выходит за него на 11px,
         // и при зазоре 10px ложилась на миниатюру фото в строке (1px — но
         // сторож перекрытий считает честно).
-        className={`relative flex touch-pan-y items-start gap-3 bg-lh-surface px-4 py-2.5 ${
+        className={`relative flex touch-pan-y items-start gap-3 bg-lh-surface px-4 py-3 ${
           draggable ? 'select-none [-webkit-user-select:none] [-webkit-touch-callout:none]' : ''
         } ${isDragSource ? 'scale-[0.97] opacity-40' : ''}`}
         style={{
@@ -354,19 +384,21 @@ export const TaskItem = memo(function TaskItem({
         onPointerCancel={onUp}
         onClick={onClick}
       >
-        <span className={`w-1 shrink-0 self-stretch rounded-full ${PRIORITY_BAR[task.priority]}`} />
+        {/* Макет: приоритет — полоса у самого левого края карточки, а не
+            отдельная колонка внутри строки. */}
+        <span aria-hidden className={`absolute inset-y-3 left-0 w-1 rounded-r ${PRIORITY_BAR[task.priority]}`} />
         <TaskCheck checked={done} onChange={handleToggle} color={project?.color} />
         <div className="min-w-0 flex-1">
           {/* text-pretty + hyphens-auto: длинные слова переносятся по слогам с
               дефисом, а не прыгают целиком на новую строку, оставляя дыры. */}
           <p
             lang="ru"
-            className={`break-words text-pretty hyphens-auto font-medium ${done ? 'text-lh-text-secondary line-through' : ''}`}
+            className={`break-words text-pretty hyphens-auto leading-snug ${done ? 'text-lh-text-secondary line-through decoration-lh-text-tertiary' : ''}`}
           >
             {task.title}
           </p>
           {task.notes && (
-            <p className="mt-1 whitespace-pre-line break-words border-l-2 border-lh-border pl-2 font-mono text-xs leading-relaxed text-lh-text-primary/65">
+            <p className="mt-1 whitespace-pre-line break-words text-xs leading-relaxed text-lh-text-secondary">
               {task.notes}
             </p>
           )}

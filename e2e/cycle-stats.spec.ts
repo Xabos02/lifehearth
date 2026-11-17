@@ -78,7 +78,8 @@ test('«в среднем», «Статистика», карточка и об�
   await expect(stats.getByText('22 и 40 дней', { exact: true })).toBeVisible();
   // Соседи подряд — только 22 и 40; 40 и 28 разделены выпавшим циклом.
   await expect(stats.getByText('18 дней', { exact: true })).toBeVisible();
-  await expect(page.getByText('в среднем 30 дней', { exact: true })).toBeVisible();
+  const hero = page.locator('section.card').filter({ hasText: 'Цикл в среднем' });
+  await expect(hero.getByText('30 дней', { exact: true })).toBeVisible();
 
   // Карточка — о тех же циклах, что и «Статистика» под ней.
   await expect(page.getByText('Циклы заметно разной длины', { exact: true })).toBeVisible();
@@ -94,7 +95,7 @@ test('«в среднем», «Статистика», карточка и об�
     }),
   ).toBeVisible();
 
-  await page.getByRole('link', { name: 'Обзор за год →', exact: true }).click();
+  await page.getByRole('link', { name: 'Обзор за год', exact: true }).click();
   const rows = page.getByTestId('year-cycle');
   await expect(rows).toHaveCount(4);
   // «Не учитывается» — только у искажённого пропуском, у цикла с забытым
@@ -125,7 +126,7 @@ test('годный цикл старше последних 12 помечен с
   await expect(stats.getByText('Циклов учтено', { exact: true })).toBeVisible();
   await expect(stats.getByText('12', { exact: true })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Обзор за год →', exact: true }).click();
+  await page.getByRole('link', { name: 'Обзор за год', exact: true }).click();
   const rows = page.getByTestId('year-cycle');
   await expect(rows).toHaveCount(14);
   // Список — от нового к старому: две последние строки — циклы, которые в
