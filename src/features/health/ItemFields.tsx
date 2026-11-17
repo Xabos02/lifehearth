@@ -249,7 +249,9 @@ export function ItemFields({
         ),
       )}
 
-      <div className={`flex flex-wrap gap-2 ${item.exercises.length > 0 ? 'border-t border-lh-border pt-3' : ''}`}>
+      {/* Под свёрнутым видом без упражнений — зазор: иначе невидимая зона
+          «+ Упражнение» налезала на заголовок вида (так стоит новый шаблон). */}
+      <div className={`flex flex-wrap gap-2 ${item.exercises.length > 0 ? 'border-t border-lh-border pt-3' : item.collapsed ? 'pt-2' : ''}`}>
         {suggestions.map((s) => (
           <button
             key={s.name}
@@ -327,6 +329,10 @@ function ExerciseEditor({
   onRemove: () => void;
 }) {
   const unit = UNIT_OPTIONS.find((u) => u.value === ex.unit) ?? UNIT_OPTIONS[0];
+  // Сначала главное — название и «4 × 6–8». Единицы, вес, отдых и заметка —
+  // по «Подробнее» (канва design/template-steps, А): все разом давали 17
+  // контролов в одном упражнении. Заполненные раскрыты сразу, иначе их не найти.
+  const [more, setMore] = useState(() => !!(ex.unit || ex.weight.trim() || ex.rest.trim() || ex.note.trim()));
   // Раскрыли готовую строку — фокус на сам редактор (не в поле: на iPhone оно
   // подняло бы клавиатуру поверх упражнения, которое собирались читать).
   // Новая пустая строка берёт фокус в поле названия сама (autoFocus ниже).
@@ -389,38 +395,57 @@ function ExerciseEditor({
           />
         </label>
       </div>
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t('В чём считать')}>
-        {UNIT_OPTIONS.map((u) => (
-          <Chip key={u.chip} active={ex.unit === u.value} hapticOff={ex.unit === u.value} onClick={() => onChange({ unit: u.value })}>
-            {t(u.chip)}
-          </Chip>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <Field label={t('Вес')} className="min-w-0 flex-1">
-          <Input value={ex.weight} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ weight: e.target.value })} placeholder={t('+10 кг')} maxLength={40} />
-        </Field>
-        <Field label={t('Отдых')} className="min-w-0 flex-1">
-          <Input value={ex.rest} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ rest: e.target.value })} placeholder={t('2 мин')} maxLength={24} />
-        </Field>
-      </div>
-      <Field label={t('Заметка')}>
-        <AutoGrowTextarea
-          value={ex.note}
-          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onChange({ note: e.target.value })}
-          placeholder={t('Техника, разминочный подход…')}
-          maxLength={600}
-        />
-      </Field>
+      <button
+        type="button"
+        onClick={() => setMore((v) => !v)}
+        aria-expanded={more}
+        className="flex min-h-11 items-center gap-1.5 text-sm font-medium text-lh-text-secondary active:opacity-60"
+      >
+        {t('Подробнее')}
+        {!more && <span className="font-normal">{t('вес, отдых, заметка')}</span>}
+        <GChevronDown size={ICON.inline} className={`shrink-0 transition-transform ${more ? 'rotate-180' : ''}`} />
+      </button>
+      {more && (
+        <>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t('В чём считать')}>
+            {UNIT_OPTIONS.map((u) => (
+              <Chip key={u.chip} active={ex.unit === u.value} hapticOff={ex.unit === u.value} onClick={() => onChange({ unit: u.value })}>
+                {t(u.chip)}
+              </Chip>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Field label={t('Вес')} className="min-w-0 flex-1">
+              <Input value={ex.weight} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ weight: e.target.value })} placeholder={t('+10 кг')} maxLength={40} />
+            </Field>
+            <Field label={t('Отдых')} className="min-w-0 flex-1">
+              <Input value={ex.rest} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ rest: e.target.value })} placeholder={t('2 мин')} maxLength={24} />
+            </Field>
+          </div>
+          <Field label={t('Заметка')}>
+            <AutoGrowTextarea
+              value={ex.note}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onChange({ note: e.target.value })}
+              placeholder={t('Техника, разминочный подход…')}
+              maxLength={600}
+            />
+          </Field>
+        </>
+      )}
       <div className="flex items-center gap-2">
         {/* У края — aria-disabled, а не disabled: выключенная кнопка теряла бы
-            фокус (он уходил на body), и стрелки с клавиатуры обрывались. */}
-        <button type="button" onClick={() => !first && onMove(-1)} aria-disabled={first} aria-label={t('Поднять упражнение')} className={arrow}>
-          <GChevronDown size={ICON.base} className="rotate-180" />
-        </button>
-        <button type="button" onClick={() => !last && onMove(1)} aria-disabled={last} aria-label={t('Опустить упражнение')} className={arrow}>
-          <GChevronDown size={ICON.base} />
-        </button>
+            фокус (он уходил на body), и стрелки с клавиатуры обрывались.
+            Одно упражнение двигать некуда — стрелок нет вовсе. */}
+        {!(first && last) && (
+          <>
+            <button type="button" onClick={() => !first && onMove(-1)} aria-disabled={first} aria-label={t('Поднять упражнение')} className={arrow}>
+              <GChevronDown size={ICON.base} className="rotate-180" />
+            </button>
+            <button type="button" onClick={() => !last && onMove(1)} aria-disabled={last} aria-label={t('Опустить упражнение')} className={arrow}>
+              <GChevronDown size={ICON.base} />
+            </button>
+          </>
+        )}
         {/* «Убрать» — омоним, как у вида: английская ветка явная. */}
         <button type="button" onClick={onRemove} aria-label={t('Убрать упражнение')} className="min-h-11 px-2 text-sm font-medium text-lh-text-secondary active:opacity-60">
           {getLang() === 'en' ? 'Remove' : 'Убрать'}

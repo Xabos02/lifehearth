@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { AutoGrowTextarea, FIELD_CAPTION, Field, Input } from '../../components/ui/Input';
-import { GPencil, GPlus } from '../../components/ui/glyphs';
+import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
+import { GChevronDown, GPencil, GPlus } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
@@ -108,6 +108,22 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
   );
 }
 
+/** Блок редактора: номер и заголовок. Порядок «название → упражнения →
+ *  дополнительно» виден сразу, и блоки не сливаются в одну стену полей
+ *  (канва design/template-steps, вариант А, 16.11.2026). */
+function Step({ n, title, hint, children }: { n: number; title: string; hint?: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="lh-section flex items-baseline gap-2 px-1">
+        <span className="tabular-nums text-lh-accent">{n}</span>
+        <span>{title}</span>
+        {hint && <span className="ml-auto text-xs normal-case tracking-normal">{hint}</span>}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
 /** Шаблон — новый или на правке — теми же полями вида, что в форме тренировки
  *  (ItemFields): свои виды, упражнения с подходами, весом и отдыхом внутри
  *  вида, минуты и км по желанию. Обязательно только название. */
@@ -126,9 +142,10 @@ function TemplateEditor({
   const [wheelOpen, setWheelOpen] = useState(false);
   // Новый шаблон стартует с пустых минут: время тут по желанию, а подставленные
   // «45 мин» силовой пришлось бы стирать в каждом шаблоне из упражнений.
-  // Сохранённый открывается свёрнутым — его читают как программу.
+  // Вид свёрнут до строки «● Силовая» и у нового: стена из десяти чипов
+  // стояла раньше кнопки «+ Упражнение». Сохранённый читают как программу.
   const [items, setItems] = useState<Item[]>(() =>
-    template ? template.items.map((i) => itemFromSaved(i, true)) : [newItem('strength', '')],
+    template ? template.items.map((i) => itemFromSaved(i, true)) : [{ ...newItem('strength', ''), collapsed: true }],
   );
   const savingRef = useRef(false);
 
@@ -168,85 +185,86 @@ function TemplateEditor({
     onDone();
   }
 
+  // Порядок — как думают о тренировке: как назвать → что делать → детали.
+  // Время и памятка раньше стояли первыми, до единого упражнения.
   return (
-    <div className="space-y-4 pb-2">
-      <div>
-        {/* Колонки одной высоты: кнопка времени тянется под поле названия,
-            иначе она на пиксель выше, и подписи встают не в линию. */}
-        <div className="flex gap-2">
-          <Field label={t('Название шаблона')} className="min-w-0 flex-1">
-            <Input value={name} onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder={t('Например, «День ног»')} maxLength={60} />
-          </Field>
-          <label className="flex w-28 shrink-0 flex-col">
-            <span className={FIELD_CAPTION}>{t('Время')}</span>
-            <button
-              type="button"
-              onClick={() => {
-                // Тап — тот самый жест, которым iOS разрешает звук щелчка.
-                unlockTick();
-                setWheelOpen((v) => !v);
-              }}
-              aria-expanded={wheelOpen}
-              aria-label={total > 0 ? t('Общее время: {time}', { time: formatDuration(total) }) : t('Общее время: не задано')}
-              className={`flex min-h-11 w-full flex-1 items-center justify-center rounded-lh-btn border bg-lh-surface-2 px-2 tabular-nums transition-[border-color,box-shadow] active:opacity-80 ${
-                wheelOpen ? 'border-lh-accent-border ring-2 ring-lh-accent-dim' : 'border-lh-border'
-              } ${total > 0 ? 'text-lh-text-primary' : 'text-lh-text-secondary'}`}
-            >
-              {total > 0 ? formatDuration(total) : '—'}
-            </button>
-          </label>
-        </div>
-        {wheelOpen && (
-          <div className="mt-2.5">
-            <DurationWheel value={total} onChange={setTotal} />
-          </div>
-        )}
-        {/* Общее время — время плана. Сводки считают минуты видов из записи:
-            без них тренировка по шаблону даёт «0 ч за месяц» — говорим сразу. */}
-        {total > 0 && draft.items.every((i) => i.minutes === 0) && (
-          <p className="mt-1.5 text-xs leading-snug text-lh-text-secondary">
-            {t('В часы за месяц идут минуты видов — укажите их по тапу на название вида.')}
-          </p>
-        )}
-      </div>
-      <Field label={t('Памятка')}>
-        <AutoGrowTextarea
-          value={note}
-          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)}
-          placeholder={t('Правила, прогрессия — по желанию')}
-          maxLength={2000}
+    <div className="space-y-6 pb-2">
+      <Step n={1} title={t('Название')}>
+        <Input
+          value={name}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+          aria-label={t('Название шаблона')}
+          placeholder={t('Например, «День ног»')}
+          maxLength={60}
         />
-      </Field>
-      {items.map((it) => (
-        <ItemFields
-          key={it.key}
-          item={it}
-          removable={items.length > 1}
-          onRemove={() => setItems((prev) => prev.filter((x) => x.key !== it.key))}
-          onChange={(patch) => setItems((prev) => prev.map((x) => (x.key === it.key ? { ...x, ...patch } : x)))}
-        />
-      ))}
-      <button
-        type="button"
-        onClick={() => setItems((prev) => [...prev, newItem('strength', '')])}
-        className={`flex items-center gap-1 rounded-full border border-dashed border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
-      >
-        <GPlus size={ICON.inline} /> {t('Добавить ещё вид')}
-      </button>
-      <div>
-        <div className="flex gap-3">
-          {template && (
-            <Button variant="danger" className="shrink-0" onClick={() => void del()}>
-              {t('Удалить')}
-            </Button>
+      </Step>
+      <Step n={2} title={t('Упражнения')}>
+        {items.map((it) => (
+          <ItemFields
+            key={it.key}
+            item={it}
+            removable={items.length > 1}
+            onRemove={() => setItems((prev) => prev.filter((x) => x.key !== it.key))}
+            onChange={(patch) => setItems((prev) => prev.map((x) => (x.key === it.key ? { ...x, ...patch } : x)))}
+          />
+        ))}
+        {/* Второй вид приходит раскрытым: выбрать вид — первое, что с ним делают. */}
+        <button
+          type="button"
+          onClick={() => setItems((prev) => [...prev, newItem('strength', '')])}
+          className={`flex items-center gap-1 self-start rounded-full border border-dashed border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
+        >
+          <GPlus size={ICON.inline} /> {t('Другой вид тренировки')}
+        </button>
+      </Step>
+      <Step n={3} title={t('Дополнительно')} hint={t('по желанию')}>
+        <div className="rounded-2xl border border-lh-border-strong px-3 pb-3">
+          <button
+            type="button"
+            onClick={() => {
+              // Тап — тот самый жест, которым iOS разрешает звук щелчка.
+              unlockTick();
+              setWheelOpen((o) => !o);
+            }}
+            aria-expanded={wheelOpen}
+            aria-label={total > 0 ? t('Общее время: {time}', { time: formatDuration(total) }) : t('Общее время: не задано')}
+            className="flex min-h-11 w-full items-center gap-2 py-1 text-left active:opacity-70"
+          >
+            <span className="flex-1 font-medium">{t('Общее время')}</span>
+            <span className={`tabular-nums ${total > 0 ? 'text-lh-text-primary' : 'text-lh-text-secondary'}`}>{total > 0 ? formatDuration(total) : t('не задано')}</span>
+            <GChevronDown size={ICON.inline} className={`shrink-0 text-lh-text-secondary transition-transform ${wheelOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {wheelOpen && <DurationWheel value={total} onChange={setTotal} />}
+          {/* Общее время — время плана. Сводки считают минуты видов из записи:
+              без них тренировка по шаблону даёт «0 ч за месяц» — говорим сразу. */}
+          {total > 0 && draft.items.every((i) => i.minutes === 0) && (
+            <p className="mt-1.5 text-xs leading-snug text-lh-text-secondary">
+              {t('В часы за месяц идут минуты видов — укажите их по тапу на название вида.')}
+            </p>
           )}
-          {/* При правке — короткое «Сохранить»: рядом с «Удалить» длинная
-              подпись на экране 320 рвалась на две строки. */}
-          <Button className="min-w-0 flex-1" disabled={!canSave} onClick={() => void save()}>
-            {template ? t('Сохранить') : t('Сохранить шаблон')}
-          </Button>
+          <div className="mt-2 border-t border-lh-border pt-3">
+            <Field label={t('Памятка')}>
+              <AutoGrowTextarea
+                value={note}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)}
+                placeholder={t('Правила, прогрессия')}
+                maxLength={2000}
+              />
+            </Field>
+          </div>
         </div>
-        <p className="mt-1.5 text-center text-xs text-lh-text-secondary">{t('Сохраняется и без минут и км')}</p>
+      </Step>
+      <div className="flex gap-3">
+        {template && (
+          <Button variant="danger" className="shrink-0" onClick={() => void del()}>
+            {t('Удалить')}
+          </Button>
+        )}
+        {/* При правке — короткое «Сохранить»: рядом с «Удалить» длинная
+            подпись на экране 320 рвалась на две строки. */}
+        <Button className="min-w-0 flex-1" disabled={!canSave} onClick={() => void save()}>
+          {template ? t('Сохранить') : t('Сохранить шаблон')}
+        </Button>
       </div>
     </div>
   );
