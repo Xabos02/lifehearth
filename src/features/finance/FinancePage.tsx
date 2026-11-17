@@ -5,6 +5,7 @@ import {
   Car,
   CircleEllipsis,
   Gamepad2,
+  Repeat,
   Shirt,
   ShoppingBasket,
   Smartphone,
@@ -28,7 +29,6 @@ import { ICON } from '../../components/ui/icons';
 import {
   GFinance as Wallet,
   GHome,
-  GRepeat,
 } from '../../components/ui/glyphs';
 
 const RECURRENCE_LABEL: Record<ExpenseRecurrence, string> = {
@@ -44,7 +44,7 @@ const CATEGORY_ICON: Record<string, LucideIcon> = {
   Жильё: GHome as LucideIcon,
   Еда: ShoppingBasket,
   Транспорт: Car,
-  Подписки: GRepeat,
+  Подписки: Repeat,
   Здоровье: Stethoscope,
   Связь: Smartphone,
   Развлечения: Gamepad2,
@@ -101,7 +101,7 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
           />
         </div>
       </div>
-      <p className="mt-1 text-3xl font-extralight leading-tight tracking-tight tabular-nums">
+      <p className="mt-1 text-3xl font-light leading-tight tracking-tight tabular-nums">
         {wrapRub(summary.expense * mul)}
       </p>
       <p className="mt-1 text-xs text-lh-text-secondary">
@@ -178,7 +178,7 @@ function ExpenseRow({ item, onOpen }: { item: ExpenseItem; onOpen: () => void })
   return (
     <div onClick={onOpen} className="flex items-center gap-3 px-4 py-3 active:opacity-80">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-        <Icon size={ICON.base} />
+        <Icon size={ICON.action} />
       </span>
       {/* Пол ширины вместо min-w-0: название — главное в строке, и оно не
           должно проигрывать сумме, иначе truncate ужимает его до буквы. */}
