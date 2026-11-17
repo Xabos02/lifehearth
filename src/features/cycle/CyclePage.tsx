@@ -1,18 +1,15 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
-import {
-  Info,
-  SlidersHorizontal,
-} from 'lucide-react';
+import { Lightbulb, SlidersHorizontal } from 'lucide-react';
 import {
   GPlus as Plus,
   GDrop as Droplet,
+  GChevronRight as ChevronRight,
 } from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Button } from '../../components/ui/Button';
 import { ensureCycleSetup } from '../../lib/cycle/cycleRepo';
-import { todayKey, formatDayRange } from '../../lib/dates';
+import { todayKey, formatDayRange, addDaysKey } from '../../lib/dates';
 import { getLang, t, tPlur, tPlural } from '../../lib/i18n';
 import { CycleCalendar } from './CycleCalendar';
 import { CycleHabitsCard } from './CycleHabitsCard';
@@ -23,7 +20,7 @@ import { isUnlocked, subscribeLock } from './lockState';
 import type { CyclePredictionResult } from '../../lib/cycle/predict';
 import { IconButton } from '../../components/ui/IconButton';
 import { ICON } from '../../components/ui/icons';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { buildPhases } from './phases';
 
 /** Как называем прогноз словами.
  *
@@ -87,37 +84,44 @@ export function CyclePage() {
   const open = useSyncExternalStore(subscribeLock, isUnlocked, () => false);
   const locked = settings.lock === 'pin' && settings.pin !== undefined && !open;
 
+  // Полоса фаз строится по средней длине цикла: менструация — по факту
+  // текущего цикла (среднее дорисовывает только её продолжение, phases.ts),
+  // фертильные дни — по той же карте вероятностей, что и календарь. Без
+  // среднего полосу не рисуем: «где я в цикле» без длины цикла — выдумка.
+  const cycleLen = stats.averageLength !== undefined ? Math.round(stats.averageLength) : undefined;
+  const start = currentDay !== undefined ? addDaysKey(todayKey(), 1 - currentDay) : undefined;
+  const phases =
+    start !== undefined && cycleLen !== undefined && cycleLen > 0
+      ? buildPhases(
+          cycleLen,
+          data.cycles.find((c) => c.startDate === start)?.periodLengthDays ?? 0,
+          Math.round(stats.averagePeriodLength ?? 5),
+          start,
+          data.fertile,
+          currentDay,
+        )
+      : null;
+  const showStats = data.cycles.some((c) => c.lengthDays !== undefined && c.excluded === 0);
+
   return (
     <Screen
       title={t('Женские дни')}
       backTo="/home"
       right={
         locked ? undefined : (
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setPickedDate(todayKey())}
-            className="shrink-0 rounded-lg px-2 py-2.5 text-base font-medium text-lh-accent active:opacity-60"
-          >
-            {t('Отметить')}
-          </button>
-          {/* ml-2 к зазору: зона касания шире иконки на 3px с каждой стороны,
-              и без запаса тап у левого края уходил бы кнопке «Отметить». */}
           <IconButton
             icon={SlidersHorizontal}
             label={t('Настройки раздела')}
             to="/more/cycle/settings"
             tone="muted"
-            className="ml-2"
           />
-        </div>
         )
       }
     >
       {locked ? (
         <CycleLock settings={settings} onUnlock={() => undefined} />
       ) : (
-      <div className="space-y-5">
+      <div className="space-y-6">
         {!data.hasAnyData && !data.loading ? (
           <EmptyState
             icon={Droplet}
@@ -128,29 +132,54 @@ export function CyclePage() {
           />
         ) : (
           <>
-            {/* Карточка «сейчас». Показывает факт (день цикла) и оценку
-                (прогноз) раздельно и разными по весу: факт крупно, оценка
-                мелко и с оговоркой. Смешивать их нельзя — человек запомнит
-                оценку как факт. */}
-            <div className="card p-4">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="min-w-0 text-sm font-medium text-lh-text-secondary">
-                  {currentDay !== undefined ? t('День цикла') : t('Цикл')}
-                </p>
+            {/* Карточка «сейчас». Факт (день цикла) и оценка (прогноз) —
+                раздельно и разными по весу: факт крупно, оценка мелко и с
+                оговоркой. Смешивать их нельзя — человек запомнит оценку как факт. */}
+            <section className="card p-5">
+              <div className="flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-lh-text-secondary">
+                    {currentDay !== undefined ? t('День цикла') : t('Цикл')}
+                  </p>
+                  <p className="mt-1 text-5xl font-extralight tabular-nums">
+                    {currentDay ?? '—'}
+                  </p>
+                </div>
                 {stats.n > 0 && stats.averageLength !== undefined && (
-                  <p className="shrink-0 text-xs text-lh-text-secondary">
-                    {t('в среднем {v}', { v: formatDays(stats.averageLength) })}
+                  <p className="shrink-0 text-right text-sm text-lh-text-secondary tabular-nums">
+                    {t('Цикл в среднем')}
+                    <br />
+                    <span className="text-[17px] text-lh-text-primary">{formatDays(stats.averageLength)}</span>
                   </p>
                 )}
               </div>
-              <p className="mt-1 text-3xl font-extralight tracking-tight tabular-nums">
-                {currentDay ?? '—'}
-              </p>
+
+              {phases && (
+                <div aria-hidden className="mt-5">
+                  <div className="flex h-2 gap-[2px] overflow-hidden rounded-full">
+                    {phases.runs.map((r, i) => (
+                      <i
+                        key={i}
+                        className={`h-full ${
+                          r.kind === 'period' ? 'bg-danger/60' : r.kind === 'fertile' ? 'bg-success/45' : 'bg-lh-surface-2'
+                        }`}
+                        style={{ width: `${(r.days / phases.total) * 100}%` }}
+                      />
+                    ))}
+                  </div>
+                  <div className="relative h-3">
+                    <i
+                      className="absolute -top-[14px] h-5 w-[3px] -translate-x-1/2 rounded-full bg-lh-text-primary"
+                      style={{ left: `${phases.marker}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {forecast && (
-                <div className="mt-3 rounded-xl bg-lh-surface-2 p-3">
-                  <p className="text-xs text-lh-text-secondary">{t('Следующая менструация')}</p>
-                  <p className="mt-0.5 font-semibold">{forecast.title}</p>
+                <div className={`${phases ? '' : 'mt-4'} border-t border-lh-border pt-3`}>
+                  <p className="text-sm text-lh-text-secondary">{t('Следующая менструация')}</p>
+                  <p className="mt-0.5 text-lg font-light">{forecast.title}</p>
                   {forecast.note && (
                     <p className="mt-1 text-xs leading-snug text-lh-text-secondary">{forecast.note}</p>
                   )}
@@ -165,7 +194,7 @@ export function CyclePage() {
                   )}
                 </div>
               )}
-            </div>
+            </section>
 
             <CycleCalendar
               data={data}
@@ -175,16 +204,15 @@ export function CyclePage() {
             />
 
             {anomalies.length > 0 && (
-              <section>
-                <h2 className="mb-1.5 flex items-center gap-1.5 px-1 lh-section">
-                  <Info size={ICON.inline} className="shrink-0" />
-                  {t('Стоит обратить внимание')}
-                </h2>
-                <div className="card divide-y divide-lh-border px-4">
+              <section aria-label={t('Стоит обратить внимание')}>
+                <div className="card divide-y divide-lh-border">
                   {anomalies.map((a) => (
-                    <div key={a.kind} className="py-3">
-                      <p className="font-medium">{a.title}</p>
-                      <p className="mt-0.5 text-sm leading-snug text-lh-text-secondary">{a.detail}</p>
+                    <div key={a.kind} className="flex gap-3 px-4 py-3.5">
+                      <Lightbulb size={ICON.inline} className="mt-0.5 shrink-0 text-lh-accent" />
+                      <div className="min-w-0 flex-1 text-sm leading-[1.45]">
+                        <p className="font-semibold">{a.title}</p>
+                        <p className="mt-0.5 text-lh-text-secondary">{a.detail}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -203,10 +231,10 @@ export function CyclePage() {
                 даже если в выборку прогноза не вошёл ни один (stats.n = 0):
                 иначе с ней пропадала бы и ссылка на «Обзор за год», где
                 выпавший цикл помечен «не учитывается». */}
-            {data.cycles.some((c) => c.lengthDays !== undefined && c.excluded === 0) && (
+            {showStats && (
               <section>
-                <h2 className="mb-1.5 px-1 lh-section">{t('Статистика')}</h2>
-                <div className="card divide-y divide-lh-border px-4">
+                <h2 className="mb-2.5 px-1 lh-section">{t('Статистика')}</h2>
+                <div className="card divide-y divide-lh-border">
                   <Row label={t('Циклов учтено')} value={String(stats.n)} />
                   {stats.medianLength !== undefined && (
                     <Row label={t('Обычная длина')} value={formatDays(stats.medianLength)} />
@@ -246,14 +274,14 @@ export function CyclePage() {
                       }
                     />
                   )}
+                  <LinkRow to="/more/cycle/year" label={t('Обзор за год')} />
+                  <LinkRow to="/more/cycle/report" label={t('Отчёт для врача')} />
                 </div>
 
                 {/* Систематический сдвиг — отдельно от MAE: он говорит не
-                    «насколько промахивается», а «в какую сторону», и это
-                    лечится иначе (сдвигом константы, а не переписыванием
-                    формулы). Знак bias — daysBetween(predicted, actual):
-                    положительный, когда факт наступил ПОЗЖЕ прогноза, то
-                    есть прогноз оказался раньше факта. */}
+                    «насколько промахивается», а «в какую сторону». Знак bias —
+                    daysBetween(predicted, actual): положительный, когда факт
+                    наступил ПОЗЖЕ прогноза. */}
                 {data.accuracy.n >= 3 &&
                   data.accuracy.bias !== undefined &&
                   Math.abs(data.accuracy.bias) >= 1 && (
@@ -267,9 +295,6 @@ export function CyclePage() {
                     </p>
                   )}
 
-                {/* Оговорка про биологическую природу разброса — рядом с
-                    самой точностью, а не в настройках: цифра может быть
-                    неприятной, и смягчать её нельзя, можно только объяснить. */}
                 {data.accuracy.n >= 3 && (
                   <p className="mt-1 px-1 text-xs leading-snug text-lh-text-secondary">
                     {t(
@@ -277,17 +302,6 @@ export function CyclePage() {
                     )}
                   </p>
                 )}
-
-                {/* Завершённый цикл гарантирован условием секции: отдельная
-                    проверка здесь не нужна, но ссылка обязана появляться
-                    только внутри неё — обзор года без единого цикла
-                    показывать нечего. */}
-                <Link
-                  to="/more/cycle/year"
-                  className={`mt-3 inline-block px-1 py-2 text-sm font-medium text-lh-accent ${HIT_SLOP_44}`}
-                >
-                  {t('Обзор за год →')}
-                </Link>
               </section>
             )}
 
@@ -300,11 +314,20 @@ export function CyclePage() {
           </>
         )}
 
-        {!data.hasAnyData && !data.loading && (
-          <Button onClick={() => setPickedDate(todayKey())} className="w-full">
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setPickedDate(todayKey())}
+            className="flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
+          >
             <Plus size={ICON.base} /> {t('Отметить сегодня')}
-          </Button>
-        )}
+          </button>
+          {/* Обещание проверяется privacy.test.ts: таблицы раздела не входят
+              в синхронизацию и не видны семье. */}
+          <p className="px-6 text-center text-xs text-lh-text-secondary">
+            {t('Данные раздела не синхронизируются и никому не видны')}
+          </p>
+        </div>
       </div>
 
       )}
@@ -330,10 +353,25 @@ function formatDays(v: number): string {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-3">
+    <div className="flex min-h-12 items-center justify-between gap-3 px-4 py-2.5 text-[15px]">
       {/* Пол ширины подписи: без него длинное значение ужимает её до буквы. */}
-      <span className="min-w-[6rem] flex-1 text-sm text-lh-text-secondary">{label}</span>
-      <span className="shrink-0 font-semibold tabular-nums">{value}</span>
+      <span className="min-w-[6rem] flex-1">{label}</span>
+      <span className="shrink-0 text-right text-lh-text-secondary tabular-nums">{value}</span>
     </div>
+  );
+}
+
+function LinkRow({ to, label }: { to: string; label: string }) {
+  return (
+    // state — откуда пришли: по нему «Отчёт для врача» ведёт «Назад» сюда, а
+    // не в настройки раздела, куда ведёт вход из них (CycleReportPage).
+    <Link
+      to={to}
+      state={{ from: '/more/cycle' }}
+      className="flex min-h-12 items-center justify-between gap-3 px-4 text-[15px] text-lh-accent active:opacity-60"
+    >
+      <span>{label}</span>
+      <ChevronRight size={ICON.inline} aria-hidden className="shrink-0" />
+    </Link>
   );
 }

@@ -7,8 +7,7 @@ import { computeNavLayout } from '../../lib/navLayout';
 import { ANCHOR_ID, DEFAULT_BOTTOM, HOME_VISIBLE_STEP, MAX_BOTTOM, SECTION_BY_ID, sectionsFor } from '../../lib/sections';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
-import { GChevronDown as ChevronDown, GSparkle as Sparkles } from '../../components/ui/glyphs';
+import { ArrowDown, ArrowUp, Eye, EyeOff } from 'lucide-react';
 
 const LAYOUT_OPTS = { maxBottom: MAX_BOTTOM, defaultBottom: DEFAULT_BOTTOM, anchorId: ANCHOR_ID };
 
@@ -81,121 +80,113 @@ export function SectionsPriorityGate() {
     });
   };
 
+  // Кнопки строки — настоящие 44×44 вплотную, без невидимых расширений:
+  // зоны касания не налезают друг на друга (touch.spec.ts).
+  const btn =
+    'flex size-11 shrink-0 items-center justify-center rounded-lg text-lh-text-secondary active:bg-lh-surface-2 disabled:opacity-25';
+
   return (
     <div className="fixed inset-0 z-[82] flex flex-col bg-lh-bg">
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)+24px)]">
-        <div className="mb-5 flex flex-col items-center gap-3 text-center">
-          <div className="flex size-14 items-center justify-center rounded-2xl tile-lh text-lh-accent">
-            <Sparkles size={ICON.header} />
+      <div className="relative min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-md px-4 pb-6 pt-[calc(env(safe-area-inset-top)+32px)]">
+          <div className="px-2 pb-5">
+            <p className="text-sm text-lh-text-secondary">{t('Последний шаг')}</p>
+            <h2 className="mt-1.5 text-[30px] font-light leading-[1.15] tracking-[-.6px]">{t('Что для вас важнее всего?')}</h2>
+            <p className="mt-2.5 text-sm leading-normal text-lh-text-secondary">
+              {t('Поднимите важное наверх и скройте лишнее: первые {n} сразу видны в «Ещё». Порядок можно менять в настройках.', { n: HOME_VISIBLE_STEP })}
+            </p>
           </div>
-          <h2 className="text-xl font-light tracking-tight">{t('Что для вас важнее всего?')}</h2>
-          <p className="max-w-sm text-sm leading-relaxed text-lh-text-secondary">
-            {t('Расставьте разделы по важности — верхние {n} сразу видны в «Ещё», остальные откроются по кнопке «Показать ещё». Стрелками меняете порядок, переключателем — скрываете ненужное.', { n: HOME_VISIBLE_STEP })}
-          </p>
-        </div>
 
-        <div className="space-y-2 pb-4">
-          {state.items.map((id, i) => {
-            const sec = SECTION_BY_ID.get(id);
-            if (!sec) return null;
-            const Icon = sec.icon;
-            return (
-              <div key={id}>
-                {i === HOME_VISIBLE_STEP && (
-                  <div className="my-2 flex items-center gap-2 px-1">
-                    <span className="h-px flex-1 bg-lh-border-strong" />
-                    <span className="shrink-0 lh-section">
-                      {t('дальше — за кнопкой «Показать ещё»')}
-                    </span>
-                    <span className="h-px flex-1 bg-lh-border-strong" />
-                  </div>
-                )}
-                {/* gap-2, а не 3: стрелкам нужно 64px вместо 34 (см. ниже), и
-                    на 320px иначе от названия ничего не оставалось. */}
-                <div className="flex items-center gap-2 card p-3">
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-xs font-bold text-lh-text-secondary">
-                    {i + 1}
-                  </span>
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
-                    <Icon size={ICON.header} />
-                  </div>
-                  <span className="min-w-0 grow basis-auto truncate font-semibold">{t(sec.label)}</span>
-                  {/* Центры стрелок ровно в 44px (20 + gap-6), и зоны касания
-                      встают встык. Было gap-0.5 при зонах по 44: невидимая зона
-                      «Опустить» лежала поверх почти всей «Поднять» — тап по
-                      верхней стрелке опускал раздел. ml-1 держит 12px до
-                      переключателя: столько зона стрелки выходит за её край. */}
-                  <div className="flex shrink-0 items-center gap-6">
-                    <button
-                      type="button"
-                      disabled={i === 0}
-                      onClick={() => move(id, -1)}
-                      aria-label={t('Поднять «{name}»', { name: t(sec.label) })}
-                      className={`flex size-5 items-center justify-center rounded-full disabled:opacity-25 ${HIT_SLOP_44}`}
-                    >
-                      <ChevronDown size={ICON.action} className="rotate-180" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={i === state.items.length - 1}
-                      onClick={() => move(id, 1)}
-                      aria-label={t('Опустить «{name}»', { name: t(sec.label) })}
-                      className={`flex size-5 items-center justify-center rounded-full disabled:opacity-25 ${HIT_SLOP_44}`}
-                    >
-                      <ChevronDown size={ICON.action} />
-                    </button>
-                  </div>
-                  {!sec.nonHideable && (
-                    <button
-                      type="button"
-                      onClick={() => toggle(id)}
-                      aria-label={t('Скрыть раздел {name}', { name: t(sec.label) })}
-                      className={`ml-1 h-6 w-11 shrink-0 rounded-full border border-transparent bg-lh-accent transition-colors ${HIT_SLOP_44}`}
-                    >
-                      <span className="absolute top-0.5 left-[22px] size-4 rounded-full bg-white shadow transition-all" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {state.hidden.length > 0 && (
-          <>
-            <div className="mb-1.5 px-1 lh-section">{t('Скрыто')}</div>
-            <div className="mb-4 space-y-2">
-              {state.hidden.map((id) => {
-                const sec = SECTION_BY_ID.get(id);
-                if (!sec) return null;
-                const Icon = sec.icon;
-                return (
-                  <div key={id} className="flex items-center gap-3 card p-3 opacity-60">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
-                      <Icon size={ICON.header} />
+          <div className="card divide-y divide-lh-border overflow-hidden">
+            {state.items.map((id, i) => {
+              const sec = SECTION_BY_ID.get(id);
+              if (!sec) return null;
+              const Icon = sec.icon;
+              return (
+                <div key={id}>
+                  {i === HOME_VISIBLE_STEP && (
+                    <div className="flex items-center gap-2 border-b border-lh-border px-4 py-2.5">
+                      <span className="h-px flex-1 bg-lh-accent/50" />
+                      <span className="shrink-0 text-xs text-lh-accent">
+                        {t('дальше — за кнопкой «Показать ещё»')}
+                      </span>
+                      <span className="h-px flex-1 bg-lh-accent/50" />
                     </div>
-                    <span className="min-w-0 grow basis-auto truncate font-semibold">{t(sec.label)}</span>
-                    <button
-                      type="button"
-                      onClick={() => toggle(id)}
-                      aria-label={t('Показать раздел {name}', { name: t(sec.label) })}
-                      className={`h-6 w-11 shrink-0 rounded-full border border-lh-border-strong bg-lh-surface-2 transition-colors ${HIT_SLOP_44}`}
-                    >
-                      <span className="absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow transition-all" />
-                    </button>
+                  )}
+                  <div className="flex min-h-14 items-center gap-2 py-1 pl-4 pr-1.5 max-[375px]:pl-3">
+                    <span className="w-5 shrink-0 text-center text-xs tabular-nums text-lh-text-secondary">{i + 1}</span>
+                    <span aria-hidden className="flex w-6 shrink-0 justify-center text-lh-text-primary">
+                      <Icon size={ICON.base} />
+                    </span>
+                    <span className="min-w-0 grow basis-auto truncate text-sm">{t(sec.label)}</span>
+                    <div className="flex shrink-0 items-center">
+                      <button
+                        type="button"
+                        disabled={i === 0}
+                        onClick={() => move(id, -1)}
+                        aria-label={t('Поднять «{name}»', { name: t(sec.label) })}
+                        className={btn}
+                      >
+                        <ArrowUp size={ICON.inline} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={i === state.items.length - 1}
+                        onClick={() => move(id, 1)}
+                        aria-label={t('Опустить «{name}»', { name: t(sec.label) })}
+                        className={btn}
+                      >
+                        <ArrowDown size={ICON.inline} />
+                      </button>
+                      {!sec.nonHideable && (
+                        <button
+                          type="button"
+                          onClick={() => toggle(id)}
+                          aria-label={t('Скрыть раздел {name}', { name: t(sec.label) })}
+                          className={btn}
+                        >
+                          <Eye size={ICON.action} />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          </>
-        )}
+                </div>
+              );
+            })}
+            {state.hidden.map((id) => {
+              const sec = SECTION_BY_ID.get(id);
+              if (!sec) return null;
+              const Icon = sec.icon;
+              return (
+                <div key={id} className="flex min-h-14 items-center gap-2 py-1 pl-4 pr-1.5 max-[375px]:pl-3">
+                  <span className="w-5 shrink-0" />
+                  <span aria-hidden className="flex w-6 shrink-0 justify-center text-lh-text-secondary">
+                    <Icon size={ICON.base} />
+                  </span>
+                  <div className="min-w-0 grow basis-auto">
+                    <p className="truncate text-sm text-lh-text-secondary">{t(sec.label)}</p>
+                    <p className="text-xs text-lh-text-secondary">{t('Скрыто')}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggle(id)}
+                    aria-label={t('Показать раздел {name}', { name: t(sec.label) })}
+                    className={`${btn} !text-lh-accent`}
+                  >
+                    <EyeOff size={ICON.action} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      <div className="relative px-6 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-3">
+      <div className="relative border-t border-lh-border px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-3">
         <button
           type="button"
           onClick={finish}
-          className="flex w-full items-center justify-center rounded-2xl bg-lh-accent px-5 py-3.5 font-semibold text-lh-bg shadow-[var(--shadow-accent)] active:opacity-80"
+          className="mx-auto flex h-[52px] w-full max-w-md items-center justify-center rounded-xl bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
         >
           {t('Готово')}
         </button>

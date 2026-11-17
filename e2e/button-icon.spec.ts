@@ -18,7 +18,7 @@ test('Button: иконка и подпись «Очистить день» на 
     } as never);
     await repo.rebuildCycles();
   });
-  await page.getByRole('button', { name: 'Отметить', exact: true }).click();
+  await page.getByRole('button', { name: 'Отметить сегодня', exact: true }).click();
   const clear = page.getByRole('button', { name: 'Очистить день' });
   await expect(clear).toBeVisible();
 

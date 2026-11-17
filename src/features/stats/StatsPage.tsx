@@ -1,29 +1,26 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import {
-  Share2,
-} from 'lucide-react';
+import { FileText, Share2 } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Goal, LearningItem, Task } from '../../db/types';
 import { addDaysKey, fromKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { getISODay } from 'date-fns';
-import { goalProgress, goalProgressLabel } from '../../lib/progress';
+import { goalProgress } from '../../lib/progress';
 import { financeSummary, formatRub } from '../../lib/finance';
 import { buildReport, reportFilename } from '../../lib/report';
 import { Screen } from '../../components/layout/Screen';
-import { ProgressBar } from '../../components/ui/ProgressBar';
+import { ProgressRing } from '../../components/ui/ProgressRing';
+import { ICON } from '../../components/ui/icons';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useToast } from '../../components/ui/toastContext';
 import { IconButton } from '../../components/ui/IconButton';
-import { StatCard } from '../../components/ui/StatCard';
 import { EnergyStatsCard } from '../energy/EnergyStatsCard';
 import { compactDuration, formatDuration } from '../../lib/duration';
 import { t } from '../../lib/i18n';
-import {
-  GStats as ChartColumnBig,
-} from '../../components/ui/glyphs';
+import { GChevronDown, GStats as ChartColumnBig } from '../../components/ui/glyphs';
 
 interface TaskStats {
   /** последние 7 дней (старые → новые): подпись дня + число выполненных */
@@ -56,6 +53,7 @@ interface TaskBreakdown {
   completed: number; // выполнено полностью
   open: number; // не выполнено
   partial: number; // выполнено не полностью (чеклист начат, но не закончен)
+  partialOnTime: number; // частично и без просрочки — отрезок полосы статусов
   overdue: number; // просрочено (из невыполненных)
   skipped: number; // суммарно отмечено «пропущена» (исторически, для статистики)
   dueToday: number; // срок — сегодня
@@ -71,6 +69,7 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
   let completed = 0;
   let open = 0;
   let partial = 0;
+  let partialOnTime = 0;
   let overdue = 0;
   let dueToday = 0;
   let noDate = 0;
@@ -94,7 +93,10 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
     if (t.dueDate !== null && t.dueDate < today) overdue += 1;
     else if (t.dueDate === today) dueToday += 1;
     if (t.dueDate === null) noDate += 1;
-    if (items.length > 0 && done > 0 && done < items.length) partial += 1;
+    if (items.length > 0 && done > 0 && done < items.length) {
+      partial += 1;
+      if (!(t.dueDate !== null && t.dueDate < today)) partialOnTime += 1;
+    }
   }
 
   const closed = completed + open;
@@ -103,6 +105,7 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
     completed,
     open,
     partial,
+    partialOnTime,
     overdue,
     skipped,
     dueToday,
@@ -145,36 +148,71 @@ function computeTaskTime(tasks: Task[]): TaskTimeStats {
   };
 }
 
-function StatNumber({ value, label, color }: { value: number; label: string; color?: string }) {
+/** Плитка дополнительного показателя в раскрывашке под эффективностью. */
+function StatTile({ value, label, color }: { value: ReactNode; label: string; color?: string }) {
   return (
-    <div className="min-w-0">
-      <p className="text-lg font-light leading-tight" style={color ? { color } : undefined}>
+    // min-w-0 обязателен: у grid-элемента min-width:auto — без него колонка
+    // распирается по min-content подписи и сетка вылезает за карточку.
+    <div className="min-w-0 rounded-[10px] bg-lh-surface-2 px-2.5 py-2.5">
+      <p className="text-lg font-light leading-none tabular-nums" style={color ? { color } : undefined}>
         {value}
       </p>
-      <p className="text-xs text-lh-text-secondary">{label}</p>
+      <p className="mt-1.5 break-words hyphens-auto text-2xs leading-tight text-lh-text-secondary">{label}</p>
     </div>
   );
 }
 
-/** Метрика-плитка: число в собственном фоне с бордером — чтобы пункты в плотной
- *  сетке не сливались в стену цифр. */
-function StatTile({ value, label, color }: { value: ReactNode; label: string; color?: string }) {
+/** Столбики по дням недели. Значение подписано над столбиком: серый столбик
+ *  на тёмной карточке сам по себе не держит контраст, число — держит. */
+function WeekBars({
+  days,
+  max,
+  format,
+}: {
+  days: { label: string; value: number; isToday: boolean }[];
+  max: number;
+  format: (v: number) => string;
+}) {
   return (
-    // min-w-0 обязателен: у grid-элемента, как и у flex, min-width:auto — без него
-    // колонка распирается по min-content подписи и вся сетка вылезает за карточку.
-    <div className="min-w-0 rounded-xl border border-lh-border bg-lh-surface-2 px-2.5 py-2.5">
-      <p
-        className="text-lg font-light leading-none"
-        style={color ? { color } : undefined}
-      >
-        {value}
-      </p>
-      {/* На 320px под подпись остаётся ~55px: без переноса и уменьшения «всего
-          активных» наезжает на рамку. clamp тянет 11px → 9px к узким экранам. */}
-      <p className="mt-1.5 break-words hyphens-auto text-2xs leading-tight text-lh-text-secondary">
-        {label}
-      </p>
+    <div className="mt-4 flex h-28 items-stretch gap-2.5">
+      {days.map((d, i) => (
+        <div key={i} className="flex h-full min-w-0 flex-1 flex-col items-center gap-1.5">
+          <span className="h-4 text-2xs tabular-nums text-lh-text-secondary">{format(d.value)}</span>
+          <div className="flex w-full flex-1 items-end">
+            <div
+              className={`w-full rounded-[4px] transition-[height] duration-300 ${d.isToday ? 'bg-lh-accent' : 'bg-lh-surface-2'}`}
+              style={{ height: `${Math.round((d.value / max) * 100)}%`, minHeight: 4 }}
+            />
+          </div>
+          <span className={`text-2xs ${d.isToday ? 'font-semibold text-lh-accent' : 'text-lh-text-secondary'}`}>
+            {t(d.label)}
+          </span>
+        </div>
+      ))}
     </div>
+  );
+}
+
+/** Плитка-ссылка на раздел: подпись, крупное число, пояснение. */
+function SectionTile({
+  to,
+  title,
+  value,
+  hint,
+  valueClass = '',
+}: {
+  to: string;
+  title: string;
+  value: ReactNode;
+  hint: string;
+  valueClass?: string;
+}) {
+  return (
+    <Link to={to} className="card block min-w-0 p-4 active:opacity-70">
+      <span className="lh-section block">{title}</span>
+      <span className={`mt-2 block text-2xl font-light leading-none tabular-nums ${valueClass}`}>{value}</span>
+      <span className="mt-1.5 block text-xs text-lh-text-secondary">{hint}</span>
+    </Link>
   );
 }
 
@@ -199,6 +237,7 @@ export function StatsPage() {
   const learning = alive(learningRaw ?? []);
   const expenses = alive(expensesRaw ?? []);
   const toast = useToast();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   async function handleShareReport() {
     const md = await buildReport();
@@ -252,7 +291,7 @@ export function StatsPage() {
         .filter((g) => g.status === 'active')
         .map((g) => {
           const linked = g.progressMode === 'tasks' ? (tasksByGoal.get(g.id) ?? []) : [];
-          return { goal: g, value: goalProgress(g, linked), label: goalProgressLabel(g, linked) };
+          return { goal: g, value: goalProgress(g, linked) };
         }),
     [goals, tasksByGoal],
   );
@@ -262,11 +301,6 @@ export function StatsPage() {
       activeGoals.length === 0
         ? 0
         : Math.round(activeGoals.reduce((s, g) => s + g.value, 0) / activeGoals.length),
-    [activeGoals],
-  );
-
-  const topGoals = useMemo(
-    () => [...activeGoals].sort((a, b) => b.value - a.value).slice(0, 3),
     [activeGoals],
   );
 
@@ -315,6 +349,24 @@ export function StatsPage() {
     );
   }
 
+  // Полоса статусов: доли не пересекаются и в сумме дают все активные задачи.
+  // Просроченная задача с начатым чек-листом — «просрочено», а не «частично»:
+  // срок важнее, и одна задача не должна занимать два отрезка.
+  const b = taskBreakdown;
+  const segPartial = Math.max(0, b.partialOnTime);
+  const segOverdue = b.overdue;
+  const segOpen = Math.max(0, b.open - segOverdue - segPartial);
+  const segments = [
+    { key: 'done', label: t('Выполнено'), value: b.completed, className: 'bg-lh-accent' },
+    { key: 'partial', label: t('Частично'), value: segPartial, className: 'bg-[color-mix(in_oklab,var(--lh-accent)_50%,var(--lh-surface))]' },
+    { key: 'overdue', label: t('Просрочено'), value: segOverdue, className: 'bg-danger' },
+    { key: 'open', label: t('Не выполнено'), value: segOpen, className: 'bg-lh-surface-2 ring-1 ring-inset ring-lh-border-strong' },
+  ];
+  const segTotal = segments.reduce((s, x) => s + x.value, 0);
+
+  const timeDays = taskTime.days.map((d) => ({ label: d.label, value: d.minutes, isToday: d.isToday }));
+  const doneDays = taskStats.week.map((d, i) => ({ label: d.label, value: d.count, isToday: i === 6 }));
+
   return (
     <Screen
       title={t('Статистика')}
@@ -323,177 +375,180 @@ export function StatsPage() {
         <IconButton icon={Share2} label={t('Поделиться отчётом')} onClick={() => void handleShareReport()} />
       }
     >
-      <div className="flex flex-col gap-4">
-        {/* Эффективность — разбор задач по статусам */}
-        <StatCard title={t('Эффективность')}>
-          {/* Хедлайн: процент выполнения + полоса */}
-          <div className="mb-3 rounded-xl border border-lh-border bg-lh-surface-2 px-3.5 py-3">
-            <div className="mb-2 flex items-baseline justify-between gap-2">
-              <span className="min-w-0 truncate text-base font-medium">{t('Выполнено из всех')}</span>
-              <span className="shrink-0 text-lg font-light" style={{ color: 'var(--app-success)' }}>
-                {taskBreakdown.completionRate}%
+      <div className="flex flex-col gap-6">
+        {/* Эффективность — кольцо, полоса статусов, легенда и раскрывашка */}
+        <section className="card p-5" aria-labelledby="stats-eff">
+          <div className="flex items-center gap-5">
+            <div className="relative">
+              <ProgressRing value={b.completionRate} size={104} strokeWidth={7} label="" />
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-3xl font-light tabular-nums">
+                {b.completionRate}
+                <span className="text-sm text-lh-text-secondary">%</span>
               </span>
             </div>
-            <ProgressBar value={taskBreakdown.completionRate} color="var(--app-success)" />
+            <div className="min-w-0">
+              <h2 id="stats-eff" className="text-xs font-normal text-lh-text-secondary">
+                {t('Эффективность')}
+              </h2>
+              <p className="mt-0.5 text-lg font-light leading-tight">
+                {b.total === 0
+                  ? t('Активных задач пока нет')
+                  : t('Выполнено {done} из {total}', { done: b.completed, total: b.total })}
+              </p>
+              {b.dueToday > 0 && (
+                <p className="mt-1.5 text-xs text-lh-text-secondary tabular-nums">
+                  {t('Срок сегодня: {n}', { n: b.dueToday })}
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Каждая метрика — отдельная плитка, чтобы пункты не сливались */}
-          <div className="grid grid-cols-3 gap-2">
-            <StatTile value={taskBreakdown.total} label={t('всего активных')} />
-            <StatTile value={taskBreakdown.completed} label={t('выполнено')} color="var(--app-success)" />
-            <StatTile value={taskBreakdown.open} label={t('не выполнено')} />
-            <StatTile
-              value={taskBreakdown.partial}
-              label={t('частично')}
-              color={taskBreakdown.partial > 0 ? 'var(--app-warning)' : undefined}
+          {segTotal > 0 && (
+            <div className="mt-5 flex h-2 gap-[2px] overflow-hidden rounded-full" aria-hidden="true">
+              {segments
+                .filter((x) => x.value > 0)
+                .map((x) => (
+                  <i key={x.key} className={`h-full ${x.className}`} style={{ width: `${(x.value / segTotal) * 100}%` }} />
+                ))}
+            </div>
+          )}
+
+          <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+            {segments.map((x) => (
+              <li key={x.key} className="flex min-w-0 items-center gap-2">
+                <i className={`h-2 w-2 shrink-0 rounded-[2px] ${x.className}`} aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate">{x.label}</span>
+                <span className="tabular-nums">{x.value}</span>
+              </li>
+            ))}
+          </ul>
+
+          <button
+            type="button"
+            aria-expanded={moreOpen}
+            aria-controls="stats-more"
+            onClick={() => setMoreOpen((v) => !v)}
+            className="mt-4 flex min-h-11 w-full items-center justify-between gap-3 border-t border-lh-border pt-3 text-left text-sm text-lh-text-secondary active:opacity-70"
+          >
+            <span className="min-w-0">
+              {moreOpen ? t('Скрыть показатели') : t('Ещё 6 показателей — пропущено, в корзине, чек-листы…')}
+            </span>
+            <GChevronDown
+              size={ICON.inline}
+              className={`shrink-0 transition-transform ${moreOpen ? 'rotate-180' : ''}`}
             />
-            <StatTile
-              value={taskBreakdown.overdue}
-              label={t('просрочено')}
-              color={taskBreakdown.overdue > 0 ? 'var(--app-danger)' : undefined}
-            />
-            <StatTile
-              value={taskBreakdown.skipped}
-              label={t('пропущено')}
-              color={taskBreakdown.skipped > 0 ? 'var(--app-warning)' : undefined}
-            />
-            <StatTile value={taskBreakdown.deleted} label={t('в корзине')} />
-            <StatTile value={taskBreakdown.dueToday} label={t('срок сегодня')} />
-            <StatTile value={taskBreakdown.noDate} label={t('без срока')} />
-            <StatTile value={`${taskBreakdown.avgChecklist}%`} label={t('чек-листы')} />
-          </div>
-        </StatCard>
+          </button>
+          {moreOpen && (
+            <div id="stats-more" className="mt-3 grid grid-cols-3 gap-2">
+              <StatTile value={b.total} label={t('всего активных')} />
+              <StatTile
+                value={b.skipped}
+                label={t('пропущено')}
+                color={b.skipped > 0 ? 'var(--app-warning)' : undefined}
+              />
+              <StatTile value={b.deleted} label={t('в корзине')} />
+              <StatTile value={b.dueToday} label={t('срок сегодня')} />
+              <StatTile value={b.noDate} label={t('без срока')} />
+              <StatTile value={`${b.avgChecklist}%`} label={t('чек-листы')} />
+            </div>
+          )}
+        </section>
 
         {/* Энергия — блок берёт данные сам и молчит, пока отметок меньше семи */}
         <EnergyStatsCard />
 
-        {/* Время на задачи — суммарная длительность задач по дням */}
+        {/* Время на задачи — запланированная длительность по дням недели */}
         {taskTime.weekTotal > 0 && (
-          <StatCard title={t('Время на задачи')}>
-            <div className="mb-3 rounded-xl border border-lh-border bg-lh-surface-2 px-3.5 py-3">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="min-w-0 truncate text-base font-medium">{t('Сегодня на задачи')}</span>
-                <span className="shrink-0 text-lg font-light" style={{ color: 'var(--app-accent-2)' }}>
-                  {taskTime.today > 0 ? formatDuration(taskTime.today) : t('0м')}
-                </span>
-              </div>
+          <section aria-labelledby="stats-time">
+            <h2 id="stats-time" className="mb-2.5 px-1 lh-section">
+              {t('Время на задачи')}
+            </h2>
+            <div className="card p-4">
+              <p className="text-3xl font-light leading-none tabular-nums">{formatDuration(taskTime.weekTotal)}</p>
+              <p className="mt-1.5 text-xs text-lh-text-secondary">
+                {t('за 7 дней · сегодня — {time}', {
+                  time: taskTime.today > 0 ? formatDuration(taskTime.today) : t('0м'),
+                })}
+              </p>
+              <WeekBars days={timeDays} max={maxTime} format={compactDuration} />
             </div>
-
-            <div className="flex items-stretch justify-between gap-2" style={{ height: 96 }}>
-              {taskTime.days.map((d, i) => (
-                <div key={i} className="flex h-full min-w-0 flex-1 flex-col items-center gap-1.5">
-                  <span className="text-2xs font-semibold text-lh-text-secondary">{compactDuration(d.minutes)}</span>
-                  <div className="flex w-full flex-1 items-end">
-                    <div
-                      className="w-full rounded-t-md transition-[height] duration-300"
-                      style={{
-                        height: `${Math.round((d.minutes / maxTime) * 100)}%`,
-                        minHeight: d.minutes > 0 ? 4 : 2,
-                        background: 'var(--app-accent-2)',
-                        opacity: d.minutes > 0 ? 1 : 0.25,
-                      }}
-                    />
-                  </div>
-                  <span className={`text-xs ${d.isToday ? 'font-bold text-lh-text-primary' : 'text-lh-text-secondary'}`}>{t(d.label)}</span>
-                </div>
-              ))}
-            </div>
-
-            <p className="mt-3 text-center text-xs text-lh-text-secondary">
-              {t('За неделю всего:')} <span className="font-semibold text-lh-text-primary">{formatDuration(taskTime.weekTotal)}</span>
-            </p>
-          </StatCard>
+          </section>
         )}
 
-        {/* За неделю — гистограмма выполненных задач по дням */}
-        <StatCard title={t('За неделю')}>
-          <div className="flex items-stretch justify-between gap-2" style={{ height: 96 }}>
-            {taskStats.week.map((d, i) => (
-              <div key={i} className="flex h-full min-w-0 flex-1 flex-col items-center gap-1.5">
-                <span className="text-xs font-semibold text-lh-text-secondary">{d.count > 0 ? d.count : ''}</span>
-                <div className="flex w-full flex-1 items-end">
-                  <div
-                    className="w-full rounded-t-md bg-lh-accent transition-[height] duration-300"
-                    style={{
-                      height: `${Math.round((d.count / maxWeek) * 100)}%`,
-                      minHeight: d.count > 0 ? 4 : 2,
-                      opacity: d.count > 0 ? 1 : 0.25,
-                    }}
-                  />
-                </div>
-                <span className="text-xs text-lh-text-secondary">{t(d.label)}</span>
-              </div>
-            ))}
+        {/* Выполнено за неделю — сколько задач закрыто по дням */}
+        <section aria-labelledby="stats-week">
+          <h2 id="stats-week" className="mb-2.5 px-1 lh-section">
+            {t('За неделю')}
+          </h2>
+          <div className="card p-4">
+            <p className="text-3xl font-light leading-none tabular-nums">
+              {taskStats.week.reduce((s, d) => s + d.count, 0)}
+            </p>
+            <p className="mt-1.5 text-xs text-lh-text-secondary">{t('задач выполнено за 7 дней')}</p>
+            <WeekBars days={doneDays} max={maxWeek} format={(v) => (v > 0 ? String(v) : '')} />
           </div>
-        </StatCard>
+        </section>
 
-        {/* Цели */}
-        {activeGoals.length > 0 && (
-          <StatCard title={t('Цели')}>
-            <div className="mb-4 grid grid-cols-2 gap-x-4 gap-y-4">
-              <StatNumber value={activeGoals.length} label={t('активных')} />
-              <div className="min-w-0">
-                <p className="text-lg font-light leading-tight">{avgGoalProgress}%</p>
-                <p className="text-xs text-lh-text-secondary">{t('средний прогресс')}</p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-3">
-              {topGoals.map(({ goal, value, label }) => (
-                <div key={goal.id}>
-                  <div className="mb-1 flex items-baseline justify-between gap-3">
-                    <span className="truncate text-base font-medium">{goal.title}</span>
-                    <span className="shrink-0 text-xs text-lh-text-secondary">{label}</span>
-                  </div>
-                  <ProgressBar value={value} color={goal.color} />
-                </div>
-              ))}
-            </div>
-          </StatCard>
+        {/* Разделы — плитки-ссылки */}
+        {(activeGoals.length > 0 || learning.length > 0 || expenses.length > 0) && (
+          <section className="grid grid-cols-2 gap-3">
+            {activeGoals.length > 0 && (
+              <SectionTile
+                to="/goals"
+                title={t('Цели')}
+                value={activeGoals.length}
+                hint={t('активных · в среднем {n}%', { n: avgGoalProgress })}
+              />
+            )}
+            {learning.length > 0 && (
+              <SectionTile
+                to="/more/learning"
+                title={t('Развитие')}
+                value={learningStats.done}
+                hint={t('завершено · {n} в процессе', { n: learningStats.inProgress })}
+              />
+            )}
+            {expenses.length > 0 && (
+              <>
+                {/* formatRub склеивает разряды NBSP — сумма не переносится,
+                    поэтому кегль у сумм ступенью ниже, чем у счётчиков. */}
+                <SectionTile
+                  to="/more/finance"
+                  title={t('Расходы')}
+                  value={<span className="text-lg">{formatRub(finance.expense)}</span>}
+                  hint={t('в месяц')}
+                />
+                <SectionTile
+                  to="/more/finance"
+                  title={t('Баланс')}
+                  value={<span className="text-lg">{formatRub(finance.balance)}</span>}
+                  valueClass={finance.balance < 0 ? 'text-danger' : 'text-success'}
+                  hint={t('доход минус расходы')}
+                />
+              </>
+            )}
+          </section>
         )}
 
-        {/* Развитие */}
-        {learning.length > 0 && (
-          <StatCard title={t('Развитие')}>
-            <p className="mb-3 text-sm text-lh-text-secondary">
-              {t('Обучение:')}{' '}
-              <span className="font-semibold text-lh-text-primary">{learningStats.done} {t('завершено')}</span>
-              {' / '}
-              <span className="font-semibold text-lh-text-primary">
-                {learningStats.inProgress} {t('в процессе')}
-              </span>
-            </p>
-          </StatCard>
-        )}
-
-        {/* Финансы */}
-        {expenses.length > 0 && (
-          <StatCard title={t('Финансы')}>
-            {/* formatRub склеивает разряды NBSP — сумма физически не переносится,
-                значит помещать её можно только уменьшением кегля. clamp по vw
-                делает это плавно и сохраняет две колонки (ломать сетку в одну
-                на узких пришлось бы ради одного крайнего случая). */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-              <div className="min-w-0">
-                <p className="text-lg font-light leading-tight tabular-nums">
-                  {formatRub(finance.expense)}
-                </p>
-                <p className="text-xs text-lh-text-secondary">{t('расходы в месяц')}</p>
-              </div>
-              <div className="min-w-0">
-                <p
-                  className="text-lg font-light leading-tight tabular-nums"
-                  style={{
-                    color:
-                      finance.balance < 0 ? 'var(--app-danger)' : 'var(--app-success)',
-                  }}
-                >
-                  {formatRub(finance.balance)}
-                </p>
-                <p className="text-xs text-lh-text-secondary">{t('баланс')}</p>
-              </div>
-            </div>
-          </StatCard>
-        )}
+        {/* Отчёт — тот же файл, что и кнопка в шапке */}
+        <section className="card flex items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-lh-surface-2 text-lh-accent">
+            <FileText size={ICON.action} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-base">{t('Отчёт по всем разделам')}</span>
+            <span className="block text-xs text-lh-text-secondary">
+              {t('Файл Markdown — для печати или архива')}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => void handleShareReport()}
+            className="flex h-11 shrink-0 items-center px-1 text-sm font-semibold text-lh-accent active:opacity-60"
+          >
+            {t('Поделиться')}
+          </button>
+        </section>
       </div>
     </Screen>
   );

@@ -19,7 +19,6 @@ import type { PlaceItem, PlaceKind, PlaceStatus } from '../../db/types';
 import { PlaceSheet } from './PlaceSheet';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { APPLE_MAPS_URL } from '../../lib/consent';
 import {
   GPlaces as MapPin,
@@ -60,83 +59,136 @@ function openMaps(location: string) {
 
 type KindFilter = 'all' | PlaceKind;
 
+/** Кнопка-действие в карточке: «На карте», «Открыть ссылку». 44px по высоте —
+ *  палец, а не курсор; клик не всплывает к карточке, иначе открывался бы шит. */
+const ACTION =
+  'inline-flex h-11 items-center gap-1.5 rounded-[10px] bg-lh-surface-2 px-3 text-xs font-medium text-lh-accent active:opacity-70';
+
+function PlaceActions({ item }: { item: PlaceItem }) {
+  if (!item.location && !item.link) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {item.location && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            openMaps(item.location);
+          }}
+          className={ACTION}
+        >
+          <MapPin size={ICON.inline} />
+          {t('На карте')}
+        </button>
+      )}
+      {item.link && (
+        <a
+          href={/^[a-z][a-z0-9+.-]*:/i.test(item.link) ? item.link : `https://${item.link}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className={ACTION}
+        >
+          <ExternalLink size={ICON.inline} />
+          {t('Открыть ссылку')}
+        </a>
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: PlaceStatus }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full bg-lh-surface-2 px-2 py-0.5 text-2xs ${
+        status === 'done' ? 'text-success' : 'text-lh-text-secondary'
+      }`}
+    >
+      {t(STATUS_LABELS[status])}
+    </span>
+  );
+}
+
+function Tags({ tags }: { tags: string[] }) {
+  if (tags.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {tags.map((tag) => (
+        <span key={tag} className="rounded-full bg-lh-surface-2 px-2 py-0.5 text-2xs text-lh-text-secondary">
+          {tag}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Карточка места. С фото — обложка с плашкой вида поверх и текст под ней;
+ *  без фото — плитка с иконкой вида слева, как в макете. */
 function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
   const Icon = KIND_ICONS[item.kind];
-  return (
-    <div
-      id={`place-${item.id}`}
-      onClick={onOpen}
-      className="card active:opacity-90"
-    >
-      {item.photo && <img src={item.photo} alt="" className="h-40 w-full object-cover" />}
-      <div className="flex items-start gap-3 p-4">
-        {item.location ? (
-          <button
-            type="button"
-            aria-label={t('Открыть на карте')}
-            onClick={(e) => {
-              e.stopPropagation();
-              openMaps(item.location);
-            }}
-            className={`flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
-          >
-            <MapPin size={ICON.header} />
-          </button>
-        ) : (
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
-            <Icon size={ICON.header} />
+  const kind = t(KIND_LABELS[item.kind]);
+  const from = item.source ? `${t('от')} ${item.source}` : '';
+
+  if (item.photo) {
+    return (
+      <article id={`place-${item.id}`} onClick={onOpen} className="card overflow-hidden active:opacity-90">
+        <div className="relative">
+          <img src={item.photo} alt="" className="h-40 w-full object-cover" />
+          <span className="absolute bottom-3 left-3 flex h-7 items-center gap-1.5 rounded-[8px] bg-[color-mix(in_oklab,var(--lh-bg)_75%,transparent)] px-2.5 text-xs text-lh-text-primary backdrop-blur-sm">
+            <Icon size={ICON.inline} className="text-lh-accent" />
+            {kind}
+          </span>
+        </div>
+        <div className="flex flex-col gap-3 p-4">
+          <div>
+            <div className="flex items-start gap-2">
+              <h2 className="min-w-0 flex-1 text-base font-semibold leading-snug">{item.title}</h2>
+              <StatusBadge status={item.status} />
+            </div>
+            {item.description && (
+              <p className="mt-1 line-clamp-2 text-sm text-lh-text-secondary">{item.description}</p>
+            )}
+            {item.location && <p className="mt-1 truncate text-xs text-lh-text-secondary">{item.location}</p>}
           </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-2">
-            <p className="min-w-0 flex-1 font-semibold">{item.title}</p>
-            <span
-              className={`shrink-0 rounded-full bg-lh-surface-2 px-2 py-0.5 text-2xs ${
-                item.status === 'done' ? 'text-success' : 'text-lh-text-secondary'
-              }`}
-            >
-              {t(STATUS_LABELS[item.status])}
-            </span>
-          </div>
-          {item.description && (
-            <p className="mt-0.5 line-clamp-2 text-sm text-lh-text-secondary">{item.description}</p>
-          )}
-          {item.source && (
-            <p className="mt-1 text-xs text-lh-text-secondary">{t('от')} {item.source}</p>
-          )}
-          {item.location && (
-            <p className="mt-1 flex items-center gap-1 text-xs text-lh-text-secondary">
-              <MapPin size={ICON.inline} className="shrink-0" />
-              <span className="truncate">{item.location}</span>
-            </p>
-          )}
-          {item.tags.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {item.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-lh-surface-2 px-2 py-0.5 text-2xs text-lh-text-secondary"
-                >
-                  {tag}
-                </span>
-              ))}
+          <Tags tags={item.tags} />
+          {(from || item.location || item.link) && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="min-w-0 text-xs text-lh-text-secondary">{from}</span>
+              <PlaceActions item={item} />
             </div>
           )}
-          {item.link && (
-            <a
-              href={/^[a-z][a-z0-9+.-]*:/i.test(item.link) ? item.link : `https://${item.link}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className={`mt-2 inline-flex items-center gap-1 text-sm font-medium text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
-            >
-              <ExternalLink size={ICON.inline} />
-              {t('Открыть ссылку')}
-            </a>
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article id={`place-${item.id}`} onClick={onOpen} className="card flex flex-col gap-3 p-4 active:opacity-90">
+      <div className="flex gap-3.5">
+        <span className="flex size-[72px] shrink-0 items-center justify-center rounded-[12px] bg-lh-surface-2 text-lh-accent">
+          <Icon size={ICON.accent} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-2">
+            <p className="min-w-0 flex-1 truncate text-xs text-lh-text-secondary">
+              {item.location ? `${kind} · ${item.location}` : kind}
+            </p>
+            <StatusBadge status={item.status} />
+          </div>
+          <h2 className="mt-0.5 text-base font-semibold leading-snug">{item.title}</h2>
+          {item.description && (
+            <p className="mt-1 line-clamp-2 text-xs text-lh-text-secondary">{item.description}</p>
           )}
+          {/* «От кого» — своей строкой, как на карточке с фото: в одном абзаце
+              с описанием line-clamp уносил его за многоточие. */}
+          {from && <p className="mt-1 break-words text-xs text-lh-text-secondary">{from}</p>}
         </div>
       </div>
-    </div>
+      {/* Метки и действия — на всю ширину карточки: в колонке справа от плитки
+          две кнопки не помещались в строку и вставали столбиком. */}
+      <Tags tags={item.tags} />
+      <PlaceActions item={item} />
+    </article>
   );
 }
 
@@ -191,11 +243,17 @@ export function PlacesPage() {
   };
 
   return (
-    <Screen title={t('Места')} backTo="/home">
+    <Screen
+      title={t('Места')}
+      subtitle={t('Места, вещи и советы, которые не хочется забыть')}
+      backTo="/home"
+    >
       <div className="space-y-3">
+        <SearchField value={query} onChange={setQuery} placeholder={t('Название, город или от кого')} />
+
         <ChipRow>
           <Chip active={kindFilter === 'all'} hapticOff={kindFilter === 'all'} onClick={() => setKindFilter('all')}>
-            {t('Все')}
+            {all.length > 0 ? t('Все · {n}', { n: all.length }) : t('Все')}
           </Chip>
           {KIND_ORDER.map((k) => (
             <Chip key={k} active={kindFilter === k} hapticOff={kindFilter === k} onClick={() => setKindFilter(k)}>
@@ -203,8 +261,6 @@ export function PlacesPage() {
             </Chip>
           ))}
         </ChipRow>
-
-        <SearchField value={query} onChange={setQuery} />
 
         {items.length === 0 ? (
           <EmptyState
