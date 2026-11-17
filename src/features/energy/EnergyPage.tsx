@@ -68,7 +68,7 @@ function EnergyRow({ item, onOpen }: { item: EnergyItem; onOpen: () => void }) {
       className="flex w-full items-start gap-3 px-4 py-3.5 text-left active:bg-lh-surface-2"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-        <Icon size={ICON.header} aria-hidden />
+        <Icon size={ICON.base} aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate">{item.title}</span>

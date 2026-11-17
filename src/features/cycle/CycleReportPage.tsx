@@ -35,7 +35,7 @@ function Kpi({ value, label, first }: { value?: number | string; label: string; 
   const text = value === undefined ? '—' : typeof value === 'number' ? fmtNum(value) : value;
   return (
     <div className={`min-w-0 px-4 py-4 ${first ? '' : 'border-l border-lh-border'}`}>
-      <div className="text-2xl font-extralight leading-none tabular-nums">{text}</div>
+      <div className="text-2xl font-light leading-none tabular-nums">{text}</div>
       <div className="mt-1.5 text-xs leading-snug text-lh-text-secondary">{label}</div>
     </div>
   );
@@ -111,7 +111,7 @@ export function CycleReportPage() {
             <div className="px-5 pb-4 pt-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="lh-section print:hidden">
+                  <p className="text-xs uppercase tracking-[.08em] text-lh-text-secondary print:hidden">
                     {t('Предпросмотр')}
                   </p>
                   <p className="mt-1.5 text-lg font-semibold">{t('Менструальный цикл')}</p>
@@ -120,7 +120,7 @@ export function CycleReportPage() {
                   </p>
                 </div>
                 <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-                  <FileText size={ICON.header} />
+                  <FileText size={ICON.base} />
                 </span>
               </div>
               <p className="mt-3 text-xs text-lh-text-secondary">

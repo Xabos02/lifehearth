@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { AlertCircle, Clock } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -22,7 +22,6 @@ import { startOfWeek } from 'date-fns';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import {
-  GCheckCircle,
   GLearning as GraduationCap,
 } from '../../components/ui/glyphs';
 
@@ -130,7 +129,7 @@ function LearningCard({
             {sched.overdue ? (
               <AlertCircle size={ICON.inline} />
             ) : sched.onTrack ? (
-              <GCheckCircle size={ICON.inline} />
+              <CheckCircle2 size={ICON.inline} />
             ) : (
               <AlertCircle size={ICON.inline} />
             )}

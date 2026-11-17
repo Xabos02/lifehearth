@@ -1,10 +1,9 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
-import { Lightbulb, SlidersHorizontal } from 'lucide-react';
+import { Lightbulb, SlidersHorizontal, ChevronRight } from 'lucide-react';
 import {
   GPlus as Plus,
   GDrop as Droplet,
-  GChevronRight as ChevronRight,
 } from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -141,7 +140,7 @@ export function CyclePage() {
                   <p className="text-sm text-lh-text-secondary">
                     {currentDay !== undefined ? t('День цикла') : t('Цикл')}
                   </p>
-                  <p className="mt-1 text-5xl font-extralight tabular-nums">
+                  <p className="mt-1 text-5xl font-light tabular-nums">
                     {currentDay ?? '—'}
                   </p>
                 </div>

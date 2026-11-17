@@ -191,7 +191,7 @@ export function GoalDetailPage() {
         <div className="relative">
           <ProgressRing value={progress} size={168} strokeWidth={7} color={goal.color} label="" />
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-5xl font-extralight tabular-nums">
+            <span className="text-5xl font-light leading-none tabular-nums tracking-tight">
               {Math.round(progress)}
               <span className="text-lg text-lh-text-secondary">%</span>
             </span>
@@ -380,7 +380,7 @@ export function GoalDetailPage() {
                     className="flex min-w-0 flex-1 items-center gap-3 active:opacity-70"
                   >
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-                      <Icon size={ICON.header} />
+                      <Icon size={ICON.base} />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{li.title}</span>

@@ -91,7 +91,7 @@
       "x": -620,
       "y": 2700,
       "w": 520,
-      "text": "В коде (1.65.0): TemplatesSheet — строка шаблона на общем useHoldToReorder (400 мс), линия h-1 посреди зазора поверх строк, плашка у пальца порталом в body, докрутка шторки у краёв (autoScrollStep), pointercancel без переноса; templateRepo — sortOrder необязательный, без него по алфавиту после пронумерованных, новый шаблон первым (newSortOrder), место считает reorderWithin папок, запись updateMany. Стражи — e2e/template-order.spec.ts и templateRepo.test.ts."
+      "text": "В коде (1.66.0): TemplatesSheet — строка шаблона на общем useHoldToReorder (400 мс), линия h-1 посреди зазора поверх строк, плашка у пальца порталом в body, докрутка шторки у краёв (autoScrollStep), pointercancel без переноса; templateRepo — sortOrder необязательный, без него по алфавиту после пронумерованных, новый шаблон первым (newSortOrder), место считает reorderWithin папок, запись updateMany. Стражи — e2e/template-order.spec.ts и templateRepo.test.ts."
     }
   ]
 }

@@ -77,7 +77,7 @@ export function EnergySummary({ byDate }: { byDate: Map<string, EnergyLevel> }) 
     <section className="card p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-5xl font-extralight leading-none tabular-nums">
+          <p className="text-5xl font-light leading-none tabular-nums">
             {one(trend.current.avg)}
             <span className="ml-1 text-lg text-lh-text-secondary">{t('из 5')}</span>
           </p>
