@@ -284,6 +284,8 @@ test('свой вид без «Добавить»: сохранить нельз
   await page.getByPlaceholder('Например, «День ног»').fill('Утро');
   const saveTemplate = page.getByRole('button', { name: 'Сохранить шаблон' });
   await expect(saveTemplate).toBeEnabled();
+  // У шаблона вид свёрнут до строки — чипы раскрывает тап по ней.
+  await page.getByRole('button', { name: /^Вид: Силовая/ }).last().click();
   await page.getByRole('button', { name: '+ Своё' }).last().click();
   await page.getByPlaceholder('Название вида').last().fill('Пилатес');
   await expect(saveTemplate).toBeDisabled();

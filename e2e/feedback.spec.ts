@@ -185,8 +185,11 @@ test('«Спорт»: выбранный вид и единица молчат, 
   await strength.click();
   expect(await switches(page)).toBe(2);
 
-  // Единица упражнения — тот же выбор одного варианта.
+  // Единица упражнения — тот же выбор одного варианта. Она под «Подробнее»;
+  // раскрытие — не выбор и молчит, как раскрытие вида (PROTOCOL §6.4).
   await page.getByRole('button', { name: 'Упражнение', exact: true }).click();
+  await page.getByRole('button', { name: /^Подробнее/ }).click();
+  expect(await switches(page)).toBe(2);
   const reps = page.getByRole('button', { name: 'повторы', exact: true });
   await expect(reps).toHaveAttribute('aria-pressed', 'true');
   await reps.click();
