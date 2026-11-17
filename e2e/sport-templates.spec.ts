@@ -627,9 +627,41 @@ test('двойной тап по чипу шаблона: второй тап н
   // Оба края чипа: под правым во въезжающей форме оказывалось «Убрать» вида,
   // под левым — заголовок вида и строка упражнения.
   for (const x of [box.x + box.width - 12, box.x + 40]) {
-    await page.touchscreen.tap(x, box.y + box.height / 2);
-    await page.waitForTimeout(120);
-    await page.touchscreen.tap(x, box.y + box.height / 2);
+    const y = box.y + box.height / 2;
+    // Второй тап обязан прийти, пока панель едет. Паузой между тапами этого
+    // не добиться: под нагрузкой клик по чипу обрабатывается до полутора
+    // секунд, и второй тап приходил через полсекунды после остановки панели —
+    // уже обычным нажатием, которое форма вправе принять. Поэтому въезд с
+    // появления панели стоит на середине пути (130 из 250 мс, как у живого
+    // двойного тапа) и держится дольше прежнего таймера защиты в 400 мс:
+    // защита живёт, пока панель едет, а не по часам.
+    await page.evaluate(() => {
+      const w = window as unknown as { __entry?: Animation; __entryAt: number };
+      w.__entry = undefined;
+      const mo = new MutationObserver(() => {
+        const a = document.querySelector('.animate-sheet-up')?.getAnimations()[0];
+        if (!a) return;
+        a.pause();
+        a.currentTime = 130;
+        w.__entry = a;
+        w.__entryAt = performance.now();
+        mo.disconnect();
+      });
+      mo.observe(document.body, { childList: true });
+    });
+    await page.touchscreen.tap(x, y);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const w = window as unknown as { __entry?: Animation; __entryAt: number };
+          return w.__entry ? performance.now() - w.__entryAt : 0;
+        }),
+      )
+      .toBeGreaterThan(450);
+    const onPanel = await page.evaluate(([px, py]) => Boolean(document.elementFromPoint(px, py)?.closest('.animate-sheet-up')), [x, y]);
+    expect(onPanel, 'под пальцем не въезжающая панель — сетап не тот').toBe(true);
+    await page.touchscreen.tap(x, y);
+    await page.evaluate(() => (window as unknown as { __entry: Animation }).__entry.finish());
     await expect(page.getByRole('heading', { name: 'Новая тренировка' })).toBeVisible();
     await expect(page.getByTestId('workout-kind')).toHaveCount(3);
     await expect(page.getByTestId('exercise-editor')).toHaveCount(0);
