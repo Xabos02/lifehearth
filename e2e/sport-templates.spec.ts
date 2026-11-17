@@ -572,10 +572,14 @@ test('редактор открывается сверху и из прокру�
   expect(await page.evaluate(() => (window as unknown as { __flash: boolean }).__flash)).toBe(false);
 
   await openTemplates(page);
-  const last = page.getByRole('button', { name: 'Изменить шаблон «Шаблон 14»' });
+  // Карандаш у НИЖНЕГО шаблона списка — тот, до которого надо листать. По имени
+  // не искать: с 17.11 новый шаблон встаёт первым (design/template-order), и
+  // «Шаблон 14» оказался наверху — тест перестал бы проверять прокрутку.
+  const last = page.locator('[data-template-id]').last().getByRole('button', { name: /^Изменить шаблон/ });
+  const name = (await last.getAttribute('aria-label'))!.match(/«(.+)»/)![1];
   await last.scrollIntoViewIfNeeded();
   await last.click();
-  await expect(page.getByLabel('Название шаблона')).toHaveValue('Шаблон 14');
+  await expect(page.getByLabel('Название шаблона')).toHaveValue(name);
   await expect(page.getByLabel('Название шаблона')).toBeInViewport();
 });
 
