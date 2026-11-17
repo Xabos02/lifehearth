@@ -189,7 +189,7 @@ export function MembersTab({
     <div className="space-y-6 pb-4">
       <section className="flex flex-col items-center pt-1 text-center">
         {partner ? (
-          <MemberAvatar member={partner} className="size-20 text-3xl font-extralight" />
+          <MemberAvatar member={partner} className="size-20 text-3xl font-light" />
         ) : (
           <GroupAvatar className="size-20" glyph={ICON.display} />
         )}
