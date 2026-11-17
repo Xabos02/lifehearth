@@ -63,7 +63,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
           </button>
         )}
         <div className="min-w-0 text-center">
-          <p className="text-3xl font-extralight leading-none tabular-nums">
+          <p className="text-3xl font-light leading-none tabular-nums">
             {formatNum(item.progressCurrent)}
             {item.progressUnit === 'percent' ? '%' : ''}
           </p>

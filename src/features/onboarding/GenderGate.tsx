@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Flame, Mars, Venus } from 'lucide-react';
+import { Check, Flame, Lock, Mars, Venus } from 'lucide-react';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { ICON, STROKE_HEAVY, STROKE_STRONG } from '../../components/ui/icons';
-import { GCheck, GLock } from '../../components/ui/glyphs';
 import { Haptic } from '../../components/ui/Haptic';
 import { getLang, t } from '../../lib/i18n';
 
@@ -43,7 +42,7 @@ export function GenderGate() {
           <Flame size={ICON.accent} strokeWidth={STROKE_STRONG} />
         </div>
         <p className="mt-[clamp(16px,3vh,32px)] text-sm text-lh-text-secondary">{t('Перед началом')}</p>
-        <h2 className="mt-1.5 text-[34px] font-extralight leading-[1.1] tracking-[-.8px]">{t('Ваш пол')}</h2>
+        <h2 className="mt-1.5 text-[34px] font-light leading-[1.1] tracking-[-.8px]">{t('Ваш пол')}</h2>
         <p className="mt-3 text-base leading-normal text-lh-text-secondary">
           {t('От ответа зависит набор разделов: например, «Женские дни». Поменять можно в профиле.')}
         </p>
@@ -83,7 +82,7 @@ export function GenderGate() {
                     sel ? 'bg-lh-accent text-lh-bg' : 'border-2 border-lh-border-strong'
                   }`}
                 >
-                  {sel && <GCheck size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
+                  {sel && <Check size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
                 </span>
                 {/* Радио щёлкает (PROTOCOL §6.4); выбранный вариант — нет. */}
                 <Haptic off={sel} />
@@ -94,7 +93,7 @@ export function GenderGate() {
 
         <div className="mt-auto pb-[calc(env(safe-area-inset-bottom)+24px)] pt-6">
           <div className="mb-5 flex gap-2.5 px-1">
-            <GLock aria-hidden size={ICON.inline} className="mt-[2px] shrink-0 text-lh-text-secondary" />
+            <Lock aria-hidden size={ICON.inline} className="mt-[2px] shrink-0 text-lh-text-secondary" />
             {/* Настройки устройства не синхронизируются (sync.ts). Обещание
                 ровно такое — не шире: про резервные копии здесь не говорим. */}
             <p className="text-sm leading-[1.45] text-lh-text-secondary">

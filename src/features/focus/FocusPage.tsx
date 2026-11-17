@@ -2,6 +2,7 @@ import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   AudioWaveform,
+  Bell,
   BellOff,
   Clock,
   Coffee,
@@ -18,14 +19,12 @@ import {
   GPause as Pause,
   GPlay as Play,
   GRepeat as RotateCcw,
-  GBellRing as Bell,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { t } from '../../lib/i18n';
 import { Screen } from '../../components/layout/Screen';
 import { Sheet } from '../../components/ui/Sheet';
-import { IconButton } from '../../components/ui/IconButton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import {
   formatClock,
@@ -495,7 +494,14 @@ export function FocusPage() {
       backTo="/home"
       right={
         // На весь экран — как в Focus To-Do: только круг и время, экран не гаснет.
-        <IconButton icon={Maximize2} label={t('На весь экран')} tone="muted" onClick={() => setFullscreen(true)} />
+        <button
+          type="button"
+          onClick={() => setFullscreen(true)}
+          aria-label={t('На весь экран')}
+          className="flex size-11 items-center justify-center rounded-full text-lh-text-secondary active:opacity-60"
+        >
+          <Maximize2 size={ICON.header} />
+        </button>
       }
     >
       <div className="flex flex-col gap-6" style={FOCUS_VARS}>
@@ -558,10 +564,10 @@ export function FocusPage() {
             )}
           </svg>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-xs text-lh-text-secondary">
+            <span className="text-xs uppercase tracking-[.08em] text-lh-text-secondary">
               {idleWork ? t('Длительность') : t('Осталось')}
             </span>
-            <span className="mt-1 text-5xl font-extralight leading-none tabular-nums tracking-tight">
+            <span className="mt-1 text-5xl font-light leading-none tabular-nums tracking-tight">
               {formatClock(p.remainingMs)}
             </span>
             <CycleDots done={p.cycle.done} total={p.cycle.total} color={accentColor} />
@@ -584,11 +590,8 @@ export function FocusPage() {
             className="flex w-20 flex-col items-center gap-1.5 text-lh-text-primary active:opacity-80"
           >
             <span
-              className="flex size-[72px] items-center justify-center rounded-full text-white"
-              style={{
-                backgroundImage: 'linear-gradient(150deg, var(--focus-accent-fill), var(--focus-accent-2-fill))',
-                boxShadow: 'var(--shadow-focus)',
-              }}
+              className="flex size-[72px] items-center justify-center rounded-full bg-lh-accent text-lh-bg"
+              style={{ boxShadow: 'var(--shadow-focus)' }}
             >
               {p.running ? <Pause size={ICON.hero} fill="currentColor" /> : <Play size={ICON.hero} fill="currentColor" className="ml-1" />}
             </span>
@@ -611,7 +614,7 @@ export function FocusPage() {
           className="card flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-80"
         >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-            <ListChecks size={ICON.header} />
+            <ListChecks size={ICON.base} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-xs text-lh-text-secondary">{t('Задача для фокуса')}</span>
