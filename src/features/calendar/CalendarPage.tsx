@@ -195,7 +195,7 @@ export function CalendarPage() {
 
         <div className="grid grid-cols-7">
           {WEEKDAY_LABELS.map((label) => (
-            <div key={label} className="pb-1.5 text-center text-2xs text-lh-text-secondary">
+            <div key={label} className="pb-1.5 text-center text-2xs tracking-[0.06em] text-lh-text-secondary uppercase">
               {t(label)}
             </div>
           ))}
@@ -312,7 +312,7 @@ export function CalendarPage() {
                   className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left active:bg-lh-surface-2"
                 >
                   <span className="w-10 shrink-0 text-center">
-                    <span className="block text-2xs text-lh-text-secondary">{format(d, 'EEEEEE', { locale: dateLocale() })}</span>
+                    <span className="block text-2xs text-lh-text-secondary uppercase">{format(d, 'EEEEEE', { locale: dateLocale() })}</span>
                     <span className="block tabular-nums">{format(d, 'd')}</span>
                   </span>
                   <span className="min-w-0 flex-1 break-words text-sm">{task.title}</span>

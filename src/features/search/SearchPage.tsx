@@ -17,7 +17,7 @@ import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchField } from '../../components/ui/Input';
-import { Chip } from '../../components/ui/Chip';
+import { Haptic } from '../../components/ui/Haptic';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { searchMessages } from '../../lib/family/searchMessages';
@@ -290,16 +290,29 @@ export function SearchPage() {
           результатами: один чип «Всё» рядом с одним разделом ничего не
           отбирает. */}
       {sections.length > 1 && (
-        // py-1.5, а не ChipRow: overflow-x-auto режет и по вертикали, а зона
-        // касания чипа (~36px) выступает на 4px — без отступа её срезало бы
-        // (§5.1).
-        <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 py-1.5 [scrollbar-width:none]">
+        <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
           {chips.map((c) => {
             const on = c.key === active;
             return (
-              <Chip key={c.key} active={on} hapticOff={on} onClick={() => setFilter(c.key)}>
-                {c.label} · {c.total}
-              </Chip>
+              <button
+                key={c.key}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setFilter(c.key)}
+                className="flex h-11 shrink-0 items-center"
+              >
+                <span
+                  className={`flex h-8 items-center rounded-full px-3 text-sm tabular-nums ${
+                    on
+                      ? 'bg-lh-text-primary font-semibold text-lh-bg'
+                      : 'border border-lh-border text-lh-text-secondary'
+                  }`}
+                >
+                  {c.label} · {c.total}
+                </span>
+                {/* Чип выбора щёлкает (PROTOCOL §6.4); выбранный — нет. */}
+                <Haptic off={on} />
+              </button>
             );
           })}
         </div>
