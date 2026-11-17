@@ -58,14 +58,13 @@ export function CallButton({ familyId }: { familyId: string }) {
 
   return (
     <>
-      {/* Не голая иконка, а заметная круглая кнопка в фирменном градиенте
-          (как отправка в чате): звонок — главное действие шапки, и человек
-          должен видеть, куда нажать, не разглядывая пиктограммы. */}
+      {/* Макет шапки чата: трубка золотом без заливки — главное действие
+          шапки выделено цветом (поиск рядом серый), а не тяжёлым кругом. */}
       <button
         type="button"
         aria-label={others.length === 1 ? t('Позвонить: {name}', { name: others[0].displayName }) : t('Позвонить')}
         onClick={() => (others.length === 1 ? call(others[0].id) : setPick(true))}
-        className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-lh-accent text-lh-bg active:scale-95 ${HIT_SLOP_44}`}
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full text-lh-accent active:scale-95 active:opacity-70 ${HIT_SLOP_44}`}
       >
         <GPhone size={ICON.header} />
       </button>

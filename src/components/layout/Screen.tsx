@@ -31,6 +31,9 @@ interface Props {
   right?: ReactNode;
   /** подзаголовок под title (например, дата) */
   subtitle?: string;
+  /** Подзаголовок с разметкой (цвет статуса в шапке чата). Важнее subtitle,
+   *  только в шапке с нажимаемым заголовком. */
+  subtitleNode?: ReactNode;
   /** Строка НАД заголовком — дата на «Сегодня» (макет: дата мелко, крупно —
    *  приветствие). */
   eyebrow?: string;
@@ -128,6 +131,7 @@ export function Screen({
   backLabel,
   right,
   subtitle,
+  subtitleNode,
   eyebrow,
   titleHiddenPrefix,
   fill = false,
@@ -208,8 +212,12 @@ export function Screen({
                   <span className="block truncate text-base leading-tight font-semibold tracking-tight text-lh-text-primary">
                     {title}
                   </span>
-                  {subtitle && (
-                    <span className="block truncate text-2xs leading-tight font-medium text-lh-text-secondary">{subtitle}</span>
+                  {subtitleNode ? (
+                    <span className="block truncate text-xs leading-tight text-lh-text-secondary">{subtitleNode}</span>
+                  ) : (
+                    subtitle && (
+                      <span className="block truncate text-2xs leading-tight font-medium text-lh-text-secondary">{subtitle}</span>
+                    )
                   )}
                   {titlePressHint && <span className="sr-only">{titlePressHint}</span>}
                 </span>

@@ -32,7 +32,7 @@ import {
   GPause as Pause,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
-import type { FamilyMessage } from '../../db/types';
+import type { FamilyMember, FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Hint } from '../../components/ui/Hint';
 import { getLang, t } from '../../lib/i18n';
@@ -54,6 +54,7 @@ import { clearUndecrypted, subscribeUndecrypted, undecryptedCount } from '../../
 import { isNotable } from '../../lib/family/unread';
 import { searchMessages, type SearchHit } from '../../lib/family/searchMessages';
 import { setScreenAction } from '../../lib/ui/screenAction';
+import { setChatPresence } from './chatPresence';
 import {
   sendMessage,
   sendImage,
@@ -71,6 +72,7 @@ import {
 } from '../../lib/family/familyChat';
 import { useVoiceRecorder } from './useVoiceRecorder';
 import { isAlive, snippetOf } from './chats';
+import { MemberAvatar } from './MemberAvatar';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
 import { confirmAction } from '../../components/ui/confirmStore';
@@ -315,6 +317,7 @@ function MessageRow({
   own,
   authorName,
   authorColor,
+  author,
   groupStart,
   groupEnd,
   highlight,
@@ -333,6 +336,8 @@ function MessageRow({
   own: boolean;
   authorName: string | null;
   authorColor: string | null;
+  /** Автор в общем чате — круг слева у последнего пузыря серии (макет). */
+  author?: FamilyMember | null;
   /** Первый/последний в серии подряд идущих сообщений одного автора за день:
    *  имя — только на первом, «хвостик» угла — только на последнем. */
   groupStart: boolean;
@@ -513,8 +518,9 @@ function MessageRow({
   const inlineMeta = Boolean(m.text) && jumbo === 0;
 
   return (
-    <div className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex max-w-[78%] flex-col ${own ? 'items-end' : 'items-start'}`}>
+    <div className={`flex ${own ? 'justify-end' : 'items-end justify-start gap-2'}`}>
+      {!own && author && (groupEnd ? <MemberAvatar member={author} className="mb-0.5 size-7 text-2xs" /> : <span aria-hidden className="w-7 shrink-0" />)}
+      <div className={`flex ${author && !own ? 'max-w-[74%]' : 'max-w-[78%]'} flex-col ${own ? 'items-end' : 'items-start'}`}>
         <div className="flex items-center">
           {dragX > 4 && (
             <span
@@ -560,17 +566,16 @@ function MessageRow({
                   e.stopPropagation();
                   onJumpTo(m.replyTo!.id);
                 }}
-                className={`mb-1 block w-full rounded-lg border-l-2 px-2 py-1 text-left ${
+                className={`mb-1.5 block w-full border-l-2 pl-2.5 text-left ${
                   m.image ? 'mx-2 mt-1 w-auto' : ''
-                } ${own ? 'border-lh-bg' : 'border-lh-accent bg-lh-accent-dim'}`}
+                } ${own ? 'border-lh-bg' : 'border-lh-accent'}`}
               >
-                <span className={`block text-2xs font-semibold ${own ? '' : 'text-lh-accent'}`}>
+                <span className={`block text-xs font-semibold ${own ? '' : 'text-lh-accent'}`}>
                   {m.replyTo.name}
                 </span>
-                {/* Текст цитаты — основным, не серым: серый на золотой подложке
-                    поверх пузыря surface-2 давал 4.05 в тёмной и 4.09 в светлой
-                    (канва design/muted-on-gold). Имя над ним остаётся золотым. */}
-                <span className={`block truncate text-xs ${own ? '' : 'text-lh-text-primary'}`}>
+                {/* Макет: цитата без подложки, текст серым. Серый прямо на
+                    поверхности пузыря держит AA (подложка-золото его роняла). */}
+                <span className={`block truncate text-sm ${own ? '' : 'text-lh-text-secondary'}`}>
                   {m.replyTo.text}
                 </span>
               </button>
@@ -1225,43 +1230,20 @@ export function ChatTab({ familyId }: { familyId: string }) {
     }
     return t('{n} в сети', { n: others.filter((o) => onlineSet.has(o.id)).length });
   })();
+  const onlineIds = others.filter((o) => onlineSet.has(o.id)).map((o) => o.id);
+  const presenceTone: 'typing' | 'online' | 'plain' =
+    typers.length > 0 ? 'typing' : onlineIds.length > 0 ? 'online' : 'plain';
+  // Статус собеседников живёт в шапке экрана (макет): там он под именем, а
+  // строка над лентой отнимала у переписки высоту и повторяла шапку.
+  useEffect(() => {
+    setChatPresence({ familyId, text: headerStatus, tone: presenceTone, onlineIds });
+  });
+  useEffect(() => () => setChatPresence(null), [familyId]);
 
   return (
     // Полная высота под чат от каркаса (Screen fill): лента растёт и скроллится,
     // композер прибит к низу. Без magic-number — высоту даёт родитель.
     <div className="flex h-full min-h-0 flex-col">
-      {/* Для группы из нескольких собеседников строка «0 в сети» не сообщает
-          ничего, чего человек уже не предполагает, — прячем её, пока никто не
-          появился и не печатает. Для одного собеседника показываем всегда:
-          «был(а) в сети 2 ч назад» — это ценность, а не шум. Кнопка поиска
-          живёт в шапке экрана: отдельная строка ради неё стоила бы переписке
-          два десятка пикселей на каждом экране. */}
-      {!searchOpen &&
-        others.length > 0 &&
-        (others.length === 1 || typers.length > 0 || others.some((o) => onlineSet.has(o.id))) && (
-        <div className="flex shrink-0 items-center gap-1.5 px-1 pb-1.5 text-xs">
-          {others.length === 1 ? (
-            <>
-              <span
-                className={`size-2 shrink-0 rounded-full ${onlineSet.has(others[0].id) ? 'bg-success' : 'bg-lh-text-tertiary'}`}
-              />
-              <span className="member-color font-medium" style={memberColor(others[0].color)}>
-                {others[0].displayName}
-              </span>
-              <span className={typers.length > 0 ? 'text-lh-accent' : 'text-lh-text-secondary'}>{headerStatus}</span>
-            </>
-          ) : (
-            <>
-              <span
-                className={`size-2 shrink-0 rounded-full ${
-                  others.some((o) => onlineSet.has(o.id)) ? 'bg-success' : 'bg-lh-text-tertiary'
-                }`}
-              />
-              <span className={typers.length > 0 ? 'text-lh-accent' : 'text-lh-text-secondary'}>{headerStatus}</span>
-            </>
-          )}
-        </div>
-      )}
       {searchOpen && (
         <div className="mb-2 shrink-0">
           <div className="flex items-center gap-2 rounded-2xl border border-lh-border-strong bg-lh-surface px-3 py-1.5 focus-within:border-lh-accent">
@@ -1394,7 +1376,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 const divider =
                   i === 0 || dayKey(list[i - 1].createdAt) !== dayKey(m.createdAt) ? (
                     <div key={`d-${m.clientMsgId}`} className="flex items-center justify-center py-1.5">
-                      <span className="rounded-full bg-lh-surface-2/80 px-3 py-0.5 text-2xs font-medium text-lh-text-secondary">
+                      <span className="rounded-full bg-lh-surface px-3 py-1 text-xs text-lh-text-secondary">
                         {now ? dayLabel(m.createdAt, now) : ''}
                       </span>
                     </div>
@@ -1405,7 +1387,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   m.clientMsgId === firstUnreadId ? (
                     <div key={`u-${m.clientMsgId}`} className="flex items-center gap-2 py-2">
                       <span className="h-px flex-1 bg-lh-accent/30" />
-                      <span className="rounded-full bg-lh-accent/12 px-2.5 py-0.5 text-2xs font-semibold text-lh-accent">
+                      <span className="px-1 text-xs text-lh-accent">
                         {t('Непрочитанные')}
                       </span>
                       <span className="h-px flex-1 bg-lh-accent/30" />
@@ -1441,6 +1423,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                         // исключённого шли бы без имени, как реплики собеседника.
                         authorName={everyoneElse > 1 ? (author?.displayName ?? null) : null}
                         authorColor={author?.color ?? null}
+                        author={everyoneElse > 1 ? (author ?? null) : null}
                         groupStart={groupStart}
                         groupEnd={groupEnd}
                         highlight={highlightId === m.clientMsgId}
@@ -1589,7 +1572,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 if (f) void handlePickFile(f);
               }}
             />
-            <div className="flex w-full items-end rounded-3xl border border-lh-border-strong bg-lh-surface transition-[border-color,box-shadow] focus-within:border-lh-accent focus-within:ring-2 focus-within:ring-lh-accent/20">
+            <div className="flex w-full items-end rounded-[22px] border border-lh-border bg-lh-surface-2 transition-[border-color,box-shadow] focus-within:border-lh-accent focus-within:ring-2 focus-within:ring-lh-accent/20">
               <button
                 onClick={() => setAttachSheetOpen(true)}
                 disabled={sendingAttachment}
@@ -1646,9 +1629,11 @@ export function ChatTab({ familyId }: { familyId: string }) {
                     });
                   }}
                   aria-label={t('Записать голосовое')}
-                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-lh-accent text-lh-bg active:scale-95 ${HIT_SLOP_44}`}
+                  // Макет: микрофон — золотая пиктограмма без заливки; круг
+                  // появляется у «Отправить», когда есть что отправлять.
+                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full text-lh-accent active:scale-95 active:opacity-70 ${HIT_SLOP_44}`}
                 >
-                  <Mic size={ICON.base} />
+                  <Mic size={ICON.header} />
                 </button>
               )}
             </div>
@@ -1681,66 +1666,24 @@ export function ChatTab({ familyId }: { familyId: string }) {
         </div>
       </Sheet>
 
-      <Sheet open={actionMsg !== null} onClose={() => setActionMsg(null)} title={t('Сообщение')}>
-        {actionMsg && (
-          <div className="space-y-2 pb-2">
-            {!actionMsg.system && (
-              <div className="flex justify-between gap-1 rounded-2xl bg-lh-surface-2 p-2">
-                {REACTIONS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => void toggleReaction(actionMsg, emoji)}
-                    aria-label={t('Реакция {emoji}', { emoji })}
-                    className={`flex size-10 items-center justify-center rounded-full text-lg transition-transform active:scale-90 ${
-                      myReactions.get(actionMsg.clientMsgId) === emoji ? 'bg-lh-accent/20 ring-1 ring-lh-accent/50' : ''
-                    }`}
-                  >
-                    {emoji}
-                    {/* Реакция — переключатель: щёлкает (PROTOCOL §6.4). */}
-                    <Haptic />
-                  </button>
-                ))}
-              </div>
-            )}
-            <button
-              onClick={() => startReply(actionMsg)}
-              className="flex w-full items-center gap-3 rounded-xl bg-lh-surface-2 p-3.5 text-left active:opacity-80"
-            >
-              <Reply size={ICON.base} className="text-lh-accent" />
-              {t('Ответить')}
-            </button>
-            {actionMsg.text && (
-              <button
-                onClick={() => void copyText(actionMsg)}
-                className="flex w-full items-center gap-3 rounded-xl bg-lh-surface-2 p-3.5 text-left active:opacity-80"
-              >
-                <Copy size={ICON.base} className="text-lh-accent" />
-                {t('Копировать')}
-                <Haptic />
-              </button>
-            )}
-            {actionMsg.senderMemberId === selfId && !actionMsg.image && !actionMsg.audio && !actionMsg.file && (
-              <button
-                onClick={() => startEdit(actionMsg)}
-                className="flex w-full items-center gap-3 rounded-xl bg-lh-surface-2 p-3.5 text-left active:opacity-80"
-              >
-                <Pencil size={ICON.base} className="text-lh-accent" />
-                {t('Редактировать')}
-              </button>
-            )}
-            {actionMsg.senderMemberId === selfId && (
-              <button
-                onClick={() => void doDelete(actionMsg)}
-                className="flex w-full items-center gap-3 rounded-xl bg-danger/15 p-3.5 text-left text-danger active:opacity-80"
-              >
-                <Trash2 size={ICON.base} />
-                {t('Удалить')}
-              </button>
-            )}
-          </div>
-        )}
-      </Sheet>
+      {/* Меню сообщения (макет): само сообщение над затемнённой лентой,
+          реакции капсулой над ним, действия карточкой под ним. Не шторка
+          снизу: видно, К ЧЕМУ относится меню, и палец рядом с пузырём. */}
+      {actionMsg && <MessageMenu
+        m={actionMsg}
+        own={actionMsg.senderMemberId === selfId}
+        mine={myReactions.get(actionMsg.clientMsgId)}
+        onClose={() => setActionMsg(null)}
+        onReact={(emoji) => void toggleReaction(actionMsg, emoji)}
+        onReply={() => startReply(actionMsg)}
+        onCopy={actionMsg.text ? () => void copyText(actionMsg) : undefined}
+        onEdit={
+          actionMsg.senderMemberId === selfId && !actionMsg.image && !actionMsg.audio && !actionMsg.file
+            ? () => startEdit(actionMsg)
+            : undefined
+        }
+        onDelete={actionMsg.senderMemberId === selfId ? () => void doDelete(actionMsg) : undefined}
+      />}
 
       {/* Фото на весь экран (тап по фото в ленте). Общий компонент с задачами:
           там снимков у одной записи бывает несколько, здесь всегда один —
@@ -1754,4 +1697,101 @@ export function ChatTab({ familyId }: { familyId: string }) {
  *  подмешан к цвету текста, в светлой — muted (PROTOCOL §1.8). */
 function memberColor(color: string | null | undefined): CSSProperties | undefined {
   return color ? ({ '--member-color': color } as CSSProperties) : undefined;
+}
+
+function MessageMenu({
+  m,
+  own,
+  mine,
+  onClose,
+  onReact,
+  onReply,
+  onCopy,
+  onEdit,
+  onDelete,
+}: {
+  m: FamilyMessage;
+  own: boolean;
+  mine: string | undefined;
+  onClose: () => void;
+  onReact: (emoji: string) => void;
+  onReply: () => void;
+  onCopy?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const row = 'flex h-12 w-full items-center justify-between gap-4 px-4 text-left text-base active:bg-lh-surface';
+  const preview = m.text ? m.text : snippetOf(m);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('Сообщение')}
+      onClick={onClose}
+      className="fixed inset-0 z-[60] flex animate-fade-in flex-col justify-center bg-black/55 px-4 backdrop-blur-[2px]"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className={`mx-auto flex w-full max-w-lg flex-col gap-2 ${own ? 'items-end' : 'items-start'}`}
+      >
+        {!m.system && (
+          <div className="flex gap-1 rounded-full border border-lh-border bg-lh-surface-2 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,.5)]">
+            {REACTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => onReact(emoji)}
+                aria-label={t('Реакция {emoji}', { emoji })}
+                aria-pressed={mine === emoji}
+                className={`relative flex size-11 items-center justify-center rounded-full text-xl transition-transform active:scale-90 ${
+                  mine === emoji ? 'bg-lh-accent-dim ring-1 ring-lh-accent/50' : ''
+                }`}
+              >
+                {emoji}
+                {/* Реакция — переключатель: щёлкает (PROTOCOL §6.4). */}
+                <Haptic />
+              </button>
+            ))}
+          </div>
+        )}
+        <div
+          className={`max-w-[78%] rounded-[18px] px-3.5 py-2.5 ring-1 ring-lh-accent/35 ${
+            own ? 'rounded-br-md bg-lh-accent text-lh-bg' : 'rounded-bl-md border border-lh-border bg-lh-surface text-lh-text-primary'
+          }`}
+        >
+          <p className="line-clamp-5 text-base leading-snug whitespace-pre-wrap break-words">{preview}</p>
+        </div>
+        <div className="w-60 divide-y divide-lh-border overflow-hidden rounded-2xl border border-lh-border bg-lh-surface-2 shadow-[0_12px_32px_rgba(0,0,0,.5)]">
+          <button type="button" onClick={onReply} className={row}>
+            {t('Ответить')}
+            <Reply size={ICON.action} className="text-lh-text-secondary" />
+          </button>
+          {onCopy && (
+            <button type="button" onClick={onCopy} className={`relative ${row}`}>
+              {t('Копировать')}
+              <Copy size={ICON.action} className="text-lh-text-secondary" />
+              <Haptic />
+            </button>
+          )}
+          {onEdit && (
+            <button type="button" onClick={onEdit} className={row}>
+              {t('Редактировать')}
+              <Pencil size={ICON.action} className="text-lh-text-secondary" />
+            </button>
+          )}
+          {onDelete && (
+            <button type="button" onClick={onDelete} className={`${row} text-danger`}>
+              {t('Удалить')}
+              <Trash2 size={ICON.action} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

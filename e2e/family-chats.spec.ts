@@ -41,9 +41,9 @@ test('тап по личному чату — переписка с собесе
   await expect(page.getByText('Возьми ключи от дачи')).toBeVisible();
   // Чат на весь экран — без таб-бара приложения.
   await expect(page.getByRole('navigation')).toHaveCount(0);
-  // Участники загружены (строка присутствия «Мама · …» над лентой), а имени
-  // собеседника над пузырями нет — в личном чате это повтор шапки.
-  await expect(page.locator('span.member-color', { hasText: 'Мама' })).toBeVisible();
+  // Участники загружены (в шапке круг собеседника с его буквой — без участника
+  // его нет), а имени собеседника над пузырями нет — в личном чате это повтор шапки.
+  await expect(page.locator('header span.rounded-full', { hasText: /^М$/ })).toBeVisible();
   await expect(page.locator('p.member-color')).toHaveCount(0);
   // Прочитанным чат отмечается через 1,2 с на экране (ChatTab: «открыл и
   // сразу ушёл» — не чтение) — и без сети тоже, отметка локальная.

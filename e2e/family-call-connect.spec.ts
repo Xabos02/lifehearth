@@ -143,9 +143,17 @@ async function familyKey(browser: Browser): Promise<string> {
   return raw;
 }
 
+/** Звонок на связи: в состоянии — «active», на экране звонка — идущий таймер
+ *  (активный звонок показывает время, а не слово «На связи»; раньше проверка
+ *  по тексту случайно цеплялась за «на связи» в шапке чата). */
+async function expectConnected(p: Page, timeout = 15_000) {
+  await expect.poll(async () => (await snapshot(p)).status, { timeout }).toBe('active');
+  await expect(p.getByText(/^\d+:\d{2}$/).first()).toBeVisible();
+}
+
 /** Оба на связи и звук идёт: у каждого растёт счётчик принятых аудиопакетов. */
 async function expectTalking(...pages: Page[]) {
-  for (const p of pages) await expect(p.getByText('На связи')).toBeVisible({ timeout: 15_000 });
+  for (const p of pages) await expectConnected(p);
   for (const p of pages) {
     await expect
       .poll(
@@ -253,7 +261,7 @@ test.describe('звонок между двумя телефонами', () => {
     await expectTalking(mom, vlad);
 
     await vlad.clock.fastForward(50_000);
-    await expect(vlad.getByText('На связи')).toBeVisible();
+    await expectConnected(vlad);
     expect((await snapshot(vlad)).status).toBe('active');
   });
 
@@ -369,7 +377,7 @@ test.describe('звонок между двумя телефонами', () => {
       const was = await packets(p);
       await expect.poll(() => packets(p), { timeout: 10_000 }).toBeGreaterThan(was + 10);
     }
-    await expect(mom.getByText('На связи')).toBeVisible();
+    await expectConnected(mom);
   });
 
   test('связь пропала насовсем — через срок восстановления обе стороны знают об этом', async ({ browser }) => {
