@@ -104,6 +104,10 @@ async function scrollerBox(page: Page) {
   });
 }
 
+/** Подсказки закрыты: их карточки опускают список в нижнюю зону разгона, и
+ *  строки начинают ездить сами — замер сдвигов меряет тогда прокрутку. */
+const NO_HINTS = { seenHints: ['tasks-quick-add', 'tasks-gestures'] };
+
 /** Подсветка секции-цели — золотое кольцо токена дизайн-системы. Класс
  *  целиком, а не подстрока: «ring-accent» после перехода на lh-токены
  *  перестал встречаться, и проверка краснела на исправной подсветке. */
@@ -180,7 +184,11 @@ test('промах в пустоту сохраняет последнюю пр�
   // по пустоте под пальцем — все середины задач выше, значит «в конец». Жест
   // «прицелился между Второй и Третьей, дёрнул в пустоту, отпустил» уносил
   // задачу в самый низ. Теперь замораживается и позиция.
-  await openApp(page, '/tasks');
+  //
+  // Без подсказок: карточка «Быстрого добавления» опускала список, и «Третья»
+  // уходила в нижнюю зону разгона — прицел ехал вместе со списком, хотя
+  // сценарий требует точек вне зон (см. про пустоту ниже).
+  await openApp(page, '/tasks', NO_HINTS);
   await seed(page, ['Первая', 'Вторая', 'Третья']);
 
   await hold(page, 'Первая');
@@ -456,4 +464,201 @@ test('после переноса заголовок не сворачивает
   // Задача осталась видна: секция «Бизнес» не свернулась от клика, которого
   // человек не делал.
   await expect(page.getByText('Позвонить поставщику')).toBeVisible();
+});
+
+// --- Дёрганье экрана при переносе (16.11.2026) ------------------------------
+//
+// Владелец: «когда я перемещаю задачи, мой экран начинает дёргаться». Причин
+// нашлось три, у каждой свой страж ниже: линия вставки в потоке сдвигала всё
+// ниже себя на 17px на каждом переезде; при отпускании проскакивал кадр со
+// старым порядком; зазор между подпроектами перекидывал цель на родителя.
+// Всё меряется покадрово (rAF внутри страницы) — глазом и снимками не видно.
+
+type Frame = {
+  line: number | null;
+  scroll: number;
+  rows: Record<string, number>;
+  order: string[];
+  lit: string[];
+  ghost: boolean;
+};
+
+/** Начать покадровую запись: линия вставки, строки, прокрутка, подсвеченные
+ *  секции, есть ли «призрак». */
+async function startFrames(page: Page) {
+  await page.evaluate(() => {
+    const w = window as unknown as { __frames: Frame[]; __rec: boolean };
+    w.__frames = [];
+    w.__rec = true;
+    const sc = document.getElementById('app-scroll');
+    const tick = () => {
+      if (!w.__rec) return;
+      const line = document.querySelector('[data-testid="task-drop-line"]');
+      const rows = [...document.querySelectorAll<HTMLElement>('[data-task-id]')];
+      w.__frames.push({
+        line: line ? line.getBoundingClientRect().top : null,
+        scroll: sc?.scrollTop ?? 0,
+        rows: Object.fromEntries(rows.map((r) => [r.dataset.taskId!, r.getBoundingClientRect().top])),
+        order: rows.map((r) => r.dataset.taskId!),
+        lit: [...document.querySelectorAll<HTMLElement>('[data-drop-key]')]
+          .filter((s) => /(^|\s)ring-lh-accent(\s|$)/.test(s.className))
+          .map((s) => s.dataset.dropKey!),
+        ghost: Boolean(document.querySelector('.fixed.z-\\[70\\]')),
+      });
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+async function stopFrames(page: Page): Promise<Frame[]> {
+  return page.evaluate(() => {
+    const w = window as unknown as { __frames: Frame[]; __rec: boolean };
+    w.__rec = false;
+    return w.__frames;
+  });
+}
+
+/** Вести палец по вертикали по 2px с паузой в кадр — так, как ведёт человек:
+ *  без паузы десяток движений укладывается в один кадр и промежуточные
+ *  положения (зазоры, середины строк) приложение просто не видит. */
+async function glide(page: Page, x: number, from: number, to: number) {
+  const dir = Math.sign(to - from);
+  for (let y = from; dir > 0 ? y < to : y > to; y += 2 * dir) {
+    await page.mouse.move(x, y);
+    await page.waitForTimeout(16);
+  }
+}
+
+test('линия вставки переезжает поверх строк — раскладка под пальцем стоит, дрожь у середины её не перекидывает', async ({ page }) => {
+  await openApp(page, '/tasks', NO_HINTS);
+  await seed(page, ['Задача 0', 'Задача 1', 'Задача 2', 'Задача 3'], ['Купить воду']);
+  await hold(page, 'Задача 0');
+  const z = (await scrollerBox(page))!;
+  const row = (id: string) => page.locator(`[data-task-id="${id}"]`).boundingBox();
+  const r0 = (await row('t1_0'))!;
+  const r3 = (await row('t1_3'))!;
+  const x = r0.x + 60;
+
+  // Проход вниз через все строки, ниже зоны разгона не заходим: прокрутка тут
+  // не нужна, и сдвиг вёрстки не спрятался бы за неё.
+  await startFrames(page);
+  await glide(page, x, r0.y + r0.height / 2, Math.min(r3.y + r3.height - 6, z.bottomZoneStart - 4));
+  const pass = await stopFrames(page);
+  const linePositions = new Set(pass.map((f) => f.line).filter((v) => v !== null));
+  expect(linePositions.size, 'линия не переезжала — сценарий не воспроизвёлся').toBeGreaterThanOrEqual(3);
+  // «Поверх строк» — значит видно глазом (PROTOCOL §16.2): линия стоит в DOM
+  // раньше строки и без своего z целиком пряталась бы под её фоном.
+  const onTop = await page.getByTestId('task-drop-line').evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    // pointer-events-none прячет линию от hit-test — на замер включаем.
+    (el as HTMLElement).style.pointerEvents = 'auto';
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    (el as HTMLElement).style.pointerEvents = '';
+    return hit === el;
+  });
+  expect(onTop, 'линию вставки закрывает строка — индикатора места не видно').toBe(true);
+  // Строки (кроме взятой — она сжата scale) стоят: положение в ленте с
+  // поправкой на прокрутку не меняется ни на одном кадре. Раньше каждая
+  // строка ниже линии прыгала на 17px при каждом её переезде.
+  for (const id of ['t1_1', 't1_2', 't1_3', 't2_0']) {
+    const ys = pass.map((f) => f.rows[id] + f.scroll);
+    expect(Math.max(...ys) - Math.min(...ys), `строка ${id} сдвигалась во время переноса`).toBeLessThan(1);
+  }
+
+  // Палец дрожит на ±4px вокруг середины строки: линия остаётся на месте.
+  // Люфт раньше давала высота линии в потоке; теперь — DROP_HYSTERESIS.
+  const r2 = (await row('t1_2'))!;
+  const mid = r2.y + r2.height / 2;
+  await glide(page, x, r3.y + r3.height / 2, mid);
+  await page.waitForTimeout(100);
+  await startFrames(page);
+  for (let i = 0; i < 12; i++) {
+    await page.mouse.move(x, mid + (i % 2 ? 4 : -4));
+    await page.waitForTimeout(32);
+  }
+  const jitter = await stopFrames(page);
+  expect(jitter[0]?.line, 'во время дрожи линии нет вовсе').not.toBeNull();
+  expect(new Set(jitter.map((f) => f.line)).size, 'линия мигала между двумя зазорами от дрожи пальца').toBe(1);
+  await page.mouse.up();
+});
+
+test('отпустил — задача сразу на новом месте, без кадра со старым порядком', async ({ page }) => {
+  await openApp(page, '/tasks', NO_HINTS);
+  await seed(page, ['Задача 0', 'Задача 1', 'Задача 2']);
+  // Запись в базу — с задержкой. В Chromium IndexedDB отвечает почти в тот же
+  // кадр, и мигание, видное на iPhone, здесь проскакивало бы незамеченным.
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const table = db.tasks as unknown as { bulkUpdate: (...a: unknown[]) => Promise<unknown> };
+    const orig = table.bulkUpdate.bind(table);
+    table.bulkUpdate = (...a) => new Promise((r) => setTimeout(r, 400)).then(() => orig(...a));
+  });
+  await hold(page, 'Задача 0');
+  const last = (await page.locator('[data-task-id="t1_2"]').boundingBox())!;
+  await glide(page, last.x + 60, last.y - 60, last.y + last.height - 6);
+  await expect(page.getByTestId('task-drop-line')).toHaveCount(1);
+
+  await startFrames(page);
+  await page.mouse.up();
+  await page.waitForTimeout(700);
+  const frames = (await stopFrames(page)).filter((f) => !f.ghost);
+  expect(frames.length, 'после отпускания не записано ни одного кадра').toBeGreaterThan(5);
+  for (const f of frames) {
+    expect(f.order, 'кадр со старым порядком после отпускания').toEqual(['t1_1', 't1_2', 't1_0']);
+  }
+  await expect
+    .poll(async () => (await stateOf(page, 'p1')).map((t) => t.id))
+    .toEqual(['t1_1', 't1_2', 't1_0']);
+});
+
+test('между соседними подпроектами цель не перескакивает на родительскую папку', async ({ page }) => {
+  await openApp(page, '/tasks', NO_HINTS);
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    await db.projects.clear();
+    await db.tasks.clear();
+    await db.projects.bulkPut([
+      { ...base('p1'), name: 'Бизнес', color: '#5b7cfa', emoji: '💼', sortOrder: 1000, archivedAt: null },
+      { ...base('s1'), name: 'Поставщики', color: '#e0803a', emoji: '📦', sortOrder: 1100, archivedAt: null, parentId: 'p1' },
+      { ...base('s2'), name: 'Реклама', color: '#d94f70', emoji: '📣', sortOrder: 1200, archivedAt: null, parentId: 'p1' },
+    ] as never[]);
+    const task = (id: string, title: string, projectId: string, sortOrder: number) => ({
+      ...base(id), title, notes: '', projectId, goalId: null, priority: 0,
+      dueDate: null, dueTime: null, duration: null, remindBefore: null,
+      completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder,
+    });
+    await db.tasks.bulkPut([
+      task('t1', 'Посчитать маржу', 'p1', 1000),
+      task('t2', 'Сверить прайс', 's1', 1000),
+      task('t3', 'Запустить рекламу', 's2', 1000),
+    ] as never[]);
+  });
+  await page.goto('/tasks');
+  await expect(page.locator('[data-task-id="t3"]')).toBeVisible();
+
+  await hold(page, 'Запустить рекламу');
+  const from = (await page.locator('[data-task-id="t3"]').boundingBox())!;
+  const to = (await page.locator('[data-task-id="t2"]').boundingBox())!;
+  const s1 = (await page.locator('[data-drop-key="s1"]').boundingBox())!;
+  const s2 = (await page.locator('[data-drop-key="s2"]').boundingBox())!;
+  expect(s2.y - (s1.y + s1.height), 'между подпроектами нет зазора — сценарий не воспроизвёлся').toBeGreaterThan(4);
+
+  await startFrames(page);
+  await glide(page, from.x + 60, from.y + from.height / 2, to.y + to.height / 2);
+  const frames = await stopFrames(page);
+  expect(frames.some((f) => f.lit.includes('s2')) && frames.some((f) => f.lit.includes('s1')), 'цель не сменилась с «Рекламы» на «Поставщиков»').toBe(true);
+  // Смена цели не двигает раскладку: подсветка — кольцо, не рамка с отступом
+  // (PROTOCOL §6.3), линия — поверх строк. Взятая t3 сжата scale — не в счёт.
+  for (const id of ['t1', 't2']) {
+    const ys = frames.map((f) => f.rows[id] + f.scroll);
+    expect(Math.max(...ys) - Math.min(...ys), `строка ${id} сдвинулась при смене цели`).toBeLessThan(1);
+  }
+  expect(
+    frames.filter((f) => f.lit.includes('p1')).length,
+    'в зазоре между подпроектами подсветилась вся папка «Бизнес»',
+  ).toBe(0);
+  await page.mouse.up();
 });

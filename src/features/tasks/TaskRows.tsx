@@ -48,13 +48,6 @@ export function ProjectFolderIcon({ project, size = 18 }: { project: Project; si
  *  папкой, счётчиком и карандашом, свои задачи и «+ Задача». Тоже drop-зона —
  *  задачу можно перетащить прямо в подпроект. */
 
-/** Тонкая линия-индикатор вставки задачи между строками. */
-export function TaskDropLine() {
-  return (
-    <div className="my-1.5 h-1 rounded-full bg-lh-accent" aria-hidden />
-  );
-}
-
 export function TaskCard({
   tasks,
   projectById,
@@ -91,19 +84,20 @@ export function TaskCard({
               {t('Временные')}
             </p>
           )}
-          {dropIndex === i && <TaskDropLine />}
           <TaskItem
             task={task}
             project={task.projectId ? (projectById.get(task.projectId) ?? null) : null}
             onEdit={onEdit}
             onDragStart={onDragStart}
             isDragSource={draggingId === task.id}
+            dropEdge={
+              dropIndex === i ? 'top' : dropIndex === tasks.length && i === tasks.length - 1 ? 'bottom' : null
+            }
             hideProject
             launchable={!muted}
           />
         </Fragment>
       ))}
-      {dropIndex === tasks.length && <TaskDropLine />}
     </div>
   );
 }

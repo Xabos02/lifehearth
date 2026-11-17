@@ -65,6 +65,7 @@ export const TaskItem = memo(function TaskItem({
   onEdit,
   onDragStart,
   isDragSource = false,
+  dropEdge = null,
   hideProject = false,
   launchable = false,
 }: {
@@ -76,6 +77,13 @@ export const TaskItem = memo(function TaskItem({
   onDragStart?: (t: Task, at: { x: number; y: number; pointerId: number }) => void;
   /** Управляемый родителем визуальный сигнал «эта задача сейчас тащится». */
   isDragSource?: boolean;
+  /** Линия вставки при переносе — у верхнего края строки или (последний зазор
+   *  списка) у нижнего. Рисуется поверх строки и не занимает высоты: линия в
+   *  потоке (было: отдельный блок 17px между строками) сдвигала на 17px всё
+   *  ниже себя на каждом переезде — строку под пальцем, на автопрокрутке
+   *  каждую проезжающую строку, при смене цели весь хвост списка. Владелец:
+   *  «когда я перемещаю задачи, мой экран начинает дёргаться». */
+  dropEdge?: 'top' | 'bottom' | null;
   /** Скрыть метку проекта — на TasksPage задача уже под заголовком проекта. */
   hideProject?: boolean;
   /** ↻ у спящей задачи ручного повтора — только в живом списке «Задач»: там
@@ -306,6 +314,17 @@ export const TaskItem = memo(function TaskItem({
 
   return (
     <div className="relative -mx-4 overflow-hidden">
+      {/* inset-x-4 — ширина прежней линии (по контенту карточки, а не от края
+          до края); z-[1] — над фоном строки, внутри своего контекста .card. */}
+      {dropEdge && (
+        <span
+          aria-hidden
+          data-testid="task-drop-line"
+          className={`pointer-events-none absolute inset-x-4 z-[1] h-1 rounded-full bg-lh-accent ${
+            dropEdge === 'top' ? 'top-0' : 'bottom-0'
+          }`}
+        />
+      )}
       {/* Действия рендерим ТОЛЬКО при свайпе влево. В покое (dx=0) красной
           кнопки нет в DOM — иначе на iOS она торчала квадратным углом за
           скругление родительской .card (translateX у строки ломает обрезку). */}
