@@ -100,6 +100,11 @@ test('задача, отпущенная в зазоре между подпро
       task('t2', 'Сверить прайс', 's1'),
       task('t3', 'Запустить объявление', 's2'),
     ] as never[]);
+    // Баннер «Установите на экран „Домой“» опускал «Рекламу» в нижнюю зону
+    // разгона: палец, взявший задачу там, прокручивал список, пока шёл вверх,
+    // и зазор, замеренный до хода, уезжал из-под него. Под нагрузкой — на 4–10px
+    // при зазоре в 12, и цель становилась «Рекламой».
+    localStorage.setItem('life-hub-install-dismissed', '1');
   });
   await page.goto('/tasks');
   await expect(page.locator('[data-task-id="t3"]')).toBeVisible();
@@ -109,7 +114,9 @@ test('задача, отпущенная в зазоре между подпро
   // «Поставщиками». Подход снизу — устойчивый случай: у «Поставщиков» линии
   // вставки ещё нет, их край не двигается, и палец остаётся в зазоре. Сверху
   // так не проверить: уходящая линия вставки сама сдвигает вёрстку под пальцем.
-  await page.getByText('Запустить объявление', { exact: true }).hover();
+  const grip = page.getByText('Запустить объявление', { exact: true });
+  const gripBox = (await grip.boundingBox())!;
+  await grip.hover();
   await page.mouse.down();
   await expect(page.locator('.fixed.z-\\[70\\]'), 'перенос не стартовал — плашки нет').toBeVisible({ timeout: 2000 });
 
@@ -118,6 +125,14 @@ test('задача, отпущенная в зазоре между подпро
   const s2Box = (await page.locator('[data-drop-key="s2"]').boundingBox())!;
   const gapTop = s1Box.y + s1Box.height;
   expect(s2Box.y - gapTop, 'зазор между подпроектами').toBeGreaterThan(6);
+  // Весь путь пальца — вне зон разгона (72px у краёв, верхняя — от низа
+  // шапки, как в приложении): иначе список едет сам и зазор уходит из-под пальца.
+  const zone = await page.evaluate(() => {
+    const r = document.querySelector('[data-app-scroll]')!.getBoundingClientRect();
+    return { top: document.querySelector('header')!.getBoundingClientRect().bottom + 72, bottom: r.bottom - 72 };
+  });
+  expect(gripBox.y + gripBox.height / 2, 'задача взята в нижней зоне разгона — сетап не тот').toBeLessThan(zone.bottom);
+  expect(gapTop + 3, 'зазор в верхней зоне разгона — сетап не тот').toBeGreaterThan(zone.top);
   await page.mouse.move(s1Box.x + s1Box.width / 2, gapTop + 3, { steps: 8 });
   await expect(page.locator('[data-drop-key="s1"]')).toHaveClass(/(^|\s)ring-lh-accent(\s|$)/);
   await expect(page.locator('[data-drop-key="p1"]')).not.toHaveClass(/(^|\s)ring-lh-accent(\s|$)/);

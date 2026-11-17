@@ -13,6 +13,7 @@ import { PRESET_COLORS } from '../../lib/colors';
 import { ICON, STROKE } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
 import { depthOf, parentCandidates } from './projectTree';
+import { newSortOrder } from './taskActions';
 import { confirmAction } from '../../components/ui/confirmStore';
 
 /** Шит создания/редактирования проекта. project=null → создание.
@@ -20,26 +21,31 @@ import { confirmAction } from '../../components/ui/confirmStore';
 export function ProjectEditSheet({
   open,
   onClose,
+  onCreated,
   project,
   defaults,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Создан новый проект (не правка) — родитель может прокрутить к нему. */
+  onCreated?: (id: string) => void;
   project?: Project | null;
   defaults?: { parentId?: string | null };
 }) {
   // Тело формы монтируется заново на каждое открытие: состояние
   // инициализируется из props, поэтому сброс через эффект не нужен.
   if (!open) return null;
-  return <ProjectEditForm onClose={onClose} project={project} defaults={defaults} />;
+  return <ProjectEditForm onClose={onClose} onCreated={onCreated} project={project} defaults={defaults} />;
 }
 
 function ProjectEditForm({
   onClose,
+  onCreated,
   project,
   defaults,
 }: {
   onClose: () => void;
+  onCreated?: (id: string) => void;
   project?: Project | null;
   defaults?: { parentId?: string | null };
 }) {
@@ -79,10 +85,12 @@ function ProjectEditForm({
       };
       if (project) {
         await update(db.projects, project.id, data);
+        onClose();
       } else {
-        await create(db.projects, { ...data, sortOrder: Date.now(), archivedAt: null });
+        const created = await create(db.projects, { ...data, sortOrder: newSortOrder(), archivedAt: null });
+        onClose();
+        onCreated?.(created.id);
       }
-      onClose();
     } finally {
       savingRef.current = false;
     }

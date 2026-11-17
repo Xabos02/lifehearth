@@ -182,6 +182,10 @@ export interface TaskPhoto extends BaseEntity {
   total: number;
   /** Кусок dataURL. */
   data: string;
+  /** Ширина / высота снимка — только у снимков фото-панели «Задач»
+   *  (lib/photoBoard.ts): по ней панель раскладывается сразу, не дожидаясь
+   *  декодирования картинок. */
+  aspect?: number;
 }
 
 /** Файл-вложение задачи — любого формата, чанками, как NoteFile.

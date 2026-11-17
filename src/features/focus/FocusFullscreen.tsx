@@ -52,7 +52,7 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
   }, [p.running]);
 
   const isWork = p.phase === 'work';
-  const color = isWork ? 'var(--lh-accent)' : 'var(--app-success)';
+  const color = isWork ? 'var(--focus-accent)' : 'var(--app-success)';
   const frac = p.totalMs > 0 ? Math.min(1, Math.max(0, 1 - p.remainingMs / p.totalMs)) : 0;
   const elapsedMs = Math.max(0, p.totalMs - p.remainingMs);
 
@@ -76,11 +76,11 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <p className="text-xs uppercase tabular-nums tracking-[.08em] text-lh-text-secondary">
+        <p className="text-xs tabular-nums text-lh-text-secondary">
           {t('Круг {n} из {total}', { n: String(Math.min(p.cycle.done + 1, p.cycle.total)), total: String(p.cycle.total) })}
         </p>
         <span
-          className="mt-4 text-[min(96px,24vw)] font-light leading-none tabular-nums tracking-[-0.03em]"
+          className="mt-4 text-[72px] font-light leading-none tabular-nums tracking-tight"
           data-testid="fullscreen-clock"
         >
           {formatClock(p.remainingMs)}
@@ -119,7 +119,8 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={p.running ? p.toggle : () => (p.active ? p.toggle() : p.start())}
             aria-label={p.running ? t('Пауза') : t('Старт')}
-            className="flex size-20 items-center justify-center rounded-full bg-lh-accent text-lh-bg active:scale-90"
+            style={{ backgroundImage: 'linear-gradient(150deg, var(--focus-accent-fill), var(--focus-accent-2-fill))' }}
+            className="flex size-20 items-center justify-center rounded-full text-white active:scale-90"
           >
             {p.running ? <Pause size={ICON.hero} fill="currentColor" /> : <Play size={ICON.hero} fill="currentColor" className="ml-1" />}
           </button>

@@ -324,6 +324,11 @@ test('раздел «Задачи»: зоны касания не налезаю
   await page.locator('[data-drop-key="a1"]').getByRole('button', { name: /Бизнес/ }).first().click();
   await expect(page.getByText('Позвонить поставщику')).toHaveCount(0);
   await expect(page.locator('[data-drop-key="a2"]')).toBeVisible();
+  // Клик докручивает ленту к «Бизнесу» (над ним теперь «Без проекта»), и
+  // верх списка уходит под липкую шапку экрана: пальцу он там недоступен, а
+  // по координатам ложится на «Заморозить задачи». Меряем ленту в начале —
+  // как шторки в overlapsOn.
+  await page.evaluate(() => { document.getElementById('app-scroll')!.scrollTop = 0; });
   expect(await overlapsOn(page)).toEqual([]);
 });
 
@@ -550,11 +555,14 @@ test('шторки спорта, семейная задача, экран пр�
   await check('новая тренировка', SHEET);
   await page.getByRole('button', { name: 'Из шаблона' }).click();
   await page.getByRole('button', { name: 'Новый шаблон' }).click();
-  await page.getByRole('button', { name: 'Добавить ещё вид' }).last().click();
+  await page.getByRole('button', { name: 'Другой вид тренировки' }).click();
   await expect(page.getByRole('button', { name: 'Убрать' }).last()).toBeVisible();
-  // Строка упражнения (задача 38): поля подходов и повторов вплотную к «×».
+  // Строка упражнения (задача 38): поля подходов и повторов вплотную к «×»;
+  // «Подробнее» раскрыто — единицы, вес и отдых тоже в замере.
   await page.getByRole('button', { name: 'Упражнение' }).last().click();
   await expect(page.getByRole('button', { name: 'Убрать упражнение' })).toBeVisible();
+  await page.getByRole('button', { name: /^Подробнее/ }).click();
+  await expect(page.getByLabel('Вес')).toBeVisible();
   await check('новый шаблон', SHEET);
 
   await page.evaluate(async () => {
@@ -727,4 +735,33 @@ test('карточка группы: строки участников и «Вы
   // clientHeight, а не boundingBox: у первой строки нижняя граница divide-y.
   const height = (l: typeof own) => l.locator('..').evaluate((el) => el.clientHeight);
   expect(await height(page.getByRole('button', { name: 'Позвонить Отец' }))).toBe(await height(own));
+});
+
+test('фотопанель «Задач» и просмотр снимка: зоны не меньше 44 и не налезают', async ({ page }) => {
+  await openApp(page, '/tasks');
+  // Снимки крайних пропорций вперемешку — именно на них плитки мельчают.
+  await page.evaluate(async () => {
+    const { addBoardPhoto } = await import('/src/lib/photoBoard.ts');
+    const shapes: Array<[number, number]> = [[1179, 2556], [1600, 400], [800, 600], [600, 800], [1600, 900], [700, 700], [1179, 2556], [1200, 800], [400, 1600]];
+    for (const [i, [w, h]] of shapes.entries()) {
+      const c = document.createElement('canvas');
+      c.width = 40;
+      c.height = 40;
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = `hsl(${i * 40} 60% 50%)`;
+      ctx.fillRect(0, 0, 40, 40);
+      await addBoardPhoto(c.toDataURL('image/png'), w / h);
+    }
+  });
+  await page.goto('/tasks');
+  await expect(page.locator('section[aria-label="Фотопанель"] button')).toHaveCount(9);
+
+  const bad: string[] = [];
+  for (const b of await small(page)) bad.push(`фотопанель: ${b}`);
+  for (const o of await overlapsOn(page)) bad.push(`фотопанель: ${o}`);
+  await page.locator('section[aria-label="Фотопанель"] button').first().click();
+  await expect(page.getByRole('button', { name: 'Удалить фото' })).toBeVisible();
+  for (const b of await small(page, '[data-testid="photo-viewer"]')) bad.push(`просмотр: ${b}`);
+  for (const o of await overlapsOn(page, '[data-testid="photo-viewer"]')) bad.push(`просмотр: ${o}`);
+  expect(bad).toEqual([]);
 });

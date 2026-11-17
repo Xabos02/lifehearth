@@ -1,5 +1,5 @@
 import { test, expect, openApp, answerConfirm } from './fixtures';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 // Шаблоны тренировок: добавление и правка (15.11.2026, канва
 // design/sport-templates — вариант Б, чипы в карточке дня, барабан времени).
@@ -102,6 +102,9 @@ test('шаблон с нуля: диапазон, секунды, вес, отд
   // Границы перепутаны — в строке и в базе встают по порядку.
   await page.getByLabel('Повторы', { exact: true }).fill('8');
   await page.getByLabel('Повторы, до').fill('6');
+  // Вес, отдых, заметка и единицы — по «Подробнее»: сначала главное.
+  await expect(page.getByLabel('Вес')).toHaveCount(0);
+  await page.getByRole('button', { name: /^Подробнее/ }).click();
   await page.getByLabel('Вес').fill('+10–15 кг');
   await page.getByLabel('Отдых').fill('2 мин');
   await editor.getByLabel('Заметка').fill('Разминка 1×5–6 со своим весом');
@@ -120,6 +123,7 @@ test('шаблон с нуля: диапазон, секунды, вес, отд
   await page.getByLabel('Подходы').fill('2');
   await page.getByLabel('Повторы', { exact: true }).fill('12');
   await page.getByLabel('Повторы, до').fill('15');
+  await page.getByRole('button', { name: /^Подробнее/ }).click();
   await page.getByRole('button', { name: 'сек', exact: true }).click();
   await expect(editor.getByText('Секунды')).toBeVisible();
   await page.getByLabel('Отдых').fill('30 сек');
@@ -130,6 +134,7 @@ test('шаблон с нуля: диапазон, секунды, вес, отд
   await add.click();
   await page.getByLabel('Название упражнения').fill('Раунд 1');
   await page.getByLabel('Повторы', { exact: true }).fill('3');
+  await page.getByRole('button', { name: /^Подробнее/ }).click();
   await page.getByRole('button', { name: 'мин', exact: true }).click();
   await page.getByRole('button', { name: 'Готово' }).click();
   await expect(rows.nth(2)).toContainText('3 мин');
@@ -357,6 +362,8 @@ test('барабан общего времени: щелчок на каждом
   // Время есть, минут у видов нет — честная подсказка; с минутами вида уходит.
   const hint = page.getByText('В часы за месяц идут минуты видов');
   await expect(hint).toBeVisible();
+  // Подсказка говорит «по тапу на название вида» — так и делаем.
+  await page.getByRole('button', { name: /^Вид: Силовая/ }).click();
   await page.getByPlaceholder('по желанию', { exact: true }).fill('45');
   await expect(hint).toBeHidden();
 
@@ -620,9 +627,41 @@ test('двойной тап по чипу шаблона: второй тап н
   // Оба края чипа: под правым во въезжающей форме оказывалось «Убрать» вида,
   // под левым — заголовок вида и строка упражнения.
   for (const x of [box.x + box.width - 12, box.x + 40]) {
-    await page.touchscreen.tap(x, box.y + box.height / 2);
-    await page.waitForTimeout(120);
-    await page.touchscreen.tap(x, box.y + box.height / 2);
+    const y = box.y + box.height / 2;
+    // Второй тап обязан прийти, пока панель едет. Паузой между тапами этого
+    // не добиться: под нагрузкой клик по чипу обрабатывается до полутора
+    // секунд, и второй тап приходил через полсекунды после остановки панели —
+    // уже обычным нажатием, которое форма вправе принять. Поэтому въезд с
+    // появления панели стоит на середине пути (130 из 250 мс, как у живого
+    // двойного тапа) и держится дольше прежнего таймера защиты в 400 мс:
+    // защита живёт, пока панель едет, а не по часам.
+    await page.evaluate(() => {
+      const w = window as unknown as { __entry?: Animation; __entryAt: number };
+      w.__entry = undefined;
+      const mo = new MutationObserver(() => {
+        const a = document.querySelector('.animate-sheet-up')?.getAnimations()[0];
+        if (!a) return;
+        a.pause();
+        a.currentTime = 130;
+        w.__entry = a;
+        w.__entryAt = performance.now();
+        mo.disconnect();
+      });
+      mo.observe(document.body, { childList: true });
+    });
+    await page.touchscreen.tap(x, y);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const w = window as unknown as { __entry?: Animation; __entryAt: number };
+          return w.__entry ? performance.now() - w.__entryAt : 0;
+        }),
+      )
+      .toBeGreaterThan(450);
+    const onPanel = await page.evaluate(([px, py]) => Boolean(document.elementFromPoint(px, py)?.closest('.animate-sheet-up')), [x, y]);
+    expect(onPanel, 'под пальцем не въезжающая панель — сетап не тот').toBe(true);
+    await page.touchscreen.tap(x, y);
+    await page.evaluate(() => (window as unknown as { __entry: Animation }).__entry.finish());
     await expect(page.getByRole('heading', { name: 'Новая тренировка' })).toBeVisible();
     await expect(page.getByTestId('workout-kind')).toHaveCount(3);
     await expect(page.getByTestId('exercise-editor')).toHaveCount(0);
@@ -661,18 +700,83 @@ test('целые поля упражнения: вставка «12,5» — эт
   await expect(page.getByLabel('Повторы, до')).toHaveValue('15');
 });
 
-test('подписи «Название шаблона» и «Время» стоят в одну линию, поля — одной высоты', async ({ page }) => {
+// Шаблон по шагам (16.11.2026, канва design/template-steps, вариант А): порядок
+// «название → упражнения → дополнительно» виден заголовками, вид нового шаблона
+// свёрнут до строки, у упражнения сначала главное. Спрятанное «Подробнее» не
+// теряется: свернул — значение осталось и ушло в запись.
+test('шаблон по шагам: блоки 1 → 2 → 3, вид и подробности свёрнуты, спрятанное не теряется', async ({ page }) => {
   await openApp(page, '/more/health');
   await openTemplates(page);
   await page.getByRole('button', { name: 'Новый шаблон' }).click();
-  const m = await page.evaluate(() => {
-    const cap = (txt: string) => [...document.querySelectorAll('span')].find((el) => el.textContent === txt)!.getBoundingClientRect();
-    const input = document.querySelector<HTMLInputElement>('input[placeholder^="Например"]')!.getBoundingClientRect();
-    const btn = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('Общее время'))!.getBoundingClientRect();
-    return { caps: cap('Название шаблона').top - cap('Время').top, heights: input.height - btn.height, tops: input.top - btn.top };
-  });
-  expect(Math.abs(m.caps)).toBeLessThan(0.6);
-  expect(Math.abs(m.heights)).toBeLessThan(0.6);
-  expect(Math.abs(m.tops)).toBeLessThan(0.6);
+  const sheet = page.locator(SHEET);
+
+  await expect(sheet.locator('h3')).toHaveText([/^1\s*Название$/, /^2\s*Упражнения$/, /^3\s*Дополнительно/]);
+  const top = async (l: Locator) => (await l.boundingBox())!.y;
+  const nameField = page.getByLabel('Название шаблона');
+  const addExercise = page.getByRole('button', { name: 'Упражнение', exact: true });
+  const time = page.getByRole('button', { name: 'Общее время: не задано' });
+  expect(await top(nameField)).toBeLessThan(await top(addExercise));
+  expect(await top(addExercise)).toBeLessThan(await top(time));
+
+  // Вид — одной строкой: стены чипов до первого упражнения нет.
+  await expect(sheet.getByRole('button', { name: 'Бег', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Вид: Силовая/ })).toHaveAttribute('aria-expanded', 'false');
+
+  // Упражнение: название, подходы × повторы – до, «Подробнее», «Убрать», «Готово».
+  // Одно упражнение двигать некуда — стрелок нет.
+  await addExercise.click();
+  const editor = page.getByTestId('exercise-editor');
+  await expect(editor.locator('input, textarea')).toHaveCount(4);
+  await expect(editor.getByRole('button')).toHaveCount(3);
+  await page.getByLabel('Название упражнения').fill('Подтягивания с поясом');
+  await page.getByLabel('Подходы').fill('4');
+  await page.getByLabel('Повторы', { exact: true }).fill('6');
+  const more = editor.getByRole('button', { name: /^Подробнее/ });
+  await more.click();
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
+  await page.getByLabel('Вес').fill('+10 кг');
+  await more.click();
+  await expect(page.getByLabel('Вес')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Готово' }).click();
+  const row = page.getByTestId('exercise-row');
+  await expect(row).toContainText('+10 кг');
+  // Заполненное раскрыто само: вес не прячется за «Подробнее».
+  await row.click();
+  await expect(page.getByLabel('Вес')).toHaveValue('+10 кг');
+  await page.getByRole('button', { name: 'Готово' }).click();
+
+  // Второй вид приходит раскрытым: выбрать вид — первое, что с ним делают.
+  await page.getByRole('button', { name: 'Другой вид тренировки' }).click();
+  await sheet.getByRole('button', { name: 'Бег', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Вид: Бег/ })).toBeVisible();
+
+  await nameField.fill('Тренировка А');
+  await page.getByRole('button', { name: 'Сохранить шаблон' }).click();
+  await expect(page.getByRole('button', { name: /^Тренировка А/ })).toBeVisible();
+  const [tpl] = await templates(page);
+  expect(tpl.items.map((i) => i.type)).toEqual(['strength', 'run']);
+  expect(tpl.items[0].exercises).toStrictEqual([{ name: 'Подтягивания с поясом', sets: 4, reps: 6, weight: '+10 кг' }]);
 });
 
+test('«Шаблоны» в шапке «Спорта»: на первом экране 375×812 и при прокрутке, на «Замерах» нет', async ({ page }) => {
+  // Канва design/template-entry, вариант А: «Шаблоны ›» в карточке дня стоял
+  // на 375 px ниже первого экрана — новичок не находил, где завести шаблон.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openApp(page, '/more/health');
+  const entry = page.locator('header').getByRole('button', { name: 'Шаблоны', exact: true });
+  await expect(entry).toBeInViewport();
+
+  await page.getByRole('button', { name: 'Замеры', exact: true }).click();
+  await expect(entry).toHaveCount(0);
+  await page.getByRole('button', { name: 'Спорт', exact: true }).click();
+
+  // Шапка липкая: вход не уезжает вместе с экраном.
+  await page.locator('#app-scroll').evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  await expect(page.getByRole('heading', { name: 'Недавние' })).toBeInViewport();
+  await expect(entry).toBeInViewport();
+
+  await entry.click();
+  await expect(page.getByRole('heading', { name: 'Шаблоны тренировок' })).toBeVisible();
+  await page.getByRole('button', { name: 'Новый шаблон' }).click();
+  await expect(page.getByRole('heading', { name: 'Новый шаблон' })).toBeVisible();
+});

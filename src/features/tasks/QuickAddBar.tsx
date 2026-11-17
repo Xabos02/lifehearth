@@ -6,7 +6,7 @@ import {
 import { isTouch } from '../../lib/platform';
 import { db } from '../../db/db';
 import { create } from '../../db/repo';
-import { newSortOrder } from './taskActions';
+import { newTaskSortOrder } from './taskActions';
 import { Input } from '../../components/ui/Input';
 import { MicButton } from '../../components/ui/MicButton';
 import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
@@ -37,8 +37,8 @@ export function QuickAddBar({
 }: {
   defaultDueDate?: string | null;
   defaultProjectId?: string | null;
-  /** Задача создана — родитель может прокрутить к ней: новая ложится в
-   *  конец «Без проекта», ниже всех папок, и без прокрутки её не видно. */
+  /** Задача создана — родитель может прокрутить к ней: строка быстрого
+   *  ввода бывает прокручена от «Без проекта», куда ложится новая. */
   onCreated?: (id: string) => void;
 }) {
   const [text, setText] = useState('');
@@ -66,7 +66,7 @@ export function QuickAddBar({
       checklist: [],
       recurrence: null,
       tags: p.tags,
-      sortOrder: newSortOrder(p.priority),
+      sortOrder: await newTaskSortOrder(defaultProjectId ?? null, p.priority),
     });
     setText('');
     // Задача добавлена этой строкой — значит подсказка про неё свою работу

@@ -1,11 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Circle, CircleCheck, CircleDot } from 'lucide-react';
+import { Circle, CircleDot } from 'lucide-react';
 import { db } from '../../db/db';
 import type { LearningPart } from '../../db/types';
 import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
 import { unitLabel, type ProgressUnit } from '../../lib/learningPace';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { GCheckCircle } from '../../components/ui/glyphs';
 import { Haptic } from '../../components/ui/Haptic';
 import { togglePart } from './plan';
 
@@ -33,7 +34,7 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
       {groups.map((g) => (
         <div key={g.section || '—'}>
           {g.section && (
-            <p className="px-4 pb-1 pt-3 text-2xs font-semibold uppercase tracking-wider text-lh-text-secondary">{g.section}</p>
+            <p className="lh-section px-4 pb-1 pt-3">{g.section}</p>
           )}
           {g.rows.map((part) => (
             <button
@@ -44,7 +45,7 @@ export function PlanList({ parts, unit }: { parts: LearningPart[]; unit: Progres
               className="flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left active:opacity-70"
             >
               {part.doneAt ? (
-                <CircleCheck size={ICON.base} strokeWidth={STROKE_STRONG} className="shrink-0 text-lh-accent" aria-hidden />
+                <GCheckCircle size={ICON.base} strokeWidth={STROKE_STRONG} className="shrink-0 text-lh-accent" aria-hidden />
               ) : part.id === currentId ? (
                 <CircleDot size={ICON.base} className="shrink-0 text-lh-accent" aria-hidden />
               ) : (

@@ -83,24 +83,32 @@ test('уже высокая задача при сохранении остаё�
   await expect.poll(() => shown(page)).toEqual(['Снять деньги', 'Вести учёт расходов', 'Проверять остатки']);
 });
 
-test('«!!!» в строке добавления — новая задача первой в «Без проекта»', async ({ page }) => {
+// С 1.56.0 новая задача встаёт наверх, но обычная — под важными во главе
+// списка (new-on-top.spec.ts). Важную добавляем первой: без разбора «!!!»
+// следующая обычная встала бы выше неё.
+test('«!!!» в строке добавления — задача первой и остаётся над следующей обычной', async ({ page }) => {
   await openApp(page, '/tasks');
   await seed(page, null);
 
   const input = page.getByPlaceholder('Что нужно сделать?');
-  await input.fill('Обычная');
+  await input.fill('Оплатить свет !!! ');
   await input.press('Enter');
   // Поле чистится, когда задача уже записана. Вписать следующую раньше —
   // и запоздалая очистка сотрёт её до Enter.
-  await expect(page.getByText('Обычная', { exact: true })).toBeVisible();
+  await expect(page.getByText('Оплатить свет', { exact: true })).toBeVisible();
   await expect(input).toHaveValue('');
-  await input.fill('Оплатить свет !!! ');
+  await input.fill('Обычная');
   await input.press('Enter');
   await expect.poll(() => shown(page)).toEqual([
     'Оплатить свет',
+    'Обычная',
     'Снять деньги',
     'Вести учёт расходов',
     'Проверять остатки',
-    'Обычная',
   ]);
+  const priority = await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    return (await db.tasks.toArray()).find((x) => x.title === 'Оплатить свет')?.priority;
+  });
+  expect(priority).toBe(3);
 });

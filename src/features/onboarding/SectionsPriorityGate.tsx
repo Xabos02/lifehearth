@@ -92,7 +92,7 @@ export function SectionsPriorityGate() {
           <div className="px-2 pb-5">
             <p className="text-sm text-lh-text-secondary">{t('Последний шаг')}</p>
             <h2 className="mt-1.5 text-[30px] font-light leading-[1.15] tracking-[-.6px]">{t('Что для вас важнее всего?')}</h2>
-            <p className="mt-2.5 text-[15px] leading-normal text-lh-text-secondary">
+            <p className="mt-2.5 text-sm leading-normal text-lh-text-secondary">
               {t('Поднимите важное наверх и скройте лишнее: первые {n} сразу видны в «Ещё». Порядок можно менять в настройках.', { n: HOME_VISIBLE_STEP })}
             </p>
           </div>
@@ -114,11 +114,11 @@ export function SectionsPriorityGate() {
                     </div>
                   )}
                   <div className="flex min-h-14 items-center gap-2 py-1 pl-4 pr-1.5 max-[375px]:pl-3">
-                    <span className="w-5 shrink-0 text-center text-[13px] tabular-nums text-lh-text-secondary">{i + 1}</span>
+                    <span className="w-5 shrink-0 text-center text-xs tabular-nums text-lh-text-secondary">{i + 1}</span>
                     <span aria-hidden className="flex w-6 shrink-0 justify-center text-lh-text-primary">
                       <Icon size={ICON.base} />
                     </span>
-                    <span className="min-w-0 grow basis-auto truncate text-[15px]">{t(sec.label)}</span>
+                    <span className="min-w-0 grow basis-auto truncate text-sm">{t(sec.label)}</span>
                     <div className="flex shrink-0 items-center">
                       <button
                         type="button"
@@ -145,7 +145,7 @@ export function SectionsPriorityGate() {
                           aria-label={t('Скрыть раздел {name}', { name: t(sec.label) })}
                           className={btn}
                         >
-                          <Eye size={ICON.inline + 2} />
+                          <Eye size={ICON.action} />
                         </button>
                       )}
                     </div>
@@ -164,7 +164,7 @@ export function SectionsPriorityGate() {
                     <Icon size={ICON.base} />
                   </span>
                   <div className="min-w-0 grow basis-auto">
-                    <p className="truncate text-[15px] text-lh-text-secondary">{t(sec.label)}</p>
+                    <p className="truncate text-sm text-lh-text-secondary">{t(sec.label)}</p>
                     <p className="text-xs text-lh-text-secondary">{t('Скрыто')}</p>
                   </div>
                   <button
@@ -173,7 +173,7 @@ export function SectionsPriorityGate() {
                     aria-label={t('Показать раздел {name}', { name: t(sec.label) })}
                     className={`${btn} !text-lh-accent`}
                   >
-                    <EyeOff size={ICON.inline + 2} />
+                    <EyeOff size={ICON.action} />
                   </button>
                 </div>
               );

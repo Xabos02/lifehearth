@@ -48,13 +48,6 @@ export function ProjectFolderIcon({ project, size = 18 }: { project: Project; si
  *  папкой, счётчиком и карандашом, свои задачи и «+ Задача». Тоже drop-зона —
  *  задачу можно перетащить прямо в подпроект. */
 
-/** Тонкая линия-индикатор вставки задачи между строками. */
-export function TaskDropLine() {
-  return (
-    <div className="my-1.5 h-1 rounded-full bg-lh-accent" aria-hidden />
-  );
-}
-
 export function TaskCard({
   tasks,
   projectById,
@@ -91,19 +84,20 @@ export function TaskCard({
               {t('Временные')}
             </p>
           )}
-          {dropIndex === i && <TaskDropLine />}
           <TaskItem
             task={task}
             project={task.projectId ? (projectById.get(task.projectId) ?? null) : null}
             onEdit={onEdit}
             onDragStart={onDragStart}
             isDragSource={draggingId === task.id}
+            dropEdge={
+              dropIndex === i ? 'top' : dropIndex === tasks.length && i === tasks.length - 1 ? 'bottom' : null
+            }
             hideProject
             launchable={!muted}
           />
         </Fragment>
       ))}
-      {dropIndex === tasks.length && <TaskDropLine />}
     </div>
   );
 }
@@ -115,12 +109,18 @@ export function CompletedSubsection({
   onEdit,
   expanded,
   onToggle,
+  progress = null,
+  color,
 }: {
   tasks: Task[];
   projectById: Map<string, Project>;
   onEdit: (task: Task) => void;
   expanded: boolean;
   onToggle: () => void;
+  /** Доля сделанных разовых задач проекта (projectProgress); null — без полоски. */
+  progress?: number | null;
+  /** Цвет заливки полоски — цвет проекта. */
+  color?: string;
 }) {
   return (
     <div className="mt-2">
@@ -137,6 +137,25 @@ export function CompletedSubsection({
         />
         <span>{t('Выполненные')}</span>
         <span className="text-xs">{tasks.length}</span>
+        {/* Полоска выполнения — в этой же строке, а не своей: экран не растёт
+            ни на пиксель (вариант Б канвы design/project-progress, выбор
+            владельца 16.11.2026). Цифра несёт значение, полоска — образ:
+            заливка цветом проекта в светлой теме слабее 3:1 к фону.
+            Дорожка — border-strong: surface-2 в светлой давал 1.06 к фону,
+            пустой части полоски на экране не было. */}
+        {progress !== null && (
+          <span className="ml-3 flex min-w-0 flex-1 items-center gap-2.5">
+            <span className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-lh-border-strong" aria-hidden>
+              <span
+                className="block h-1 rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+                style={{ width: `${progress}%`, background: color || 'var(--lh-accent)' }}
+              />
+            </span>
+            {/* Диктору — со смыслом, а не «Выполненные 7 70%» двумя числами подряд. */}
+            <span className="shrink-0 text-xs tabular-nums" aria-hidden>{progress}%</span>
+            <span className="sr-only">{t('Пройдено {v}%', { v: progress })}</span>
+          </span>
+        )}
       </button>
       {/* Раскрывается прямо в поток, без своей прокрутки.
           

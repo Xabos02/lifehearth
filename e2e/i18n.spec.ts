@@ -120,7 +120,7 @@ test('английский: одно русское слово в разных �
   await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(2);
   await page.getByRole('button', { name: 'From template' }).click();
   await page.getByRole('button', { name: 'New template' }).click();
-  await page.getByRole('button', { name: 'Add another type' }).last().click();
+  await page.getByRole('button', { name: 'Another workout type' }).click();
   await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(4);
   await expect(page.getByRole('button', { name: 'Clear', exact: true })).toHaveCount(0);
 });

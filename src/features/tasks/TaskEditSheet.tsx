@@ -39,7 +39,7 @@ import { t } from '../../lib/i18n';
 import { useAutoCapitalizeTextarea } from '../../lib/useAutoCapitalizeTextarea';
 import { usePomodoroActions } from '../focus/pomodoro';
 import { ICON } from '../../components/ui/icons';
-import { isSleeping, newSortOrder, scheduleNext } from './taskActions';
+import { isSleeping, newSortOrder, newTaskSortOrder, scheduleNext } from './taskActions';
 import { confirmAction } from '../../components/ui/confirmStore';
 import { Haptic } from '../../components/ui/Haptic';
 
@@ -98,6 +98,8 @@ function formatRemind(min: number): string {
 
 type TaskEditProps = {
   onClose: () => void;
+  /** Создана новая задача (не правка) — родитель может прокрутить к ней. */
+  onCreated?: (id: string) => void;
   task?: Task | null;
   defaults?: { projectId?: string | null; goalId?: string | null; dueDate?: string | null };
 };
@@ -118,7 +120,7 @@ export function TaskEditSheet({ open, ...rest }: TaskEditProps & { open: boolean
   return <TaskEditForm {...rest} />;
 }
 
-function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
+function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
   const projectsRaw = useLiveQuery(
     async () =>
       alive(await db.projects.toArray())
@@ -330,7 +332,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
       if (task) {
         // Высокий приоритет выбрали только что — задача встаёт наверх списка.
         const changes =
-          priority === 3 && task.priority !== 3 ? { ...data, sortOrder: newSortOrder(priority) } : data;
+          priority === 3 && task.priority !== 3 ? { ...data, sortOrder: newSortOrder() } : data;
         await update(db.tasks, task.id, changes);
         savedId = task.id;
         // Спящую ручную задачу перевели на расписание: она уже сделана —
@@ -339,7 +341,11 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         const rec = data.recurrence;
         if (isSleeping(task) && rec && rec.type !== 'manual') await scheduleNext({ ...task, ...changes }, rec);
       } else {
-        const created = await create(db.tasks, { ...data, completedAt: null, sortOrder: newSortOrder(priority) });
+        const created = await create(db.tasks, {
+          ...data,
+          completedAt: null,
+          sortOrder: await newTaskSortOrder(projectId, priority, temporary),
+        });
         savedId = created.id;
       }
       // Снимки раскладываем кусками в свою таблицу — параллельно тому, что они
@@ -360,6 +366,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         remindBefore: data.remindBefore,
       });
       onClose();
+      if (!task) onCreated?.(savedId);
     } finally {
       savingRef.current = false;
     }
@@ -380,7 +387,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
       name,
       color: newProjectColor,
       emoji: newProjectEmoji.trim() || '📁',
-      sortOrder: Date.now(),
+      sortOrder: newSortOrder(),
       archivedAt: null,
     });
     setProjectId(project.id);

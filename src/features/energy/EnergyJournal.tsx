@@ -49,7 +49,7 @@ export function EnergyJournal({ byDate }: Props) {
               >
                 <span aria-hidden className="flex h-10 w-full items-end">
                   <span
-                    className={`w-full rounded ${
+                    className={`w-full rounded-sm ${
                       level ? `bg-lh-accent ${i < 7 ? 'opacity-60' : ''}` : 'bg-lh-surface-2'
                     } ${isToday ? 'ring-1 ring-lh-accent' : ''}`}
                     style={{ height: level ? `${(level / 5) * 100}%` : 4 }}

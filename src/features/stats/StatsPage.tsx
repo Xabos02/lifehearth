@@ -8,7 +8,7 @@ import { alive } from '../../db/repo';
 import type { Goal, LearningItem, Task } from '../../db/types';
 import { addDaysKey, fromKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { getISODay } from 'date-fns';
-import { goalProgress, goalProgressLabel } from '../../lib/progress';
+import { goalProgress } from '../../lib/progress';
 import { financeSummary, formatRub } from '../../lib/finance';
 import { buildReport, reportFilename } from '../../lib/report';
 import { Screen } from '../../components/layout/Screen';
@@ -291,7 +291,7 @@ export function StatsPage() {
         .filter((g) => g.status === 'active')
         .map((g) => {
           const linked = g.progressMode === 'tasks' ? (tasksByGoal.get(g.id) ?? []) : [];
-          return { goal: g, value: goalProgress(g, linked), label: goalProgressLabel(g, linked) };
+          return { goal: g, value: goalProgress(g, linked) };
         }),
     [goals, tasksByGoal],
   );
@@ -502,7 +502,7 @@ export function StatsPage() {
             )}
             {learning.length > 0 && (
               <SectionTile
-                to="/learning"
+                to="/more/learning"
                 title={t('Развитие')}
                 value={learningStats.done}
                 hint={t('завершено · {n} в процессе', { n: learningStats.inProgress })}
@@ -513,13 +513,13 @@ export function StatsPage() {
                 {/* formatRub склеивает разряды NBSP — сумма не переносится,
                     поэтому кегль у сумм ступенью ниже, чем у счётчиков. */}
                 <SectionTile
-                  to="/finance"
+                  to="/more/finance"
                   title={t('Расходы')}
                   value={<span className="text-lg">{formatRub(finance.expense)}</span>}
                   hint={t('в месяц')}
                 />
                 <SectionTile
-                  to="/finance"
+                  to="/more/finance"
                   title={t('Баланс')}
                   value={<span className="text-lg">{formatRub(finance.balance)}</span>}
                   valueClass={finance.balance < 0 ? 'text-danger' : 'text-success'}

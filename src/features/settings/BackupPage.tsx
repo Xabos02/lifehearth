@@ -442,6 +442,18 @@ export function BackupPage() {
               </div>
             </div>
             <div className="divide-y divide-lh-border border-t border-lh-border">
+              {/* Дата — своей строкой с подписью, а не хвостом кнопки: внутри
+                  она становилась частью названия («Сохранить в файл никогда»). */}
+              <Row
+                label={t('Последняя копия')}
+                value={
+                  lastFile ? (
+                    formatRu(lastFile.slice(0, 10), 'd MMMM yyyy')
+                  ) : (
+                    <span className="font-semibold text-warning">{t('никогда')}</span>
+                  )
+                }
+              />
               <button
                 type="button"
                 onClick={() => void handleExport()}
@@ -449,9 +461,6 @@ export function BackupPage() {
               >
                 <Download size={ICON.header} />
                 <span className="min-w-0 flex-1 truncate">{t('Сохранить в файл')}</span>
-                <span className={`shrink-0 text-sm ${lastFile ? 'text-lh-text-secondary' : 'font-semibold text-warning'}`}>
-                  {lastFile ? formatRu(lastFile.slice(0, 10), 'd MMMM yyyy') : t('никогда')}
-                </span>
               </button>
               <button
                 type="button"

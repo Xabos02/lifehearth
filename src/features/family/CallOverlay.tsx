@@ -156,12 +156,12 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
             }`}
           />
           <span aria-hidden className="absolute -inset-[18px] rounded-full border border-lh-accent/10" />
-          <span className="flex size-36 items-center justify-center rounded-full border border-lh-accent-border bg-lh-accent-dim text-5xl font-light text-lh-accent">
+          <span className="flex size-36 items-center justify-center rounded-full border border-lh-accent-border bg-lh-accent-dim text-5xl font-extralight text-lh-accent">
             {initial}
           </span>
         </span>
         <div className="mt-10 text-center">
-          <p className="text-3xl font-light tracking-tight">{snap.peerName || t('Участник')}</p>
+          <p className="text-3xl font-extralight tracking-tight">{snap.peerName || t('Участник')}</p>
           <p
             className={`mt-2 flex items-center justify-center gap-2 text-base tabular-nums ${
               snap.status === 'active' ? 'text-success' : 'text-lh-text-secondary'
@@ -299,7 +299,7 @@ function CallButton({
       : color === 'success'
         ? 'bg-success-fill text-on-light'
         : color === 'active'
-          ? 'bg-lh-text-primary text-lh-bg'
+          ? 'bg-lh-accent text-lh-bg'
           : 'bg-lh-surface-2 text-lh-text-primary ring-1 ring-inset ring-lh-border';
   return (
     <button onClick={onClick} className="flex flex-col items-center gap-2 active:scale-95" aria-label={label}>

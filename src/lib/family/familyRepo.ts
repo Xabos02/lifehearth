@@ -9,6 +9,7 @@ import { getFamilyConfig } from './familyState';
 import { sendItem } from './familyChat';
 import { cancelReminder, scheduleReminder, type ReminderTask } from '../push';
 import { t } from '../i18n';
+import { orderUnderHigh, renumberUnderHigh } from '../taskOrder';
 
 function stripMeta<T extends { id: string; seq: number; familyId: string; pendingNotify?: unknown }>(
   row: T,
@@ -89,6 +90,19 @@ export async function createFamilyTask(
 ): Promise<FamilyTask | null> {
   const c = await getFamilyConfig(familyId);
   if (!c) return null;
+  // Новая встаёт наверх списка, обычная — сразу под важными во главе
+  // (orderUnderHigh). Список семейных идёт по убыванию порядка.
+  const active = (await db.familyTasks.where('familyId').equals(familyId).toArray())
+    .filter((t) => !t.deletedAt && !t.completedAt)
+    .sort((a, b) => b.sortOrder - a.sortOrder);
+  const top = Date.now();
+  let sortOrder = data.sortOrder ?? ((data.priority ?? 0) === 3 ? top : orderUnderHigh(active, top, -1));
+  if (sortOrder === null) {
+    // Зазор под важными кончился — порядок группы раздаём заново.
+    const fresh = renumberUnderHigh(active, -1);
+    for (const w of fresh.writes) await updateFamilyTask(familyId, w.id, { sortOrder: w.sortOrder });
+    sortOrder = fresh.order;
+  }
   const task: FamilyTask = {
     id: crypto.randomUUID(),
     familyId,
@@ -104,7 +118,7 @@ export async function createFamilyTask(
     createdBy: c.selfMemberId,
     completedAt: null,
     completedBy: null,
-    sortOrder: data.sortOrder ?? Date.now(),
+    sortOrder,
     deletedAt: null,
   };
   await db.familyTasks.put(task);

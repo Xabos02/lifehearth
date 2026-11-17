@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Задачи — как сейчас</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 826px; height: 892px; box-sizing: border-box; display: flex; gap: 40px; background: #08080f; font-family: -apple-system, system-ui, sans-serif">
+<div style="display: flex; flex-direction: column; gap: 12px; width: 393px">
+<p style="margin: 0; height: 28px; font-size: 13px; line-height: 28px; color: #8c8a85">Тёмная — кнопка фото ещё не появилась</p>
+<img src="shots/now-dark.webp" alt="Экран «Задачи» сейчас, тёмная тема" style="display: block; width: 393px; height: 852px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px; width: 393px">
+<p style="margin: 0; height: 28px; font-size: 13px; line-height: 28px; color: #8c8a85">Светлая</p>
+<img src="shots/now-light.webp" alt="Экран «Задачи» сейчас, светлая тема" style="display: block; width: 393px; height: 852px">
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":826,"height":892}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

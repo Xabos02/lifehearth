@@ -4,9 +4,9 @@ import { db } from '../../db/db';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
-import { Gauge, HeartPulse, Moon, Weight, type LucideIcon } from 'lucide-react';
+import { Gauge, Moon, Weight, type LucideIcon } from 'lucide-react';
 import { ICON } from '../../components/ui/icons';
-import { GPlus as Plus } from '../../components/ui/glyphs';
+import { GHeart, GPlus as Plus } from '../../components/ui/glyphs';
 import { getLang, t } from '../../lib/i18n';
 import { formatRu, isDateKey, todayKey } from '../../lib/dates';
 import type { MetricLog } from '../../db/types';
@@ -92,7 +92,7 @@ export function MeasuresTab() {
       <div className="grid grid-cols-2 gap-3">
       <MeasureCard
         compact
-        icon={HeartPulse}
+        icon={GHeart}
         def={measureDef('pulse')}
         value={pulse.last ? formatMeasure(pulse.last.value, measureDef('pulse')) : null}
         sub={
@@ -185,7 +185,7 @@ function MeasureCard({
         <Icon size={ICON.inline} className="shrink-0" />
         {t(def.title)}
       </h2>
-      <p className={`mt-1 font-light leading-tight tabular-nums ${compact ? 'text-2xl' : 'text-3xl'}`}>
+      <p className={`mt-1 font-extralight leading-tight tabular-nums ${compact ? 'text-2xl' : 'text-3xl'}`}>
         {value ?? '—'}
         {value && unit ? <span className="ml-1 text-sm text-lh-text-secondary">{t(unit)}</span> : null}
       </p>
@@ -198,7 +198,7 @@ function MeasureCard({
         {head}
         <p className="mt-1.5 text-2xs leading-snug text-lh-text-secondary">{sub}</p>
         <div className="mt-auto">
-          {series.length >= 2 && <Sparkline values={series} className="mt-3 h-7 w-full" />}
+          {series.length >= 2 && <Sparkline values={series} color={def.color} className="mt-3 h-7 w-full" />}
           {addButton}
         </div>
       </section>
@@ -209,7 +209,7 @@ function MeasureCard({
     <section className="card p-4" data-testid={`measure-${def.key}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">{head}</div>
-        {series.length >= 2 && <Sparkline values={series} dot className="mt-1 h-12 w-[120px] shrink-0" />}
+        {series.length >= 2 && <Sparkline values={series} color={def.color} dot className="mt-1 h-12 w-[120px] shrink-0" />}
       </div>
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-lh-border pt-3">
         <p className="min-w-0 text-xs text-lh-text-secondary">{sub}</p>
@@ -243,9 +243,9 @@ function LabRow({ def, value, sub, onAdd }: { def: MeasureDef; value: string | n
   );
 }
 
-/** Линия тренда без осей: достаточно увидеть направление. Цвет — золото
- *  интерфейса, точка отмечает последний замер. */
-function Sparkline({ values, className, dot = false }: { values: number[]; className: string; dot?: boolean }) {
+/** Линия тренда без осей: достаточно увидеть направление. Цвет — цвет ряда
+ *  из определения замера (PROTOCOL §5.10), точка отмечает последний замер. */
+function Sparkline({ values, color, className, dot = false }: { values: number[]; color: string; className: string; dot?: boolean }) {
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = max - min || 1;
@@ -256,14 +256,14 @@ function Sparkline({ values, className, dot = false }: { values: number[]; class
     <svg viewBox="-3 0 126 48" preserveAspectRatio="none" className={className} aria-hidden>
       <polyline
         fill="none"
-        stroke="var(--lh-accent)"
-        strokeWidth="1.8"
+        stroke={color}
+        strokeWidth="2"
         strokeLinejoin="round"
         strokeLinecap="round"
         vectorEffect="non-scaling-stroke"
         points={pts}
       />
-      {dot && <circle cx={lx} cy={ly} r="2.5" fill="var(--lh-accent)" />}
+      {dot && <circle cx={lx} cy={ly} r="2.5" fill={color} />}
     </svg>
   );
 }

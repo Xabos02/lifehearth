@@ -82,7 +82,7 @@ function GoalCard({
               total: wrapRub(goal.targetAmount),
             })}
             {monthly
-              ? ` · ${t('по {sum}/мес', { sum: wrapRub(monthly).replace(/\s?₽$/, '') })}`
+              ? ` · ${t('по {sum}/мес', { sum: wrapRub(monthly) })}`
               : ` · ${getLang() === 'en' ? `${wrapRub(rem)} left` : `осталось ${wrapRub(rem)}`}`}
           </>
         )}
@@ -177,7 +177,7 @@ export function SavingsSection() {
         <div className="card divide-y divide-lh-border">
           <div className="px-4 py-4">
             <p className="text-xs text-lh-text-secondary">{t('Всего накоплено')}</p>
-            <p className="mt-0.5 text-2xl font-light tabular-nums tracking-tight">{wrapRub(total)}</p>
+            <p className="mt-0.5 text-2xl font-extralight tabular-nums tracking-tight">{wrapRub(total)}</p>
           </div>
           {goals.map((g) => (
             <GoalCard
@@ -197,7 +197,7 @@ export function SavingsSection() {
           className="card flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-80"
         >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-            <PiggyBank size={ICON.action} />
+            <PiggyBank size={ICON.base} />
           </span>
           <span className="min-w-0 flex-1 text-sm text-lh-text-secondary">
             {t('Отложите на подушку, отпуск или крупную покупку — прогресс будет виден здесь.')}

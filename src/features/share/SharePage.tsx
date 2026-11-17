@@ -10,7 +10,7 @@ import { AutoGrowTextarea } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { create } from '../../db/repo';
-import { newSortOrder } from '../tasks/taskActions';
+import { newTaskSortOrder } from '../tasks/taskActions';
 import { parseQuickTask } from '../../lib/nlDate';
 // Тот же разбор, что у вставки в редакторе заметок: своя копия здесь не знала
 // про переносы Windows (\r\n), табуляцию между колонками и отступы — текст,
@@ -98,7 +98,7 @@ export function SharePage() {
         checklist: [],
         recurrence: null,
         tags: p.tags,
-        sortOrder: newSortOrder(p.priority),
+        sortOrder: await newTaskSortOrder(null, p.priority),
       });
       toast(t('Задача создана'));
       navigate('/tasks');
@@ -132,7 +132,7 @@ export function SharePage() {
         <button
           type="button"
           onClick={() => navigate('/')}
-          className="flex h-11 items-center px-3 text-base text-lh-accent active:opacity-60"
+          className="flex h-11 items-center px-3 text-base font-medium text-lh-accent active:opacity-60"
         >
           {t('Закрыть')}
         </button>

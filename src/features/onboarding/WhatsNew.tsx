@@ -89,7 +89,7 @@ export function WhatsNew() {
               {r.items.map((it, i) => (
                 <li key={i} className="flex items-start gap-4">
                   <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-                    <Sparkles size={ICON.inline} />
+                    <Sparkles size={ICON.base} />
                   </span>
                   <span className="min-w-0 flex-1 pt-1.5 text-sm leading-[1.45] text-lh-text-primary/90">{it}</span>
                 </li>

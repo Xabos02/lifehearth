@@ -384,16 +384,18 @@ function AssistantBlock({
   const trace = !failed ? (message.toolTrace ?? []) : [];
   return (
     <article className="cc-msg-in min-w-0 space-y-3">
-      {/* Шапка ответа: знак ассистента и что он читал для этого ответа —
-          прозрачность часть фичи. Без инструментов — какая модель ответила. */}
-      <AssistantHead failed={failed}>
+      {/* Шапка ответа: знак ассистента, какая модель ответила и что она читала
+          для этого ответа — прозрачность часть фичи. След переносится, а не
+          режется: какие данные ушли провайдеру, должно быть видно целиком. */}
+      <AssistantHead failed={failed} wrap={trace.length > 0}>
         {trace.length > 0 ? (
           <>
+            {message.model && `${modelLabel(message.model)} · `}
             {t('читаю:')}{' '}
             {trace.map((tr, i) => (
               <span key={i}>
                 {i > 0 && ', '}
-                <span>
+                <span className="whitespace-nowrap">
                   {t(TOOL_LABELS[tr.tool] ?? tr.tool)} · {tr.count}
                 </span>
               </span>
@@ -442,7 +444,9 @@ function AssistantBlock({
         </div>
       )}
       {!failed && (
-        <div className="-ml-2.5 flex items-center gap-1">
+        // Переносится: на 320px две кнопки со словами и счётчик в строку не
+        // влезают, и без переноса лента листалась бы вбок.
+        <div className="-ml-2.5 flex flex-wrap items-center gap-1">
           <button
             className="inline-flex h-11 items-center gap-1.5 rounded-[8px] px-2.5 text-xs text-lh-text-secondary active:bg-lh-surface-2"
             onClick={onCopy}
@@ -475,14 +479,18 @@ function AssistantBlock({
 function AssistantHead({
   failed = false,
   pulse = false,
+  wrap = false,
   children,
 }: {
   failed?: boolean;
   pulse?: boolean;
+  /** Строка переносится, кружок — по первой строке (pt-1 центрирует строку
+   *  13px·1.35 ≈ 17.5px на кружке 24px с точностью до 1px). */
+  wrap?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 text-xs text-lh-text-secondary">
+    <div className={`flex min-w-0 gap-2 text-xs text-lh-text-secondary ${wrap ? 'items-start' : 'items-center'}`}>
       <span
         aria-hidden
         className={`flex size-6 shrink-0 items-center justify-center rounded-full border ${
@@ -493,7 +501,7 @@ function AssistantHead({
       >
         <GSparkle size={ICON.inline} />
       </span>
-      <span className="min-w-0 truncate">{children}</span>
+      <span className={wrap ? 'min-w-0 break-words pt-1' : 'min-w-0 truncate'}>{children}</span>
     </div>
   );
 }

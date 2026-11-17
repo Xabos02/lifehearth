@@ -17,8 +17,7 @@ import { now } from '../../db/repo';
 import { updateSettings } from '../../hooks/useSettings';
 import { REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
 import { t } from '../../lib/i18n';
-import { ICON } from '../../components/ui/icons';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
 
 // Тексты слайдов — 11-16 слов каждый, одна мысль на слайд.
 //
@@ -123,7 +122,7 @@ export function OnboardingOverlay() {
           <button
             type="button"
             onClick={finish}
-            className="-mr-3 flex h-11 items-center px-3 text-[15px] text-lh-text-secondary active:opacity-60"
+            className="-mr-3 flex h-11 items-center px-3 text-sm text-lh-text-secondary active:opacity-60"
           >
             {t('Пропустить')}
           </button>
@@ -153,7 +152,7 @@ export function OnboardingOverlay() {
           style={{ touchAction: 'pan-y' }}
           className="flex animate-fade-in flex-col"
         >
-          <div className="mt-4 flex h-[clamp(200px,36vh,360px)] items-center justify-center overflow-hidden rounded-[24px] border border-lh-border bg-lh-surface">
+          <div className="mt-4 flex h-[clamp(200px,36vh,360px)] items-center justify-center overflow-hidden rounded-3xl border border-lh-border bg-lh-surface">
             {Art === 'app-icon' ? (
               // Своя иконка, а не плитка: то, что человек только что поставил
               // на «Домой». Тень тёплая — от углей на самой иконке.
@@ -168,21 +167,22 @@ export function OnboardingOverlay() {
               <Art />
             )}
           </div>
-          <h2 className="mt-[clamp(20px,3.5vh,32px)] text-[30px] font-light leading-[1.15] tracking-[-.6px]">{t(slide.title)}</h2>
+          <h2 className="mt-[clamp(20px,3.5vh,32px)] text-[30px] font-extralight leading-[1.15] tracking-[-.6px]">{t(slide.title)}</h2>
           <p className="mt-2.5 text-base leading-normal text-lh-text-secondary">{t(slide.text)}</p>
         </div>
 
-        {/* gap-4 + HIT_SLOP_44: невидимые зоны касания соседних точек не
-            перекрываются, тап уходит той точке, по которой целились. */}
-        <div className="mt-6 flex items-center gap-4 pl-1">
+        {/* Точки — только индикатор, не кнопки. Кнопками они не помещаются:
+            центры соседних кнопок не ближе 44px (PROTOCOL §5.1), и восемь
+            точек с таким шагом занимают 24 + 7×6 + 7×38 = 332px, а колонка
+            на 375px — 327px, на 320px — 272px. При gap-4 зоны 44×44 налезали
+            бы друг на друга на 22px, и тап уходил соседней точке. Шаг
+            называет строка «Шаг N из 8» сверху (поэтому ряд aria-hidden),
+            листают «Назад»/«Далее» и свайп. */}
+        <div aria-hidden className="mt-6 flex items-center gap-4 pl-1">
           {SLIDES.map((_, i) => (
-            <button
+            <span
               key={i}
-              type="button"
-              aria-label={t('Шаг {n}', { n: i + 1 })}
-              aria-current={i === step ? 'step' : undefined}
-              onClick={() => setStep(i)}
-              className={`h-1.5 rounded-full transition-all ${HIT_SLOP_44} ${
+              className={`h-1.5 rounded-full transition-all ${
                 i === step ? 'w-6 bg-lh-accent' : 'w-1.5 bg-lh-text-tertiary/50'
               }`}
             />
@@ -207,7 +207,7 @@ export function OnboardingOverlay() {
               className="flex h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
             >
               {last ? t('Начать') : t('Далее')}
-              {!last && <ArrowRight size={ICON.inline} strokeWidth={2.4} />}
+              {!last && <ArrowRight size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
             </button>
           </div>
 

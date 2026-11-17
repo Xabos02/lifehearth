@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Свёрнутые папки — все варианты</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body{margin:0;background:#f6f6fa;font-family:-apple-system,system-ui,sans-serif}
+  </style>
+</helmet>
+<div style="width: 375px; background: #f6f6fa">
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 16px 16px 0; font-size: 12px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: #5f5f6b">Все папки свёрнуты</p>
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 18px 16px 0; font-size: 13px; font-weight: 600; color: #26262f">Как сейчас, А и Б — одинаково</p>
+  <p style="height: 28px; box-sizing: border-box; margin: 0; padding: 10px 16px 0; font-size: 11px; color: #5f5f6b">«Выполненные» спрятаны вместе с задачами — полоски нет</p>
+  <img src="shots/fold-light-a.webp" alt="Свёрнутые папки без полоски" style="display: block; width: 375px; height: 193px">
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 18px 16px 0; font-size: 13px; font-weight: 600; color: #26262f">В</p>
+  <p style="height: 28px; box-sizing: border-box; margin: 0; padding: 10px 16px 0; font-size: 11px; color: #5f5f6b">Прогресс всех папок виден, не раскрывая ни одной: +22 px на папку</p>
+  <img src="shots/fold-light-c.webp" alt="Свёрнутые папки с полоской под названием" style="display: block; width: 375px; height: 254px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":623}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

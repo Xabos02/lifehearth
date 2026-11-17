@@ -43,11 +43,13 @@ import { useToast } from '../../components/ui/toastContext';
 import { t, tPlur } from '../../lib/i18n';
 import { todayKey } from '../../lib/dates';
 import { taskOnDay } from '../../lib/taskDates';
+import { projectProgress } from '../../lib/progress';
 import { ProjectEditSheet } from './ProjectEditSheet';
 import { QuickAddBar } from './QuickAddBar';
 import { TaskEditSheet } from './TaskEditSheet';
 import { FreezeSheet } from './FreezeSheet';
 import { GoalsProgress } from './GoalsProgress';
+import { AddBoardPhotoButton, PhotoBoard } from './PhotoBoard';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
 import { autoScrollStep } from './autoScroll';
@@ -56,6 +58,7 @@ import {
   NONE,
   FROZEN,
   DRAG_START_THRESHOLD,
+  DROP_HYSTERESIS,
   NEST_DX,
   SECTION_GAP,
   placeGhost,
@@ -402,6 +405,20 @@ export function TasksPage() {
   const projectNamesRef = useRef<Map<string, string>>(new Map());
   // Актуальные активные задачи по проектам — для finish-обработчика drag.
   const activeByProjectRef = useRef<Map<string, Task[]>>(new Map());
+  /** Новый порядок, пока база его не вернула.
+   *
+   *  Отпускание снимало линию и «призрак» сразу, а новый порядок приходит из
+   *  Dexie через несколько задач (запись → liveQuery → рендер). Между ними
+   *  успевал проскочить кадр со старым порядком: линия пропала, задача ещё на
+   *  прежнем месте — и только потом прыгала на новое. Теперь правки
+   *  накладываются поверх ответа базы в том же рендере, что снимает линию, и
+   *  действуют, пока ответ тот же (base): пришёл новый — в нём уже настоящий
+   *  порядок, накладка отключается сама, без эффекта со сбросом. */
+  const [pendingOrder, setPendingOrder] = useState<{
+    base: Task[] | undefined;
+    changes: Map<string, Partial<Task>>;
+  } | null>(null);
+  const tasksRawRef = useRef<Task[] | undefined>(undefined);
 
   // --- Переупорядочивание проектов (long-press заголовка) ---
   // projInsertIndex — «зазор» (0..N), куда встанет проект; рисуем там линию.
@@ -482,27 +499,38 @@ export function TasksPage() {
       if (r.top > y && (!below || r.top < below.edge)) below = { key, edge: r.top };
     }
     if (best) {
-      // У свёрнутой папки своя цель — только шапка. Её подпроекты остаются на
-      // экране и лежат в её прямоугольнике, а зазоры между ними — нет в их
-      // собственных: задача, отпущенная между «Поставщиками» и «Рекламой»,
-      // уходила в скрытый список родителя и пропадала с экрана. Ниже шапки —
-      // ближайший прямой подпроект.
+      // Подпроекты лежат в прямоугольнике родителя, а зазоры между ними
+      // (mt-3) — нет в их собственных. Палец в таком зазоре попадал в
+      // родителя: кольцо на миг вспыхивало на всей папке, линия улетала в
+      // конец его списка — «дёргается» при каждом переходе между соседними
+      // подпроектами. Своё у родителя — шапка и (у развёрнутого) задачи с
+      // «+ Задача»: всё это стоит НАД подпроектами. Ниже — ближайший прямой
+      // подпроект.
+      //
+      // У свёрнутой папки своё — только шапка: задача, отпущенная между
+      // «Поставщиками» и «Рекламой», уходила в скрытый список родителя и
+      // пропадала с экрана. Там подпроект берётся, лишь если он ближе шапки.
       const el = sectionNodes.current.get(best)!;
       const head = el.firstElementChild;
-      if (!head?.querySelector(':scope > [aria-expanded="false"]')) return best;
-      let d = y - head.getBoundingClientRect().bottom;
-      if (d <= 0) return best;
+      const folded = Boolean(head?.querySelector(':scope > [aria-expanded="false"]'));
       let near = best;
+      let d = Infinity;
+      let firstTop = Infinity;
       for (const [key, sub] of sectionNodes.current) {
         if (!sub.isConnected || sub.dataset.subOf !== best) continue;
         const r = sub.getBoundingClientRect();
+        firstTop = Math.min(firstTop, r.top);
         const dist = Math.max(r.top - y, y - r.bottom, 0);
         if (dist < d) {
           near = key;
           d = dist;
         }
       }
-      return near;
+      if (folded) {
+        const below = y - (head?.getBoundingClientRect().bottom ?? y);
+        return below > 0 && d < below ? near : best;
+      }
+      return y >= firstTop ? near : best;
     }
     // Промах в зазор между папками (SECTION_GAP) — цель та, чей край ближе.
     // Свёрнутая папка — это 45px заголовка, а полосы над и под ней уходили
@@ -559,6 +587,9 @@ export function TasksPage() {
       // проект задачи, так что отпустить над своей же секцией — оставить как было.
       const hit = hitTest(y);
       if (!hit) return;
+      // Где линия стоит сейчас — только в той же секции: зазор чужой секции
+      // для этой ничего не значит.
+      const cur = hit === dropKeyRef.current ? taskDropIndexRef.current : null;
       if (hit !== dropKeyRef.current) {
         dropKeyRef.current = hit;
         setDropKey(hit);
@@ -572,9 +603,13 @@ export function TasksPage() {
         for (const at of list) {
           const el = sec.querySelector(`[data-task-id="${at.id}"]`);
           if (!el) continue;
+          // Строка выше линии остаётся выше, пока палец не уйдёт за её
+          // середину на DROP_HYSTERESIS вверх; строка ниже — пока не уйдёт
+          // на столько же вниз (см. dragTuning.ts).
+          const band = cur === null ? 0 : seen < cur ? -DROP_HYSTERESIS : DROP_HYSTERESIS;
           seen++;
           const r = el.getBoundingClientRect();
-          if (y > r.top + r.height / 2) idx++;
+          if (y > r.top + r.height / 2 + band) idx++;
         }
       }
       // Свёрнутая секция-цель: узел с data-drop-key жив, но задачи не
@@ -704,7 +739,13 @@ export function TasksPage() {
               writes.push({ id, changes: { sortOrder } });
             }
           });
-          void updateMany(db.tasks, writes);
+          setPendingOrder({ base: tasksRawRef.current, changes: new Map(writes.map((w) => [w.id, w.changes])) });
+          // Запись не легла — накладку снять, иначе экран показывал бы порядок,
+          // которого в базе нет; ошибка уходит дальше, как и раньше.
+          updateMany(db.tasks, writes).catch((err: unknown) => {
+            setPendingOrder(null);
+            throw err;
+          });
           if (changedProject) {
             const name =
               nextProjectId === null ? t('Без проекта') : (projectNamesRef.current.get(target) ?? t('проект'));
@@ -1024,25 +1065,31 @@ export function TasksPage() {
   const tasksRaw = useLiveQuery(() => db.tasks.toArray(), []);
   const projectsRaw = useLiveQuery(() => db.projects.toArray(), []);
 
-  // Задача из строки быстрого ввода ложится в конец «Без проекта» — ниже
-  // всех папок. Человек жал Enter, поле очищалось, а задачи на экране не было.
-  // Строка появляется в DOM следующим рендером после ответа liveQuery — ждём
-  // её по кадрам и докручиваем ленту. Не scrollIntoView: он крутит всех
-  // предков и на iOS устраивал «войну скроллов» (см. ChatTab).
-  const revealTask = useCallback((id: string) => {
+  // Новое встаёт наверх своего списка, а заводят его и снизу: «+ Задача» под
+  // длинным проектом, «Новый проект» под всем списком, строка быстрого ввода
+  // при прокрученной ленте. Без докрутки новое
+  // оказывалось за краем экрана, и казалось, что ничего не сохранилось.
+  // Строка (или секция проекта) появляется в DOM следующим рендером после
+  // ответа liveQuery — ждём её по кадрам и докручиваем ленту. Не
+  // scrollIntoView: он крутит всех предков и на iOS устраивал «войну
+  // скроллов» (см. ChatTab).
+  const revealNew = useCallback((id: string) => {
     let tries = 0;
     const attempt = () => {
-      const el = document.querySelector<HTMLElement>(`[data-task-id="${id}"]`);
-      if (!el) {
+      const el = document.querySelector<HTMLElement>(`[data-task-id="${id}"], [data-drop-key="${id}"]`);
+      const sc = document.getElementById('app-scroll');
+      // Шторка ещё открыта: закрываясь, она вернёт ленту на прежнее место и
+      // перебьёт докрутку. Ждём, пока она снимет запрет прокрутки.
+      if (!el || !sc || sc.style.overflowY === 'hidden') {
         if (tries++ < 60) requestAnimationFrame(attempt);
         return;
       }
-      const sc = document.getElementById('app-scroll');
-      if (!sc) return;
       const r = el.getBoundingClientRect();
       const cr = sc.getBoundingClientRect();
+      // Сверху ленту закрывает липкая шапка экрана — верхний край считаем по ней.
+      const top = Math.max(cr.top, sc.querySelector('header')?.getBoundingClientRect().bottom ?? cr.top);
       if (r.bottom > cr.bottom) sc.scrollTop += r.bottom - cr.bottom + 16;
-      else if (r.top < cr.top) sc.scrollTop -= cr.top - r.top + 16;
+      else if (r.top < top) sc.scrollTop -= top - r.top + 16;
     };
     requestAnimationFrame(attempt);
   }, []);
@@ -1054,10 +1101,21 @@ export function TasksPage() {
   // движении линии вставки, сворачивании папки, открытии шторки — при том,
   // что данные не менялись. Разбор 08.09, подтверждён 12.09.
   // Задача удалённого или стёртого проекта — «Без проекта» (unlinkDeadProjects).
-  const allTasks = useMemo(
-    () => unlinkDeadProjects(alive(tasksRaw ?? []), projectsRaw),
-    [tasksRaw, projectsRaw],
-  );
+  useEffect(() => {
+    tasksRawRef.current = tasksRaw;
+  }, [tasksRaw]);
+  const allTasks = useMemo(() => {
+    const raw = tasksRaw ?? [];
+    // Накладка нового порядка после переноса — см. pendingOrder.
+    const list =
+      pendingOrder && pendingOrder.base === tasksRaw
+        ? raw.map((task) => {
+            const c = pendingOrder.changes.get(task.id);
+            return c ? { ...task, ...c } : task;
+          })
+        : raw;
+    return unlinkDeadProjects(alive(list), projectsRaw);
+  }, [tasksRaw, projectsRaw, pendingOrder]);
   // Строка под заголовком (макет): «14 активных · 4 на сегодня · 1 просрочена».
   const headerStats = useMemo(() => {
     const today = todayKey();
@@ -1079,7 +1137,7 @@ export function TasksPage() {
     () => (activeTag ? allTasks.filter((task) => task.tags.includes(activeTag)) : allTasks),
     [allTasks, activeTag],
   );
-  // Проекты сверху вниз в порядке создания (sortOrder растёт → новые ниже).
+  // Проекты по sortOrder: новый встаёт наверх (newSortOrder), перенос задаёт место.
   const projects = useMemo(
     () =>
       alive(projectsRaw ?? [])
@@ -1331,6 +1389,8 @@ export function TasksPage() {
                     onEdit={editTask}
                     expanded={expandedCompleted.has(sub.id)}
                     onToggle={() => toggleCompleted(sub.id)}
+                    progress={projectProgress(subList, subDone)}
+                    color={sub.color}
                   />
                 )}
                 <AddTaskRow
@@ -1346,24 +1406,74 @@ export function TasksPage() {
     );
   };
 
+  // «Без проекта» — над проектами (владелец, 16.11.2026, канва
+  // design/no-project-top): туда ложится задача из строки быстрого ввода, и под
+  // всеми папками она оказывалась в самом низу экрана. С одними выполненными
+  // блок остаётся внизу, как раньше: у того, кто всё раскладывает по папкам,
+  // верх экрана не занимает свёрнутый архив.
+  const noProjectOnTop = noProjectTasks.length > 0;
+  const noProjectSection =
+    (noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
+      <Section
+        title={t('Без проекта')}
+        count={activeCount(noProjectTasks)}
+        collapsed={collapsed.has(NONE)}
+        onToggle={() => toggle(NONE)}
+        onLaunch={launchOf(noProjectTasks)}
+        dropRef={registerSection}
+        dropKey={NONE}
+        highlight={Boolean(draggingTask) && dropKey === NONE}
+      >
+        {noProjectTasks.length > 0 && (
+          <TaskCard
+            tasks={noProjectTasks}
+            projectById={projectById}
+            onEdit={editTask}
+            onDragStart={onDragStart}
+            draggingId={draggingTask?.id ?? null}
+            dropIndex={draggingTask && dropKey === NONE ? taskDropIndex : null}
+            dividerAt={dividerOf(noProjectTasks)}
+          />
+        )}
+        {noProjectCompleted.length > 0 && (
+          <CompletedSubsection
+            tasks={noProjectCompleted}
+            projectById={projectById}
+            onEdit={editTask}
+            expanded={expandedCompleted.has(NONE)}
+            onToggle={() => toggleCompleted(NONE)}
+          />
+        )}
+        <AddTaskRow onClick={() => openTask(null, null)} />
+      </Section>
+    );
+
   return (
     <Screen
       title={t('Задачи')}
       subtitle={headerStats}
       right={
-        // Голубой «морозный» кружок со свечением — видно, что это кнопка.
-        // Метрика и зона касания 44×44 — из IconButton; здесь только заливка.
-        <IconButton
-          icon={Snowflake}
-          label={t('Заморозить задачи')}
-          onClick={() => setFreezeSheetOpen(true)}
-          tone="frost"
-          strokeWidth={STROKE_STRONG}
-          className="bg-frost/15 transition-transform active:scale-90"
-        />
+        // gap-4: у IconButton -mx-1 и зона касания 44 — при меньшем зазоре
+        // центры соседних кнопок сходятся ближе 44px (PROTOCOL §5.1).
+        <div className="flex items-center gap-4">
+          <AddBoardPhotoButton />
+          {/* Голубой «морозный» кружок со свечением — видно, что это кнопка.
+              Метрика и зона касания 44×44 — из IconButton; здесь только заливка. */}
+          <IconButton
+            icon={Snowflake}
+            label={t('Заморозить задачи')}
+            onClick={() => setFreezeSheetOpen(true)}
+            tone="frost"
+            strokeWidth={STROKE_STRONG}
+            className="bg-frost/15 transition-transform active:scale-90"
+          />
+        </div>
       }
     >
-      <QuickAddBar onCreated={revealTask} />
+      {/* Фото-панель — в самом верху, над строкой добавления: так попросил
+          владелец (16.11.2026). Пустая она не занимает места. */}
+      <PhotoBoard />
+      <QuickAddBar onCreated={revealNew} />
 
       {tagOptions.length > 0 && (
         <div className="mb-4">
@@ -1385,8 +1495,9 @@ export function TasksPage() {
       )}
 
       {/* Приближение к целям — под строкой добавления и фильтром тегов (как в
-          макете). Выше строки нельзя: первое, зачем открывают экран задач, —
-          записать задачу. */}
+          макете). Выше строки не ставим: первое, зачем открывают экран задач, —
+          записать задачу. Единственное исключение — фотопанель, по прямой
+          просьбе владельца, и пустая она места не занимает. */}
       <GoalsProgress />
 
       {empty ? (
@@ -1430,6 +1541,7 @@ export function TasksPage() {
               }
             />
           )}
+          {noProjectOnTop && noProjectSection}
           {topProjects.map((p, i) => {
             const list = activeByProject.get(p.id) ?? [];
             const doneList = completedByProject.get(p.id) ?? [];
@@ -1486,6 +1598,8 @@ export function TasksPage() {
                       onEdit={editTask}
                       expanded={expandedCompleted.has(p.id)}
                       onToggle={() => toggleCompleted(p.id)}
+                      progress={projectProgress(list, doneList)}
+                      color={p.color}
                     />
                   )}
                   <AddTaskRow
@@ -1497,41 +1611,7 @@ export function TasksPage() {
             );
           })}
           {reorderingTop && projInsertIndex === topProjects.length && <DropLine />}
-
-          {(noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
-            <Section
-              title={t('Без проекта')}
-              count={activeCount(noProjectTasks)}
-              collapsed={collapsed.has(NONE)}
-              onToggle={() => toggle(NONE)}
-              onLaunch={launchOf(noProjectTasks)}
-              dropRef={registerSection}
-              dropKey={NONE}
-              highlight={Boolean(draggingTask) && dropKey === NONE}
-            >
-              {noProjectTasks.length > 0 && (
-                <TaskCard
-                  tasks={noProjectTasks}
-                  projectById={projectById}
-                  onEdit={editTask}
-                  onDragStart={onDragStart}
-                  draggingId={draggingTask?.id ?? null}
-                  dropIndex={draggingTask && dropKey === NONE ? taskDropIndex : null}
-                  dividerAt={dividerOf(noProjectTasks)}
-                />
-              )}
-              {noProjectCompleted.length > 0 && (
-                <CompletedSubsection
-                  tasks={noProjectCompleted}
-                  projectById={projectById}
-                  onEdit={editTask}
-                  expanded={expandedCompleted.has(NONE)}
-                  onToggle={() => toggleCompleted(NONE)}
-                />
-              )}
-              <AddTaskRow onClick={() => openTask(null, null)} />
-            </Section>
-          )}
+          {!noProjectOnTop && noProjectSection}
 
           <button
             onClick={() => openProject(null)}
@@ -1589,12 +1669,14 @@ export function TasksPage() {
         onClose={() => setTaskSheetOpen(false)}
         task={editingTask}
         defaults={{ projectId: taskDefaultProject }}
+        onCreated={revealNew}
       />
       <ProjectEditSheet
         open={projectSheetOpen}
         onClose={() => setProjectSheetOpen(false)}
         project={editingProject}
         defaults={{ parentId: projectDefaultParent }}
+        onCreated={revealNew}
       />
       <FreezeSheet
         key={freezeSheetOpen ? 'freeze-open' : 'freeze-closed'}
