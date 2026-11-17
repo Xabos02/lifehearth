@@ -725,3 +725,26 @@ test('шаблон по шагам: блоки 1 → 2 → 3, вид и подр
   expect(tpl.items.map((i) => i.type)).toEqual(['strength', 'run']);
   expect(tpl.items[0].exercises).toStrictEqual([{ name: 'Подтягивания с поясом', sets: 4, reps: 6, weight: '+10 кг' }]);
 });
+
+test('«Шаблоны» в шапке «Спорта»: на первом экране 375×812 и при прокрутке, на «Замерах» нет', async ({ page }) => {
+  // Канва design/template-entry, вариант А: «Шаблоны ›» в карточке дня стоял
+  // на 375 px ниже первого экрана — новичок не находил, где завести шаблон.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openApp(page, '/more/health');
+  const entry = page.locator('header').getByRole('button', { name: 'Шаблоны', exact: true });
+  await expect(entry).toBeInViewport();
+
+  await page.getByRole('button', { name: 'Замеры', exact: true }).click();
+  await expect(entry).toHaveCount(0);
+  await page.getByRole('button', { name: 'Спорт', exact: true }).click();
+
+  // Шапка липкая: вход не уезжает вместе с экраном.
+  await page.locator('#app-scroll').evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  await expect(page.getByRole('heading', { name: 'Недавние' })).toBeInViewport();
+  await expect(entry).toBeInViewport();
+
+  await entry.click();
+  await expect(page.getByRole('heading', { name: 'Шаблоны тренировок' })).toBeVisible();
+  await page.getByRole('button', { name: 'Новый шаблон' }).click();
+  await expect(page.getByRole('heading', { name: 'Новый шаблон' })).toBeVisible();
+});
