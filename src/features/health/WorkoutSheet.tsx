@@ -36,10 +36,33 @@ interface Props {
  *  можно добавить ещё вид кнопкой, загрузить шаблон и убрать из него то, чего
  *  сегодня не делали. Правка уже сохранённой записи — как раньше, один вид. */
 export function WorkoutSheet({ open, onClose, workout, date, template = null }: Props) {
+  const formKey = (workout?.id ?? 'new') + date + (template?.id ?? '');
+  // Шаблон, загруженный «Из шаблона» уже в открытой форме: его имя встаёт в
+  // заголовок так же, как у чипа. Помним его вместе с ключом формы: форма,
+  // собранная заново (полночь на «Сегодня», другой чип при открытой шторке),
+  // его уже не содержит — и заголовок о нём забывает. Закрытая шторка — тоже.
+  const [picked, setPicked] = useState<{ key: string; tpl: WorkoutTemplate } | null>(null);
+  if (!open && picked) setPicked(null);
+  // Название шаблона не пропадает на входе (Влад, 17.11; канва
+  // design/template-title, А): заголовок — имя, а то, что это новая запись,
+  // — строкой под ним.
+  const from = workout ? null : picked?.key === formKey ? picked.tpl : template;
   return (
-    <Sheet open={open} onClose={onClose} title={workout ? t('Тренировка') : t('Новая тренировка')}>
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={workout ? t('Тренировка') : from?.name || t('Новая тренировка')}
+      subtitle={from ? t('Новая тренировка по шаблону') : undefined}
+    >
       {open && (
-        <WorkoutForm key={(workout?.id ?? 'new') + date + (template?.id ?? '')} workout={workout} date={date} template={template} onClose={onClose} />
+        <WorkoutForm
+          key={formKey}
+          workout={workout}
+          date={date}
+          template={template}
+          onTemplate={(tpl) => setPicked({ key: formKey, tpl })}
+          onClose={onClose}
+        />
       )}
     </Sheet>
   );
@@ -55,11 +78,13 @@ function WorkoutForm({
   workout,
   date,
   template,
+  onTemplate,
   onClose,
 }: {
   workout: Workout | null;
   date: string;
   template: WorkoutTemplate | null;
+  onTemplate: (tpl: WorkoutTemplate) => void;
   onClose: () => void;
 }) {
   const [day, setDay] = useState(workout?.date ?? date);
@@ -82,6 +107,7 @@ function WorkoutForm({
 
   function applyTemplate(tpl: WorkoutTemplate) {
     setItems(itemsFromTemplate(tpl));
+    onTemplate(tpl);
     setTemplatesOpen(false);
   }
 
