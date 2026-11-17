@@ -76,7 +76,25 @@ export function HealthPage() {
   const close = () => setSheet((s) => ({ ...s, open: false }));
 
   return (
-    <Screen title={t('Здоровье')} backTo="/home">
+    <Screen
+      title={t('Здоровье')}
+      backTo="/home"
+      // Вход в шаблоны — в шапке вкладки «Спорт» (канва design/template-entry,
+      // вариант А): «Шаблоны ›» внизу карточки дня на 375 px стоял ниже
+      // первого экрана, и новичок не находил, где завести шаблон. Шапка
+      // липкая — вход виден и при прокрутке. Чипы остаются в карточке дня.
+      right={
+        tab === 'sport' ? (
+          <button
+            type="button"
+            onClick={() => setTemplatesOpen(true)}
+            className="min-h-11 shrink-0 rounded-lg px-2 py-2.5 text-base font-medium text-lh-accent active:opacity-60"
+          >
+            {t('Шаблоны')}
+          </button>
+        ) : undefined
+      }
+    >
       <div className="mb-4">
         <SegmentedControl<Tab>
           options={[
