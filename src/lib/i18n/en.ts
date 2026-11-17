@@ -1952,6 +1952,7 @@ export const EN: Record<string, string> = {
   'Найдено записей: {n}, новых: {fresh}, не разобрано строк: {skipped}. Добавить новые?': 'Found {n} records, {fresh} new, {skipped} rows unreadable. Add the new ones?',
   'Недавние': 'Recent',
   'Новая тренировка': 'New workout',
+  'Новая тренировка по шаблону': 'New workout from a template',
   'Тренировка': 'Workout',
   'Добавить ещё вид': 'Add another type',
   'Из шаблона': 'From template',
