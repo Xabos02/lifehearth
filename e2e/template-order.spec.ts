@@ -110,15 +110,18 @@ test('удержание без движения ничего не меняет 
   await page.mouse.up();
   await expect(page.getByTestId('template-ghost')).toHaveCount(0);
   await page.waitForTimeout(300);
-  // Удержание не тап: форма тренировки не открылась, порядок не тронут.
-  await expect(page.getByRole('heading', { name: 'Новая тренировка' })).toHaveCount(0);
+  // Удержание не тап: форма тренировки по шаблону не открылась (заголовок у
+  // неё — имя шаблона, под ним пометка), список на месте, порядок не тронут.
+  await expect(page.getByText('Новая тренировка по шаблону')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Шаблоны тренировок' })).toBeVisible();
   expect(await stored(page)).toEqual([
     ['Тренировка А', null],
     ['Тренировка Б', null],
   ]);
 
   await page.getByRole('button', { name: /^Тренировка Б/ }).click();
-  await expect(page.getByRole('heading', { name: 'Новая тренировка' })).toBeVisible();
+  await expect(page.getByText('Новая тренировка по шаблону')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Тренировка Б', exact: true })).toBeVisible();
 });
 
 test('обрыв жеста системой — переноса нет', async ({ page }) => {

@@ -236,7 +236,9 @@ test('чип в карточке дня: тренировка по шаблон�
   await page.keyboard.press('ArrowLeft');
   await expect(page.getByRole('heading', { name: '14 ноября, суббота' })).toBeVisible();
   await page.getByRole('button', { name: 'По шаблону: Тренировка А' }).click();
-  await expect(page.getByRole('heading', { name: 'Новая тренировка' })).toBeVisible();
+  // Имя шаблона не пропадает на входе (Влад, 17.11; канва design/template-title, А).
+  await expect(page.locator(SHEET).getByRole('heading', { name: 'Тренировка А', exact: true })).toBeVisible();
+  await expect(page.locator(SHEET).getByText('Новая тренировка по шаблону', { exact: true })).toBeVisible();
   await expect(page.locator(SHEET).locator('input[type="date"]')).toHaveValue('2026-11-14');
   await expect(page.getByTestId('workout-kind')).toHaveCount(3);
   const rows = page.getByTestId('exercise-row');
@@ -271,9 +273,63 @@ test('чип в карточке дня: тренировка по шаблон�
   // Из списка шаблонов — то же самое: выбор открывает запись.
   await openTemplates(page);
   await page.getByRole('button', { name: /^Тренировка А/ }).click();
-  await expect(page.getByRole('heading', { name: 'Новая тренировка' })).toBeVisible();
+  await expect(page.locator(SHEET).getByRole('heading', { name: 'Тренировка А', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Шаблоны тренировок' })).toHaveCount(0);
   await expect(page.getByTestId('exercise-row')).toHaveCount(5);
+});
+
+test('шторка по шаблону: «Из шаблона» в открытой форме ставит имя, закрытие его забывает, правка — «Тренировка»', async ({ page }) => {
+  await openApp(page, '/more/health');
+  await seedTemplate(page, TEMPLATE_A);
+  await seedTemplate(page, { ...TEMPLATE_A, name: 'Тренировка Б' });
+  const sheet = page.locator(SHEET);
+  const mark = sheet.getByText('Новая тренировка по шаблону', { exact: true });
+
+  // Обычная запись — без пометки.
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  await expect(sheet.getByRole('heading', { name: 'Новая тренировка', exact: true })).toBeVisible();
+  await expect(mark).toHaveCount(0);
+
+  // Шаблон, загруженный в уже открытую форму, — тоже по имени.
+  await sheet.getByRole('button', { name: 'Из шаблона' }).click();
+  await page.getByRole('button', { name: /^Тренировка Б/ }).click();
+  await expect(sheet).toHaveCount(1);
+  await expect(sheet.getByRole('heading', { name: 'Тренировка Б', exact: true })).toBeVisible();
+  await expect(mark).toBeVisible();
+
+  // Закрыл без записи — следующая обычная форма снова «Новая тренировка».
+  await sheet.getByRole('button', { name: 'Закрыть' }).click();
+  await expect(sheet).toHaveCount(0);
+  await page.getByRole('button', { name: 'Отметить тренировку' }).click();
+  await expect(sheet.getByRole('heading', { name: 'Новая тренировка', exact: true })).toBeVisible();
+  await expect(mark).toHaveCount(0);
+  await sheet.getByRole('button', { name: 'Закрыть' }).click();
+  await expect(sheet).toHaveCount(0);
+
+  // По чипу — имя; шаблон, загруженный поверх, важнее того, с которым открыли.
+  await page.getByRole('button', { name: 'По шаблону: Тренировка А' }).click();
+  await expect(sheet.getByRole('heading', { name: 'Тренировка А', exact: true })).toBeVisible();
+  await sheet.getByRole('button', { name: 'Из шаблона' }).click();
+  await page.getByRole('button', { name: /^Тренировка Б/ }).click();
+  await expect(sheet).toHaveCount(1);
+  await expect(sheet.getByRole('heading', { name: 'Тренировка Б', exact: true })).toBeVisible();
+  // Сохранённая запись открывается на правку как «Тренировка».
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(sheet).toHaveCount(0);
+  await page.getByRole('button', { name: /^Силовая/ }).first().click();
+  await expect(sheet.getByRole('heading', { name: 'Тренировка', exact: true })).toBeVisible();
+  await expect(mark).toHaveCount(0);
+  await sheet.getByRole('button', { name: 'Закрыть' }).click();
+  await expect(sheet).toHaveCount(0);
+
+  // Имя без пробелов (до 60 знаков) рвётся, крестик остаётся в панели.
+  const solid = 'Верх_тела_подтягивания_брусья_шея_пресс_и_заминка_по_кругу';
+  await seedTemplate(page, { ...TEMPLATE_A, name: solid });
+  await page.getByRole('button', { name: `По шаблону: ${solid}` }).click();
+  await expect(sheet.getByRole('heading', { name: solid })).toBeVisible();
+  const panel = (await sheet.locator('.animate-sheet-up').boundingBox())!;
+  const cross = (await sheet.getByRole('button', { name: 'Закрыть' }).boundingBox())!;
+  expect(cross.x + cross.width).toBeLessThanOrEqual(panel.x + panel.width - 12);
 });
 
 test('закрытие редактора: без правок — молча, с правками — вопрос; удаление шаблона — обе ветки', async ({ page }) => {
@@ -666,7 +722,7 @@ test('двойной тап по чипу шаблона: второй тап н
     expect(onPanel, 'под пальцем не въезжающая панель — сетап не тот').toBe(true);
     await page.touchscreen.tap(x, y);
     await page.evaluate(() => (window as unknown as { __entry: Animation }).__entry.finish());
-    await expect(page.getByRole('heading', { name: 'Новая тренировка' })).toBeVisible();
+    await expect(page.locator(SHEET).getByRole('heading', { name: 'Тренировка А — сила, удар и кардио на всю неделю' })).toBeVisible();
     await expect(page.getByTestId('workout-kind')).toHaveCount(3);
     await expect(page.getByTestId('exercise-editor')).toHaveCount(0);
     await expect(page.locator(`${SHEET} [aria-expanded="true"]`)).toHaveCount(0);
