@@ -59,10 +59,10 @@ describe('превью списка чатов', () => {
 });
 
 describe('createChat', () => {
-  it('наследует переданную модель — новый чат не откатывается к заглушке', async () => {
-    const c = await createChat('anthropic/claude-sonnet-5');
-    expect(c.model).toBe('anthropic/claude-sonnet-5');
+  it('наследует переданную модель — новый чат не откатывается к модели по умолчанию', async () => {
+    const c = await createChat('@cf/qwen/qwen3.8-27b');
+    expect(c.model).toBe('@cf/qwen/qwen3.8-27b');
     const fallback = await createChat(undefined);
-    expect(fallback.model).toBe('echo');
+    expect(fallback.model).toBe('@cf/google/gemma-4-26b-a4b-it');
   });
 });

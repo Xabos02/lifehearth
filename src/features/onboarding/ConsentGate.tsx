@@ -70,7 +70,7 @@ function channelRows(female: boolean): Record<ConsentChannel, { title: string; t
       // «Женские дни» — только в женском профиле: у раздела, которого у
       // человека нет, не остаётся и следа (PROTOCOL §7.2).
       text:
-        t('Вопрос — и прочитанные записи, если включены «Данные», — через наш сервер к Polza.ai и модели Claude компании Anthropic (США).') +
+        t('Вопрос — и прочитанные записи, если включены «Данные», — через наш сервер к модели на серверах Cloudflare (США). Cloudflare их не хранит и не учит на них модели.') +
         (female ? ' ' + t('«Женские дни» ассистенту недоступны.') : ''),
     },
     calls: {
@@ -241,7 +241,7 @@ export function ConsentGate() {
                   tone="text-warning"
                   icon={<Eye size={ICON.base} strokeWidth={STROKE_STRONG} />}
                   title={t('Ассистент, голосовой ввод и погода')}
-                  text={t('передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Polza.ai, Anthropic, Google, Apple, Microsoft, Open-Meteo.')}
+                  text={t('передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Cloudflare, Google, Apple, Microsoft, Open-Meteo.')}
                 />
               </ul>
             </section>

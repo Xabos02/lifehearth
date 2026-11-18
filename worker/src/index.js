@@ -755,15 +755,6 @@ export default {
       if (url.pathname === '/ai/chat' && request.method === 'POST') {
         const accountId = await authAccount(request, env);
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
-        // Allowlist — единственный барьер между публичным workers.dev и платным
-        // ключом провайдера. Пустая переменная = пускать всех (режим отладки).
-        const allowed = (env.AI_ALLOWED_ACCOUNTS || '')
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-        if (allowed.length && !allowed.includes(accountId)) {
-          return json({ error: 'forbidden', message: 'аккаунт не в списке разрешённых' }, 403, origin);
-        }
         let body;
         try {
           body = await request.json();
@@ -802,10 +793,64 @@ export default {
         const tools = Array.isArray(body?.tools) && body.tools.length ? body.tools : undefined;
 
         const model = typeof body?.model === 'string' ? body.model : 'echo';
-        if (model === 'echo' || !env.AI_PROVIDER_KEY) {
+        if (model === 'echo') {
           return json(echoReply(clean, body?.systemPrompt), 200, origin);
         }
+        const sys = typeof body?.systemPrompt === 'string' && body.systemPrompt.trim()
+          ? [{ role: 'system', content: body.systemPrompt }]
+          : [];
+        const sseHeaders = {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-store',
+          ...corsHeaders(origin),
+        };
 
+        // Бесплатные модели Cloudflare Workers AI — через binding [ai]: тот же
+        // аккаунт, что у воркера, ключ не нужен. Открыты любому аккаунту, без
+        // списка допуска (решение Влада 18.11.2026: ассистент без настроек).
+        // Цена открытости — общий дневной лимит: выбрать его может и чужой,
+        // тогда до 00:00 UTC отказ 3036 у всех; на плане Workers Free денег это
+        // не стоит. Поток у моделей с OpenAI-схемой тот же, что у провайдера, и
+        // уходит клиенту байт в байт (проверено 16.11.2026: tools + stream
+        // работают вместе, usage с Neurons — последней строкой потока).
+        if (model.startsWith('@cf/')) {
+          const cf = CF_MODELS[model];
+          if (!cf) return json({ error: 'bad_request', message: 'модель не поддерживается' }, 400, origin);
+          if (!env.AI) return json({ error: 'provider', message: 'Workers AI не подключён' }, 500, origin);
+          let stream;
+          try {
+            stream = await env.AI.run(model, {
+              messages: [...sys, ...clean],
+              stream: true,
+              stream_options: { include_usage: true },
+              ...cf,
+              ...(tools ? { tools } : {}),
+            });
+          } catch (e) {
+            const msg = String(e?.message ?? e).slice(0, 500);
+            // 3036 — кончились бесплатные 10 000 Neurons, сброс в 00:00 UTC.
+            // 3040 (перегрузка) тоже приходит как 429, но ждать до утра не надо.
+            if (msg.includes('3036')) return json({ error: 'quota', message: msg }, 429, origin);
+            return json({ error: 'provider', message: msg }, 502, origin);
+          }
+          return new Response(stream, { status: 200, headers: sseHeaders });
+        }
+
+        // Allowlist — единственный барьер между публичным workers.dev и платным
+        // ключом провайдера. Пустой список — отказ: деплой без keep_vars стирает
+        // переменные дашборда, и прежнее «пусто = пускать всех» молча открывало
+        // прокси. Задавать секретом — их деплой не трогает. С 1.69.0 клиент
+        // платные модели не предлагает; путь оставлен под их возврат.
+        const allowed = (env.AI_ALLOWED_ACCOUNTS || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (!allowed.includes(accountId)) {
+          return json({ error: 'forbidden', message: 'аккаунт не в списке разрешённых' }, 403, origin);
+        }
+        if (!env.AI_PROVIDER_KEY) {
+          return json(echoReply(clean, body?.systemPrompt), 200, origin);
+        }
         // Живой провайдер. Формат — OpenAI chat completions (его говорят все
         // агрегаторы; для Polza сверяется при настройке). Адрес НЕ зашит:
         // AI_PROVIDER_URL — полный URL эндпоинта completions в переменных
@@ -813,9 +858,6 @@ export default {
         if (!env.AI_PROVIDER_URL) {
           return json({ error: 'provider', message: 'AI_PROVIDER_URL не настроен' }, 500, origin);
         }
-        const sys = typeof body?.systemPrompt === 'string' && body.systemPrompt.trim()
-          ? [{ role: 'system', content: body.systemPrompt }]
-          : [];
         let upstream;
         try {
           upstream = await fetch(env.AI_PROVIDER_URL, {
@@ -845,14 +887,7 @@ export default {
           const text = await upstream.text().catch(() => '');
           return json({ error: 'provider', message: text.slice(0, 500) || `HTTP ${upstream.status}` }, upstream.status, origin);
         }
-        return new Response(upstream.body, {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/event-stream; charset=utf-8',
-            'Cache-Control': 'no-store',
-            ...corsHeaders(origin),
-          },
-        });
+        return new Response(upstream.body, { status: 200, headers: sseHeaders });
       }
 
       // === Семья: проксируем в Durable Object (1 комната на семью) ===
@@ -877,6 +912,21 @@ export default {
     ctx.waitUntil(sendDue(env));
     ctx.waitUntil(checkAppVersion(env)); // сторож версии → авто-пуш об обновлении
   },
+};
+
+/**
+ * Бесплатные модели Workers AI, которые пускаем, и их настройки. Чужой @cf/ —
+ * отказ: каталог Cloudflare большой, и случайная тяжёлая модель съела бы общий
+ * дневной лимит (10 000 Neurons на аккаунт) за несколько вопросов.
+ *
+ * max_tokens — потолок на размышления и текст, по цене выхода, а не 32000, как
+ * у Claude. Худший случай в Neurons: Gemma 8192 × 27 273 / 1M ≈ 220 (2% дня),
+ * Qwen 4096 × 290 909 / 1M ≈ 1190 (12% дня). Qwen по умолчанию думает на xhigh;
+ * на low замер 16.11.2026 — около 190 Neurons на вопрос против 31 у Gemma.
+ */
+const CF_MODELS = {
+  '@cf/google/gemma-4-26b-a4b-it': { max_tokens: 8192 },
+  '@cf/qwen/qwen3.8-27b': { max_tokens: 4096, reasoning_effort: 'low' },
 };
 
 /**

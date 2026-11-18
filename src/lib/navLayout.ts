@@ -27,6 +27,10 @@ export interface NavRegistryItem {
    *  стоит человеку положить его в панель или в «Главную», флаг больше не влияет,
    *  и раздел ведёт себя как любой другой. */
   hiddenByDefault?: boolean;
+  /** Новинка: пока человек раздел не расставлял, он ПЕРВЫЙ на «Главной», а не
+   *  в хвосте за «Показать ещё» — иначе после анонса его не найти. Как и
+   *  hiddenByDefault, действует, только пока раздел не упомянут в конфиге. */
+  featured?: boolean;
 }
 
 export interface NavLayout {
@@ -91,6 +95,11 @@ export function computeNavLayout(
   const placed = new Set<SectionId>();
   const eligibleForMore = (id: SectionId) =>
     byId.has(id) && !isAnchor(id) && !hiddenSet.has(id) && !inBottom.has(id);
+  for (const s of registry) {
+    if (!s.featured || mentioned.has(s.id) || !eligibleForMore(s.id)) continue;
+    placed.add(s.id);
+    moreIds.push(s.id);
+  }
   for (const raw of config?.more ?? []) {
     const id = raw as SectionId;
     if (!eligibleForMore(id) || placed.has(id)) continue;

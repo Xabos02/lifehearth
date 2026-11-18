@@ -167,13 +167,13 @@ test('обновившийся: «Не сейчас» нет, отказ — п�
     Object.defineProperty(Notification, 'permission', { get: () => 'granted' }),
   );
   const external = watchNet(page, baseURL);
-  await openApp(page, '/', { consentAt: null, aiEnabled: true, autoBackup: 'cloud', autoBackupEvery: 'daily' });
+  await openApp(page, '/', { consentAt: null, autoBackup: 'cloud', autoBackupEvery: 'daily' });
   await seedUpdater(page);
   await page.goto('/');
 
   const dialog = page.getByRole('dialog', { name: 'Что уходит с телефона' });
   await expect(dialog.getByText('Сейчас у вас включено')).toBeVisible();
-  for (const chip of ['Синхронизация', 'Семья', 'Уведомления', 'Ассистент']) {
+  for (const chip of ['Синхронизация', 'Семья', 'Уведомления']) {
     await expect(dialog.getByText(chip, { exact: true })).toBeVisible();
   }
   // Случайно смахнуть нельзя: отказ назван тем, что он делает.

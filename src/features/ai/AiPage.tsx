@@ -26,7 +26,7 @@ import type { LlmChat, LlmMessage } from '../../db/types';
 import { aiErrorText } from '../../lib/ai/aiClient';
 import { runAgent } from '../../lib/ai/agentLoop';
 import { TOOL_LABELS } from '../../lib/ai/tools';
-import { formatCost, modelLabel } from '../../lib/ai/models';
+import { effectiveModel, formatCost, modelLabel } from '../../lib/ai/models';
 import {
   addAssistantMessage,
   addErrorMessage,
@@ -128,7 +128,7 @@ export function AiPage() {
       const reply = await runAgent({
         messages: history,
         systemPrompt: target.systemPrompt,
-        model: target.model,
+        model: effectiveModel(target.model),
         signal: ac.signal,
         dataTools: target.dataTools === true,
         onDelta: (piece) => {
@@ -179,7 +179,7 @@ export function AiPage() {
   async function handleNewChat() {
     // Новый чат наследует модель и «Данные» текущего: выбранное один раз не
     // должно откатываться на каждом «＋».
-    const c = await createChat(chat?.model, chat?.dataTools === true);
+    const c = await createChat(effectiveModel(chat?.model), chat?.dataTools === true);
     setPickedId(c.id);
     setListOpen(false);
     setDraft('');
@@ -209,7 +209,7 @@ export function AiPage() {
       <Screen
         title={chat?.title ?? t('ИИ')}
         subtitle={[
-          modelLabel(chat?.model ?? null),
+          modelLabel(effectiveModel(chat?.model)),
           chatCost > 0 ? t('за чат: {cost}', { cost: formatCost(chatCost) }) : '',
         ]
           .filter(Boolean)
@@ -268,7 +268,7 @@ export function AiPage() {
             ref={inputRef}
             value={draft}
             busy={busy}
-            modelName={modelLabel(chat?.model ?? null) || t('Модель')}
+            modelName={modelLabel(effectiveModel(chat?.model))}
             dataTools={chat?.dataTools === true}
             onModelTap={() => setModelOpen(true)}
             onDataTools={(v) => chat && void patchChat(chat.id, { dataTools: v })}
@@ -304,7 +304,7 @@ export function AiPage() {
       )}
       <ModelSheet
         open={modelOpen}
-        value={chat?.model ?? 'echo'}
+        value={effectiveModel(chat?.model)}
         onClose={() => setModelOpen(false)}
         onPick={(id) => chat && void patchChat(chat.id, { model: id })}
       />

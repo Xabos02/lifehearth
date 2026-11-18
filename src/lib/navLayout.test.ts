@@ -58,6 +58,14 @@ describe('computeNavLayout', () => {
     expect(l.more[0]).toBe('goals');
     expect(l.more).toContain('finance');
   });
+
+  it('новинка (featured) первая на «Главной», пока её не расставляли; расставили — на своём месте', () => {
+    const reg = [...REG, { id: 'ai' as const, featured: true }];
+    expect(computeNavLayout(reg, { bottom: ['today'], more: ['goals'] }, OPTS).more[0]).toBe('ai');
+    expect(computeNavLayout(reg, undefined, OPTS).more[0]).toBe('ai');
+    expect(computeNavLayout(reg, { bottom: ['today'], more: ['goals', 'ai'] }, OPTS).more.slice(0, 2)).toEqual(['goals', 'ai']);
+    expect(computeNavLayout(reg, { bottom: ['today'], hidden: ['ai'] }, OPTS).more).not.toContain('ai');
+  });
 });
 
 describe('разделы «по запросу» (hiddenByDefault)', () => {

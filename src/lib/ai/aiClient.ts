@@ -2,8 +2,9 @@
 //
 // Ключ провайдера живёт в секретах воркера и на устройство не попадает: рядом
 // в IndexedDB лежат ключи синхронизации и семьи, и лишняя поверхность там не
-// нужна. Авторизация — тем же аккаунтом, что и синхронизация (X-Account +
-// Bearer), поэтому раздел ИИ требует включённого синка.
+// нужна. Авторизация — X-Account + Bearer: аккаунтом синхронизации, если она
+// настроена, иначе ключом устройства (deviceIdentity) — ассистент работает
+// без настроек. Сервер заводит незнакомый аккаунт при первом обращении.
 
 import { WORKER_URL } from '../sync';
 import { t } from '../i18n';
@@ -47,11 +48,11 @@ export type AiChatMessage = WireMessage;
 
 export type AiErrorCode =
   | 'no_consent' // нет согласия на внешнее (задача 34) — сеть не трогаем
-  | 'no_account' // синхронизация не настроена — нечем авторизоваться
   | 'unauthorized' // воркер не признал аккаунт
   | 'forbidden' // аккаунт не в списке разрешённых
   | 'bad_request'
   | 'rate_limit'
+  | 'quota' // кончился дневной бесплатный лимит Workers AI
   | 'provider' // ошибка на стороне провайдера
   | 'network'
   | 'aborted';
@@ -73,14 +74,14 @@ export function aiErrorText(e: unknown): string {
     switch (e.code) {
       case 'no_consent':
         return t('Ассистенту нужно согласие. Настройки → Что уходит с телефона');
-      case 'no_account':
-        return t('Включите синхронизацию в Настройках — она нужна для авторизации.');
       case 'unauthorized':
         return t('Сервер не признал аккаунт. Проверьте синхронизацию.');
       case 'forbidden':
         return t('Аккаунт не в списке разрешённых на сервере.');
       case 'rate_limit':
         return t('Слишком часто. Подождите немного.');
+      case 'quota':
+        return t('Бесплатный лимит на сегодня исчерпан, обновится в {time}', { time: quotaResetTime() });
       case 'provider':
         return t('Провайдер отказал: {msg}', { msg: e.message });
       case 'network':
@@ -92,6 +93,37 @@ export function aiErrorText(e: unknown): string {
     }
   }
   return t('Неизвестная ошибка.');
+}
+
+const DEVICE_KEY = 'lh-ai-device';
+
+/** Ключ ассистента для телефона без синхронизации. Только для /ai/chat: данных
+ *  под ним на сервере нет, поэтому потеря (почистили хранилище) ничего не
+ *  стоит — заведётся новый. Хранилище недоступно — ключ живёт до перезапуска. */
+let memoryIdentity: { accountId: string; authToken: string } | null = null;
+function deviceIdentity(): { accountId: string; authToken: string } {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DEVICE_KEY) ?? 'null') as typeof memoryIdentity;
+    if (saved?.accountId && saved.authToken) return saved;
+  } catch {
+    // нет хранилища или мусор в нём — заводим новый
+  }
+  const fresh = memoryIdentity ?? { accountId: `ai-${crypto.randomUUID()}`, authToken: crypto.randomUUID() };
+  memoryIdentity = fresh;
+  try {
+    localStorage.setItem(DEVICE_KEY, JSON.stringify(fresh));
+  } catch {
+    // приватный режим Safari — останемся на ключе в памяти
+  }
+  return fresh;
+}
+
+/** Когда обновится лимит Workers AI: он сбрасывается в 00:00 UTC, человеку
+ *  нужен его местный час — в Москве это 03:00. */
+function quotaResetTime(): string {
+  const now = new Date();
+  const reset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+  return `${String(reset.getHours()).padStart(2, '0')}:${String(reset.getMinutes()).padStart(2, '0')}`;
 }
 
 export async function requestChat(params: {
@@ -109,8 +141,7 @@ export async function requestChat(params: {
   // есть вопрос уходит с телефона в обоих случаях. Проверка — раньше конфига
   // синка: иначе новый человек увидел бы «Включите синхронизацию».
   if (!hasConsent()) throw new AiError('no_consent', 'нет согласия');
-  const c = await getSyncConfig();
-  if (!c) throw new AiError('no_account', 'синхронизация не настроена');
+  const c = (await getSyncConfig()) ?? deviceIdentity();
 
   let res: Response;
   try {
@@ -140,7 +171,7 @@ export async function requestChat(params: {
     if (res.status === 401) throw new AiError('unauthorized', msg);
     if (res.status === 403) throw new AiError('forbidden', msg);
     if (res.status === 400) throw new AiError('bad_request', msg);
-    if (res.status === 429) throw new AiError('rate_limit', msg);
+    if (res.status === 429) throw new AiError(body.error === 'quota' ? 'quota' : 'rate_limit', msg);
     throw new AiError('provider', msg);
   }
 

@@ -1,10 +1,13 @@
 import type { Page } from '@playwright/test';
 import { openApp, test, expect } from './fixtures';
 
-// Раздел «ИИ» (этап 1, заглушка). Воркер в изоляции недоступен, поэтому
-// эндпоинт /ai/chat мокается на уровне сети — ответ в формате echoReply.
+// Раздел «ИИ». Воркер в изоляции недоступен, поэтому эндпоинт /ai/chat
+// мокается на уровне сети — готовым JSON (формат echoReply) или SSE-потоком.
 
-/** Синк-конфиг напрямую в Dexie: aiClient без него отказывает ещё до сети. */
+const GEMMA = '@cf/google/gemma-4-26b-a4b-it';
+
+/** Синк-конфиг напрямую в Dexie: с ним ассистент авторизуется аккаунтом
+ *  синхронизации, без него — ключом устройства. */
 async function seedSyncAccount(page: Page) {
   await page.evaluate(async () => {
     const { db } = await import('/src/db/db.ts');
@@ -22,12 +25,10 @@ async function seedSyncAccount(page: Page) {
   });
 }
 
-test('раздел скрыт с «Главной» по умолчанию, но открывается по прямому адресу', async ({ page }) => {
+test('раздел «ИИ» есть на «Главной» без всяких настроек', async ({ page }) => {
   await openApp(page, '/home');
-  // Флаг выключен — пункта «ИИ» в списке «Главной» нет.
-  await expect(page.getByRole('link', { name: 'ИИ', exact: true })).toHaveCount(0);
-
-  await page.goto('/more/ai');
+  // Новинка — первой в списке «Главной», без «Показать ещё».
+  await page.getByRole('link', { name: 'ИИ Чат с языковой моделью' }).click();
   await expect(page.getByPlaceholder('Сообщение…')).toBeVisible();
 });
 
@@ -52,15 +53,29 @@ test('первый вход заводит ровно один чат — и п�
   expect(after).toBe(1);
 });
 
-test('без настроенной синхронизации отправка даёт понятную ошибку, не пустоту', async ({ page }) => {
+test('без синхронизации ассистент отвечает: ключ устройства заводится один раз и помнится', async ({ page }) => {
+  const accounts: string[] = [];
+  await page.route('**/ai/chat', (route) => {
+    accounts.push(route.request().headers()['x-account'] ?? '');
+    return route.fulfill({ contentType: 'application/json', json: { content: 'Отвечаю.', model: GEMMA, usage: { in: 1, out: 1 } } });
+  });
   await openApp(page, '/more/ai');
   const input = page.getByPlaceholder('Сообщение…');
   await input.fill('привет');
   await page.getByRole('button', { name: 'Отправить' }).click();
-  await expect(page.getByText('Включите синхронизацию в Настройках — она нужна для авторизации.')).toBeVisible();
+  await expect(page.getByText('Отвечаю.')).toBeVisible();
+
+  await page.reload();
+  await input.fill('ещё раз');
+  await page.getByRole('button', { name: 'Отправить' }).click();
+  await expect(page.getByText('Отвечаю.')).toHaveCount(2);
+
+  expect(accounts).toHaveLength(2);
+  expect(accounts[0]).toMatch(/^ai-/);
+  expect(accounts[1]).toBe(accounts[0]);
 });
 
-test('живой провайдер: SSE-стрим печатается, usage превращается в цену, обрыв по length виден', async ({ page }) => {
+test('живой провайдер: SSE-стрим печатается, выбранная модель уходит в запрос, обрыв по length виден', async ({ page }) => {
   // Мок SSE-ответа воркера: формат OpenAI chat completions + include_usage.
   const sse = [
     'data: {"choices":[{"delta":{"content":"Стрим "},"finish_reason":null}]}',
@@ -70,14 +85,16 @@ test('живой провайдер: SSE-стрим печатается, usage 
     'data: [DONE]',
     '',
   ].join('\n\n');
-  await page.route('**/ai/chat', (route) =>
-    route.fulfill({ contentType: 'text/event-stream', body: sse }),
-  );
+  const models: string[] = [];
+  await page.route('**/ai/chat', (route) => {
+    models.push((route.request().postDataJSON() as { model: string }).model);
+    return route.fulfill({ contentType: 'text/event-stream', body: sse });
+  });
   await openApp(page, '/more/ai');
   await seedSyncAccount(page);
-  // Живая модель выбирается в композере и запоминается в чате.
+  // Модель выбирается в композере и запоминается в чате.
   await page.getByRole('button', { name: 'Модель' }).click();
-  await page.getByRole('button', { name: /Claude Sonnet 5/ }).click();
+  await page.getByRole('button', { name: /Qwen 3\.8/ }).click();
 
   await page.getByPlaceholder('Сообщение…').fill('стримни');
   await page.getByRole('button', { name: 'Отправить' }).click();
@@ -87,8 +104,7 @@ test('живой провайдер: SSE-стрим печатается, usage 
   // Ответ упёрся в max_tokens — приписка об обрыве обязана быть видимой.
   await expect(page.getByText('Ответ обрезан лимитом токенов.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Дописать' })).toBeVisible();
-  // Цена в шапке: сумма чата из usage и прайса модели.
-  await expect(page.getByText(/за чат: /)).toBeVisible();
+  expect(models).toEqual(['@cf/qwen/qwen3.8-27b']);
 });
 
 test('сквозной тракт: вопрос → эхо-ответ с ценой → история переживает перезагрузку', async ({ page }) => {
@@ -98,7 +114,7 @@ test('сквозной тракт: вопрос → эхо-ответ с цен�
       contentType: 'application/json',
       json: {
         content: '**Заглушка-эхо.** Ответ для теста.',
-        model: 'echo',
+        model: GEMMA,
         usage: { in: 12, out: 34 },
       },
     }),
@@ -177,8 +193,6 @@ test('доступ к данным: модель вызывает инструм
       sortOrder: 1000,
     } as never);
   });
-  await page.getByRole('button', { name: 'Модель' }).click();
-  await page.getByRole('button', { name: /Claude Sonnet 5/ }).click();
   // Доступ к данным по умолчанию выключен (решение 25.09) — включает человек.
   await page.getByRole('button', { name: 'Доступ к данным' }).click();
 
@@ -260,7 +274,7 @@ test('доступ к данным по умолчанию выключен: з�
     bodies.push(route.request().postData() ?? '');
     return route.fulfill({
       contentType: 'application/json',
-      json: { content: 'ответ без данных', model: 'echo', usage: { in: 1, out: 2 } },
+      json: { content: 'ответ без данных', model: GEMMA, usage: { in: 1, out: 2 } },
     });
   });
   await openApp(page, '/more/ai');
@@ -289,7 +303,7 @@ test('пустой чат: подсказки — только с «Данным
     bodies.push(route.request().postData() ?? '');
     return route.fulfill({
       contentType: 'application/json',
-      json: { content: 'Разобрал.', model: 'echo', usage: { in: 1, out: 1 } },
+      json: { content: 'Разобрал.', model: GEMMA, usage: { in: 1, out: 1 } },
     });
   });
   await openApp(page, '/more/ai');
@@ -314,7 +328,7 @@ test('настройки чата: переименование и инстру�
     bodies.push(route.request().postData() ?? '');
     return route.fulfill({
       contentType: 'application/json',
-      json: { content: 'ок', model: 'echo', usage: { in: 1, out: 1 } },
+      json: { content: 'ок', model: GEMMA, usage: { in: 1, out: 1 } },
     });
   });
   await openApp(page, '/more/ai');
