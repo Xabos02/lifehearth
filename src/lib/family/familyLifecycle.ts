@@ -47,7 +47,11 @@ export async function createFamily(familyName: string, displayName: string): Pro
   });
   await ensureBoxKeys((await getFamilyConfig(familyId))!);
   await upsertSelfMember(familyId, displayName);
-  void registerMember(familyId);
+  // Ждём регистрацию, а не пускаем её вперегонки с подключением: тикет,
+  // взятый раньше, чем сервер узнал ключ создателя, не привязан к нему, а
+  // от непривязанного соединения сервер не примет ни профиль, ни пометку
+  // «исключён» — то есть владелец не смог бы исключать.
+  await registerMember(familyId);
   connectFamily(familyId);
   return familyId;
 }

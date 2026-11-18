@@ -112,13 +112,17 @@ export async function ensureBoxKeys(c: FamilyConfig): Promise<FamilyConfig> {
  *
  *  Вызывается при каждом подключении, не только при входе: у тех, кто вошёл в
  *  группу до появления этого механизма, ключа на сервере нет, а без него их
- *  нельзя ни оставить в группе при смене ключа, ни защитить от чужого. */
-export async function registerMember(familyId: string): Promise<string | null> {
+ *  нельзя ни оставить в группе при смене ключа, ни защитить от чужого.
+ *
+ *  signal — срок запроса: при подключении он стоит перед тикетом, и висящий
+ *  запрос держал бы закрытой дверь повторных попыток. */
+export async function registerMember(familyId: string, init: { signal?: AbortSignal } = {}): Promise<string | null> {
   let c = await getFamilyConfig(familyId);
   if (!c) return null;
   c = await ensureBoxKeys(c);
   try {
     const res = await fetch(`${WORKER_URL}/family/register?familyId=${c.familyId}`, {
+      ...init,
       method: 'POST',
       headers: { Authorization: `Bearer ${c.familyToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -363,7 +367,14 @@ export async function resendKeys(familyId: string): Promise<string[]> {
       const ciphertext = await sealFor(await importBoxPublic(m.boxPub!), myPriv, payload);
       const r = await fetch(`${WORKER_URL}/family/send?familyId=${familyId}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${c.familyToken}`, 'Content-Type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${c.familyToken}`,
+          // Конверт с ключом группы кладёт только владелец: токен есть у
+          // каждого, и по нему любой затёр бы чужой конверт мусором — тот, кто
+          // был офлайн во время исключения, остался бы снаружи (аудит 18.11).
+          ...(c.ownerSecret ? { 'X-Family-Owner': c.ownerSecret } : {}),
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ channel: 'key', itemId: m.id, ciphertext }),
       });
       if (!r.ok) failed.push(m.displayName || t('участник'));

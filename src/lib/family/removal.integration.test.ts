@@ -484,3 +484,136 @@ describe('удаление группы: клиент против сервер�
     expect((await ticket(TOKEN)).status).toBe(200);
   });
 });
+
+// === Права в комнате: что клиент обязан прислать серверу ===
+//
+// Аудит 18.11 (S1, S3, S6): сервер верил memberId, который называет сам
+// клиент. Сервер перестаёт верить — и тогда каждый честный запрос обязан нести
+// доказательство: привязанный тикет, секрет владельца на конвертах, ответ на
+// задачу у подписки на уведомления. Клиент выкатывается ПЕРВЫМ, поэтому здесь
+// проверяется именно он — против сервера, который пока ещё всё принимает.
+
+describe('права в комнате: клиент несёт доказательства', () => {
+  type Seen = { path: string; headers: Headers; body: Record<string, unknown> | null; res: unknown };
+  let seen: Seen[] = [];
+
+  /** Тот же маршрут в комнату, но с записью: что ушло и что вернулось. */
+  function recordRoute() {
+    seen = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : String(input);
+      if (!url.includes('/family/')) return realFetch(input as RequestInfo, init);
+      const req = new Request(url, init);
+      const entry: Seen = {
+        path: new URL(url).pathname,
+        headers: req.headers,
+        body: init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null,
+        res: null,
+      };
+      seen.push(entry);
+      const res = await room.fetch(req);
+      entry.res = await res.clone().json().catch(() => null);
+      return res;
+    }) as typeof fetch;
+  }
+
+  class FakeWS {
+    static last: FakeWS | null = null;
+    static CONNECTING = 0;
+    static OPEN = 1;
+    static CLOSING = 2;
+    static CLOSED = 3;
+    readyState = 0;
+    onopen: (() => void) | null = null;
+    onmessage: ((e: { data: string }) => void) | null = null;
+    onclose: ((e: { code: number }) => void) | null = null;
+    onerror: (() => void) | null = null;
+    url: string;
+    constructor(url: string) {
+      this.url = url;
+      FakeWS.last = this;
+    }
+    send() {}
+    close() {
+      this.readyState = 3;
+    }
+  }
+
+  beforeEach(async () => {
+    bootRoom();
+    recordRoute();
+    await db.family.clear();
+    await db.familyMembers.clear();
+    GROUP_KEY_RAW = await exportKeyRaw(await generateKey());
+    FakeWS.last = null;
+    vi.stubGlobal('WebSocket', FakeWS);
+  });
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    vi.unstubAllGlobals();
+  });
+
+  it('давно не открывавшееся устройство с первого же подключения получает привязанный тикет', async () => {
+    // Группа на сервере есть, а у этого устройства ни пары ключей, ни
+    // регистрации: вошло до появления ключей и с тех пор не открывалось.
+    await makeMember({ owner: true, token: TOKEN });
+    const memberId = newAccountId();
+    const key = await importKeyRaw(GROUP_KEY_RAW);
+    await db.family.put({
+      id: FAMILY_ID, familyId: FAMILY_ID, familyToken: TOKEN, familyKey: key, familyName: 'Семья',
+      selfMemberId: memberId, lastSeq: 0, lastReadSeq: 0, enabled: true,
+      joinedAt: new Date().toISOString(), keyEpoch: 0, keyRing: { '0': key },
+    });
+    seen = [];
+    const { connectFamily, disconnectFamily } = await import('./familyChat');
+    connectFamily(FAMILY_ID);
+    for (let i = 0; i < 200 && !FakeWS.last; i++) await new Promise((r) => setTimeout(r, 10));
+    disconnectFamily(FAMILY_ID);
+
+    const paths = seen.map((s) => s.path.replace('/family/', ''));
+    // Регистрация раньше тикета: задачу сервер задаёт по уже известному ключу.
+    expect(paths.indexOf('register'), 'ключ не зарегистрирован до тикета').toBeGreaterThan(-1);
+    expect(paths.indexOf('register')).toBeLessThan(paths.indexOf('ticket'));
+    const ticket = seen.find((s) => s.path.endsWith('/ticket'));
+    expect((ticket?.res as { bound?: boolean })?.bound, 'тикет без привязки к участнику').toBe(true);
+  });
+
+  it('конверты с новым ключом владелец кладёт со своим секретом', async () => {
+    await makeMember({ owner: true, token: TOKEN });
+    const owner = await snapshot();
+    const kickedId = await makeMember({ token: TOKEN });
+    await restore(owner);
+    seen = [];
+    await removeMember(FAMILY_ID, kickedId);
+    const sends = seen.filter((s) => s.path.endsWith('/send'));
+    expect(sends.length).toBeGreaterThan(0);
+    for (const s of sends) {
+      expect(s.headers.get('X-Family-Owner'), 'конверт без секрета владельца').toBe(owner!.ownerSecret);
+    }
+  });
+
+  it('подписка на уведомления несёт ответ на задачу сервера, а не одно имя', async () => {
+    await makeMember({ owner: true, token: TOKEN });
+    const store = new Map<string, string>([['life-hub-push-sub', JSON.stringify({ endpoint: 'https://push.example/me' })]]);
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    seen = [];
+    const { registerAllFamilyPush } = await import('./familyChat');
+    await registerAllFamilyPush();
+
+    const sub = seen.find((s) => s.path.endsWith('/push-sub'));
+    expect(sub, 'подписка не ушла').toBeTruthy();
+    const { challengeId, nonce } = (sub!.body ?? {}) as { challengeId?: string; nonce?: string };
+    expect(challengeId, 'в подписке нет ответа на задачу').toBeTruthy();
+    // Ответ верный: слово совпадает с тем, что сервер запечатал ключом участника.
+    const row = (room as unknown as { sql: { exec: (q: string, ...p: unknown[]) => { toArray: () => { v: string }[] } } }).sql
+      .exec('SELECT v FROM meta WHERE k=?', `chal:${challengeId}`)
+      .toArray()[0];
+    if (row) expect(JSON.parse(row.v).nonce).toBe(nonce);
+    else expect(nonce).toBeTruthy(); // сервер уже погасил задачу, приняв ответ
+  });
+});
