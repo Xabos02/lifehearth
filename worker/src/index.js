@@ -48,12 +48,102 @@ async function authAccount(request, env) {
     .bind(accountId)
     .first();
   if (!row) {
-    await env.DB.prepare('INSERT INTO accounts (account_id, token_hash, created_at) VALUES (?, ?, ?)')
-      .bind(accountId, hash, new Date().toISOString())
-      .run();
+    // Предел на заведение с одного адреса (аудит 1.64.0, S4): иначе любой
+    // скрипт заводил аккаунты пачками и забивал базу. Отказ — 429 через
+    // брошенный Response, его отдаёт общий catch в fetch.
+    const quota = await hourlyQuota(env, request, 'acct', ACCOUNTS_PER_HOUR);
+    if (!quota) throw json({ error: 'too many requests' }, 429, env.ALLOW_ORIGIN || '*');
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO accounts (account_id, token_hash, created_at) VALUES (?, ?, ?)').bind(
+        accountId,
+        hash,
+        new Date().toISOString(),
+      ),
+      ...quota,
+    ]);
     return accountId;
   }
   return row.token_hash === hash ? accountId : null;
+}
+
+// === Пределы против постороннего (аудит 1.64.0, S4) ===
+//
+// Аккаунт и напоминание заводятся без всякой учётки — так задумано. Но без
+// пределов нескольких запросов хватало, чтобы выбрать суточную квоту записи
+// D1 (100 000 строк) или забить базу (500 МБ), и тогда у всей семьи вставали
+// обмен, копия и напоминания. Суточную квоту ЗАПРОСОВ (100 000) код не
+// защитит: отказанный запрос всё равно засчитан. Это решается тарифом.
+//
+// Счётчик — в D1, а не Rate Limiting binding: доступность binding на Free в
+// документации Cloudflare не нашлась (сверено 18.11.2026), а неподдержанный
+// binding уронил бы деплой всего воркера. Таблица своя и заводится лениво,
+// как копии: миграции D1 здесь применяются руками, и полагаться на то, что
+// на проде есть нужная таблица, нельзя.
+
+/** Новых аккаунтов в час с одного адреса. Свой аккаунт заводится один раз на
+ *  включение обмена, даже семье за одним роутером хватает с запасом. */
+const ACCOUNTS_PER_HOUR = 10;
+/** Напоминаний в час с одного адреса. Своё приложение ставит их на каждую
+ *  правку задачи и круг «Фокуса», плюс повторы после офлайна. Крон шлёт до
+ *  1200 в час (SEND_LIMIT), поэтому один адрес очередь не завалит. */
+const SCHEDULES_PER_HOUR = 200;
+/** Тело /schedule. Пуш больше 4 КБ служба не примет вовсе, своё приложение
+ *  шлёт сотни байт — а без потолка строку в пару мегабайт клал кто угодно. */
+const SCHEDULE_MAX_BYTES = 16 * 1024;
+/** /sync/push: клиент шлёт до 200 записей и 3 МиБ шифротекста (sync.ts,
+ *  PUSH_CHUNK и PUSH_MAX_BYTES), потолки — с запасом над ним. */
+const SYNC_PUSH_MAX_RECORDS = 500;
+const SYNC_PUSH_MAX_BYTES = 4 * 1024 * 1024;
+/** Кусков в копии. Клиент режет по миллиону символов; сто кусков — больше,
+ *  чем пролезет в один запрос (память изолята 128 МБ). Номера — только
+ *  0..total-1: кусок с номером вне диапазона хвостовое DELETE не стирало
+ *  никогда, и строки копились. */
+const BACKUP_MAX_CHUNKS = 100;
+
+/** Чей запрос — для пределов. IPv6 — по сети /64: абонент получает её
+ *  целиком и меняет адрес внутри бесплатно. Без заголовка (тесты, локальный
+ *  запуск) — общий ключ. */
+function clientKey(request) {
+  const ip = (request.headers.get('CF-Connecting-IP') || 'unknown').toLowerCase();
+  if (!ip.includes(':')) return ip;
+  const [head, tail = ''] = ip.split('::');
+  const h = head ? head.split(':') : [];
+  const t = tail ? tail.split(':') : [];
+  return [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t].slice(0, 4).join(':');
+}
+
+/** Почасовой предел с одного адреса. Возвращает выражения, которые надо
+ *  выполнить В ТОЙ ЖЕ пачке, что и само заведение, или null — предел
+ *  исчерпан. Отказ ничего не пишет: иначе поток отказов выбирал бы квоту
+ *  записи D1 не хуже потока заведений.
+ *  ponytail: проверка и счёт не атомарны — параллельные запросы могут чуть
+ *  перебрать предел; для тормоза против потока это неважно, строгий — DO. */
+async function hourlyQuota(env, request, kind, max) {
+  const hour = Math.floor(Date.now() / 3_600_000);
+  const key = `${kind}:${hour}:${clientKey(request)}`;
+  // Таблицы ещё нет (первое заведение после деплоя) или D1 ответила ошибкой —
+  // счётчик пуст: тормоз не должен запирать своих.
+  const row = await env.DB.prepare('SELECT n FROM quota WHERE k = ?')
+    .bind(key)
+    .first()
+    .catch(() => null);
+  if (row && Number(row.n) >= max) return null;
+  return [
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS quota (k TEXT PRIMARY KEY, n INTEGER NOT NULL)'),
+    env.DB.prepare('INSERT INTO quota (k, n) VALUES (?, 1) ON CONFLICT(k) DO UPDATE SET n = n + 1').bind(key),
+    // Прошлые часы этого вида — долой: номер часа в ключе идёт по возрастанию.
+    env.DB.prepare('DELETE FROM quota WHERE k > ? AND k < ?').bind(`${kind}:`, `${kind}:${hour}`),
+  ];
+}
+
+/** JSON-тело не длиннее max символов, иначе — отказ 413 (брошенный Response).
+ *  Сначала по Content-Length, не читая тело. Шифротекст — base64, символ =
+ *  байт. */
+async function readJsonCapped(request, max, origin) {
+  if (Number(request.headers.get('Content-Length')) > max) throw json({ error: 'payload too large' }, 413, origin);
+  const text = await request.text();
+  if (text.length > max) throw json({ error: 'payload too large' }, 413, origin);
+  return JSON.parse(text);
 }
 
 const PULL_LIMIT = 500;
@@ -349,18 +439,21 @@ export default {
       // === Напоминания (push) — хранятся в D1 (cron делает SELECT, не KV list) ===
       if (url.pathname === '/schedule' && request.method === 'POST') {
         if (!isJsonBody(request)) return json({ error: 'unsupported media type' }, 415, origin);
-        const { taskId, fireAt, title, body, subscription } = await request.json();
+        const { taskId, fireAt, title, body, subscription } = await readJsonCapped(request, SCHEDULE_MAX_BYTES, origin);
         const sub = pushSubscriptionOf(subscription);
         if (!taskId || typeof fireAt !== 'number' || fireAt < Date.now() - FIRE_AT_SLACK_MS || !sub) {
           return json({ error: 'bad request' }, 400, origin);
         }
+        const quota = await hourlyQuota(env, request, 'sched', SCHEDULES_PER_HOUR);
+        if (!quota) return json({ error: 'too many requests' }, 429, origin);
         // Только шифротекст — открытый текст не хранится (reminderText.js).
         const text = storableReminderText(title, body);
-        await env.DB.prepare(
-          'INSERT OR REPLACE INTO reminders (task_id, fire_at, title, body, subscription) VALUES (?, ?, ?, ?, ?)',
-        )
-          .bind(taskId, fireAt, text.title, text.body, JSON.stringify(sub))
-          .run();
+        await env.DB.batch([
+          env.DB.prepare(
+            'INSERT OR REPLACE INTO reminders (task_id, fire_at, title, body, subscription) VALUES (?, ?, ?, ?, ?)',
+          ).bind(taskId, fireAt, text.title, text.body, JSON.stringify(sub)),
+          ...quota,
+        ]);
         return json({ ok: true }, 200, origin);
       }
 
@@ -544,9 +637,10 @@ export default {
       if (url.pathname === '/sync/push' && request.method === 'POST') {
         const accountId = await authAccount(request, env);
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
-        const body = await request.json();
+        const body = await readJsonCapped(request, SYNC_PUSH_MAX_BYTES, origin);
         const records = body?.records;
         if (!Array.isArray(records)) return json({ error: 'bad request' }, 400, origin);
+        if (records.length > SYNC_PUSH_MAX_RECORDS) return json({ error: 'payload too large' }, 413, origin);
         const deviceId = deviceOf(body?.device);
         await ensureRecordsSchema(env);
 
@@ -750,7 +844,7 @@ export default {
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
         await ensureBackupTable(env);
         const { chunks, total, manifest } = await request.json();
-        if (!Array.isArray(chunks) || typeof total !== 'number') {
+        if (!Array.isArray(chunks) || !Number.isInteger(total) || total < 0 || total > BACKUP_MAX_CHUNKS) {
           return json({ error: 'bad request' }, 400, origin);
         }
         const at = new Date().toISOString();
@@ -762,7 +856,7 @@ export default {
           'INSERT OR REPLACE INTO backups (account_id, chunk, updated_at, ciphertext) VALUES (?, ?, ?, ?)',
         );
         for (const c of chunks) {
-          if (!c || typeof c.chunk !== 'number' || typeof c.ciphertext !== 'string') continue;
+          if (!c || !Number.isInteger(c.chunk) || c.chunk < 0 || c.chunk >= total || typeof c.ciphertext !== 'string') continue;
           batch.push(put.bind(accountId, c.chunk, at, c.ciphertext));
         }
         // Манифест пишем в той же пачке: он обязан меняться вместе с копией,
@@ -985,6 +1079,8 @@ export default {
 
       return json({ error: 'not found' }, 404, origin);
     } catch (e) {
+      // Отказ, брошенный из глубины (предел, потолок тела), — отдаём как есть.
+      if (e instanceof Response) return e;
       return json({ error: String(e) }, 500, origin);
     }
   },
