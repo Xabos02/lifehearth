@@ -9,7 +9,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const { db } = await import('./db');
-const { exportBackup, importBackup } = await import('./backup');
+const { exportBackup, importBackup, cycleBackupLocked } = await import('./backup');
 
 const PRIVATE_SETTINGS = {
   id: 'app',
@@ -85,9 +85,48 @@ describe('раздел «Женские дни» в копии', () => {
   });
 
   it('включённый раздел кладёт в копию всё, включая настройки', async () => {
+    // Код раздела этого не меняет: облачная копия зашифрована ключом
+    // синхронизации, а копию файлом закрывает окно кода в BackupPage
+    // (e2e/backup-pin.spec.ts). Здесь — то, что уходит в облако.
     await db.cycleSettings.put({ ...PRIVATE_SETTINGS, includeInGeneralBackup: true } as never);
     const file = await exportBackup();
     expect(file.data.cycleDays).toHaveLength(2);
     expect(file.data.cycleSettings).toHaveLength(1);
+  });
+});
+
+// ST4 аудита 1.64.0: код на разделе обходился «Сохранить в файл». Кто код не
+// знает, сохраняет копию без раздела — и она не должна стирать историю цикла
+// при восстановлении.
+describe('копия файлом без «Женских дней»', () => {
+  const CYCLE_KEYS = ['cycleDays', 'cycleOverrides', 'cycleEpisodes', 'cycleSettings', 'cycleSymptoms', 'cyclePredictions'];
+
+  beforeEach(async () => {
+    await Promise.all([db.cycleSettings.clear(), db.cycleDays.clear(), db.cycleSymptoms.clear()]);
+    await seed();
+    await db.cycleSettings.put({ ...PRIVATE_SETTINGS, includeInGeneralBackup: true } as never);
+  });
+
+  it('ключей раздела в файле нет вовсе — ни данных, ни настроек', async () => {
+    const file = await exportBackup({ withoutCycle: true });
+    for (const k of CYCLE_KEYS) expect(k in file.data, k).toBe(false);
+    expect(Array.isArray(file.data.notes)).toBe(true);
+  });
+
+  it('восстановление такой копии историю цикла и код не трогает', async () => {
+    // Пустые массивы вместо пропуска ключей стёрли бы оба дня и строку
+    // настроек: importBackup очищает таблицу, для которой в файле есть список.
+    const file = await exportBackup({ withoutCycle: true });
+    await importBackup(file);
+    expect(await db.cycleDays.count()).toBe(2);
+    expect((await db.cycleSettings.get('app'))?.pin).toBe('хеш-кода');
+  });
+
+  it('код для копии нужен, только когда раздел закрыт и входит в копию', async () => {
+    expect(await cycleBackupLocked()).toBe(true);
+    await db.cycleSettings.put({ ...PRIVATE_SETTINGS, includeInGeneralBackup: false } as never);
+    expect(await cycleBackupLocked()).toBe(false);
+    await db.cycleSettings.put({ ...PRIVATE_SETTINGS, lock: 'none', pin: undefined, includeInGeneralBackup: true } as never);
+    expect(await cycleBackupLocked()).toBe(false);
   });
 });
