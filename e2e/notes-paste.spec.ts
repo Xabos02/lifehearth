@@ -415,14 +415,18 @@ test.describe('ссылка из буфера остаётся ссылкой', 
 
   // Жест открытия — выбор Влада 06.11.2026 из трёх вариантов на канве
   // design/notes-links: тап открывает, как в Apple Notes.
-  test('тап по ссылке открывает её и не ставит каретку внутрь', async ({ page }) => {
+  test('тап по ссылке открывает её один раз и не ставит каретку внутрь', async ({ page }) => {
+    // Подмена честная: с noopener настоящий window.open всегда возвращает
+    // null. Прежняя подмена возвращала объект — и тест не видел, что на null
+    // приложение уходило на сайт ещё и само (аудит 18.11.2026, N3).
     await page.addInitScript(() => {
       (window as unknown as { __opened: string[] }).__opened = [];
       window.open = ((url: string) => {
         (window as unknown as { __opened: string[] }).__opened.push(url);
-        return {} as Window;
+        return null;
       }) as typeof window.open;
     });
+    await page.route(/meet\.google\.com/, (route) => route.fulfill({ contentType: 'text/html', body: 'чужой сайт' }));
     await newNote(page);
     await paste(
       page,
@@ -441,7 +445,13 @@ test.describe('ссылка из буфера остаётся ссылкой', 
       sel.removeAllRanges();
       sel.addRange(r);
     });
+    const app = new URL(page.url()).origin;
     await page.locator('.note-editor a[href]').tap();
+    // Само приложение никуда не ушло: заметка на месте (адрес /notes/new
+    // успевает смениться на /notes/<id> — это автосохранение, а не уход).
+    await page.waitForTimeout(500);
+    expect(new URL(page.url()).origin).toBe(app);
+    await expect(page.locator('.note-editor')).toContainText('Созвон');
     expect(await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened))
       .toEqual(['https://meet.google.com/abc-defg-hij']);
     // Каретка внутрь ссылки не прыгнула. Держит её preventDefault на mousedown:
@@ -463,7 +473,7 @@ test.describe('ссылка из буфера остаётся ссылкой', 
       (window as unknown as { __opened: string[] }).__opened = [];
       window.open = ((url: string) => {
         (window as unknown as { __opened: string[] }).__opened.push(url);
-        return {} as Window;
+        return null;
       }) as typeof window.open;
     });
     await newNote(page);
@@ -473,7 +483,9 @@ test.describe('ссылка из буфера остаётся ссылкой', 
     const x = Math.round(box.x + box.width / 2);
     const y = Math.round(box.y + box.height / 2);
     await link.dispatchEvent('pointerdown', { bubbles: true, clientX: x, clientY: y, pointerId: 1, isPrimary: true });
-    await link.dispatchEvent('pointerup', { bubbles: true, clientX: x, clientY: y - 80, pointerId: 1, isPrimary: true });
+    // Открывается ссылка на click; протяжку пальцем браузер в click не
+    // превращает, а протяжка мышью приходит click'ом в другой точке.
+    await link.dispatchEvent('click', { bubbles: true, clientX: x, clientY: y - 80 });
     expect(await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened)).toEqual([]);
   });
 
