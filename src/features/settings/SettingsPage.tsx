@@ -8,7 +8,6 @@ import {
 import {
   GChevronRight as ChevronRight,
   GTrash as Trash2,
-  GBot as Bot,
   GLearning as GraduationCap,
   GBellRing as BellRing,
   GTasks as ListChecks,
@@ -389,17 +388,6 @@ export function SettingsPage() {
               action={t('Показать заново')}
               onClick={() => void updateSettings({ sectionsPriorityDone: null })}
             />
-            {/* Раздел ИИ за флагом: пока фича дописывается, её можно мержить в
-                main рабочего приложения, не показывая на «Главной».
-                Переключатель вместо сегментов «Скрыт / Показать»: это выбор из
-                двух состояний одного и того же, а не выбор варианта. */}
-            <Row icon={Bot} label={t('Раздел «ИИ»')}>
-              <Switch
-                checked={Boolean(settings.aiEnabled)}
-                onChange={(on) => void updateSettings({ aiEnabled: on })}
-                label={t('Раздел «ИИ»')}
-              />
-            </Row>
             {/* Группировка временных задач. По умолчанию включена и при этом
                 незаметна: пока ни одна задача не помечена временной, разделять
                 нечего. Выключатель — для тех, кто так о задачах не думает:

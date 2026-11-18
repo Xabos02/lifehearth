@@ -18,7 +18,6 @@ export function useExternalOn(settings: Settings | undefined): (keyof typeof EXT
   if (sync) on.push('sync');
   if (family) on.push('family');
   if (pushEnabled() || pushPaused()) on.push('push');
-  if (settings.aiEnabled) on.push('ai');
   return on;
 }
 
@@ -26,5 +25,4 @@ export const EXTERNAL_LABELS = {
   sync: 'Синхронизация',
   family: 'Семья',
   push: 'Уведомления',
-  ai: 'Ассистент',
 } as const;
