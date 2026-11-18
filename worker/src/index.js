@@ -264,6 +264,74 @@ async function ensureBackupTable(env) {
   backupTableReady = true;
 }
 
+// === Защита напоминаний от постороннего (аудит 1.64.0, S5) ===
+//
+// /schedule и /push-register работают без учётки: так и задумано (задача 33),
+// напоминание ставит телефон без всякой регистрации. Но раньше сюда годился
+// любой адрес, и крон слал подписанный POST куда угодно, а адрес, который
+// принимает соединение и молчит, останавливал очередь (NEW-S-1). Теперь —
+// только push-службы браузеров: Chrome и браузеры на Chromium (FCM; старые
+// подписки — android.googleapis.com и jmt17.google.com), Safari и iOS (Apple
+// велит пускать *.push.apple.com), Firefox (Mozilla), Edge (WNS). Список
+// сверен 18.11.2026 с документацией Apple и со списком known-push-services
+// Pushpad (собран по их подпискам, не официальный). Яндекс Браузер в нём не
+// значится — по косвенным данным он на FCM, живой подпиской не проверено.
+// Поддомены — потому что Apple и Microsoft раздают адреса с разных узлов
+// (web.push.apple.com, wns2-par02p.notify.windows.com).
+const PUSH_DOMAINS = [
+  'fcm.googleapis.com',
+  'android.googleapis.com',
+  'jmt17.google.com',
+  'push.apple.com',
+  'push.services.mozilla.com',
+  'notify.windows.com',
+];
+
+/** Подписка в том виде, в каком её хранить: адрес и ключи, больше ничего, —
+ *  или null, если адрес не push-службы браузера. Лишние поля отбрасываем,
+ *  чтобы в базу не уезжал чужой мусор под видом подписки. */
+function pushSubscriptionOf(sub) {
+  const endpoint = sub?.endpoint;
+  const p256dh = sub?.keys?.p256dh;
+  const auth = sub?.keys?.auth;
+  if (typeof endpoint !== 'string' || endpoint.length > 1024) return null;
+  if (typeof p256dh !== 'string' || p256dh.length > 256 || typeof auth !== 'string' || auth.length > 256) return null;
+  let u;
+  try {
+    u = new URL(endpoint);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== 'https:' || u.port || u.username || u.password) return null;
+  const host = u.hostname;
+  if (!PUSH_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) return null;
+  return { endpoint, keys: { p256dh, auth } };
+}
+
+/** Тело — только с Content-Type: application/json. Это непростой заголовок:
+ *  браузер шлёт на него preflight, а CORS пускает лишь origin приложения
+ *  (ALLOW_ORIGIN). Без проверки чужая страница слала text/plain без preflight
+ *  — ответа не видела, но напоминание ставилось, и поток мог идти с браузеров
+ *  всех её посетителей, а не с одного адреса. Своё приложение шлёт JSON всегда. */
+function isJsonBody(request) {
+  return (request.headers.get('Content-Type') || '').toLowerCase().startsWith('application/json');
+}
+
+/** Насколько срок напоминания может быть в прошлом. Клиент сам отсекает
+ *  прошедшее по своим часам (push.ts), так что строгий отказ при расходе
+ *  часов с сервером увёл бы напоминание в вечный повтор. А 0 и «год назад»
+ *  ставили фальшивку в голову очереди, впереди всех настоящих. */
+const FIRE_AT_SLACK_MS = 10 * 60_000;
+
+/** Сколько напоминаний крон шлёт за один запуск. На Free у запуска 50
+ *  подзапросов на всё (fetch и D1 вместе), напоминание тратит два (fetch и
+ *  DELETE), ещё четыре-пять уходят на SCRUB, SELECT и сторожа версии. Без
+ *  потолка цикл упирался в «Too many subrequests» посреди строки — и fetch
+ *  мог уйти, а DELETE нет (дубль следующей минутой). Остаток — следующей
+ *  минутой, раньше те, чей срок раньше.
+ *  ponytail: 20 в минуту; больше — Workers Paid (1000 подзапросов). */
+const SEND_LIMIT = 20;
+
 /** Встреча двух устройств живёт пятнадцать минут: хватает, чтобы дойти до
  *  второго телефона и открыть нужный экран, и мало, чтобы подсмотренный QR
  *  пригодился кому-то потом. */
@@ -280,8 +348,10 @@ export default {
 
       // === Напоминания (push) — хранятся в D1 (cron делает SELECT, не KV list) ===
       if (url.pathname === '/schedule' && request.method === 'POST') {
+        if (!isJsonBody(request)) return json({ error: 'unsupported media type' }, 415, origin);
         const { taskId, fireAt, title, body, subscription } = await request.json();
-        if (!taskId || typeof fireAt !== 'number' || !subscription?.endpoint) {
+        const sub = pushSubscriptionOf(subscription);
+        if (!taskId || typeof fireAt !== 'number' || fireAt < Date.now() - FIRE_AT_SLACK_MS || !sub) {
           return json({ error: 'bad request' }, 400, origin);
         }
         // Только шифротекст — открытый текст не хранится (reminderText.js).
@@ -289,7 +359,7 @@ export default {
         await env.DB.prepare(
           'INSERT OR REPLACE INTO reminders (task_id, fire_at, title, body, subscription) VALUES (?, ?, ?, ?, ?)',
         )
-          .bind(taskId, fireAt, text.title, text.body, JSON.stringify(subscription))
+          .bind(taskId, fireAt, text.title, text.body, JSON.stringify(sub))
           .run();
         return json({ ok: true }, 200, origin);
       }
@@ -302,12 +372,13 @@ export default {
 
       // Регистрация подписки в глобальный список (для рассылки об обновлении).
       if (url.pathname === '/push-register' && request.method === 'POST') {
+        if (!isJsonBody(request)) return json({ error: 'unsupported media type' }, 415, origin);
         const { subscription } = await request.json();
-        if (subscription?.endpoint) {
-          await env.DB.prepare('INSERT OR REPLACE INTO push_subs (endpoint, sub, created_at) VALUES (?, ?, ?)')
-            .bind(subscription.endpoint, JSON.stringify(subscription), new Date().toISOString())
-            .run();
-        }
+        const sub = pushSubscriptionOf(subscription);
+        if (!sub) return json({ error: 'bad request' }, 400, origin);
+        await env.DB.prepare('INSERT OR REPLACE INTO push_subs (endpoint, sub, created_at) VALUES (?, ?, ?)')
+          .bind(sub.endpoint, JSON.stringify(sub), new Date().toISOString())
+          .run();
         return json({ ok: true }, 200, origin);
       }
 
@@ -1046,8 +1117,10 @@ async function sendDue(env) {
   await env.DB.prepare(SCRUB_PLAIN_REMINDERS_SQL).run();
   // Запас 30с (cron раз в минуту). Один SELECT по индексу fire_at вместо
   // KV list — D1-чтения практически безлимитны на free-тарифе.
-  const due = await env.DB.prepare('SELECT task_id, fire_at, title, body, subscription FROM reminders WHERE fire_at <= ?')
-    .bind(Date.now() + 30_000)
+  const due = await env.DB.prepare(
+    'SELECT task_id, fire_at, title, body, subscription FROM reminders WHERE fire_at <= ? ORDER BY fire_at LIMIT ?',
+  )
+    .bind(Date.now() + 30_000, SEND_LIMIT)
     .all();
   for (const r of due.results || []) {
     try {

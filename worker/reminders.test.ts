@@ -9,6 +9,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { bytesToB64url } from './src/webpush.js';
+import { d1, sqliteDb } from './d1Sqlite';
 
 vi.mock('cloudflare:workers', () => ({
   DurableObject: class {
@@ -161,5 +162,108 @@ describe('рассылка «вышло обновление»: зависший
     expect(await res!.json()).toMatchObject({ ok: true, sent: 1 });
     expect(hits).toContain(real.endpoint);
     expect(asked).toContain(10_000);
+  });
+});
+
+/** Окружение на настоящем SQLite: проверяется SQL сервера, а не мок. */
+async function sqliteEnv() {
+  const db = sqliteDb();
+  return { db, env: { ALLOW_ORIGIN: ORIGIN, DB: d1(db), ...(await vapidEnv()) } };
+}
+
+async function post(env: unknown, path: string, body: unknown, contentType = 'application/json') {
+  const res = await worker.fetch(
+    new Request(`https://w.test${path}`, { method: 'POST', headers: { 'Content-Type': contentType }, body: JSON.stringify(body) }),
+    env,
+    { waitUntil() {} },
+  );
+  return res.status;
+}
+
+/** Адреса, которые браузеры реально выдают (Chrome, Safari и iOS, Firefox, Edge). */
+const REAL_ENDPOINTS = [
+  'https://fcm.googleapis.com/fcm/send/dQw4w9WgXcQ:APA91bH',
+  'https://web.push.apple.com/QGuQyavXutnMH1Ag2o1Px6fbsIZ',
+  'https://updates.push.services.mozilla.com/wpush/v2/gAAAAABl',
+  'https://wns2-par02p.notify.windows.com/w/?token=BQYAAAB',
+];
+/** Чужое: свой сервер, похожие имена, не https, нестандартный порт. */
+const FOREIGN_ENDPOINTS = [
+  'https://evil.example/push',
+  'http://fcm.googleapis.com/fcm/send/x',
+  'https://fcm.googleapis.com.evil.example/x',
+  'https://evilpush.apple.com/x',
+  'https://fcm.googleapis.com:8443/fcm/send/x',
+  'https://user@fcm.googleapis.com/fcm/send/x',
+  'not a url',
+];
+
+describe('/schedule: адрес только настоящей push-службы, тело только JSON (S5)', () => {
+  it('чужой адрес — 400, строка не пишется; настоящие службы принимаются', async () => {
+    const { db, env } = await sqliteEnv();
+    const fireAt = Date.now() + 60_000;
+    for (const endpoint of FOREIGN_ENDPOINTS) {
+      expect(await post(env, '/schedule', { taskId: 't', fireAt, subscription: await subscription(endpoint) }), endpoint).toBe(400);
+    }
+    expect(db.prepare('SELECT COUNT(*) n FROM reminders').get()).toEqual({ n: 0 });
+    for (const [i, endpoint] of REAL_ENDPOINTS.entries()) {
+      expect(await post(env, '/schedule', { taskId: `t${i}`, fireAt, subscription: await subscription(endpoint) }), endpoint).toBe(200);
+    }
+    expect(db.prepare('SELECT COUNT(*) n FROM reminders').get()).toEqual({ n: REAL_ENDPOINTS.length });
+  });
+
+  it('из подписки хранится только адрес и ключи — лишние поля не попадают в базу', async () => {
+    const { db, env } = await sqliteEnv();
+    const sub = { ...(await subscription(REAL_ENDPOINTS[0])), junk: 'x'.repeat(10_000) };
+    expect(await post(env, '/schedule', { taskId: 't', fireAt: Date.now() + 60_000, subscription: sub })).toBe(200);
+    const row = db.prepare('SELECT subscription FROM reminders').get() as { subscription: string };
+    expect(JSON.parse(row.subscription)).toEqual({ endpoint: sub.endpoint, keys: sub.keys });
+  });
+
+  it('не application/json — 415: чужая страница не пошлёт такое без preflight, строка не пишется', async () => {
+    const { db, env } = await sqliteEnv();
+    const body = { taskId: 't', fireAt: Date.now() + 60_000, subscription: await subscription(REAL_ENDPOINTS[0]) };
+    expect(await post(env, '/schedule', body, 'text/plain')).toBe(415);
+    expect(await post(env, '/push-register', { subscription: body.subscription }, 'text/plain')).toBe(415);
+    expect(db.prepare('SELECT (SELECT COUNT(*) FROM reminders) + (SELECT COUNT(*) FROM push_subs) n').get()).toEqual({ n: 0 });
+    expect(await post(env, '/schedule', body, 'application/json; charset=utf-8')).toBe(200);
+  });
+
+  it('срок давно в прошлом (0) — 400; расход часов до 10 минут — принят', async () => {
+    const { env } = await sqliteEnv();
+    const subscriptionOk = await subscription(REAL_ENDPOINTS[0]);
+    expect(await post(env, '/schedule', { taskId: 'a', fireAt: 0, subscription: subscriptionOk })).toBe(400);
+    expect(await post(env, '/schedule', { taskId: 'b', fireAt: Date.now() - 11 * 60_000, subscription: subscriptionOk })).toBe(400);
+    expect(await post(env, '/schedule', { taskId: 'c', fireAt: Date.now() - 5 * 60_000, subscription: subscriptionOk })).toBe(200);
+  });
+});
+
+describe('/push-register: тот же список служб (S5)', () => {
+  it('чужой адрес — 400 и не в рассылке; настоящий — в рассылке', async () => {
+    const { db, env } = await sqliteEnv();
+    for (const endpoint of FOREIGN_ENDPOINTS) {
+      expect(await post(env, '/push-register', { subscription: await subscription(endpoint) }), endpoint).toBe(400);
+    }
+    expect(db.prepare('SELECT COUNT(*) n FROM push_subs').get()).toEqual({ n: 0 });
+    expect(await post(env, '/push-register', { subscription: await subscription(REAL_ENDPOINTS[1]) })).toBe(200);
+    expect(db.prepare('SELECT endpoint FROM push_subs').all()).toEqual([{ endpoint: REAL_ENDPOINTS[1] }]);
+  });
+});
+
+describe('крон: не больше 20 напоминаний за запуск, раньше — те, чей срок раньше (S5)', () => {
+  it('25 наступивших: уходят 20 самых ранних, 5 остаются на следующую минуту', async () => {
+    const { hits } = stubNetwork();
+    const { db, env } = await sqliteEnv();
+    const ins = db.prepare('INSERT INTO reminders (task_id, fire_at, title, body, subscription) VALUES (?, ?, ?, ?, ?)');
+    // Вставка вразнобой: порядок отправки не должен зависеть от порядка вставки.
+    for (const n of [25, 3, 17, 1, 22, 9, 14, 6, 20, 11, 24, 2, 18, 7, 13, 5, 21, 10, 16, 4, 23, 8, 15, 12, 19]) {
+      ins.run(`T${n}`, n, '', '', JSON.stringify(await subscription(`https://fcm.googleapis.com/fcm/send/T${n}`)));
+    }
+    const waits: Promise<unknown>[] = [];
+    await worker.scheduled({}, env, { waitUntil: (p) => void waits.push(p) });
+    await settle(waits);
+
+    expect(hits.filter((h) => h.includes('/fcm/send/'))).toHaveLength(20);
+    expect(db.prepare('SELECT fire_at FROM reminders ORDER BY fire_at').all().map((r) => (r as { fire_at: number }).fire_at)).toEqual([21, 22, 23, 24, 25]);
   });
 });
