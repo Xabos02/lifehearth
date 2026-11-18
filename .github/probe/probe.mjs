@@ -8,21 +8,25 @@ const PROBE_URL = process.env.PROBE_URL;
 const PROBE_KEY = process.env.PROBE_KEY;
 const H = { Authorization: `Bearer ${TOK}`, 'Content-Type': 'application/json' };
 const PRICE = {
-  '@cf/google/gemma-4-26b-a4b-it': [9091, 27273],
-  '@cf/zai-org/glm-4.7-flash': [5500, 36400],
-  '@cf/qwen/qwen3.8-27b': [40909, 290909],
+  '@cf/openai/gpt-oss-120b': [31818, 68182],
+  '@cf/mistralai/mistral-small-3.1-24b-instruct': [31876, 50488],
+  '@cf/qwen/qwen3-30b-a3b-fp8': [4625, 30475],
+  '@cf/meta/llama-4-scout-17b-16e-instruct': [24545, 77273],
 };
 // Qwen по умолчанию думает на xhigh, а выход у него в 10 раз дороже Gemma:
 // гоняем с короткими размышлениями и на части вопросов, чтобы не съесть лимит дня.
-const EXTRA = { '@cf/qwen/qwen3.8-27b': { reasoning_effort: 'low' } };
-const SUBSET = { '@cf/qwen/qwen3.8-27b': [0, 3, 4, 5, 7] };
+// 18.11: ищем замену Qwen 3.8 с длинным ответом — 5 вопросов на модель, чтобы не съесть дневной лимит.
+const EXTRA = {};
+const ALL_SUBSET = [0, 1, 4, 5, 7];
+const SUBSET = {};
+const MAXT = { '@cf/openai/gpt-oss-120b': 16384 };
 const MODELS = Object.keys(PRICE);
 const MAX_TOKENS = Number(process.env.MAX_TOKENS || 8192);
 const log = (...a) => console.log(...a);
 const cut = (s, n = 300) => (s && s.length > n ? s.slice(0, n) + '…' : s);
 const neurons = (m, u) => (u ? (u.prompt_tokens * PRICE[m][0] + u.completion_tokens * PRICE[m][1]) / 1e6 : null);
 
-const TODAY = '2026-11-16';
+const TODAY = '2026-11-18';
 const SYS_TOOLS = [
   `Сегодня ${TODAY}.`,
   'Тебе доступны инструменты чтения данных пользователя из его органайзера LifeHearth:',
@@ -150,7 +154,7 @@ function parseSSE(raw) {
 }
 
 async function call(endpoint, model, messages, tools, maxTokens = MAX_TOKENS) {
-  const input = { messages, stream: true, stream_options: { include_usage: true }, max_tokens: maxTokens, ...(tools ? { tools } : {}), ...(EXTRA[model] ?? {}) };
+  const input = { messages, stream: true, stream_options: { include_usage: true }, max_tokens: MAXT[model] && maxTokens === MAX_TOKENS ? MAXT[model] : maxTokens, ...(tools ? { tools } : {}), ...(EXTRA[model] ?? {}) };
   const t0 = Date.now();
   let r;
   for (let i = 0; i < 20; i++) {
@@ -268,7 +272,7 @@ async function quality(ep, model) {
   log(`\n## 3. Качество: ${model} via ${ep}`);
   let total = 0;
   for (const [i, item] of QUESTIONS.entries()) {
-    if (SUBSET[model] && !SUBSET[model].includes(i)) continue;
+    if (!(SUBSET[model] ?? ALL_SUBSET).includes(i)) continue;
     const r = await agent(ep, model, item);
     const n = neurons(model, r.usage);
     total += n || 0;
@@ -276,13 +280,13 @@ async function quality(ep, model) {
     log(`tools: ${r.trace.join(' → ') || '—'} | tokens in/out ${r.usage.prompt_tokens}/${r.usage.completion_tokens} | neurons≈${n?.toFixed(1)} | ${r.ms}ms | finish ${r.finish}`);
     log(r.error ? `ОШИБКА: ${r.error}` : cut(r.text, 1800));
   }
-  const n = SUBSET[model]?.length ?? QUESTIONS.length;
+  const n = (SUBSET[model] ?? ALL_SUBSET).length;
   log(`\nВсего neurons≈${total.toFixed(0)} на ${n} вопросов (${(total / n).toFixed(1)} в среднем)`);
 }
 
-if (MODE === 'all' || MODE === 'settings') await settings();
+// настройки прод-воркера 18.11 не нужны
 let ok = {};
-if (MODE === 'all' || MODE === 'probe') { ok = await probe(); await errors(); }
+if (MODE === 'all' || MODE === 'probe') { ok = await probe(); }
 if (MODE === 'all' || MODE === 'quality') {
   for (const model of MODELS) {
     const ep = ok[`${model} via binding`] || MODE === 'quality' ? 'binding' : null;
