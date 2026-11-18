@@ -77,6 +77,14 @@ async function sha256hex(s) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** Участник соединения, если его личность подтверждена задачей при выдаче
+ *  тикета, иначе null. Заявленное в кадре имя в расчёт не идёт нигде: ни для
+ *  авторства, ни для «в сети», ни для адресных сигналов звонка. */
+function boundMember(ws) {
+  const att = ws.deserializeAttachment();
+  return att?.bound && att.memberId ? att.memberId : null;
+}
+
 export class FamilyRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -120,12 +128,14 @@ export class FamilyRoom extends DurableObject {
     this.insertsSincePrune = 0;
   }
 
-  // Кто сейчас онлайн: memberId всех живых WebSocket-соединений.
+  // Кто сейчас онлайн: участники всех живых соединений с подтверждённой
+  // личностью. Заявленному имени не верим: назвавшись чужим, участник делал
+  // того «в сети», и пуши ему переставали уходить (аудит 18.11, S6).
   onlineMemberIds() {
     const ids = new Set();
     for (const ws of this.ctx.getWebSockets()) {
-      const att = ws.deserializeAttachment();
-      if (att?.memberId) ids.add(att.memberId);
+      const id = boundMember(ws);
+      if (id) ids.add(id);
     }
     return [...ids];
   }
@@ -211,15 +221,17 @@ export class FamilyRoom extends DurableObject {
       if (this.metaGet('deleted') === '1') return new Response('deleted', { status: 410 });
       const ticket = url.searchParams.get('ticket');
       const pass = ticket ? this.consumeTicket(ticket) : null;
-      if (!pass) return new Response('unauthorized', { status: 401 });
+      // Сокет — только по тикету с подтверждённой личностью. Тикет без неё
+      // (выданный прежней версией в последние полминуты до выката) не годится:
+      // соединение, где участник лишь назвался, давало писать от чужого имени.
+      if (!pass?.memberId) return new Response('unauthorized', { status: 401 });
       const pair = new WebSocketPair();
       this.ctx.acceptWebSocket(pair[1]);
       // Личность подтверждена задачей — записываем её В СОЕДИНЕНИЕ сразу, до
-      // единого кадра от клиента. Дальше hello уже ничего не решает: раньше он
-      // просто заявлял memberId, и любой участник группы (токен есть у всех)
-      // мог назваться другим — а по этому имени доставляются адресные сигналы
-      // звонка и отмечается прочтение.
-      if (pass.memberId) pair[1].serializeAttachment({ memberId: pass.memberId, bound: true });
+      // единого кадра от клиента. Дальше ни hello, ни поле в кадре её не
+      // меняют: по ней ставится автор, доставляются адресные сигналы звонка и
+      // отмечается прочтение.
+      pair[1].serializeAttachment({ memberId: pass.memberId, bound: true });
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
 
@@ -265,11 +277,11 @@ export class FamilyRoom extends DurableObject {
     if (path.endsWith('/challenge') && request.method === 'POST') {
       const { memberId } = await request.json();
       if (!memberId) return this.json({ error: 'bad request' }, 400);
+      if (this.isRemoved(memberId)) return this.json({ error: 'removed' }, 403);
       const row = this.sql.exec('SELECT box_pub FROM members WHERE member_id=?', memberId).toArray()[0];
-      // Ключа нет — участник ещё не регистрировался (первый заход) или пришёл
-      // со сборки, которая ключей не заводила. Спрашивать нечего: пусть берёт
-      // обычный тикет, как раньше. Это осознанный компромисс на время, пока
-      // обновятся все устройства семьи, а не дыра «навсегда».
+      // Ключа нет — участник ещё не регистрировался. Приложение регистрирует
+      // ключ до тикета, так что сюда попадает только сборка, которая ключей не
+      // заводила: задачи нет, и тикета ей не будет (см. /ticket).
       if (!row?.box_pub) return this.json({ challenge: null });
       const nonce = crypto.randomUUID();
       const challengeId = crypto.randomUUID();
@@ -290,28 +302,22 @@ export class FamilyRoom extends DurableObject {
     }
 
     if (path.endsWith('/ticket') && request.method === 'POST') {
-      // Тикет с ответом на задачу ПРИВЯЗЫВАЕТСЯ к участнику: дальше сервер
-      // знает, кто на том конце сокета, и заявленный в hello memberId уже
-      // ничего не решает. Без ответа тикет остаётся обычным — так же, как до
-      // этой правки.
-      let bound = null;
-      const body = await request.json().catch(() => null);
-      if (body?.challengeId && body?.nonce) {
-        const key = `chal:${body.challengeId}`;
-        const raw = this.sql.exec('SELECT v FROM meta WHERE k=?', key).toArray()[0];
-        this.sql.exec('DELETE FROM meta WHERE k=?', key); // одноразовая
-        if (raw) {
-          const chal = JSON.parse(raw.v);
-          if (chal.exp > Date.now() && chal.nonce === body.nonce) bound = chal.memberId;
-        }
-      }
+      // Тикет — только с ответом на задачу, и он ПРИВЯЗАН к участнику: дальше
+      // сервер знает, кто на том конце сокета. Раньше без ответа выдавался
+      // «обычный» тикет, где участник сам называл себя в hello, — и любой из
+      // группы (токен есть у всех) писал от имени другого (аудит 18.11, S3).
+      // 409, а не 401 и не 403: 401 клиент понимает как «токен сменился» и
+      // идёт за конвертом, 403 — как «вас исключили».
+      const memberId = this.takeChallenge(await request.json().catch(() => null));
+      if (!memberId) return this.json({ error: 'unverified' }, 409);
+      if (this.isRemoved(memberId)) return this.json({ error: 'removed' }, 403);
       const ticket = crypto.randomUUID();
       this.sql.exec(
         'INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)',
         `ticket:${ticket}`,
-        JSON.stringify({ exp: Date.now() + TICKET_TTL_MS, memberId: bound }),
+        JSON.stringify({ exp: Date.now() + TICKET_TTL_MS, memberId }),
       );
-      return this.json({ ticket, bound: bound != null });
+      return this.json({ ticket, bound: true });
     }
 
     // Регистрация участника: публичный ключ для адресных конвертов. TOFU —
@@ -358,18 +364,24 @@ export class FamilyRoom extends DurableObject {
       // Конверт исключённого выкидываем: иначе он бы забрал из него новый ключ.
       this.sql.exec('DELETE FROM items WHERE channel=? AND item_id=?', 'key', memberId);
       this.metaSet('token_hash', newTokenHash);
-      // Живое соединение рвём сразу — иначе он читал бы чат до следующего
-      // разрыва сети, а нового ключа у него уже нет.
+      // Сначала — всем, кто в сети, что участник исключён: после закрытия
+      // кадр уже некуда доставить.
+      this.broadcastFrame({ type: 'removed', memberId });
+      // Рвём ВСЕ соединения комнаты, а не только его. Каждое открыто по
+      // старому токену, а токен только что сменился. Раньше закрывались одни
+      // его сокеты, и запасное соединение, открытое заранее под другим
+      // именем, оставалось в группе невидимкой и писало дальше (аудит 18.11,
+      // S2). Исключённому — 4403 («исключён»), остальным — 4401: приложение
+      // переподключится через несколько секунд с новым токеном из своего
+      // конверта, как после обычного разрыва сети.
       for (const ws of this.ctx.getWebSockets()) {
-        if (ws.deserializeAttachment()?.memberId === memberId) {
-          try {
-            ws.close(4403, 'removed');
-          } catch {
-            /* уже закрыт */
-          }
+        const kicked = ws.deserializeAttachment()?.memberId === memberId;
+        try {
+          ws.close(kicked ? 4403 : 4401, kicked ? 'removed' : 'rekey');
+        } catch {
+          /* уже закрыт */
         }
       }
-      this.broadcastFrame({ type: 'removed', memberId });
       return this.json({ ok: true });
     }
 
@@ -406,10 +418,19 @@ export class FamilyRoom extends DurableObject {
       return this.json(page);
     }
 
+    // Через HTTP — только конверты с ключом группы, и только от владельца.
+    // Раньше сюда принималась любая запись с автором из тела запроса: любой
+    // участник подделывал сообщения от чужого имени и подменял чужой профиль
+    // своим публичным ключом — и после исключения получал новый ключ группы
+    // (аудит 18.11, S1, S3). Сообщения, задачи и профили идут сокетом, где
+    // личность подтверждена.
     if (path.endsWith('/send') && request.method === 'POST') {
+      if (!(await this.checkOwner(request.headers.get('X-Family-Owner')))) {
+        return this.json({ error: 'forbidden' }, 403);
+      }
       const body = await request.json();
-      const res = await this.ingest(body);
-      return this.json(res);
+      if (body?.channel !== 'key') return this.json({ error: 'forbidden' }, 403);
+      return this.json(await this.ingest(body, this.metaGet('owner_member_id')));
     }
 
     // ICE-серверы для звонков: STUN всегда бесплатен; TURN-креды генерим из
@@ -418,17 +439,21 @@ export class FamilyRoom extends DurableObject {
       return this.json(await this.iceServers());
     }
 
+    // Чья подписка — решает ответ на задачу, а не memberId в теле. Подписка
+    // одна на участника, и раньше любой из группы подменял чужую своей или
+    // снимал её: человек переставал узнавать о сообщениях и звонках, пока сам
+    // не откроет приложение (аудит 18.11, S6).
     if (path.endsWith('/push-sub') && request.method === 'POST') {
-      const { memberId, subscription } = await request.json();
+      const body = await request.json();
+      const memberId = this.takeChallenge(body);
+      if (!memberId) return this.json({ error: 'unverified' }, 409);
       if (this.isRemoved(memberId)) return this.json({ error: 'removed' }, 403);
-      if (memberId) {
-        this.sql.exec(
-          'INSERT INTO members (member_id, push_sub, joined_at) VALUES (?, ?, ?) ON CONFLICT(member_id) DO UPDATE SET push_sub=excluded.push_sub',
-          memberId,
-          JSON.stringify(subscription),
-          new Date().toISOString(),
-        );
-      }
+      this.sql.exec(
+        'INSERT INTO members (member_id, push_sub, joined_at) VALUES (?, ?, ?) ON CONFLICT(member_id) DO UPDATE SET push_sub=excluded.push_sub',
+        memberId,
+        JSON.stringify(body.subscription),
+        new Date().toISOString(),
+      );
       return this.json({ ok: true });
     }
 
@@ -437,18 +462,17 @@ export class FamilyRoom extends DurableObject {
     // сообщение»: сервер по-прежнему считал его офлайн-участником и слал
     // пуши. Локальная чистка данных на устройстве этот канал не закрывала.
     if (path.endsWith('/push-unsub') && request.method === 'POST') {
-      const { memberId } = await request.json();
-      let cleared = false;
-      if (memberId) {
-        const had = this.sql
-          .exec('SELECT push_sub FROM members WHERE member_id=?', memberId)
-          .toArray()[0];
-        cleared = Boolean(had?.push_sub);
-        this.sql.exec('UPDATE members SET push_sub=NULL WHERE member_id=?', memberId);
-      }
+      // Снять подписку может только её хозяин — по ответу на задачу, как и
+      // поставить (см. /push-sub).
+      const memberId = this.takeChallenge(await request.json());
+      if (!memberId) return this.json({ error: 'unverified' }, 409);
+      const had = this.sql
+        .exec('SELECT push_sub FROM members WHERE member_id=?', memberId)
+        .toArray()[0];
+      this.sql.exec('UPDATE members SET push_sub=NULL WHERE member_id=?', memberId);
       // cleared говорит вызывающему, была ли подписка снята на самом деле —
       // без этого «200 OK» неотличим от «ничего не сделал».
-      return this.json({ ok: true, cleared });
+      return this.json({ ok: true, cleared: Boolean(had?.push_sub) });
     }
 
     return this.json({ error: 'not found' }, 404);
@@ -480,8 +504,48 @@ export class FamilyRoom extends DurableObject {
     return exp > Date.now() ? { memberId } : null;
   }
 
+  /** Погасить задачу на подтверждение личности и вернуть участника, чью
+   *  личность подтвердил ответ, или null. Задача одноразовая: и верный, и
+   *  неверный ответ её гасят. Через это проходит всё, что делается от имени
+   *  участника по HTTP: тикет на сокет и подписка на уведомления. */
+  takeChallenge(body) {
+    if (!body?.challengeId || !body?.nonce) return null;
+    const key = `chal:${body.challengeId}`;
+    const raw = this.metaGet(key);
+    if (!raw) return null;
+    this.sql.exec('DELETE FROM meta WHERE k=?', key);
+    const chal = JSON.parse(raw);
+    return chal.exp > Date.now() && chal.nonce === body.nonce ? chal.memberId : null;
+  }
+
+  /** Почему участник who не вправе сделать эту запись; null — вправе.
+   *
+   *  Раньше сервер принимал любую запись от любого, у кого есть токен, — а
+   *  токен есть у всех участников. Отсюда подмена чужого профиля (имя, цвет,
+   *  публичный ключ — и через него новый ключ группы после исключения) и
+   *  тихая правка чужих сообщений (аудит 18.11, S1, F10, F3). */
+  denyWrite(who, { channel, itemId, clientMsgId }) {
+    // Профиль пишет сам участник. Чужой — только владелец: он ставит
+    // исключённому пометку «исключён».
+    if (channel === 'member') return itemId === who || who === this.metaGet('owner_member_id') ? null : 'forbidden';
+    // Правка и удаление — только своего сообщения: автор исходной строки
+    // должен совпасть. Новое сообщение (строки ещё нет) пишет кто угодно.
+    if (channel === 'msg') {
+      const row = clientMsgId
+        ? this.sql.exec('SELECT sender_member_id FROM items WHERE client_msg_id=?', clientMsgId).toArray()[0]
+        : null;
+      return row && row.sender_member_id !== who ? 'forbidden' : null;
+    }
+    // Задачи общие — правит любой участник. Конверты с ключом группы — только
+    // владелец и только по HTTP (см. /send).
+    return channel === 'task' ? null : 'forbidden';
+  }
+
   // === Запись (идемпотентная по client_msg_id для msg; новый seq для версии task/member) ===
-  async ingest({ channel, itemId, clientMsgId, senderMemberId, createdAt, ciphertext, edit, silent, notify }) {
+  // author — кого сервер записывает автором. Его называет сервер по
+  // подтверждённой личности, поле senderMemberId из запроса не читается.
+  async ingest({ channel, itemId, clientMsgId, createdAt, ciphertext, edit, silent, notify }, author) {
+    const senderMemberId = author || null;
     if (!channel || !ciphertext || (channel === 'msg' && !clientMsgId) || (channel !== 'msg' && !itemId)) {
       return { error: 'bad request' };
     }
@@ -582,33 +646,40 @@ export class FamilyRoom extends DurableObject {
       ws.close(1003, 'bad frame');
       return;
     }
+    const att = ws.deserializeAttachment();
     if (msg.t === 'ping') {
       // Сюда пинг доходит, только если автоответ недоступен (см. конструктор):
       // тогда время пинга кладём в сокет сами.
-      const att = ws.deserializeAttachment();
       if (att) ws.serializeAttachment({ ...att, at: Date.now() });
       ws.send('{"t":"pong"}'); // heartbeat — держит соединение живым
       return;
     }
+    // Дальше всё — от имени участника, и участник этот — тот, чью личность
+    // подтвердила задача при выдаче тикета (attachment). Заявленному в кадре
+    // не верим нигде. Соединение без подтверждения (открытое прежней версией
+    // до выката) закрываем кодом, после которого приложение переподключится
+    // уже с подтверждением: держать его значило бы пускать «назвавшихся».
+    const who = boundMember(ws);
+    if (!who) {
+      ws.close(4401, 'unverified');
+      return;
+    }
     if (msg.type === 'hello') {
-      // Кто на том конце: подтверждённая личность из тикета важнее заявленной
-      // в кадре. Заявленная остаётся в силе только для соединений без
-      // подтверждения — их дают клиентам, которые ещё не обновились.
-      const prior = ws.deserializeAttachment();
-      const memberId = prior?.bound ? prior.memberId : msg.memberId || null;
+      // hello — один раз на сокет. Повтор не меняет ничего, а раньше им
+      // соединение без подтверждения переназывалось кем угодно (аудит 18.11,
+      // S2); история при этом тоже уходила заново.
+      if (att.hello) return;
       // Исключённый мог держать тикет, взятый за секунду до исключения.
-      if (this.isRemoved(memberId)) {
+      if (this.isRemoved(who)) {
         ws.close(4403, 'removed');
         return;
       }
-      ws.serializeAttachment({ memberId, bound: prior?.bound === true, at: Date.now() });
-      if (memberId) {
-        this.sql.exec(
-          'INSERT INTO members (member_id, joined_at) VALUES (?, ?) ON CONFLICT(member_id) DO NOTHING',
-          memberId,
-          new Date().toISOString(),
-        );
-      }
+      ws.serializeAttachment({ ...att, hello: true, at: Date.now() });
+      this.sql.exec(
+        'INSERT INTO members (member_id, joined_at) VALUES (?, ?) ON CONFLICT(member_id) DO NOTHING',
+        who,
+        new Date().toISOString(),
+      );
       let since = Number(msg.lastSeq || 0);
       for (;;) {
         const page = this.backfill(since);
@@ -628,18 +699,19 @@ export class FamilyRoom extends DurableObject {
       return;
     }
     if (msg.type === 'send') {
-      // АВТОРА СТАВИТ СЕРВЕР, А НЕ ОТПРАВИТЕЛЬ. Раньше senderMemberId брался
-      // прямо из кадра: любой участник группы (а токен группы есть у всех)
-      // мог отправить сообщение от имени другого — переписка семьи, где
-      // сообщение «от мамы» подделывается в одну строку. Содержимое зашифровано
-      // групповым ключом, и ключ у всех участников, так что криптография от
-      // своих здесь не защищает — защищает привязка к сессии: memberId уже
-      // закреплён за соединением в hello и лежит в attachment.
-      // Кадр без живой сессии (attachment пуст — соединение не представилось)
-      // остаётся на своём заявленном авторе: это путь ДО hello, и ломать его
-      // значило бы терять авторство у честных клиентов.
-      const att = ws.deserializeAttachment();
-      const res = await this.ingest(att?.memberId ? { ...msg, senderMemberId: att.memberId } : msg);
+      // АВТОРА СТАВИТ СЕРВЕР, А НЕ ОТПРАВИТЕЛЬ: участник из attachment, а не
+      // senderMemberId из кадра. Содержимое зашифровано групповым ключом, и
+      // ключ у всех участников, так что от своих криптография не защищает —
+      // защищает подтверждённая личность соединения.
+      const denied = this.denyWrite(who, msg);
+      if (denied) {
+        // Не ack: на ack приложение помечает сообщение доставленным, и
+        // отказ выглядел бы как успех. Неизвестный кадр оно пропускает, а
+        // запись остаётся в очереди неотправленного.
+        ws.send(JSON.stringify({ type: 'nack', clientMsgId: msg.clientMsgId || null, itemId: msg.itemId || null, error: denied }));
+        return;
+      }
+      const res = await this.ingest(msg, who);
       ws.send(JSON.stringify({ type: 'ack', clientMsgId: msg.clientMsgId || null, itemId: res.itemId, seq: res.seq }));
       return;
     }
@@ -652,23 +724,18 @@ export class FamilyRoom extends DurableObject {
       return;
     }
     if (msg.type === 'seen' && typeof msg.seq === 'number') {
-      const att = ws.deserializeAttachment();
-      if (att?.memberId) {
-        this.sql.exec(
-          'UPDATE members SET last_seen_seq = MAX(COALESCE(last_seen_seq, 0), ?) WHERE member_id = ?',
-          msg.seq,
-          att.memberId,
-        );
-        this.broadcastFrame({ type: 'read', memberId: att.memberId, seq: msg.seq });
-      }
+      this.sql.exec(
+        'UPDATE members SET last_seen_seq = MAX(COALESCE(last_seen_seq, 0), ?) WHERE member_id = ?',
+        msg.seq,
+        who,
+      );
+      this.broadcastFrame({ type: 'read', memberId: who, seq: msg.seq });
       return;
     }
     // «Печатает…» — эфемерный броадкаст остальным. В БД не пишется, офлайнам
     // не доставляется (индикатор живёт секунды — пуш ему не нужен).
     if (msg.type === 'typing') {
-      const att = ws.deserializeAttachment();
-      if (!att?.memberId) return;
-      const frame = JSON.stringify({ type: 'typing', memberId: att.memberId });
+      const frame = JSON.stringify({ type: 'typing', memberId: who });
       for (const sock of this.ctx.getWebSockets()) {
         if (sock === ws) continue;
         try {
@@ -684,8 +751,7 @@ export class FamilyRoom extends DurableObject {
     // участнику (to). Если адресата нет онлайн и это приглашение (offer) —
     // шлём пуш-нудж «открой приложение, чтобы ответить».
     if (msg.type === 'signal') {
-      const att = ws.deserializeAttachment();
-      const from = att?.memberId || null;
+      const from = who;
       const frame = JSON.stringify({
         type: 'signal',
         from,
@@ -697,8 +763,7 @@ export class FamilyRoom extends DurableObject {
       let delivered = false;
       for (const sock of this.ctx.getWebSockets()) {
         if (sock === ws) continue;
-        const a = sock.deserializeAttachment();
-        if (msg.to && a?.memberId !== msg.to) continue;
+        if (msg.to && boundMember(sock) !== msg.to) continue;
         try {
           sock.send(frame);
           // Замороженный сокет кадр примет и промолчит — это не доставка.
@@ -725,7 +790,7 @@ export class FamilyRoom extends DurableObject {
       if (msg.kind === 'accepted' && from && msg.call) {
         const stop = JSON.stringify({ type: 'signal', from: msg.to ?? null, to: from, call: msg.call, kind: 'cancel', data: null });
         for (const sock of this.ctx.getWebSockets()) {
-          if (sock === ws || sock.deserializeAttachment()?.memberId !== from) continue;
+          if (sock === ws || boundMember(sock) !== from) continue;
           try {
             sock.send(stop);
           } catch {
@@ -787,9 +852,9 @@ export class FamilyRoom extends DurableObject {
   }
 
   webSocketClose(ws) {
-    const att = ws.deserializeAttachment();
-    if (att?.memberId) {
-      this.sql.exec('UPDATE members SET last_online_at = ? WHERE member_id = ?', new Date().toISOString(), att.memberId);
+    const id = boundMember(ws);
+    if (id) {
+      this.sql.exec('UPDATE members SET last_online_at = ? WHERE member_id = ?', new Date().toISOString(), id);
     }
     try {
       ws.close();
@@ -803,8 +868,8 @@ export class FamilyRoom extends DurableObject {
   async pushOffline(item, senderMemberId, kind = 'msg') {
     const online = new Set();
     for (const ws of this.ctx.getWebSockets()) {
-      const att = ws.deserializeAttachment();
-      if (att?.memberId) online.add(att.memberId);
+      const id = boundMember(ws);
+      if (id) online.add(id);
     }
     const vapid = {
       publicKey: this.env.VAPID_PUBLIC,
