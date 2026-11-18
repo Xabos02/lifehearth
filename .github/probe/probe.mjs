@@ -9,20 +9,19 @@ const PROBE_KEY = process.env.PROBE_KEY;
 const H = { Authorization: `Bearer ${TOK}`, 'Content-Type': 'application/json' };
 const PRICE = {
   '@cf/openai/gpt-oss-120b': [31818, 68182],
-  '@cf/openai/gpt-oss-20b': [18182, 27273],
-  '@cf/nvidia/nemotron-3-120b-a12b': [45455, 136364],
+  '@cf/mistralai/mistral-small-3.1-24b-instruct': [31876, 50488],
+  '@cf/qwen/qwen3-30b-a3b-fp8': [4625, 30475],
   '@cf/google/gemma-4-26b-a4b-it': [9091, 27273],
-  '@cf/qwen/qwen3.8-27b': [40909, 290909],
 };
 // Qwen по умолчанию думает на xhigh, а выход у него в 10 раз дороже Gemma:
 // гоняем с короткими размышлениями и на части вопросов, чтобы не съесть лимит дня.
 // 18.11: ищем замену Qwen 3.8 с длинным ответом — 5 вопросов на модель, чтобы не съесть дневной лимит.
 const EXTRA = { '@cf/qwen/qwen3.8-27b': { reasoning_effort: 'low' } };
 // Gemma и Qwen 3.8 — только проверка, что пустая строка вместо null в content проходит.
-const NO_QUALITY = new Set(['@cf/google/gemma-4-26b-a4b-it', '@cf/qwen/qwen3.8-27b']);
-const ALL_SUBSET = [0, 1, 4, 5, 7];
+const NO_QUALITY = new Set();
+const ALL_SUBSET = [10, 11]; // 18.11: вопрос Влада, на котором Qwen 3.8 упёрся в 4096
 const SUBSET = {};
-const MAXT = { '@cf/openai/gpt-oss-120b': 16384, '@cf/openai/gpt-oss-20b': 16384, '@cf/nvidia/nemotron-3-120b-a12b': 16384 };
+const MAXT = { '@cf/openai/gpt-oss-120b': 16384 };
 const MODELS = Object.keys(PRICE);
 const MAX_TOKENS = Number(process.env.MAX_TOKENS || 8192);
 const log = (...a) => console.log(...a);
@@ -245,6 +244,8 @@ const QUESTIONS = [
   { data: true, q: 'Найди мою заметку про отпуск и коротко перескажи, что нужно сделать заранее.' },
   { data: true, q: 'Какой у меня был уровень энергии последние дни? Есть связь с задачами?' },
   { data: true, q: 'Что у меня с циклом в этом месяце?' },
+  { data: true, q: 'Просмотри это приложение изнутри, и скажи как ты его оценишь без прикрас, на какое место в мире оно тянет, какие узкие места и не дочеты, и чтобы можно было улучшить?' },
+  { data: false, q: 'Просмотри это приложение изнутри, и скажи как ты его оценишь без прикрас, на какое место в мире оно тянет, какие узкие места и не дочеты, и чтобы можно было улучшить?' },
 ];
 
 async function agent(ep, model, item) {
@@ -281,7 +282,7 @@ async function quality(ep, model) {
     total += n || 0;
     log(`\n### Q${i + 1} [${item.data ? 'данные' : 'без данных'}] ${item.q}`);
     log(`tools: ${r.trace.join(' → ') || '—'} | tokens in/out ${r.usage.prompt_tokens}/${r.usage.completion_tokens} | neurons≈${n?.toFixed(1)} | ${r.ms}ms | finish ${r.finish}`);
-    log(r.error ? `ОШИБКА: ${r.error}` : cut(r.text, 1800));
+    log(r.error ? `ОШИБКА: ${r.error}` : cut(r.text, 12000));
   }
   const n = (SUBSET[model] ?? ALL_SUBSET).length;
   log(`\nВсего neurons≈${total.toFixed(0)} на ${n} вопросов (${(total / n).toFixed(1)} в среднем)`);
@@ -289,10 +290,10 @@ async function quality(ep, model) {
 
 // настройки прод-воркера 18.11 не нужны
 let ok = {};
-if (MODE === 'all' || MODE === 'probe') { ok = await probe(); }
+// tools модели прошли в пробах 1–2
 if (MODE === 'all' || MODE === 'quality') {
   for (const model of MODELS) {
-    const ep = ok[`${model} via binding`] || MODE === 'quality' ? 'binding' : null;
+    const ep = 'binding';
     if (NO_QUALITY.has(model)) continue;
     if (ep) await quality(ep, model);
     else log(`\n## 3. ${model}: проверка не прошла, качество не гоняю`);
