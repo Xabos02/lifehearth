@@ -241,6 +241,21 @@ describe('исключение участника', () => {
     expect(row.push_sub).toBeNull();
   });
 
+  // Ревью 18.11: тикет живёт полминуты. Взятый за секунду до исключения не
+  // должен ни открыть сокет, ни провести кадр через уже открытый.
+  it('тикет, взятый до исключения, сокет не открывает, а кадры исключённого не проходят', async () => {
+    const proof = await answer(r, KICKED, r.keys[KICKED].priv);
+    const { ticket } = (await (await r.call('ticket', { method: 'POST', token: TOKEN, body: proof })).json()) as { ticket: string };
+    await remove(r, KICKED, 'token-group-2');
+    expect((await r.call(`ws?ticket=${ticket}`)).status).toBe(403);
+
+    // Сокет открылся в ту же долю секунды — до /remove, а кадр пришёл после.
+    const late = r.addSocket(KICKED);
+    await frame(r, late, { type: 'send', channel: 'task', itemId: 't-late', ciphertext: 'порча' });
+    expect(late.closed).toEqual({ code: 4403, reason: 'removed' });
+    expect((await history(r, 'token-group-2')).some((i) => i.itemId === 't-late')).toBe(false);
+  });
+
   // Аудит 18.11, S2: исключённый заранее открыл второе соединение под чужим
   // именем — и оно переживало исключение: невидимое в «в сети», писало от
   // имени любого, в том числе владельца, и переименовывало группу.

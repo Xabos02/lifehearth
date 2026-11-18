@@ -225,6 +225,9 @@ export class FamilyRoom extends DurableObject {
       // (выданный прежней версией в последние полминуты до выката) не годится:
       // соединение, где участник лишь назвался, давало писать от чужого имени.
       if (!pass?.memberId) return new Response('unauthorized', { status: 401 });
+      // Тикет живёт полминуты, и взятый за секунду до исключения иначе открыл
+      // бы сокет уже исключённому (ревью 18.11).
+      if (this.isRemoved(pass.memberId)) return new Response('removed', { status: 403 });
       const pair = new WebSocketPair();
       this.ctx.acceptWebSocket(pair[1]);
       // Личность подтверждена задачей — записываем её В СОЕДИНЕНИЕ сразу, до
@@ -664,16 +667,18 @@ export class FamilyRoom extends DurableObject {
       ws.close(4401, 'unverified');
       return;
     }
+    // Исключённый мог открыть сокет по тикету, взятому за секунду до
+    // исключения, — и слать кадры, даже не здороваясь. Проверка на каждом
+    // кадре, а не только в hello.
+    if (this.isRemoved(who)) {
+      ws.close(4403, 'removed');
+      return;
+    }
     if (msg.type === 'hello') {
       // hello — один раз на сокет. Повтор не меняет ничего, а раньше им
       // соединение без подтверждения переназывалось кем угодно (аудит 18.11,
       // S2); история при этом тоже уходила заново.
       if (att.hello) return;
-      // Исключённый мог держать тикет, взятый за секунду до исключения.
-      if (this.isRemoved(who)) {
-        ws.close(4403, 'removed');
-        return;
-      }
       ws.serializeAttachment({ ...att, hello: true, at: Date.now() });
       this.sql.exec(
         'INSERT INTO members (member_id, joined_at) VALUES (?, ?) ON CONFLICT(member_id) DO NOTHING',
