@@ -58,7 +58,7 @@ describe('текст напоминания на сервере', () => {
       worker.fetch(
         new Request('https://w.test/schedule', {
           method: 'POST',
-          body: JSON.stringify({ taskId, fireAt: 1e13, title, body, subscription: { endpoint: 'https://push.test/1' } }),
+          body: JSON.stringify({ taskId, fireAt: Date.now() + 3_600_000, title, body, subscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/1' } }),
         }),
         { DB: d1(db) },
         { waitUntil() {} },

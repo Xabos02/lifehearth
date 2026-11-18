@@ -9,6 +9,7 @@
 
 import { buildPushRequest } from './webpush.js';
 import { SCRUB_PLAIN_REMINDERS_SQL, storableReminderText } from './reminderText.js';
+import { allowRate, canCreateAccount, clientIp, noteNewAccount, pruneCounters, takeAiCall } from './limits.js';
 export { FamilyRoom } from './familyRoom.js';
 export { SyncHub } from './syncHub.js';
 
@@ -38,6 +39,16 @@ async function sha256hex(s) {
 // Авторизация синка: X-Account = accountId, Authorization: Bearer <token>.
 // Возвращает accountId при успехе, иначе null. Первое обращение с новым
 // (неугадываемым) accountId регистрирует пару — trust on first use.
+//
+// Регистрация «по первому обращению» открыта, но не бесконечна: с одного
+// адреса — не больше NEW_ACCOUNTS_PER_IP_DAY новых аккаунтов в сутки
+// (limits.js). Иначе чужой скрипт заводил бы аккаунты пачками и забивал общую
+// D1 (5 ГБ на всех) и лимит ИИ. Сверх потолка — LimitError → 429, а не 401:
+// клиент не должен решить, что у него «неверный ключ».
+export class LimitError extends Error {}
+
+const ACCOUNT_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
 async function authAccount(request, env) {
   const accountId = request.headers.get('X-Account');
   const auth = request.headers.get('Authorization') || '';
@@ -48,9 +59,13 @@ async function authAccount(request, env) {
     .bind(accountId)
     .first();
   if (!row) {
+    // Мусорный id или гигантский токен — не регистрируем.
+    if (!ACCOUNT_ID.test(accountId) || token.length > 256) return null;
+    if (!(await canCreateAccount(env, request))) throw new LimitError('слишком много новых аккаунтов с этого адреса');
     await env.DB.prepare('INSERT INTO accounts (account_id, token_hash, created_at) VALUES (?, ?, ?)')
       .bind(accountId, hash, new Date().toISOString())
       .run();
+    await noteNewAccount(env, request);
     return accountId;
   }
   return row.token_hash === hash ? accountId : null;
@@ -278,10 +293,20 @@ export default {
     try {
       if (url.pathname === '/health') return json({ ok: true }, 200, origin);
 
+      // Общий частотный потолок на адрес (RL_IP в wrangler.toml). Щедрый:
+      // обмен с фото и семейный чат делают десятки запросов в минуту, а
+      // потолок нужен против скриптов, а не против людей.
+      if (!(await allowRate(env.RL_IP, clientIp(request)))) {
+        return json({ error: 'rate_limit', message: 'слишком много запросов' }, 429, origin);
+      }
+
       // === Напоминания (push) — хранятся в D1 (cron делает SELECT, не KV list) ===
       if (url.pathname === '/schedule' && request.method === 'POST') {
         const { taskId, fireAt, title, body, subscription } = await request.json();
         if (!taskId || typeof fireAt !== 'number' || !subscription?.endpoint) {
+          return json({ error: 'bad request' }, 400, origin);
+        }
+        if (!validReminder(taskId, fireAt, title, body) || !isPushEndpoint(subscription.endpoint)) {
           return json({ error: 'bad request' }, 400, origin);
         }
         // Только шифротекст — открытый текст не хранится (reminderText.js).
@@ -303,6 +328,9 @@ export default {
       // Регистрация подписки в глобальный список (для рассылки об обновлении).
       if (url.pathname === '/push-register' && request.method === 'POST') {
         const { subscription } = await request.json();
+        if (subscription?.endpoint && !isPushEndpoint(subscription.endpoint)) {
+          return json({ error: 'bad request' }, 400, origin);
+        }
         if (subscription?.endpoint) {
           await env.DB.prepare('INSERT OR REPLACE INTO push_subs (endpoint, sub, created_at) VALUES (?, ?, ?)')
             .bind(subscription.endpoint, JSON.stringify(subscription), new Date().toISOString())
@@ -466,6 +494,8 @@ export default {
         const body = await request.json();
         const records = body?.records;
         if (!Array.isArray(records)) return json({ error: 'bad request' }, 400, origin);
+        // Клиент шлёт пачки по 200 (PUSH_CHUNK в lib/sync.ts); больше — не наш клиент.
+        if (records.length > SYNC_PUSH_MAX) return json({ error: 'too_large' }, 413, origin);
         const deviceId = deviceOf(body?.device);
         await ensureRecordsSchema(env);
 
@@ -672,6 +702,9 @@ export default {
         if (!Array.isArray(chunks) || typeof total !== 'number') {
           return json({ error: 'bad request' }, 400, origin);
         }
+        if (total < 0 || total > BACKUP_MAX_CHUNKS || chunks.length > BACKUP_MAX_CHUNKS) {
+          return json({ error: 'too_large' }, 413, origin);
+        }
         const at = new Date().toISOString();
         // Удаляем «хвост» от прошлой, более длинной копии, затем перезаписываем.
         const batch = [
@@ -796,6 +829,16 @@ export default {
         if (model === 'echo') {
           return json(echoReply(clean, body?.systemPrompt), 200, origin);
         }
+        // Потолки ИИ (limits.js): частота на аккаунт и суточный счётчик на
+        // аккаунт и адрес. Раньше любой мог выбрать весь общий дневной лимит
+        // Workers AI (10 000 Neurons на всех) — и до 00:00 UTC ассистент
+        // молчал у всех. Агентный цикл тратит до 6 вызовов на вопрос, поэтому
+        // считаем вызовы, а не вопросы.
+        if (!(await allowRate(env.RL_AI, accountId))) {
+          return json({ error: 'rate_limit', message: 'слишком часто' }, 429, origin);
+        }
+        const over = await takeAiCall(env, request, accountId);
+        if (over) return json({ error: 'user_quota', message: over }, 429, origin);
         const sys = typeof body?.systemPrompt === 'string' && body.systemPrompt.trim()
           ? [{ role: 'system', content: body.systemPrompt }]
           : [];
@@ -904,6 +947,7 @@ export default {
 
       return json({ error: 'not found' }, 404, origin);
     } catch (e) {
+      if (e instanceof LimitError) return json({ error: 'rate_limit', message: e.message }, 429, origin);
       return json({ error: String(e) }, 500, origin);
     }
   },
@@ -911,8 +955,50 @@ export default {
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(sendDue(env));
     ctx.waitUntil(checkAppVersion(env)); // сторож версии → авто-пуш об обновлении
+    // Суточные счётчики лимитов — раз в час, а не каждую минуту.
+    if (new Date().getUTCMinutes() === 7) ctx.waitUntil(pruneCounters(env).catch(() => {}));
   },
 };
+
+const SYNC_PUSH_MAX = 1000;
+const BACKUP_MAX_CHUNKS = 200;
+const REMINDER_HORIZON_MS = 400 * 86_400_000;
+const REMINDER_TEXT_MAX = 8192;
+
+/** Напоминание в разумных рамках: id обычной длины, срок не дальше ~года,
+ *  текст (шифротекст) не мегабайты. */
+function validReminder(taskId, fireAt, title, body) {
+  if (typeof taskId !== 'string' || taskId.length > 128) return false;
+  if (!Number.isFinite(fireAt) || fireAt > Date.now() + REMINDER_HORIZON_MS) return false;
+  for (const s of [title, body]) {
+    if (s !== undefined && s !== null && (typeof s !== 'string' || s.length > REMINDER_TEXT_MAX)) return false;
+  }
+  return true;
+}
+
+/** Адрес подписки — только настоящие push-службы браузеров. Cron делает POST
+ *  на этот адрес, и без проверки любой мог бы заставить воркер слать запросы
+ *  на произвольный сайт (наш воркер как чужой «пулемёт»). */
+const PUSH_HOSTS = [
+  'fcm.googleapis.com',
+  'android.googleapis.com',
+  'updates.push.services.mozilla.com',
+  'push.services.mozilla.com',
+  'web.push.apple.com',
+];
+const PUSH_HOST_SUFFIXES = ['.push.apple.com', '.notify.windows.com'];
+export function isPushEndpoint(endpoint) {
+  if (typeof endpoint !== 'string' || endpoint.length > 2048) return false;
+  let u;
+  try {
+    u = new URL(endpoint);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'https:') return false;
+  const h = u.hostname.toLowerCase();
+  return PUSH_HOSTS.includes(h) || PUSH_HOST_SUFFIXES.some((s) => h.endsWith(s));
+}
 
 /**
  * Бесплатные модели Workers AI, которые пускаем, и их настройки. Чужой @cf/ —

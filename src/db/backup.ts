@@ -35,8 +35,8 @@ const TABLES = [
   // потеря телефона означала бы потерю всей истории цикла безвозвратно, а
   // восстановить её неоткуда — данные существуют в одном экземпляре.
   // Облачная копия шифруется аккаунтным ключом на устройстве, сервер видит
-  // только шифротекст. Файловая копия НЕ шифрована — об этом человека
-  // предупреждает экран экспорта.
+  // только шифротекст. Файловая копия шифруется паролем (lib/backupCrypto.ts);
+  // открытый JSON — только по явному «Сохранить без пароля».
   // Таблицу cycles (кэш циклов) не включаем сознательно: она выводится из
   // cycleDays и пересчитывается после импорта. Класть в файл производные
   // данные — значит однажды получить файл, где кэш противоречит источнику.
@@ -141,8 +141,8 @@ export async function cycleBackupLocked(): Promise<boolean> {
   return s?.lock === 'pin' && s.pin !== undefined && s.includeInGeneralBackup !== false;
 }
 
-export function backupFilename(): string {
-  return `life-hub-backup-${new Date().toISOString().slice(0, 10)}.json`;
+export function backupFilename(encrypted = false): string {
+  return `life-hub-backup-${new Date().toISOString().slice(0, 10)}${encrypted ? '.encrypted' : ''}.json`;
 }
 
 /** Не данные человека: настройки есть у всех с первого запуска (тема,

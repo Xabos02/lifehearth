@@ -29,7 +29,10 @@ async function sha256hex(s: string): Promise<string> {
 async function makeEnv(extra: Record<string, unknown> = {}) {
   const hash = await sha256hex('tok-1');
   const DB = {
-    prepare: () => ({ bind: () => ({ first: async () => ({ token_hash: hash }), run: async () => ({}) }) }),
+    prepare: () => ({
+      run: async () => ({}),
+      bind: () => ({ first: async () => ({ token_hash: hash }), run: async () => ({}) }),
+    }),
   };
   return { ALLOW_ORIGIN: ORIGIN, DB, ...extra };
 }
