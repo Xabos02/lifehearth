@@ -602,8 +602,8 @@ export const EN: Record<string, string> = {
   'Ещё раз': 'Repeat',
   'Коды не совпадают': "Codes don't match",
   'Установить код': 'Set code',
-  'Код закрывает раздел от посторонних глаз, но не шифрует записи: тот, кто разбирается в устройстве телефона, сможет их прочитать в обход. Шифровать данные кодом мы не стали сознательно — забытый код означал бы потерю всей истории, а восстановить её неоткуда. Сам код нигде не хранится, сверяется только его отпечаток.':
-    "The code keeps the section out of casual sight, but doesn't encrypt your entries: someone who knows their way around the phone could still read them. We chose not to encrypt with the code on purpose — a forgotten code would mean losing all your history, with no way to recover it. The code itself is never stored, only its fingerprint is checked.",
+  'Код закрывает раздел от посторонних глаз и спрашивается перед сохранением копии в файл. Но записи он не шифрует: в сохранённом файле они открытым текстом, а тот, кто умеет открыть хранилище браузера, прочитает их и на телефоне в обход кода. Шифровать данные кодом мы не стали сознательно — забытый код означал бы потерю всей истории, а восстановить её неоткуда. Сам код нигде не хранится, сверяется только его отпечаток.':
+    "The code keeps the section out of casual sight and is asked before a backup is saved to a file. But it doesn't encrypt your entries: in a saved file they are plain text, and someone who can open the browser's storage could read them on the phone, bypassing the code. We chose not to encrypt with the code on purpose — a forgotten code would mean losing all your history, with no way to recover it. The code itself is never stored, only its fingerprint is checked.",
   'Перенос из другого приложения': 'Import from another app',
   'Выгрузите историю из прежнего трекера в CSV и выберите файл здесь. Нужны колонки с датой и отметкой выделений — как они называются, приложение разберётся само.':
     'Export your history from your previous tracker as a CSV file and pick it here. You need columns with the date and a flow mark — the app will figure out their names on its own.',
@@ -964,6 +964,11 @@ export const EN: Record<string, string> = {
   'Не удалось поделиться файлом резервной копии. Он сохранён — найдите его в «Файлах»':
     "Couldn't share the backup file. It's saved — find it in Files",
   'Резервная копия сохранена': 'Backup saved',
+  'Резервная копия сохранена без закрытых записей': 'Backup saved without locked entries',
+  'Нужен код': 'Code needed',
+  'Часть записей закрыта кодом. Введите его, чтобы сохранить копию целиком, или сохраните без закрытых записей.':
+    'Some entries are locked with a code. Enter it to save the full backup, or save without the locked entries.',
+  'Сохранить без закрытых записей': 'Save without locked entries',
   'Импорт заменит ВСЕ текущие данные.\n\nВ резервной копии:\n• проектов: {projects}\n• задач: {tasks}\n• целей: {goals}\n• привычек: {habits}\n• отметок привычек: {habitLogs}\n• заметок: {notes}\n• материалов обучения: {learningItems}\n• записей прогресса: {learningLogs}\n• расходов: {expenseItems}\n• способов восстановления: {energyItems}\n• отметок энергии: {energyLogs}\n• мест: {placeItems}\n• метрик: {metrics}\n• замеров метрик: {metricLogs}\n• семейных сообщений: {familyMessages}\n• семейных задач: {familyTasks}\n• тренировок: {workouts}\n\nПродолжить?':
     'Import will replace ALL current data.\n\nIn the backup:\n• projects: {projects}\n• tasks: {tasks}\n• goals: {goals}\n• habits: {habits}\n• habit check-ins: {habitLogs}\n• notes: {notes}\n• learning items: {learningItems}\n• progress entries: {learningLogs}\n• expenses: {expenseItems}\n• energy recovery ideas: {energyItems}\n• energy check-ins: {energyLogs}\n• places: {placeItems}\n• metrics: {metrics}\n• metric readings: {metricLogs}\n• family messages: {familyMessages}\n• family tasks: {familyTasks}\n• workouts: {workouts}\n\nContinue?',
   'Данные восстановлены': 'Data restored',
