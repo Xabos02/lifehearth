@@ -9,17 +9,20 @@ const PROBE_KEY = process.env.PROBE_KEY;
 const H = { Authorization: `Bearer ${TOK}`, 'Content-Type': 'application/json' };
 const PRICE = {
   '@cf/openai/gpt-oss-120b': [31818, 68182],
-  '@cf/mistralai/mistral-small-3.1-24b-instruct': [31876, 50488],
-  '@cf/qwen/qwen3-30b-a3b-fp8': [4625, 30475],
-  '@cf/meta/llama-4-scout-17b-16e-instruct': [24545, 77273],
+  '@cf/openai/gpt-oss-20b': [18182, 27273],
+  '@cf/nvidia/nemotron-3-120b-a12b': [45455, 136364],
+  '@cf/google/gemma-4-26b-a4b-it': [9091, 27273],
+  '@cf/qwen/qwen3.8-27b': [40909, 290909],
 };
 // Qwen по умолчанию думает на xhigh, а выход у него в 10 раз дороже Gemma:
 // гоняем с короткими размышлениями и на части вопросов, чтобы не съесть лимит дня.
 // 18.11: ищем замену Qwen 3.8 с длинным ответом — 5 вопросов на модель, чтобы не съесть дневной лимит.
-const EXTRA = {};
+const EXTRA = { '@cf/qwen/qwen3.8-27b': { reasoning_effort: 'low' } };
+// Gemma и Qwen 3.8 — только проверка, что пустая строка вместо null в content проходит.
+const NO_QUALITY = new Set(['@cf/google/gemma-4-26b-a4b-it', '@cf/qwen/qwen3.8-27b']);
 const ALL_SUBSET = [0, 1, 4, 5, 7];
 const SUBSET = {};
-const MAXT = { '@cf/openai/gpt-oss-120b': 16384 };
+const MAXT = { '@cf/openai/gpt-oss-120b': 16384, '@cf/openai/gpt-oss-20b': 16384, '@cf/nvidia/nemotron-3-120b-a12b': 16384 };
 const MODELS = Object.keys(PRICE);
 const MAX_TOKENS = Number(process.env.MAX_TOKENS || 8192);
 const log = (...a) => console.log(...a);
@@ -220,7 +223,7 @@ async function probe() {
       const st = report(`${tag} R1`, model, r1);
       const calls = st?.toolCalls.filter((c) => c.id && c.name) ?? [];
       if (!calls.length) { ok[tag] = false; continue; }
-      const wire = [...msgs, { role: 'assistant', content: st.content || null, tool_calls: calls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.arguments } })) }];
+      const wire = [...msgs, { role: 'assistant', content: st.content || '', tool_calls: calls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.arguments } })) }];
       for (const c of calls) wire.push({ role: 'tool', tool_call_id: c.id, content: runTool(c.name, c.arguments) });
       const r2 = await call(ep, model, wire, TOOL_DEFS);
       const st2 = report(`${tag} R2`, model, r2);
@@ -262,7 +265,7 @@ async function agent(ep, model, item) {
     if (st.content.trim()) text += (text ? '\n\n' : '') + st.content;
     const calls = item.data ? st.toolCalls.filter((c) => c.id && c.name) : [];
     if (!calls.length) break;
-    wire.push({ role: 'assistant', content: st.content || null, tool_calls: calls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.arguments } })) });
+    wire.push({ role: 'assistant', content: st.content || '', tool_calls: calls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.arguments } })) });
     for (const c of calls) { trace.push(`${c.name}(${c.arguments})`); wire.push({ role: 'tool', tool_call_id: c.id, content: runTool(c.name, c.arguments) }); }
   }
   return { text, trace, usage, ms, finish };
@@ -290,6 +293,7 @@ if (MODE === 'all' || MODE === 'probe') { ok = await probe(); }
 if (MODE === 'all' || MODE === 'quality') {
   for (const model of MODELS) {
     const ep = ok[`${model} via binding`] || MODE === 'quality' ? 'binding' : null;
+    if (NO_QUALITY.has(model)) continue;
     if (ep) await quality(ep, model);
     else log(`\n## 3. ${model}: проверка не прошла, качество не гоняю`);
   }
