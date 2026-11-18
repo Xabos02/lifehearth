@@ -304,6 +304,8 @@ export const EN: Record<string, string> = {
     'They will lose access to new messages, tasks and calls: the group moves to a new key.',
   'Переписку, которую он уже скачал, вернуть нельзя — она осталась на его устройстве.':
     "Messages they already downloaded can't be taken back — they stay on their device.",
+  'Тех, кого он успел пригласить, это не касается: они останутся в группе, пока вы не исключите и их.':
+    "People they invited aren't affected: they stay in the group until you remove them too.",
   'Вернуть его можно только новым приглашением.': 'They can only come back with a new invitation.',
   'Исключаем…': 'Removing…',
   'Исключить': 'Remove',
