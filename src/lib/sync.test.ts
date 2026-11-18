@@ -464,6 +464,58 @@ describe('выход из группы переживает чтение с ну
   });
 });
 
+describe('пара ключей группы между моими устройствами', () => {
+  // Группа была на двух моих устройствах до появления ключей (26.07): каждое
+  // завело свою пару, а сервер закрепил за участником первую. С аудита 18.11
+  // сервер не пускает соединение без подтверждённой личности — устройство с
+  // чужой парой осталось бы снаружи навсегда, если не переймёт подтверждённую.
+  async function pullShare(accountKey: CryptoKey, extra: Record<string, unknown>) {
+    const at = '2026-09-01T00:00:00.000Z'; // старше локального конфига
+    const record = {
+      seq: 1,
+      table: 'familyShare2',
+      id: 'fam',
+      updatedAt: at,
+      deletedAt: null,
+      ciphertext: await encryptJSON(accountKey, {
+        familyId: 'fam', familyToken: 'tok', keyRaw: await exportKeyRaw(await generateKey()), familyName: 'Наши',
+        selfMemberId: 'me', joinedAt: '2026-01-01T00:00:00.000Z', enabled: true, updatedAt: at, ...extra,
+      }),
+    };
+    mockFetch((url) => {
+      if (url.includes('/sync/pull')) return jsonRes({ records: [record], hasMore: false, nextAfter: 9 });
+      return jsonRes({ ok: true, ids: [] });
+    });
+    await runSync();
+    return db.family.get('fam');
+  }
+  async function localGroup(extra: Record<string, unknown>) {
+    const key = await generateKey();
+    await db.family.put({
+      id: 'fam', familyId: 'fam', familyToken: 'tok', familyKey: key, familyName: 'Наши', selfMemberId: 'me',
+      lastSeq: 0, lastReadSeq: 0, enabled: true, joinedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-11-18T00:00:00.000Z', keyEpoch: 0, keyRing: { '0': key }, ...extra,
+    } as never);
+  }
+
+  it('подтверждённая сервером пара с другого устройства заменяет свою неподтверждённую', async () => {
+    const accountKey = await seedSync();
+    await localGroup({ boxPub: 'pub-своя', boxPriv: 'priv-своя' });
+    const got = await pullShare(accountKey, { boxPub: 'pub-закреплённая', boxPriv: 'priv-закреплённая', boxVerifiedAt: '2026-11-18T10:00:00.000Z' });
+    expect(got).toMatchObject({ boxPub: 'pub-закреплённая', boxPriv: 'priv-закреплённая', boxVerifiedAt: '2026-11-18T10:00:00.000Z' });
+  });
+
+  it('своя подтверждённая пара не уступает ничьей, неподтверждённая чужая — своей', async () => {
+    const accountKey = await seedSync();
+    await localGroup({ boxPub: 'pub-своя', boxPriv: 'priv-своя', boxVerifiedAt: '2026-11-18T09:00:00.000Z' });
+    expect(await pullShare(accountKey, { boxPub: 'pub-другая', boxPriv: 'priv-другая', boxVerifiedAt: '2026-11-18T10:00:00.000Z' }))
+      .toMatchObject({ boxPub: 'pub-своя' });
+    await db.family.clear();
+    await localGroup({ boxPub: 'pub-своя', boxPriv: 'priv-своя' });
+    expect(await pullShare(accountKey, { boxPub: 'pub-другая', boxPriv: 'priv-другая' })).toMatchObject({ boxPub: 'pub-своя' });
+  });
+});
+
 describe('пачки отправки ограничены объёмом, а не только числом записей', () => {
   it('тяжёлые записи едут порознь — иначе тело запроса вырастает до сотен мегабайт', () => {
     // Строки бывают очень разные: обычная задача — сотни байт, кусок вложения
