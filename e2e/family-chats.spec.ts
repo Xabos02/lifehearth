@@ -41,9 +41,23 @@ test('тап по личному чату — переписка с собесе
   await expect(page.getByText('Возьми ключи от дачи')).toBeVisible();
   // Чат на весь экран — без таб-бара приложения.
   await expect(page.getByRole('navigation')).toHaveCount(0);
-  // Участники загружены (строка присутствия «Мама · …» над лентой), а имени
-  // собеседника над пузырями нет — в личном чате это повтор шапки.
-  await expect(page.locator('span.member-color', { hasText: 'Мама' })).toBeVisible();
+  // В шапке — круг собеседника с его буквой.
+  await expect(page.locator('header span.rounded-full', { hasText: /^М$/ })).toBeVisible();
+  // Имени собеседника над пузырями нет — в личном чате это повтор шапки. Пустой
+  // счёт что-то доказывает, только когда сама лента уже знает участников и себя:
+  // это видно по статусу, который она отдаёт шапке. Для одного собеседника он
+  // «в сети / не в сети / был(а)… / печатает…»; без участников его нет, без
+  // своего id собеседников двое и вышло бы «0 в сети». Круг в шапке этого не
+  // доказывает — участников шапка грузит сама.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { chatPresence } = await import('/src/features/family/chatPresence.ts');
+        const p = chatPresence();
+        return p?.familyId === 'p-mom' ? p.text : null;
+      }),
+    )
+    .toMatch(/^(в сети|не в сети|был|печатает)/);
   await expect(page.locator('p.member-color')).toHaveCount(0);
   // Прочитанным чат отмечается через 1,2 с на экране (ChatTab: «открыл и
   // сразу ушёл» — не чтение) — и без сети тоже, отметка локальная.
@@ -65,6 +79,41 @@ test('тап по личному чату — переписка с собесе
 test('в общем чате над репликами видно, кто написал', async ({ page }) => {
   await page.goto('/more/family?g=f1');
   await expect(page.locator('p.member-color', { hasText: 'Папа' })).toBeVisible();
+});
+
+/** Подставной сервер: на hello отвечает ready с присутствием — так связь
+ *  «на связи», и под названием чата идёт присутствие, а не сбой связи. */
+async function serveReady(page: import('@playwright/test').Page, online: string[], lastSeen: Record<string, string> = {}) {
+  await page.route(/\/family\/ticket/, (r) => r.fulfill({ json: { ticket: 't' } }));
+  await page.routeWebSocket(/\/family\/ws/, (ws) => {
+    ws.onMessage((m) => {
+      if (JSON.parse(String(m)).type === 'hello') ws.send(JSON.stringify({ type: 'ready', online, lastSeen }));
+    });
+  });
+}
+const chatHeader = (page: import('@playwright/test').Page) => page.getByRole('button', { name: /участники и настройки/ });
+
+test('общий чат на двоих: под названием — когда собеседник был в сети, с его именем', async ({ page }) => {
+  // Первая группа общая и на двоих («вы и жена»): Папа и Аня вышли.
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    await db.familyMembers.bulkUpdate([
+      { key: 'dad', changes: { leftAt: new Date().toISOString() } },
+      { key: 'anya', changes: { leftAt: new Date().toISOString() } },
+    ]);
+  });
+  await serveReady(page, ['me'], { mom: new Date(Date.now() - 2 * 3_600_000).toISOString() });
+  await page.goto('/more/family?g=f1');
+  await expect(chatHeader(page)).toContainText('Мама · был(а) в сети');
+  // Без числа участников: «2 участника · Мама · был(а) в сети…» обрезалось бы на 375px.
+  await expect(chatHeader(page)).not.toContainText(/\d+ участник/);
+});
+
+test('общий чат: «N участников · M в сети» — оба числа с вами', async ({ page }) => {
+  // В сети вы и Мама — двое из четырёх, а не «1 в сети».
+  await serveReady(page, ['me', 'mom']);
+  await page.goto('/more/family?g=f1');
+  await expect(chatHeader(page)).toContainText('4 участника · 2 в сети');
 });
 
 test('ссылка ?g= из пуша и поиска открывает сразу чат', async ({ page }) => {

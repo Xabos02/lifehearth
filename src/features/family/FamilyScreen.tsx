@@ -3,17 +3,18 @@ import { useLocation, useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { LucideIcon } from 'lucide-react';
 import { db } from '../../db/db';
-import type { FamilyConfig } from '../../db/types';
+import type { FamilyConfig, FamilyMember } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
 import { screenAction, subscribeScreenAction } from '../../lib/ui/screenAction';
-import { t } from '../../lib/i18n';
+import { t, tPlur } from '../../lib/i18n';
 import { MembersTab } from './MembersTab';
 import { ChatTab } from './ChatTab';
 import { FamilyTasksTab } from './FamilyTasksTab';
 import { CallButton } from './CallButton';
-import { GroupAvatar, MemberAvatar } from './MemberAvatar';
+import { MemberAvatar, StackAvatar } from './MemberAvatar';
+import { chatPresence, subscribeChatPresence } from './chatPresence';
 import { useFamilyStatusLine } from './useFamilyStatusLine';
 import { chatPath, isAlive, isGroupChat, partnerOf } from './chats';
 
@@ -58,20 +59,69 @@ export function FamilyScreen({ config, first, view }: { config: FamilyConfig; fi
     );
   }
 
+  const alive = members.filter(isAlive);
   return (
     <ChatScreen
       config={config}
       title={title}
-      person={Boolean(partner)}
-      lead={partner ? <MemberAvatar member={partner} className="size-9 text-sm" /> : <GroupAvatar className="size-9" glyph={ICON.base} />}
+      partner={partner}
+      alive={alive}
     />
   );
 }
 
-function ChatScreen({ config, title, person, lead }: { config: FamilyConfig; title: string; person: boolean; lead: ReactNode }) {
+function ChatScreen({
+  config,
+  title,
+  partner,
+  alive,
+}: {
+  config: FamilyConfig;
+  title: string;
+  partner: FamilyMember | undefined;
+  alive: FamilyMember[];
+}) {
   const navigate = useNavigate();
   const familyId = config.familyId;
-  const status = useFamilyStatusLine(familyId, person);
+  // Только сбой НАШЕЙ связи («нет связи», «подключение…»): пока связь есть,
+  // под именем — присутствие собеседников, как в мессенджерах.
+  const conn = useFamilyStatusLine(familyId, true);
+  const presence = useSyncExternalStore(subscribeChatPresence, chatPresence, () => null);
+  const p = presence?.familyId === familyId ? presence : null;
+  const others = alive.filter((m) => m.id !== config.selfMemberId);
+  const partnerOnline = Boolean(partner && p?.onlineIds.includes(partner.id));
+  const lead: ReactNode = partner ? (
+    <span className="relative shrink-0">
+      <MemberAvatar member={partner} className="size-10 text-sm" />
+      {partnerOnline && (
+        <span className="absolute right-0 bottom-0 size-2.5 rounded-full border-2 border-lh-bg bg-success" />
+      )}
+    </span>
+  ) : (
+    <StackAvatar members={others} />
+  );
+  const tone = (s: string | null | undefined, k: 'typing' | 'online' | 'plain') =>
+    s ? <span className={k === 'typing' ? 'text-lh-accent' : k === 'online' ? 'text-success' : ''}>{s}</span> : null;
+  const count = partner ? null : tPlur(alive.length, ['участник', 'участника', 'участников']);
+  // Общий чат на двоих (первая группа всегда общая: «вы и жена») — под
+  // названием статус собеседника с именем, как над лентой до редизайна:
+  // «Жена · был(а) в сети 2 ч назад». Без числа участников: строка
+  // обрезается, и на 375px от статуса остались бы «был(а)…».
+  const solo = !partner && others.length === 1 ? others[0] : undefined;
+  const presenceNode =
+    solo && p?.text
+      ? <>{solo.displayName} · {tone(p.text, p.tone)}</>
+      : p?.tone === 'typing'
+        ? tone(p.text, 'typing')
+        : partner
+          ? tone(p?.text, p?.tone ?? 'plain')
+          : p?.tone === 'online'
+            ? // Себя тоже: «4 участника» считает и вас, и ветка рисуется только
+              // при нашей связи (conn === 'online'), — иначе все в сети, а
+              // подпись «4 участника · 3 в сети».
+              <>{count} · {tone(t('{n} в сети', { n: alive.filter((m) => m.id === config.selfMemberId || p.onlineIds.includes(m.id)).length }), 'online')}</>
+            : count;
+  const subtitleNode: ReactNode = conn ? <>{count ? `${count} · ` : ''}{conn}</> : presenceNode;
   // Действие от чата (поиск по переписке): чат сам объявляет о нём, шапка
   // только показывает. Своя строка под кнопку стоила бы переписке высоты.
   const action = useSyncExternalStore(subscribeScreenAction, screenAction, () => null);
@@ -84,7 +134,7 @@ function ChatScreen({ config, title, person, lead }: { config: FamilyConfig; tit
       compact
       fill
       title={title}
-      subtitle={gone ? undefined : status}
+      subtitleNode={gone ? undefined : subtitleNode}
       backTo="/more/family"
       titleLead={lead}
       onTitlePress={() => navigate(chatPath(familyId, 'members'))}
@@ -94,6 +144,8 @@ function ChatScreen({ config, title, person, lead }: { config: FamilyConfig; tit
         // смыкались — палец над лупой попадал в звонок, а звонок поднимает
         // трезвон у человека на том конце.
         <div className="flex items-center gap-3">
+          {/* Порядок макета: звонок, затем поиск. */}
+          <CallButton familyId={familyId} />
           {action && ActionIcon && (
             <button
               onClick={action.onPress}
@@ -103,7 +155,6 @@ function ChatScreen({ config, title, person, lead }: { config: FamilyConfig; tit
               <ActionIcon size={ICON.header} />
             </button>
           )}
-          <CallButton familyId={familyId} />
         </div>
       }
     >
