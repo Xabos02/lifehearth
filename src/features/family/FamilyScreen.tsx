@@ -103,14 +103,24 @@ function ChatScreen({
   const tone = (s: string | null | undefined, k: 'typing' | 'online' | 'plain') =>
     s ? <span className={k === 'typing' ? 'text-lh-accent' : k === 'online' ? 'text-success' : ''}>{s}</span> : null;
   const count = partner ? null : tPlur(alive.length, ['участник', 'участника', 'участников']);
+  // Общий чат на двоих (первая группа всегда общая: «вы и жена») — под
+  // названием статус собеседника с именем, как над лентой до редизайна:
+  // «Жена · был(а) в сети 2 ч назад». Без числа участников: строка
+  // обрезается, и на 375px от статуса остались бы «был(а)…».
+  const solo = !partner && others.length === 1 ? others[0] : undefined;
   const presenceNode =
-    p?.tone === 'typing'
-      ? tone(p.text, 'typing')
-      : partner
-        ? tone(p?.text, p?.tone ?? 'plain')
-        : p?.tone === 'online'
-          ? <>{count} · {tone(t('{n} в сети', { n: others.filter((m) => p.onlineIds.includes(m.id)).length }), 'online')}</>
-          : count;
+    solo && p?.text
+      ? <>{solo.displayName} · {tone(p.text, p.tone)}</>
+      : p?.tone === 'typing'
+        ? tone(p.text, 'typing')
+        : partner
+          ? tone(p?.text, p?.tone ?? 'plain')
+          : p?.tone === 'online'
+            ? // Себя тоже: «4 участника» считает и вас, и ветка рисуется только
+              // при нашей связи (conn === 'online'), — иначе все в сети, а
+              // подпись «4 участника · 3 в сети».
+              <>{count} · {tone(t('{n} в сети', { n: alive.filter((m) => m.id === config.selfMemberId || p.onlineIds.includes(m.id)).length }), 'online')}</>
+            : count;
   const subtitleNode: ReactNode = conn ? <>{count ? `${count} · ` : ''}{conn}</> : presenceNode;
   // Действие от чата (поиск по переписке): чат сам объявляет о нём, шапка
   // только показывает. Своя строка под кнопку стоила бы переписке высоты.

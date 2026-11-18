@@ -3,6 +3,7 @@ import Dexie from 'dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { LucideIcon } from 'lucide-react';
 import { useLoaded } from '../../hooks/useLoaded';
+import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 import {
   ArrowRight,
   CheckCheck,
@@ -1607,7 +1608,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 // Шрифт не меньше 16px: на iOS поле с мелким шрифтом заставляет
                 // Safari при фокусе увеличить всю страницу, и после набора она
                 // остаётся увеличенной — чат «уезжает» за край экрана.
-                className="max-h-40 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 pl-0.5 pr-2 text-base leading-snug outline-none"
+                className="max-h-40 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 pl-0.5 pr-2 text-base leading-snug outline-none placeholder:text-lh-text-secondary"
               />
               {text.trim() || !rec.supported ? (
                 <button
@@ -1727,20 +1728,66 @@ function MessageMenu({
   }, [onClose]);
   const row = 'flex h-12 w-full items-center justify-between gap-4 px-4 text-left text-base active:bg-lh-surface';
   const preview = m.text ? m.text : snippetOf(m);
+  // Чем нажали в последний раз — для защиты от второго тапа ниже.
+  const pointerType = useRef('');
+  // Клавиатура остаётся открытой (фокус с поля ввода не уводим, как у Sheet
+  // на main) и накрывает низ меню: оно во весь layout-вьюпорт, а клавиатура
+  // поверх него. Нижний отступ растёт на её высоту — меню встаёт по центру
+  // видимой части и долистывается до последнего пункта.
+  const keyboardInset = useKeyboardInset();
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label={t('Сообщение')}
       onClick={onClose}
-      className="fixed inset-0 z-[60] flex animate-fade-in flex-col justify-center bg-black/55 px-4 backdrop-blur-[2px]"
+      onPointerDownCapture={(e) => {
+        pointerType.current = e.pointerType;
+      }}
+      // Меню открывается через 300 мс после тапа по сообщению, и второй тап
+      // медленного двойного касания (❤️) попадал бы уже в реакцию или пункт
+      // меню. Пока идёт появление, клики гасим — как у Sheet на въезде.
+      // Пропускаем только мышь и клавиатуру (detail 0): двойной тап — жест
+      // сенсорного экрана, а клик мышью Playwright приходит сразу после
+      // появления меню, и проявление без сдвига не заставляет его ждать.
+      // Именно «кроме мыши», а не «только палец»: второй тап, начатый ещё по
+      // пузырю, неявно захвачен им — pointerdown сюда не доходит, тип остаётся
+      // пустым, а клик всё равно может прийти в пункт меню под пальцем.
+      onClickCapture={(e) => {
+        const entering = e.currentTarget
+          .getAnimations()
+          .some((a) => (a as CSSAnimation).animationName === 'fade-in');
+        if (!entering || pointerType.current === 'mouse' || e.detail === 0) return;
+        e.stopPropagation();
+        e.preventDefault();
+      }}
+      // Прокрутка вместо центровки: при justify-center высокое меню на низком
+      // экране (телефон боком) срезалось сверху без возможности долистать.
+      className="fixed inset-0 z-[60] flex animate-fade-in flex-col overflow-y-auto overscroll-none bg-black/55 p-4 backdrop-blur-[2px]"
+      // 16 — это p-4 (шаг 4px), не 1rem: корень 17px.
+      style={keyboardInset ? { paddingBottom: keyboardInset + 16 } : undefined}
     >
+      {/* Закрыть без действия — для читалки (в меню иначе только реакции и
+          пункты). Фокус сюда же — только без тача: дальше по меню можно идти
+          клавишами (Tab, Enter). На таче фокус остаётся в поле ввода, как на
+          main, и экранная клавиатура не прячется от каждого открытия меню. */}
+      <button type="button" onClick={onClose} autoFocus={!isTouch} className="sr-only">
+        {t('Закрыть')}
+      </button>
       <div
-        onClick={(e) => e.stopPropagation()}
-        className={`mx-auto flex w-full max-w-lg flex-col gap-2 ${own ? 'items-end' : 'items-start'}`}
+        // Гасим только клики по самим блокам: пустое место обёртки рядом с
+        // ними — то же затемнение, тап туда закрывает меню.
+        onClick={(e) => {
+          if (e.target !== e.currentTarget) e.stopPropagation();
+        }}
+        className={`m-auto flex w-full max-w-lg flex-col gap-2 ${own ? 'items-end' : 'items-start'}`}
       >
         {!m.system && (
-          <div className="flex gap-1 rounded-full border border-lh-border bg-lh-surface-2 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,.5)]">
+          // Шесть кнопок по 44 с gap-1 и p-1.5 — 298px с рамкой, а на 320px
+          // под меню 288 (p-4 по бокам): кнопки сжимались до ~42. Уже 360px
+          // зазор и поле капсулы на полшага меньше — 284px; shrink-0 держит
+          // кнопку 44×44, центры соседей в 46px друг от друга (PROTOCOL §5.1).
+          <div className="flex gap-1 rounded-full border border-lh-border bg-lh-surface-2 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,.5)] max-[359px]:gap-0.5 max-[359px]:p-1">
             {REACTIONS.map((emoji) => (
               <button
                 key={emoji}
@@ -1748,7 +1795,7 @@ function MessageMenu({
                 onClick={() => onReact(emoji)}
                 aria-label={t('Реакция {emoji}', { emoji })}
                 aria-pressed={mine === emoji}
-                className={`relative flex size-11 items-center justify-center rounded-full text-xl transition-transform active:scale-90 ${
+                className={`relative flex size-11 shrink-0 items-center justify-center rounded-full text-lg transition-transform active:scale-90 ${
                   mine === emoji ? 'bg-lh-accent-dim ring-1 ring-lh-accent/50' : ''
                 }`}
               >
