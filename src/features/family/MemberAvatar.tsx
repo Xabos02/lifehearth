@@ -31,3 +31,15 @@ export function GroupAvatar({ className = 'size-11', glyph = ICON.header }: { cl
     </span>
   );
 }
+
+/** Шапка общего чата (макет): два круга собеседников внахлёст. Пока
+ *  собеседников меньше двух — знак семьи. */
+export function StackAvatar({ members }: { members: FamilyMember[] }) {
+  if (members.length < 2) return <GroupAvatar className="size-10" glyph={ICON.base} />;
+  return (
+    <span aria-hidden className="relative size-10 shrink-0">
+      <MemberAvatar member={members[0]} className="absolute top-0 left-0 size-7 text-2xs ring-2 ring-lh-bg" />
+      <MemberAvatar member={members[1]} className="absolute right-0 bottom-0 size-7 text-2xs ring-2 ring-lh-bg" />
+    </span>
+  );
+}
