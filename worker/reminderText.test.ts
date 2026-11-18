@@ -4,23 +4,13 @@
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it, vi } from 'vitest';
 import { SCRUB_PLAIN_REMINDERS_SQL, storableReminderText } from './src/reminderText.js';
+import { d1 } from './d1Sqlite';
 
 vi.mock('cloudflare:workers', () => ({ DurableObject: class {} }));
 const worker = (await import('./src/index.js')).default as {
   fetch: (r: Request, e: unknown, c: unknown) => Promise<Response>;
   scheduled: (ev: unknown, e: unknown, c: { waitUntil: (p: Promise<unknown>) => void }) => Promise<void>;
 };
-
-/** D1 поверх настоящего SQLite: prepare(sql).bind(...).run()/all()/first(). */
-function d1(db: DatabaseSync) {
-  const stmt = (sql: string, args: unknown[] = []) => ({
-    bind: (...a: unknown[]) => stmt(sql, a),
-    run: async () => (db.prepare(sql).run(...(args as never[])), {}),
-    all: async () => ({ results: db.prepare(sql).all(...(args as never[])) }),
-    first: async () => db.prepare(sql).get(...(args as never[])) ?? null,
-  });
-  return { prepare: (sql: string) => stmt(sql) };
-}
 
 function remindersDb() {
   const db = new DatabaseSync(':memory:');
@@ -58,7 +48,8 @@ describe('текст напоминания на сервере', () => {
       worker.fetch(
         new Request('https://w.test/schedule', {
           method: 'POST',
-          body: JSON.stringify({ taskId, fireAt: 1e13, title, body, subscription: { endpoint: 'https://push.test/1' } }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId, fireAt: 1e13, title, body, subscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/1', keys: { p256dh: 'p', auth: 'a' } } }),
         }),
         { DB: d1(db) },
         { waitUntil() {} },
