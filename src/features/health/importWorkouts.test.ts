@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeCsv, parseDate, parseDistance, parseDuration, parseType, parseWorkoutsCsv, splitCsv, withoutDuplicates } from './importWorkouts';
+import { decodeCsv, parseDate, parseDistance, parseDuration, parseType, parseWorkoutsCsv, splitCsv, UNDONE, withoutDuplicates } from './importWorkouts';
 
 describe('разбор ячеек', () => {
   it('даты: ISO, точки, Strava «Sep 10, 2026, 6:02:11 PM», русский месяц', () => {
@@ -157,6 +157,14 @@ describe('CSV целиком', () => {
     expect(withoutDuplicates([row], [edited])).toEqual([]);
     // А та же тренировка с новыми минутами из другого файла — тоже уже есть.
     expect(withoutDuplicates([{ ...row, minutes: 40 }], [edited])).toEqual([]);
+  });
+
+  it('отменённая «Вернуть» пачка не «уже есть», удалённая рукой запись — есть (аудит H14)', () => {
+    const row = { date: '2026-09-01', type: 'run' as const, minutes: 32, distanceKm: 5.21, note: '' };
+    const undone = { date: '2026-09-01', type: 'run' as const, minutes: 32, distanceKm: 5.21, importKey: `${UNDONE}2026-09-01|run|32|5` };
+    expect(withoutDuplicates([row], [undone])).toEqual([row]);
+    const deletedByHand = { ...undone, importKey: '2026-09-01|run|32|5' };
+    expect(withoutDuplicates([row], [deletedByHand])).toEqual([]);
   });
 });
 

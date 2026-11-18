@@ -30,7 +30,7 @@ import { adviceTitle, formatKm, lastLine } from './workoutText';
 import { formatExercises } from './exercises';
 import { WorkoutCalendar, type Scale } from './WorkoutCalendar';
 import { decodeCsv, parseWorkoutsCsv, withoutDuplicates } from './importWorkouts';
-import { importParsed } from './workoutRepo';
+import { importParsed, undoImport } from './workoutRepo';
 import { useTemplates } from './templateRepo';
 import { confirmAction } from '../../components/ui/confirmStore';
 
@@ -127,8 +127,12 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
       return;
     }
     if (!(await confirmAction({ title: msg, confirmLabel: t('Добавить'), danger: false }))) return;
-    const n = await importParsed(fresh);
-    toast(t('Добавлено: {n} {what}', { n, what: tPlural(n, ['тренировка', 'тренировки', 'тренировок']) }));
+    const ids = await importParsed(fresh);
+    const n = ids.length;
+    // Ошибочную пачку — одной кнопкой, а не по записи (аудит 1.64.0, H14).
+    toast(t('Добавлено: {n} {what}', { n, what: tPlural(n, ['тренировка', 'тренировки', 'тренировок']) }), {
+      action: { label: t('Вернуть'), onClick: () => void undoImport(ids) },
+    });
   };
 
   return (

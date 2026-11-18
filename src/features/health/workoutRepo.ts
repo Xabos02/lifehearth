@@ -3,7 +3,7 @@ import { alive, create, remove, uid, updateMany } from '../../db/repo';
 import { scheduleSyncSoon } from '../../lib/sync';
 import { isDateKey } from '../../lib/dates';
 import type { Workout } from '../../db/types';
-import { dupKey, type ParsedWorkout } from './importWorkouts';
+import { dupKey, UNDONE, type ParsedWorkout } from './importWorkouts';
 
 export type WorkoutDraft = Omit<Workout, keyof import('../../db/types').BaseEntity>;
 
@@ -59,10 +59,11 @@ export async function addWorkoutSession(items: WorkoutDraft[]): Promise<Workout[
 /** Импорт разобранных строк — одной транзакцией: выгрузка за год это сотни
  *  строк, и по одной они бы дёргали liveQuery экрана на каждую, а обрыв на
  *  середине оставлял бы половину. Все с пометкой source=import. */
-export async function importParsed(rows: ParsedWorkout[]): Promise<number> {
+export async function importParsed(rows: ParsedWorkout[]): Promise<string[]> {
+  const ids: string[] = [];
   await db.transaction('rw', db.workouts, async () => {
     for (const r of rows) {
-      await create(db.workouts, {
+      const w = await create(db.workouts, {
         date: r.date,
         type: r.type,
         minutes: r.minutes,
@@ -75,7 +76,20 @@ export async function importParsed(rows: ParsedWorkout[]): Promise<number> {
         customColor: null,
         importKey: dupKey(r),
       });
+      ids.push(w.id);
     }
   });
-  return rows.length;
+  return ids;
+}
+
+/** «Вернуть» после импорта: пачка мягко удаляется одной записью (могла уже
+ *  уйти в синк — жёсткое удаление вернулось бы с сервера), а её ключи
+ *  помечаются отменёнными: тот же файл потом импортируется снова. */
+export async function undoImport(ids: string[]): Promise<void> {
+  const rows = await db.workouts.bulkGet(ids);
+  const ts = new Date().toISOString();
+  await updateMany(
+    db.workouts,
+    rows.flatMap((w) => (w ? [{ id: w.id, changes: { deletedAt: ts, importKey: UNDONE + (w.importKey ?? dupKey(w)) } }] : [])),
+  );
 }

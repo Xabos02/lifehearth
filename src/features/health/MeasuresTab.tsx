@@ -281,8 +281,26 @@ function MeasureForm({ measure, onClose }: { measure: MeasureKey; onClose: () =>
   const canSave =
     raw !== '' && okRange(v1, def) && (!isBp || (raw2 !== '' && okRange(v2, measureDef('bpDia')))) && isDateKey(day) && day <= todayKey();
   // Замер за выбранный день уже есть — его можно удалить (ошибочный «784»).
-  const existing = useLiveQuery(() => db.metricLogs.get(measureLogId(def.id, day)), [def.id, day]);
+  // null — замера нет, undefined — база ещё не ответила.
+  const existing = useLiveQuery(async () => (await db.metricLogs.get(measureLogId(def.id, day))) ?? null, [def.id, day]);
+  const existing2 = useLiveQuery(
+    async () => (isBp ? ((await db.metricLogs.get(measureLogId(measureDef('bpDia').id, day))) ?? null) : null),
+    [isBp, day],
+  );
   const hasExisting = Boolean(existing && !existing.deletedAt);
+  // Записанное за день — в поле (аудит 1.64.0, H3): иначе ошибочный замер не
+  // видно и не поправить. Только пока человек ничего не набрал сам:
+  // подставленное меняется вместе с днём, набранное — нет.
+  const [filled, setFilled] = useState({ v1: '', v2: '' });
+  if (existing !== undefined && existing2 !== undefined && raw === filled.v1 && raw2 === filled.v2) {
+    const shown = (log: typeof existing, d: MeasureDef) => (log && !log.deletedAt ? asInput(log.value, d) : '');
+    const next = { v1: shown(existing, def), v2: shown(existing2, measureDef('bpDia')) };
+    if (next.v1 !== filled.v1 || next.v2 !== filled.v2) {
+      setFilled(next);
+      setRaw(next.v1);
+      setRaw2(next.v2);
+    }
+  }
   // Защита от дабл-тапа: второй тап по «Сохранить» до записи создавал второй лог.
   const savingRef = useRef(false);
 
@@ -347,6 +365,13 @@ function MeasureForm({ measure, onClose }: { measure: MeasureKey; onClose: () =>
       )}
     </div>
   );
+}
+
+/** Записанное значение — в поле ввода: без хвостовых нулей («7,5», а не
+ *  «7,50» — у сна это читалось бы как 7 ч 50 мин), разделитель по языку. */
+function asInput(v: number, d: MeasureDef): string {
+  const s = String(Number(v.toFixed(d.decimals)));
+  return getLang() === 'ru' ? s.replace('.', ',') : s;
 }
 
 function signed(n: number, decimals = 1): string {
