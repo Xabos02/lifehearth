@@ -106,7 +106,7 @@ test('общий чат на двоих: под названием — когд�
   await page.goto('/more/family?g=f1');
   await expect(chatHeader(page)).toContainText('Мама · был(а) в сети');
   // Без числа участников: «2 участника · Мама · был(а) в сети…» обрезалось бы на 375px.
-  await expect(chatHeader(page)).not.toContainText('участник');
+  await expect(chatHeader(page)).not.toContainText(/\d+ участник/);
 });
 
 test('общий чат: «N участников · M в сети» — оба числа с вами', async ({ page }) => {
