@@ -973,6 +973,13 @@ const DEFAULT_UPDATE_TEXT = 'Приложение обновилось — от�
 const LAST_NOTIFIED_KEY = 'update:last-notified-version';
 const APP_INDEX_URL = 'https://xabos02.github.io/life-hub/index.html';
 
+/** Срок на один запрос к push-службе. У исходящего fetch в Workers своего
+ *  срока нет, а очередь крона и рассылка идут по одному адресу за раз: адрес,
+ *  который принял соединение и молчит, держал весь цикл, и напоминания после
+ *  него не уходили (аудит 1.64.0, NEW-S-1). Настоящая служба отвечает за
+ *  доли секунды, 10 с — с большим запасом. */
+const PUSH_TIMEOUT_MS = 10_000;
+
 /** Разослать пуш «вышло обновление» всем подписчикам. Возвращает число доставок. */
 async function broadcastUpdate(env, bodyText) {
   const vapid = {
@@ -992,7 +999,7 @@ async function broadcastUpdate(env, bodyText) {
         ttl: 86400,
         urgency: 'normal',
       });
-      const res = await fetch(endpoint, { method: 'POST', headers, body });
+      const res = await fetch(endpoint, { method: 'POST', headers, body, signal: AbortSignal.timeout(PUSH_TIMEOUT_MS) });
       if (res.ok) sent++;
       else if (res.status === 404 || res.status === 410) {
         await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ?').bind(r.endpoint).run();
@@ -1051,12 +1058,16 @@ async function sendDue(env) {
         ttl: 3600,
         urgency: 'high',
       });
-      const res = await fetch(endpoint, { method: 'POST', headers, body });
+      const res = await fetch(endpoint, { method: 'POST', headers, body, signal: AbortSignal.timeout(PUSH_TIMEOUT_MS) });
       console.log(`push ${r.task_id}: ${res.status}`);
     } catch (e) {
       console.log(`push ${r.task_id} error: ${String(e)}`);
+    } finally {
+      // снимаем в любом случае — напоминание одноразовое (404/410 = подписка
+      // мертва, обрыв по сроку = адрес не отвечает). Удалять ДО отправки
+      // нельзя: при обрыве самого запуска крона напоминание пропало бы, а так
+      // оно уйдёт в следующую минуту.
+      await env.DB.prepare('DELETE FROM reminders WHERE task_id = ?').bind(r.task_id).run();
     }
-    // снимаем в любом случае — напоминание одноразовое (404/410 = подписка мертва)
-    await env.DB.prepare('DELETE FROM reminders WHERE task_id = ?').bind(r.task_id).run();
   }
 }
