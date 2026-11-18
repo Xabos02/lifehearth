@@ -21,6 +21,14 @@ import {
 } from '../../db/backup';
 import { isUnlocked } from '../cycle/lockState';
 import { BackupPinSheet } from './BackupPinSheet';
+import { BackupPasswordSheet } from './BackupPasswordSheet';
+import {
+  decryptBackupText,
+  encryptBackupText,
+  isEncryptedBackup,
+  WrongBackupPasswordError,
+  type EncryptedBackupFile,
+} from '../../lib/backupCrypto';
 import {
   BackupWouldLoseDataError,
   cloudBackupDate,
@@ -153,6 +161,46 @@ export function BackupPage() {
   }, [syncOn]);
 
   const [pinOpen, setPinOpen] = useState(false);
+  // Окно пароля копии: 'set' — перед сохранением файла, 'enter' — при
+  // восстановлении зашифрованного файла (lib/backupCrypto.ts).
+  const [pwMode, setPwMode] = useState<'set' | 'enter' | null>(null);
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const pendingWithoutCycle = useRef(false);
+  const pendingEncrypted = useRef<EncryptedBackupFile | null>(null);
+
+  function askPassword(withoutCycle: boolean) {
+    pendingWithoutCycle.current = withoutCycle;
+    setPwError('');
+    setPwMode('set');
+  }
+
+  async function handleUnlockFile(password: string) {
+    const file = pendingEncrypted.current;
+    if (!file) return;
+    setPwBusy(true);
+    setPwError('');
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await decryptBackupText(file, password));
+    } catch (err) {
+      setPwBusy(false);
+      setPwError(
+        err instanceof WrongBackupPasswordError
+          ? t('Неверный пароль или файл повреждён')
+          : t('Не удалось прочитать файл резервной копии'),
+      );
+      return;
+    }
+    setPwBusy(false);
+    setPwMode(null);
+    pendingEncrypted.current = null;
+    try {
+      await confirmAndImport(validateBackup(parsed));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : t('Не удалось прочитать файл резервной копии'));
+    }
+  }
 
   // Раздел «Женские дни» закрыт кодом и в этом сеансе не открыт — сначала
   // код (или копия без раздела). Настройки читаются в момент нажатия, а не
@@ -163,10 +211,12 @@ export function BackupPage() {
       setPinOpen(true);
       return;
     }
-    await handleExport(false);
+    askPassword(false);
   }
 
-  async function handleExport(withoutCycle: boolean) {
+  /** password — зашифровать файл (по умолчанию); без него — открытый JSON,
+   *  только по явному «Сохранить без пароля». */
+  async function handleExport(withoutCycle: boolean, password?: string) {
     if (exportingRef.current) return;
     exportingRef.current = true;
     try {
@@ -174,8 +224,19 @@ export function BackupPage() {
       // пустой, и восстановление из свежей копии показывало «никогда».
       await updateSettings({ lastBackupAt: now() });
       const backup = await exportBackup({ withoutCycle });
-      const json = JSON.stringify(backup, null, 2);
-      const file = new File([json], backupFilename(), { type: 'application/json' });
+      let json: string;
+      if (password) {
+        setPwBusy(true);
+        try {
+          json = JSON.stringify(await encryptBackupText(JSON.stringify(backup), password, backup.exportedAt));
+        } finally {
+          setPwBusy(false);
+        }
+      } else {
+        json = JSON.stringify(backup, null, 2);
+      }
+      setPwMode(null);
+      const file = new File([json], backupFilename(Boolean(password)), { type: 'application/json' });
 
       // share-шит — только на iOS (там это путь в «Файлы»); на десктопе
       // системный share-диалог блокирует страницу, качаем напрямую
@@ -201,7 +262,13 @@ export function BackupPage() {
         URL.revokeObjectURL(url);
       }
 
-      toast(withoutCycle ? t('Резервная копия сохранена без закрытых записей') : t('Резервная копия сохранена'));
+      toast(
+        withoutCycle
+          ? t('Резервная копия сохранена без закрытых записей')
+          : password
+            ? t('Резервная копия сохранена и зашифрована')
+            : t('Резервная копия сохранена'),
+      );
     } finally {
       exportingRef.current = false;
     }
@@ -247,6 +314,12 @@ export function BackupPage() {
     } catch {
       // Сырое сообщение JSON.parse человеку ни о чём — свои слова.
       toast(t('Это не файл резервной копии LifeHearth: внутри не данные, а что-то другое.'));
+      return;
+    }
+    if (isEncryptedBackup(parsed)) {
+      pendingEncrypted.current = parsed;
+      setPwError('');
+      setPwMode('enter');
       return;
     }
     try {
@@ -448,11 +521,11 @@ export function BackupPage() {
               </Tile>
               <div className="min-w-0 flex-1">
                 <p className="text-base">{t('Файл на телефоне или в iCloud')}</p>
-                <p className="mt-1 flex gap-1.5 text-sm leading-snug text-warning">
-                  <GAlert size={ICON.inline} className="mt-[3px] shrink-0" />
+                <p className="mt-1 flex gap-1.5 text-sm leading-snug text-lh-text-secondary">
+                  <GAlert size={ICON.inline} className="mt-[3px] shrink-0 text-warning" />
                   <span>
                     {t(
-                      'В файл входит всё: задачи, заметки, финансы, семейный чат и «Женские дни», если вы им пользуетесь. Файл НЕ зашифрован — храните там, куда нет доступа у посторонних.',
+                      'В файл входит всё: задачи, заметки, финансы, семейный чат и «Женские дни», если вы им пользуетесь. Файл шифруется паролем — без него копию не прочитать. Пароль нигде не хранится.',
                     )}
                   </span>
                 </p>
@@ -539,8 +612,23 @@ export function BackupPage() {
         onClose={() => setPinOpen(false)}
         onSave={(withoutCycle) => {
           setPinOpen(false);
-          void handleExport(withoutCycle);
+          askPassword(withoutCycle);
         }}
+      />
+      <BackupPasswordSheet
+        open={pwMode !== null}
+        mode={pwMode ?? 'set'}
+        busy={pwBusy}
+        error={pwError}
+        onClose={() => {
+          if (pwBusy) return;
+          setPwMode(null);
+          pendingEncrypted.current = null;
+        }}
+        onSubmit={(password) =>
+          void (pwMode === 'enter' ? handleUnlockFile(password) : handleExport(pendingWithoutCycle.current, password))
+        }
+        onSkip={() => void handleExport(pendingWithoutCycle.current)}
       />
     </Screen>
   );

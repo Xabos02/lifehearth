@@ -12,6 +12,11 @@ VAPID_PUBLIC = "BCi0yalmrjjC4elVs1vwAzGASoESrlpDA5ImcuB-u6kOVQf00Zc-GIK79WIBe7sQ
 # Спецификация (RFC 8292) допускает и mailto:, и https: — второй решает задачу
 # «с кем связаться по поводу этих пушей», ничего не раскрывая о человеке.
 VAPID_SUBJECT = "https://xabos02.github.io/lifehearth/"
+# Суточные потолки (worker/src/limits.js). Аккаунты из секрета
+# AI_ALLOWED_ACCOUNTS потолков ИИ не имеют — туда стоит вписать свой.
+NEW_ACCOUNTS_PER_IP_DAY = "20"
+AI_CALLS_PER_ACCOUNT_DAY = "60"
+AI_CALLS_PER_IP_DAY = "200"
 
 # KV для напоминаний. id подставляется после `wrangler kv namespace create REMINDERS`.
 [[kv_namespaces]]
@@ -50,6 +55,21 @@ new_sqlite_classes = ["SyncHub"]
 # не нужен: 10 000 Neurons в день на весь аккаунт, сброс в 00:00 UTC.
 [ai]
 binding = "AI"
+
+# Частотные лимиты (Cloudflare Rate Limiting, бесплатно, без D1/KV).
+# RL_IP — общий потолок на адрес: 300 запросов в минуту (обмен с фото и чат
+# укладываются с запасом, скрипт — нет). RL_AI — 10 запросов к ИИ в минуту на
+# аккаунт. Суточные потолки — переменные ниже и таблица usage_counters в D1
+# (worker/src/limits.js). namespace_id — любое число, уникальное в аккаунте.
+[[ratelimits]]
+name = "RL_IP"
+namespace_id = "1001"
+simple = { limit = 300, period = 60 }
+
+[[ratelimits]]
+name = "RL_AI"
+namespace_id = "1002"
+simple = { limit = 10, period = 60 }
 
 # Планировщик: раз в минуту проверяем и шлём наступившие напоминания.
 [triggers]

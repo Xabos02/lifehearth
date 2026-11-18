@@ -53,6 +53,7 @@ export type AiErrorCode =
   | 'bad_request'
   | 'rate_limit'
   | 'quota' // кончился дневной бесплатный лимит Workers AI
+  | 'user_quota' // кончился личный суточный потолок вопросов (worker/src/limits.js)
   | 'provider' // ошибка на стороне провайдера
   | 'network'
   | 'aborted';
@@ -82,6 +83,8 @@ export function aiErrorText(e: unknown): string {
         return t('Слишком часто. Подождите немного.');
       case 'quota':
         return t('Бесплатный лимит на сегодня исчерпан, обновится в {time}', { time: quotaResetTime() });
+      case 'user_quota':
+        return t('Ваш лимит вопросов на сегодня исчерпан, обновится в {time}', { time: quotaResetTime() });
       case 'provider':
         return t('Провайдер отказал: {msg}', { msg: e.message });
       case 'network':
@@ -171,7 +174,10 @@ export async function requestChat(params: {
     if (res.status === 401) throw new AiError('unauthorized', msg);
     if (res.status === 403) throw new AiError('forbidden', msg);
     if (res.status === 400) throw new AiError('bad_request', msg);
-    if (res.status === 429) throw new AiError(body.error === 'quota' ? 'quota' : 'rate_limit', msg);
+    if (res.status === 429) {
+      const code = body.error === 'quota' || body.error === 'user_quota' ? body.error : 'rate_limit';
+      throw new AiError(code, msg);
+    }
     throw new AiError('provider', msg);
   }
 
