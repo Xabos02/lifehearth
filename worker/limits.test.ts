@@ -52,13 +52,53 @@ describe('заведение аккаунтов: не больше 10 в час 
     expect(await s.call('/sync/push', { records: [] }, { account: 'acc-extra', ip: '198.51.100.2' })).toBe(200);
   });
 
-  it('IPv6: адреса одной сети /64 считаются как один', async () => {
+  it('IPv6: адреса одной сети /48 считаются как один (бесплатный туннель даёт целую /48)', async () => {
     const s = server();
     for (let i = 0; i < 10; i++) {
-      expect(await s.call('/sync/push', { records: [] }, { account: `v6-${i}`, ip: `2001:db8:1:2::${i + 1}` })).toBe(200);
+      expect(await s.call('/sync/push', { records: [] }, { account: `v6-${i}`, ip: `2001:db8:1:${i}::1` })).toBe(200);
     }
-    expect(await s.call('/sync/push', { records: [] }, { account: 'v6-x', ip: '2001:db8:1:2:aaaa:bbbb:cccc:dddd' })).toBe(429);
-    expect(await s.call('/sync/push', { records: [] }, { account: 'v6-y', ip: '2001:db8:1:3::1' })).toBe(200);
+    expect(await s.call('/sync/push', { records: [] }, { account: 'v6-x', ip: '2001:db8:1:ffff:aaaa:bbbb:cccc:dddd' })).toBe(429);
+    expect(await s.call('/sync/push', { records: [] }, { account: 'v6-y', ip: '2001:db8:2::1' })).toBe(200);
+  });
+
+  it('адрес в счётчике не лежит открытым текстом, прошлые часы стираются первой же записью', async () => {
+    const s = server();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-11-18T05:10:00Z'));
+      expect(await s.call('/sync/push', { records: [] }, { account: 'acc-old', ip: '203.0.113.7' })).toBe(200);
+      vi.setSystemTime(new Date('2026-11-18T09:10:00Z'));
+      const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/x', keys: { p256dh: 'p', auth: 'a' } };
+      expect(await s.call('/schedule', { taskId: 't', fireAt: Date.now() + 60_000, subscription: sub }, { ip: '198.51.100.2' })).toBe(200);
+    } finally {
+      vi.useRealTimers();
+    }
+    const keys = s.db.prepare('SELECT k FROM quota').all().map((r) => (r as { k: string }).k);
+    expect(keys).toHaveLength(1);
+    expect(keys.join()).not.toMatch(/203\.0\.113\.7|198\.51\.100\.2/);
+  });
+});
+
+describe('/push-register и сопряжение: предел с адреса и потолок тела (S4, S5)', () => {
+  const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/x', keys: { p256dh: 'p', auth: 'a' } };
+  it('/push-register: 121-я регистрация за час — 429; тело больше 4 КБ — 413', async () => {
+    const s = server();
+    for (let i = 0; i < 120; i++) {
+      expect(await s.call('/push-register', { subscription: { ...sub, endpoint: `${sub.endpoint}${i}` } })).toBe(200);
+    }
+    expect(await s.call('/push-register', { subscription: { ...sub, endpoint: `${sub.endpoint}-extra` } })).toBe(429);
+    expect(s.count('SELECT COUNT(*) n FROM push_subs')).toBe(120);
+    const big = { subscription: { ...sub, keys: { p256dh: 'p'.repeat(5000), auth: 'a' } } };
+    expect(await s.call('/push-register', big, { ip: '198.51.100.2' })).toBe(413);
+  });
+
+  it('/pair/offer: 31-я встреча за час с адреса — 429; ключ размером с мегабайт — 413, в базе ничего', async () => {
+    const s = server();
+    for (let i = 0; i < 30; i++) expect(await s.call('/pair/offer', { pairId: `pairOffer${String(i).padStart(4, '0')}`, pubA: 'PUB' })).toBe(200);
+    expect(await s.call('/pair/offer', { pairId: 'pairOfferExtra', pubA: 'PUB' })).toBe(429);
+    expect(s.count("SELECT COUNT(*) n FROM app_meta WHERE k LIKE 'pair:%'")).toBe(30);
+    expect(await s.call('/pair/offer', { pairId: 'pairOfferHuge', pubA: 'x'.repeat(1_000_000) }, { ip: '198.51.100.2' })).toBe(413);
+    expect(s.count("SELECT COUNT(*) n FROM app_meta WHERE k = 'pair:pairOfferHuge'")).toBe(0);
   });
 });
 

@@ -99,17 +99,32 @@ const SYNC_PUSH_MAX_BYTES = 4 * 1024 * 1024;
  *  0..total-1: кусок с номером вне диапазона хвостовое DELETE не стирало
  *  никогда, и строки копились. */
 const BACKUP_MAX_CHUNKS = 100;
+/** /push-register: своё приложение зовёт его при каждом запуске — 120 в час
+ *  хватает семье за одним роутером; без предела фальшивые подписки копились и
+ *  отодвигали настоящие за 50 подзапросов рассылки об обновлении. */
+const PUSH_REGISTERS_PER_HOUR = 120;
+const PUSH_REGISTER_MAX_BYTES = 4096;
+/** Встреча сопряжения заводится без учётки: без предела и потолка это была
+ *  вторая дверь «забить базу» — до 2 МБ строки на запрос. Ключ встречи — 87
+ *  символов, конверт — сотни; 30 встреч в час — с запасом на повторы. */
+const PAIR_OFFERS_PER_HOUR = 30;
+const PAIR_MAX_BYTES = 4096;
 
-/** Чей запрос — для пределов. IPv6 — по сети /64: абонент получает её
- *  целиком и меняет адрес внутри бесплатно. Без заголовка (тесты, локальный
- *  запуск) — общий ключ. */
-function clientKey(request) {
-  const ip = (request.headers.get('CF-Connecting-IP') || 'unknown').toLowerCase();
-  if (!ip.includes(':')) return ip;
-  const [head, tail = ''] = ip.split('::');
-  const h = head ? head.split(':') : [];
-  const t = tail ? tail.split(':') : [];
-  return [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t].slice(0, 4).join(':');
+/** Чей запрос — для пределов: хеш адреса, не сам адрес (на сервере открытым
+ *  текстом не лежит ничего, задача 33; перебор IPv4 по хешу возможен — это
+ *  защита от случайного взгляда, а не от владельца базы). IPv6 — по сети
+ *  /48: бесплатный туннель выдаёт её целиком, и /64 внутри меняются даром;
+ *  серверу одной семьи такое укрупнение ничего не стоит. Без заголовка
+ *  (тесты, локальный запуск) — общий ключ. */
+async function clientKey(request) {
+  let ip = (request.headers.get('CF-Connecting-IP') || 'unknown').toLowerCase();
+  if (ip.includes(':')) {
+    const [head, tail = ''] = ip.split('::');
+    const h = head ? head.split(':') : [];
+    const t = tail ? tail.split(':') : [];
+    ip = [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t].slice(0, 3).join(':');
+  }
+  return (await sha256hex(`quota:${ip}`)).slice(0, 32);
 }
 
 /** Почасовой предел с одного адреса. Возвращает выражения, которые надо
@@ -120,7 +135,7 @@ function clientKey(request) {
  *  перебрать предел; для тормоза против потока это неважно, строгий — DO. */
 async function hourlyQuota(env, request, kind, max) {
   const hour = Math.floor(Date.now() / 3_600_000);
-  const key = `${kind}:${hour}:${clientKey(request)}`;
+  const key = `${hour}:${kind}:${await clientKey(request)}`;
   // Таблицы ещё нет (первое заведение после деплоя) или D1 ответила ошибкой —
   // счётчик пуст: тормоз не должен запирать своих.
   const row = await env.DB.prepare('SELECT n FROM quota WHERE k = ?')
@@ -131,8 +146,9 @@ async function hourlyQuota(env, request, kind, max) {
   return [
     env.DB.prepare('CREATE TABLE IF NOT EXISTS quota (k TEXT PRIMARY KEY, n INTEGER NOT NULL)'),
     env.DB.prepare('INSERT INTO quota (k, n) VALUES (?, 1) ON CONFLICT(k) DO UPDATE SET n = n + 1').bind(key),
-    // Прошлые часы этого вида — долой: номер часа в ключе идёт по возрастанию.
-    env.DB.prepare('DELETE FROM quota WHERE k > ? AND k < ?').bind(`${kind}:`, `${kind}:${hour}`),
+    // Прошлые часы всех видов — долой: ключ начинается с номера часа (шесть
+    // цифр до 2084 года), так что любая запись чистит всё старше.
+    env.DB.prepare('DELETE FROM quota WHERE k < ?').bind(`${hour}:`),
   ];
 }
 
@@ -466,12 +482,19 @@ export default {
       // Регистрация подписки в глобальный список (для рассылки об обновлении).
       if (url.pathname === '/push-register' && request.method === 'POST') {
         if (!isJsonBody(request)) return json({ error: 'unsupported media type' }, 415, origin);
-        const { subscription } = await request.json();
+        const { subscription } = await readJsonCapped(request, PUSH_REGISTER_MAX_BYTES, origin);
         const sub = pushSubscriptionOf(subscription);
         if (!sub) return json({ error: 'bad request' }, 400, origin);
-        await env.DB.prepare('INSERT OR REPLACE INTO push_subs (endpoint, sub, created_at) VALUES (?, ?, ?)')
-          .bind(sub.endpoint, JSON.stringify(sub), new Date().toISOString())
-          .run();
+        const quota = await hourlyQuota(env, request, 'preg', PUSH_REGISTERS_PER_HOUR);
+        if (!quota) return json({ error: 'too many requests' }, 429, origin);
+        await env.DB.batch([
+          env.DB.prepare('INSERT OR REPLACE INTO push_subs (endpoint, sub, created_at) VALUES (?, ?, ?)').bind(
+            sub.endpoint,
+            JSON.stringify(sub),
+            new Date().toISOString(),
+          ),
+          ...quota,
+        ]);
         return json({ ok: true }, 200, origin);
       }
 
@@ -549,13 +572,19 @@ export default {
         // живой встречи сбрасывала ответ второго телефона — и тот, кто знал
         // код, успевал ответить первым своим ключом (аудит 1.64.0, S7).
         if (url.pathname === '/pair/offer' && request.method === 'POST') {
-          const { pairId, pubA } = await request.json();
+          const { pairId, pubA } = await readJsonCapped(request, PAIR_MAX_BYTES, origin);
           if (!pairId || !pubA || !/^[A-Za-z0-9_-]{8,64}$/.test(pairId)) {
             return json({ error: 'bad request' }, 400, origin);
           }
-          const res = await env.DB.prepare('INSERT INTO app_meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO NOTHING')
-            .bind(pairKey(pairId), JSON.stringify({ pubA, exp: Date.now() + PAIR_TTL_MS }))
-            .run();
+          const quota = await hourlyQuota(env, request, 'pair', PAIR_OFFERS_PER_HOUR);
+          if (!quota) return json({ error: 'too many requests' }, 429, origin);
+          const [res] = await env.DB.batch([
+            env.DB.prepare('INSERT INTO app_meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO NOTHING').bind(
+              pairKey(pairId),
+              JSON.stringify({ pubA, exp: Date.now() + PAIR_TTL_MS }),
+            ),
+            ...quota,
+          ]);
           if (!res.meta?.changes) return json({ error: 'taken' }, 409, origin);
           return json({ ok: true }, 200, origin);
         }
@@ -564,7 +593,7 @@ export default {
         // побеждает: иначе кто-то, подсмотревший QR, мог бы перебить чужой
         // ответ и встать на место второго телефона.
         if (url.pathname === '/pair/answer' && request.method === 'POST') {
-          const { pairId, pubB } = await request.json();
+          const { pairId, pubB } = await readJsonCapped(request, PAIR_MAX_BYTES, origin);
           const rec = await readPair(pairId);
           if (!rec) return json({ error: 'expired' }, 404, origin);
           if (rec.pubB) return json({ error: 'taken' }, 409, origin);
@@ -584,13 +613,19 @@ export default {
         // Конверт кладётся один раз и только после ответа: иначе знающий код
         // подменял его, и второй телефон получал чужой шифротекст, а первый
         // показывал «Устройство подключено» (S7). Клиент шлёт seal один раз.
+        // Условие — в самом UPDATE, а не проверкой перед записью: два
+        // одновременных seal иначе оба получали бы 200.
         if (url.pathname === '/pair/seal' && request.method === 'POST') {
-          const { pairId, sealed } = await request.json();
+          const { pairId, sealed } = await readJsonCapped(request, PAIR_MAX_BYTES, origin);
           const rec = await readPair(pairId);
           if (!rec) return json({ error: 'expired' }, 404, origin);
           if (!sealed) return json({ error: 'bad request' }, 400, origin);
-          if (!rec.pubB || rec.sealed) return json({ error: 'taken' }, 409, origin);
-          await writePair(pairId, { ...rec, sealed });
+          const res = await env.DB.prepare(
+            "UPDATE app_meta SET v = ? WHERE k = ? AND json_extract(v, '$.pubB') IS NOT NULL AND json_extract(v, '$.sealed') IS NULL",
+          )
+            .bind(JSON.stringify({ ...rec, sealed }), pairKey(pairId))
+            .run();
+          if (!res.meta?.changes) return json({ error: 'taken' }, 409, origin);
           return json({ ok: true }, 200, origin);
         }
 
