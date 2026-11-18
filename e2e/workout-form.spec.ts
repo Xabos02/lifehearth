@@ -25,6 +25,16 @@ async function seed(page: Page, rows: Seed[]) {
   }, rows);
 }
 
+/** Первый вопрос удаления вида занятия: «Удалить» — и сразу второй вопрос в
+ *  том же шите. answerConfirm ждёт, что шит скроется, а промежуток между
+ *  вопросами — миллисекунды. */
+async function confirmDeleteOfMate(page: Page) {
+  const ask = page.getByTestId('confirm-sheet');
+  await expect(ask).toHaveAttribute('aria-label', 'Удалить тренировку?');
+  await ask.getByRole('button').first().click();
+  await expect(ask).toHaveAttribute('aria-label', 'Удалить всё занятие?');
+}
+
 const stored = (page: Page) =>
   page.evaluate(async () => {
     const { db } = await import('/src/db/db.ts');
@@ -117,9 +127,17 @@ test('занятие из двух видов переносится и удал
   const monthTile = page.getByText('тренировок за месяц', { exact: true }).locator('..');
   await expect(monthTile.locator('p').first()).toHaveText('1');
 
-  // «Только этот вид» — как раньше: вид уходит отдельной тренировкой.
+  // Тап мимо вопроса — передумал: ничего не записано, форма открыта.
   await page.getByRole('button', { name: /^Растяжка/ }).first().click();
   await sheet.locator('input[type="date"]').fill('2026-09-14');
+  await sheet.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByTestId('confirm-sheet')).toBeVisible();
+  await sheet.last().getByRole('button', { name: 'Закрыть' }).click();
+  await expect(page.getByTestId('confirm-sheet')).toHaveCount(0);
+  await expect(sheet.locator('input[type="date"]')).toHaveValue('2026-09-14');
+  expect((await stored(page)).map((r) => r.date)).toEqual(['2026-09-15', '2026-09-15']);
+
+  // «Только этот вид» — как раньше: вид уходит отдельной тренировкой.
   await sheet.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await answerConfirm(page, false);
   await expect(sheet).toHaveCount(0);
@@ -132,8 +150,14 @@ test('занятие из двух видов переносится и удал
   await seed(page, [{ id: 'c', date: '2026-09-15', type: 'boxing', minutes: 30, groupId: 'g1', createdAt: '2026-09-15T10:00:00.002Z' }]);
   await page.getByRole('button', { name: /^Бокс/ }).first().click();
   await sheet.getByRole('button', { name: 'Удалить' }).click();
-  expect(await answerConfirm(page, true)).toContain('Удалить тренировку?');
-  expect(await answerConfirm(page, false)).toContain('Удалить всё занятие?');
+  await confirmDeleteOfMate(page);
+  // Тап мимо второго вопроса — ничего не удалено.
+  await sheet.last().getByRole('button', { name: 'Закрыть' }).click();
+  await expect(page.getByTestId('confirm-sheet')).toHaveCount(0);
+  expect((await stored(page)).filter((r) => r.deleted)).toEqual([]);
+  await sheet.getByRole('button', { name: 'Удалить' }).click();
+  await confirmDeleteOfMate(page);
+  await answerConfirm(page, false);
   await expect(sheet).toHaveCount(0);
   expect((await stored(page)).filter((r) => r.deleted).map((r) => r.id)).toEqual(['c']);
 
@@ -151,7 +175,7 @@ test('занятие из двух видов переносится и удал
   ]);
   await page.getByRole('button', { name: /^Бег/ }).first().click();
   await sheet.getByRole('button', { name: 'Удалить' }).click();
-  await answerConfirm(page, true);
+  await confirmDeleteOfMate(page);
   await answerConfirm(page, true);
   await expect(sheet).toHaveCount(0);
   expect((await stored(page)).filter((r) => r.deleted).map((r) => r.id).sort()).toEqual(['a', 'c', 'd', 'e']);

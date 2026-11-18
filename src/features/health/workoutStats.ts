@@ -21,6 +21,14 @@ export function lastWorkout(workouts: Workout[], today: string): Workout | null 
   return best;
 }
 
+/** С какого вида начинать новую запись: первый вид последнего занятия — у
+ *  «силовая + растяжка» это силовая, а не растяжка, введённая последней. */
+export function lastSessionLead(workouts: Workout[], today: string): Workout | null {
+  const last = lastWorkout(workouts, today);
+  if (!last?.groupId) return last;
+  return workouts.filter((w) => w.groupId === last.groupId).reduce((a, b) => (b.createdAt < a.createdAt ? b : a), last);
+}
+
 /** Тренировки на неделе (понедельник — воскресенье), к которой относится день. */
 export function weekWorkouts(workouts: Workout[], day: string): Workout[] {
   const start = weekStartKey(day);

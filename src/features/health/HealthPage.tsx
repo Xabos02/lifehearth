@@ -15,7 +15,7 @@ import { MeasuresTab } from './MeasuresTab';
 import { WorkoutSheet } from './WorkoutSheet';
 import { TemplatesSheet } from './TemplatesSheet';
 import { shownWorkouts } from './workoutRepo';
-import { lastWorkout } from './workoutStats';
+import { lastSessionLead } from './workoutStats';
 
 type Tab = 'sport' | 'health';
 
@@ -115,7 +115,7 @@ export function HealthPage() {
         workout={sheet.workout}
         date={sheet.date}
         template={sheet.template}
-        last={lastWorkout(workouts, todayKey())}
+        last={lastSessionLead(workouts, todayKey())}
       />
       <TemplatesSheet open={templatesOpen} onClose={() => setTemplatesOpen(false)} onPick={openTemplate} />
     </Screen>

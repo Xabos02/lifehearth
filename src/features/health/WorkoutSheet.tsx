@@ -10,13 +10,13 @@ import { t } from '../../lib/i18n';
 import { todayKey } from '../../lib/dates';
 import type { Workout, WorkoutTemplate } from '../../db/types';
 import { EFFORT_LABELS } from './workouts';
-import { addWorkout, addWorkoutSession, removeWorkout, sessionMates, updateWithMates, type WorkoutDraft } from './workoutRepo';
+import { addWorkout, addWorkoutSession, removeWorkouts, sessionMates, updateWithMates, type WorkoutDraft } from './workoutRepo';
 import { addTemplate } from './templateRepo';
 import { TemplatesSheet } from './TemplatesSheet';
 import { ItemFields } from './ItemFields';
 import { itemFromSaved, kindPending, newItem, newItemLike, savedFromItem, type Item } from './workoutItem';
 import { describeWorkout } from './workoutText';
-import { confirmAction } from '../../components/ui/confirmStore';
+import { chooseAction, confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -175,17 +175,18 @@ function WorkoutForm({
         // Перенос вида занятия на другой день — вопрос про всё занятие
         // (аудит 1.64.0, H2). «Только этот вид» — как раньше: он уходит
         // отдельной тренировкой; не обнулить groupId значило бы одно
-        // занятие на двух днях.
+        // занятие на двух днях. Тап мимо вопроса — передумал: форма остаётся.
         const mates = day !== workout.date ? await sessionMates(workout) : [];
         const whole =
           mates.length > 0 &&
-          (await confirmAction({
+          (await chooseAction({
             title: t('Перенести всё занятие?'),
             message: t('В занятии ещё: {kinds}.', { kinds: mates.map(describeWorkout).join(', ') }),
             confirmLabel: t('Перенести всё'),
             cancelLabel: t('Только этот вид'),
             danger: false,
           }));
+        if (whole === null) return;
         const moved = day !== workout.date && !whole;
         await updateWithMates(workout.id, moved ? { ...drafts[0], groupId: null } : drafts[0], whole ? mates : []);
       } else if (drafts.length === 1) await addWorkout(drafts[0]);
@@ -199,18 +200,19 @@ function WorkoutForm({
   const del = async () => {
     if (!workout) return;
     if (!(await confirmAction(t('Удалить тренировку?')))) return;
-    // Вид занятия — следом вопрос, всё ли занятие (аудит 1.64.0, H2). Отказ
-    // и тап мимо — только этот вид: удалить его уже подтвердили.
+    // Вид занятия — следом вопрос, всё ли занятие (аудит 1.64.0, H2).
+    // «Только этот вид» — один; тап мимо — передумал, ничего не удаляется.
     const mates = await sessionMates(workout);
     const whole =
       mates.length > 0 &&
-      (await confirmAction({
+      (await chooseAction({
         title: t('Удалить всё занятие?'),
         message: t('В занятии ещё: {kinds}.', { kinds: mates.map(describeWorkout).join(', ') }),
         confirmLabel: t('Удалить всё занятие'),
         cancelLabel: t('Только этот вид'),
       }));
-    for (const w of whole ? [workout, ...mates] : [workout]) await removeWorkout(w.id);
+    if (whole === null) return;
+    await removeWorkouts(whole ? [workout.id, ...mates.map((m) => m.id)] : [workout.id]);
     onClose();
   };
 

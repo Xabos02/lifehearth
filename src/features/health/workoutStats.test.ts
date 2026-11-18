@@ -5,6 +5,7 @@ import {
   byType,
   daysSinceLast,
   formatHours,
+  lastSessionLead,
   lastWorkout,
   paceMinPerKm,
   todayAdvice,
@@ -67,6 +68,15 @@ describe('последняя тренировка и ритм «через де�
     expect(todayAdvice([w('2026-09-09'), w('2026-09-12')], '2026-09-13', 3)).toBe('train');
     // Понедельник: вчерашнее воскресенье — прошлая неделя, впереди семь дней.
     expect(todayAdvice([w('2026-09-13')], '2026-09-14', 3)).toBe('rest');
+  });
+
+  it('новая запись — с первого вида последнего занятия', () => {
+    const lead = w('2026-09-11', 'strength', 45, { groupId: 'g', createdAt: '2026-09-11T10:00:00.000Z' });
+    const tail = w('2026-09-11', 'stretch', 20, { groupId: 'g', createdAt: '2026-09-11T10:00:00.001Z' });
+    expect(lastWorkout([lead, tail], TODAY)?.type).toBe('stretch');
+    expect(lastSessionLead([tail, lead], TODAY)?.type).toBe('strength');
+    expect(lastSessionLead([w('2026-09-10', 'boxing')], TODAY)?.type).toBe('boxing');
+    expect(lastSessionLead([], TODAY)).toBeNull();
   });
 
   it('запись на будущее не считается последней', () => {

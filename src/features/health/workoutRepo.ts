@@ -1,5 +1,5 @@
 import { db } from '../../db/db';
-import { alive, create, remove, uid, updateMany } from '../../db/repo';
+import { alive, create, uid, updateMany } from '../../db/repo';
 import { scheduleSyncSoon } from '../../lib/sync';
 import { isDateKey } from '../../lib/dates';
 import type { Workout } from '../../db/types';
@@ -20,8 +20,11 @@ export async function addWorkout(draft: WorkoutDraft): Promise<Workout> {
   return create(db.workouts, draft);
 }
 
-export async function removeWorkout(id: string): Promise<void> {
-  await remove(db.workouts, id);
+/** Мягкое удаление вида или всего занятия — одной записью: убитая на
+ *  середине вкладка не оставит полузанятие. */
+export async function removeWorkouts(ids: string[]): Promise<void> {
+  const ts = new Date().toISOString();
+  await updateMany(db.workouts, ids.map((id) => ({ id, changes: { deletedAt: ts } })));
 }
 
 /** Правка вида и перенос остальных видов его занятия на тот же день — одной

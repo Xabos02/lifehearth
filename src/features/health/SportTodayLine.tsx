@@ -10,7 +10,7 @@ import { GChevronRight as ChevronRight } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { DEFAULT_WEEKLY_GOAL, resolveKind } from './workouts';
-import { formatMinutes, lastWorkout, todayAdvice, weekProgress } from './workoutStats';
+import { formatMinutes, lastSessionLead, lastWorkout, todayAdvice, weekProgress } from './workoutStats';
 import { adviceTitle, describeWorkout, relativeDay } from './workoutText';
 import { WorkoutSheet } from './WorkoutSheet';
 import { shownWorkouts } from './workoutRepo';
@@ -88,7 +88,7 @@ export function SportTodayLine() {
           </button>
         )}
       </div>
-      <WorkoutSheet open={openOn !== null} onClose={() => setOpenOn(null)} workout={null} date={openOn ?? today} last={last} />
+      <WorkoutSheet open={openOn !== null} onClose={() => setOpenOn(null)} workout={null} date={openOn ?? today} last={lastSessionLead(workouts, today)} />
     </section>
   );
 }
