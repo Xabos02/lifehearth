@@ -451,13 +451,19 @@ export default {
             .bind(pairKey(id), JSON.stringify(rec))
             .run();
 
-        // Устройство с аккаунтом открывает встречу и показывает QR.
+        // Устройство с аккаунтом открывает встречу и показывает QR. Только
+        // новую: pairId клиент каждый раз берёт случайный, а перезапись поверх
+        // живой встречи сбрасывала ответ второго телефона — и тот, кто знал
+        // код, успевал ответить первым своим ключом (аудит 1.64.0, S7).
         if (url.pathname === '/pair/offer' && request.method === 'POST') {
           const { pairId, pubA } = await request.json();
           if (!pairId || !pubA || !/^[A-Za-z0-9_-]{8,64}$/.test(pairId)) {
             return json({ error: 'bad request' }, 400, origin);
           }
-          await writePair(pairId, { pubA, exp: Date.now() + PAIR_TTL_MS });
+          const res = await env.DB.prepare('INSERT INTO app_meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO NOTHING')
+            .bind(pairKey(pairId), JSON.stringify({ pubA, exp: Date.now() + PAIR_TTL_MS }))
+            .run();
+          if (!res.meta?.changes) return json({ error: 'taken' }, 409, origin);
           return json({ ok: true }, 200, origin);
         }
 
@@ -482,11 +488,15 @@ export default {
           return json({ pubB: rec.pubB ?? null, sealed: Boolean(rec.sealed) }, 200, origin);
         }
 
+        // Конверт кладётся один раз и только после ответа: иначе знающий код
+        // подменял его, и второй телефон получал чужой шифротекст, а первый
+        // показывал «Устройство подключено» (S7). Клиент шлёт seal один раз.
         if (url.pathname === '/pair/seal' && request.method === 'POST') {
           const { pairId, sealed } = await request.json();
           const rec = await readPair(pairId);
           if (!rec) return json({ error: 'expired' }, 404, origin);
           if (!sealed) return json({ error: 'bad request' }, 400, origin);
+          if (!rec.pubB || rec.sealed) return json({ error: 'taken' }, 409, origin);
           await writePair(pairId, { ...rec, sealed });
           return json({ ok: true }, 200, origin);
         }
