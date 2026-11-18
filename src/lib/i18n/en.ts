@@ -1451,6 +1451,7 @@ export const EN: Record<string, string> = {
   'Изменить цель накоплений': 'Edit savings goal',
   'Не удалось сохранить заметку. Текст на экране цел — попробуйте ещё раз':
     'Could not save the note. The text on screen is intact — try again',
+  'Не удалось сохранить последние правки заметки': 'Could not save the latest changes to the note',
   'Последняя попытка не удалась: {when}': 'Last attempt failed: {when}',
   'Нет синхронизации и облачной копии': 'No sync or cloud backup',
   'Напоминания не придут при закрытом приложении':
