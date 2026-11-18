@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
+import { useDayRollover } from '../../hooks/useDayRollover';
 import {
   GSearch as Search,
   GSun as Sun,
@@ -79,7 +80,15 @@ export function TodayPage() {
   const habitsCollapsed = day.ready && day.habitsClosed && !habitsOpen;
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
+  // Открытая с вечера «Сегодня» утром перерисовывается сама: иначе совет
+  // спорта оставался вчерашним, а быстрый ввод ставил задачу на вчера, и она
+  // сразу была просрочена (аудит 1.64.0, H15, NEW-H-1).
+  useDayRollover();
   const today = todayKey();
+  // Срок новой задачи — на день, когда открыли форму: перерисовка в полночь
+  // иначе меняла бы его под открытой формой, и закрытие без правок
+  // спрашивало «Закрыть без сохранения?».
+  const [sheetDate, setSheetDate] = useState(today);
 
   // Сырые значения держим отдельно: undefined значит «Dexie ещё не ответил»,
   // и это не то же самое, что «задач нет». Склей их — и на первом кадре
@@ -110,6 +119,7 @@ export function TodayPage() {
 
   function openEdit(t: Task) {
     setEditing(t);
+    setSheetDate(todayKey());
     setSheetOpen(true);
   }
 
@@ -191,6 +201,7 @@ export function TodayPage() {
       <Fab
         onClick={() => {
           setEditing(null);
+          setSheetDate(todayKey());
           setSheetOpen(true);
         }}
       />
@@ -198,7 +209,7 @@ export function TodayPage() {
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
         task={editing}
-        defaults={{ dueDate: today }}
+        defaults={{ dueDate: sheetDate }}
       />
     </Screen>
   );

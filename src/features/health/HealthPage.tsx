@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { Screen } from '../../components/layout/Screen';
@@ -7,6 +7,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { t } from '../../lib/i18n';
 import { todayKey } from '../../lib/dates';
 import { useLoaded } from '../../hooks/useLoaded';
+import { useDayRollover } from '../../hooks/useDayRollover';
 import type { Workout, WorkoutTemplate } from '../../db/types';
 import { SportTab } from './SportTab';
 import type { Scale } from './WorkoutCalendar';
@@ -16,24 +17,6 @@ import { TemplatesSheet } from './TemplatesSheet';
 import { shownWorkouts } from './workoutRepo';
 
 type Tab = 'sport' | 'health';
-
-/** Перерисовка на смене суток: «сегодня» считается при рендере, и без неё
- *  открытая с вечера страница утром показывала вчерашний день как «Сегодня».
- *  ponytail: опрос раз в минуту и сразу при возврате в приложение, а не
- *  таймер до полуночи — длинный таймер в фоне и во сне телефона сдвигается;
- *  открытый экран до минуты после полуночи ещё может показывать прежний день. */
-function useDayRollover() {
-  const [, setDay] = useState(todayKey);
-  useEffect(() => {
-    const roll = () => setDay(todayKey());
-    const id = window.setInterval(roll, 60_000);
-    document.addEventListener('visibilitychange', roll);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener('visibilitychange', roll);
-    };
-  }, []);
-}
 
 /** Раздел «Здоровье»: спорт (календарь тренировок, ритм, сводки) и замеры.
  *  Задача 14 набора 10.09.2026; канва «Здоровье и спорт», design/health/. */
