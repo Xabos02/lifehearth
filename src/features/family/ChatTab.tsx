@@ -1787,7 +1787,7 @@ function MessageMenu({
           // под меню 288 (p-4 по бокам): кнопки сжимались до ~42. Уже 360px
           // зазор и поле капсулы на полшага меньше — 284px; shrink-0 держит
           // кнопку 44×44, центры соседей в 46px друг от друга (PROTOCOL §5.1).
-          <div className="flex gap-1 rounded-full border border-lh-border bg-lh-surface-2 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,.5)] max-[359px]:gap-0.5 max-[359px]:p-1">
+          <div className="flex gap-1 rounded-full border border-lh-border bg-lh-surface-2 p-1.5 shadow-[var(--shadow-pop)] max-[359px]:gap-0.5 max-[359px]:p-1">
             {REACTIONS.map((emoji) => (
               <button
                 key={emoji}
@@ -1813,7 +1813,7 @@ function MessageMenu({
         >
           <p className="line-clamp-5 text-base leading-snug whitespace-pre-wrap break-words">{preview}</p>
         </div>
-        <div className="w-60 divide-y divide-lh-border overflow-hidden rounded-2xl border border-lh-border bg-lh-surface-2 shadow-[0_12px_32px_rgba(0,0,0,.5)]">
+        <div className="w-60 divide-y divide-lh-border overflow-hidden rounded-2xl border border-lh-border bg-lh-surface-2 shadow-[var(--shadow-pop)]">
           <button type="button" onClick={onReply} className={row}>
             {t('Ответить')}
             <Reply size={ICON.action} className="text-lh-text-secondary" />

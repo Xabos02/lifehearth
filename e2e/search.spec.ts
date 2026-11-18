@@ -102,6 +102,34 @@ test('находит по задачам, заметкам и переписке
   await expect(page.getByText('Колёса лежат в гараже')).toBeVisible();
 });
 
+test('рамка фокуса чипа раздела не срезается полосой чипов', async ({ page }) => {
+  // overflow-x-auto режет и по вертикали. Полоса была ровно в высоту кнопки,
+  // и от рамки фокуса (outline выступает за кнопку) оставались две боковые
+  // чёрточки — отступ у полосы уже однажды пропал при смене облика.
+  await openApp(page, '/');
+  await seed(page);
+  await page.goto('/search');
+  await page.getByPlaceholder('Искать везде…', { exact: true }).fill('колёса');
+  const chip = page.getByRole('button', { name: /^Всё · / });
+  await expect(chip).toBeVisible();
+  // Поле → крестик очистки → первый чип.
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(chip).toBeFocused();
+
+  const ring = await chip.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    const out = parseFloat(cs.outlineWidth) + parseFloat(cs.outlineOffset);
+    const b = el.getBoundingClientRect();
+    const row = el.parentElement!.getBoundingClientRect();
+    return { visible: el.matches(':focus-visible'), out, above: b.top - out - row.top, below: row.bottom - b.bottom - out };
+  });
+  expect(ring.visible).toBe(true);
+  expect(ring.out).toBeGreaterThan(0);
+  expect(ring.above).toBeGreaterThanOrEqual(0);
+  expect(ring.below).toBeGreaterThanOrEqual(0);
+});
+
 test('поиск по переписке не различает регистр и «ё» — как внутри чата', async ({ page }) => {
   await openApp(page, '/');
   await seed(page);
