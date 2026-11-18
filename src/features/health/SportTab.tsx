@@ -8,7 +8,7 @@ import { ICON } from '../../components/ui/icons';
 import { Haptic } from '../../components/ui/Haptic';
 import { useToast } from '../../components/ui/toastContext';
 import { t, tPlural } from '../../lib/i18n';
-import { addDaysKey, dateLocale, fromKey, todayKey } from '../../lib/dates';
+import { addDaysKey, dateLocale, fromKey, todayKey, weekStartKey } from '../../lib/dates';
 import { updateSettings, useSettings } from '../../hooks/useSettings';
 import type { Workout, WorkoutTemplate } from '../../db/types';
 import { DEFAULT_WEEKLY_GOAL, EFFORT_LABELS, PACE_TYPES, resolveKind } from './workouts';
@@ -24,6 +24,7 @@ import {
   totals,
   weekProgress,
   weekStreak,
+  withGoalChange,
 } from './workoutStats';
 import { adviceTitle, formatKm, lastLine } from './workoutText';
 import { formatExercises } from './exercises';
@@ -67,7 +68,14 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
   const days30From = addDaysKey(today, -29);
   const kinds = byType(workouts, days30From, today);
   const interval = avgIntervalDays(workouts, addDaysKey(today, -59), today);
-  const streak = weekStreak(workouts, today, goal);
+  const streak = weekStreak(workouts, today, goal, settings.workoutGoalHistory);
+  const setGoal = (next: number) => {
+    if (next === goal) return;
+    void updateSettings({
+      workoutWeeklyGoal: next,
+      workoutGoalHistory: withGoalChange(settings.workoutGoalHistory, weekStartKey(today), goal, next),
+    });
+  };
   const maxKindMinutes = kinds[0]?.minutes ?? 0;
   // Ни у одного вида нет минут (одни упражнения) — полосы по числу занятий, как подпись.
   const maxKindCount = Math.max(1, ...kinds.map((k) => k.count));
@@ -141,13 +149,13 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <StepButton label={t('Цель: меньше')} onClick={() => void updateSettings({ workoutWeeklyGoal: Math.max(1, goal - 1) })}>
+            <StepButton label={t('Цель: меньше')} onClick={() => setGoal(Math.max(1, goal - 1))}>
               <Minus size={ICON.action} />
               {/* Шаг «−/+» щёлкает (PROTOCOL §6.4); на краю 1–7 шаг ничего не
                   меняет — накладка пропускает тап. */}
               <Haptic off={goal <= 1} />
             </StepButton>
-            <StepButton label={t('Цель: больше')} onClick={() => void updateSettings({ workoutWeeklyGoal: Math.min(7, goal + 1) })}>
+            <StepButton label={t('Цель: больше')} onClick={() => setGoal(Math.min(7, goal + 1))}>
               <Plus size={ICON.action} />
               <Haptic off={goal >= 7} />
             </StepButton>
