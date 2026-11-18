@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { differenceInCalendarDays } from 'date-fns';
-import { AlertCircle, Clock, Pencil } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Pencil } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { db } from '../../db/db';
@@ -14,7 +14,6 @@ import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
 import { forecastPerWeek, pace, recentPace, unitLabel, weeksAtPace } from '../../lib/learningPace';
 import { ICON } from '../../components/ui/icons';
-import { GCheckCircle } from '../../components/ui/glyphs';
 import { KIND_ICONS, KIND_LABEL } from './kinds';
 import { ProgressStepper } from './ProgressStepper';
 import { LearningItemSheet } from './LearningItemSheet';
@@ -255,7 +254,7 @@ function Tile({
 }) {
   return (
     <div className="card p-4">
-      <p className={`text-2xl font-extralight leading-none tabular-nums ${warn ? 'text-warning' : ''}`}>
+      <p className={`text-2xl font-light leading-none tabular-nums ${warn ? 'text-warning' : ''}`}>
         {v}
         {u && <span className="ml-1 text-sm font-normal text-lh-text-secondary">{u}</span>}
       </p>
@@ -292,7 +291,7 @@ function Chart({
   const todayPct = (x(gone) / W) * 100;
 
   const tone = sched.overdue ? 'text-danger' : sched.onTrack ? 'text-success' : 'text-warning';
-  const StatusIcon = sched.onTrack && !sched.overdue ? GCheckCircle : AlertCircle;
+  const StatusIcon = sched.onTrack && !sched.overdue ? CheckCircle2 : AlertCircle;
 
   return (
     <section>
@@ -333,8 +332,8 @@ function Chart({
               x2={x(total)}
               y2={y(item.progressTarget)}
               stroke="var(--lh-text-secondary)"
-              strokeWidth="1.7"
-              strokeDasharray="4 4"
+              strokeWidth="1.5"
+              strokeDasharray="4 5"
               vectorEffect="non-scaling-stroke"
             />
             <path

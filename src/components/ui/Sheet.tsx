@@ -13,6 +13,9 @@ interface Props {
   open: boolean;
   onClose: () => void;
   title?: string;
+  /** Строка под заголовком — откуда форма: «Новая тренировка по шаблону»
+   *  (канва design/template-title, А). */
+  subtitle?: string;
   children: ReactNode;
 }
 
@@ -39,7 +42,7 @@ let scrollLocks = 0;
 
 /** Bottom sheet — стандартный контейнер быстрых форм создания/редактирования.
  *  Закрывается свайпом вниз по «ручке»/шапке. */
-export function Sheet({ open, onClose, title, children }: Props) {
+export function Sheet({ open, onClose, title, subtitle, children }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   // Клавиатура накрывала нижнюю часть панели: она прибита к низу
   // layout-вьюпорта, а клавиатура живёт поверх него. Под ней оказывались
@@ -247,10 +250,17 @@ export function Sheet({ open, onClose, title, children }: Props) {
           className="sticky top-0 z-30 cursor-grab touch-none bg-lh-surface px-4 pt-2.5 pb-2 active:cursor-grabbing"
         >
           <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-lh-border-strong" />
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             {/* Без заголовка (меню «⋯» заметок) — без пустого h2: читалка
                 объявляла бы безымянный заголовок. ml-auto держит крестик справа. */}
-            {title && <h2 className="text-lg font-semibold text-lh-text-primary">{title}</h2>}
+            {title && (
+              // Заголовок бывает пользовательским (имя шаблона, привычки, цели):
+              // слово без пробелов рвётся, а не выталкивает крестик за край.
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-lh-text-primary wrap-anywhere">{title}</h2>
+                {subtitle && <p className="text-sm text-lh-text-secondary">{subtitle}</p>}
+              </div>
+            )}
             {/* Крестик остаётся мелким (30px): визуально он служебный и
                 раздувать его незачем. А вот зону касания псевдоэлемент
                 добирает до 44×44 — палец мимо служебной кнопки промахивается

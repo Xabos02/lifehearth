@@ -167,7 +167,7 @@ export function OnboardingOverlay() {
               <Art />
             )}
           </div>
-          <h2 className="mt-[clamp(20px,3.5vh,32px)] text-[30px] font-extralight leading-[1.15] tracking-[-.6px]">{t(slide.title)}</h2>
+          <h2 className="mt-[clamp(20px,3.5vh,32px)] text-[30px] font-light leading-[1.15] tracking-[-.6px]">{t(slide.title)}</h2>
           <p className="mt-2.5 text-base leading-normal text-lh-text-secondary">{t(slide.text)}</p>
         </div>
 
