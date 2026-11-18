@@ -88,7 +88,7 @@ export function SportTodayLine() {
           </button>
         )}
       </div>
-      <WorkoutSheet open={openOn !== null} onClose={() => setOpenOn(null)} workout={null} date={openOn ?? today} />
+      <WorkoutSheet open={openOn !== null} onClose={() => setOpenOn(null)} workout={null} date={openOn ?? today} last={last} />
     </section>
   );
 }

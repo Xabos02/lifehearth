@@ -15,6 +15,7 @@ import { MeasuresTab } from './MeasuresTab';
 import { WorkoutSheet } from './WorkoutSheet';
 import { TemplatesSheet } from './TemplatesSheet';
 import { shownWorkouts } from './workoutRepo';
+import { lastWorkout } from './workoutStats';
 
 type Tab = 'sport' | 'health';
 
@@ -108,7 +109,14 @@ export function HealthPage() {
         <MeasuresTab />
       )}
       {tab === 'sport' && loaded && <Fab onClick={() => openNew(selectedNow())} label={t('Отметить тренировку')} />}
-      <WorkoutSheet open={sheet.open} onClose={close} workout={sheet.workout} date={sheet.date} template={sheet.template} />
+      <WorkoutSheet
+        open={sheet.open}
+        onClose={close}
+        workout={sheet.workout}
+        date={sheet.date}
+        template={sheet.template}
+        last={lastWorkout(workouts, todayKey())}
+      />
       <TemplatesSheet open={templatesOpen} onClose={() => setTemplatesOpen(false)} onPick={openTemplate} />
     </Screen>
   );

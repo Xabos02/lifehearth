@@ -1,5 +1,5 @@
 import { db } from '../../db/db';
-import { alive, create, remove, uid, update } from '../../db/repo';
+import { alive, create, remove, uid, updateMany } from '../../db/repo';
 import { scheduleSyncSoon } from '../../lib/sync';
 import { isDateKey } from '../../lib/dates';
 import type { Workout } from '../../db/types';
@@ -20,12 +20,21 @@ export async function addWorkout(draft: WorkoutDraft): Promise<Workout> {
   return create(db.workouts, draft);
 }
 
-export async function updateWorkout(id: string, changes: Partial<WorkoutDraft>): Promise<void> {
-  await update(db.workouts, id, changes);
-}
-
 export async function removeWorkout(id: string): Promise<void> {
   await remove(db.workouts, id);
+}
+
+/** Правка вида и перенос остальных видов его занятия на тот же день — одной
+ *  записью (аудит 1.64.0, H2): по одной убитая между правками вкладка
+ *  оставила бы занятие на двух днях. */
+export async function updateWithMates(id: string, changes: Partial<WorkoutDraft>, mates: Workout[]): Promise<void> {
+  await updateMany(db.workouts, [{ id, changes }, ...mates.map((m) => ({ id: m.id, changes: { date: changes.date } }))]);
+}
+
+/** Другие живые виды того же занятия (общий groupId). */
+export async function sessionMates(w: Workout): Promise<Workout[]> {
+  if (!w.groupId) return [];
+  return alive(await db.workouts.where('groupId').equals(w.groupId).toArray()).filter((x) => x.id !== w.id);
 }
 
 /** Несколько видов «в одно целое» — одна транзакция, один groupId на всех,
