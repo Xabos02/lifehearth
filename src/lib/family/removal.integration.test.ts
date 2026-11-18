@@ -577,6 +577,9 @@ describe('права в комнате: клиент несёт доказате
     expect(paths.indexOf('register')).toBeLessThan(paths.indexOf('ticket'));
     const ticket = seen.find((s) => s.path.endsWith('/ticket'));
     expect((ticket?.res as { bound?: boolean })?.bound, 'тикет без привязки к участнику').toBe(true);
+    // Подтверждённая пара отмечена — синк отдаст её другим моим устройствам.
+    await new Promise((r) => setTimeout(r, 20));
+    expect((await getFamilyConfig(FAMILY_ID))?.boxVerifiedAt, 'пара не отмечена подтверждённой').toBeTruthy();
   });
 
   it('конверты с новым ключом владелец кладёт со своим секретом', async () => {

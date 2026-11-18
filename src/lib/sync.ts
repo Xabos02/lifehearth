@@ -153,6 +153,7 @@ interface FamilySharePayload {
   keysRaw?: Record<string, string>;
   boxPub?: string;
   boxPriv?: string;
+  boxVerifiedAt?: string;
   ownerSecret?: string;
   ownerMemberId?: string;
 }
@@ -313,10 +314,21 @@ async function applyFamilyShare(c: SyncConfig, ciphertext: string, seen: boolean
         keyRing: await keyRingFrom(p, key),
         boxPub: p.boxPub,
         boxPriv: p.boxPriv,
+        boxVerifiedAt: p.boxVerifiedAt,
         ownerSecret: p.ownerSecret,
         ownerMemberId: p.ownerMemberId,
       });
       return true;
+    }
+    // Пара, которую сервер подтвердил на другом моём устройстве, побеждает
+    // свою неподтверждённую — чей бы конфиг ни был новее. Иначе устройство с
+    // разошедшейся парой осталось бы снаружи: сервер держит за участником
+    // первый зарегистрированный ключ и на чужую пару задачу не откроет.
+    // Подтверждённую свою не трогаем: она и есть закреплённая.
+    let adopted = false;
+    if (p.boxVerifiedAt && p.boxPub && p.boxPriv && !local.boxVerifiedAt && p.boxPub !== local.boxPub) {
+      await db.family.update(p.familyId, { boxPub: p.boxPub, boxPriv: p.boxPriv, boxVerifiedAt: p.boxVerifiedAt });
+      adopted = true;
     }
     if (shouldApply(local.updatedAt, p.updatedAt)) {
       await db.family.update(p.familyId, {
@@ -335,7 +347,7 @@ async function applyFamilyShare(c: SyncConfig, ciphertext: string, seen: boolean
       });
       return true;
     }
-    return false;
+    return adopted;
   }
 }
 
@@ -654,6 +666,7 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
       keysRaw,
       boxPub: f.boxPub,
       boxPriv: f.boxPriv,
+      boxVerifiedAt: f.boxVerifiedAt,
       ownerSecret: f.ownerSecret,
       ownerMemberId: f.ownerMemberId,
     };

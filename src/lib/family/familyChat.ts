@@ -37,7 +37,7 @@ const PROBE_MS = 5_000;
 /** Запрос при подключении не висит дольше 10 с. Пока он висит, connect()
  *  закрыт для повторов — на заглохшей сети это минута без связи, а значит и
  *  без звонков. Старый Safari без AbortSignal.timeout живёт как раньше. */
-function connectDeadline(): { signal?: AbortSignal } {
+export function connectDeadline(): { signal?: AbortSignal } {
   return typeof AbortSignal.timeout === 'function' ? { signal: AbortSignal.timeout(10_000) } : {};
 }
 // Сколько символов dataURL безопасно уходит одним WS-фреймом. Лимит фрейма —
@@ -597,7 +597,14 @@ class FamilyEngine {
         return;
       }
       if (!tr.ok) throw new Error('ticket');
-      const { ticket } = (await tr.json()) as { ticket: string };
+      const { ticket, bound } = (await tr.json()) as { ticket: string; bound?: boolean };
+      // Сервер подтвердил нашу пару ключей — отмечаем и отдаём синку: моё
+      // другое устройство, чья пара разошлась с закреплённой, переймёт эту
+      // (sync.ts, applyFamilyShare). Один раз: дальше отметка уже стоит.
+      if (bound && !c.boxVerifiedAt) {
+        const now = new Date().toISOString();
+        void patchFamilyConfig(this.familyId, { boxVerifiedAt: now, updatedAt: now });
+      }
       // Ещё раз после сетевой задержки тикета — окно, в котором мог случиться leave.
       if (!this.wantConnected || engines.get(this.familyId) !== this) {
         this.connecting = false;

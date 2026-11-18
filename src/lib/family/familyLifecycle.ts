@@ -15,7 +15,7 @@ import {
 } from '../crypto';
 import { saveFamilyConfig, getFamilyConfig, listFamilyConfigs, clearFamily } from './familyState';
 import { upsertSelfMember } from './familyRepo';
-import { connectFamily, disconnectFamily, sendSystemMessage, unregisterFamilyPush } from './familyChat';
+import { connectDeadline, connectFamily, disconnectFamily, sendSystemMessage, unregisterFamilyPush } from './familyChat';
 import { ensureBoxKeys, registerMember } from './familyKeys';
 import { WORKER_URL } from '../workerUrl';
 import { t } from '../i18n';
@@ -50,8 +50,9 @@ export async function createFamily(familyName: string, displayName: string): Pro
   // Ждём регистрацию, а не пускаем её вперегонки с подключением: тикет,
   // взятый раньше, чем сервер узнал ключ создателя, не привязан к нему, а
   // от непривязанного соединения сервер не примет ни профиль, ни пометку
-  // «исключён» — то есть владелец не смог бы исключать.
-  await registerMember(familyId);
+  // «исключён» — то есть владелец не смог бы исключать. Со сроком: без сети
+  // группа всё равно создаётся, а регистрацию повторит подключение.
+  await registerMember(familyId, connectDeadline());
   connectFamily(familyId);
   return familyId;
 }
