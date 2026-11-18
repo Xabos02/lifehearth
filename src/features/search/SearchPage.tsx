@@ -290,7 +290,11 @@ export function SearchPage() {
           результатами: один чип «Всё» рядом с одним разделом ничего не
           отбирает. */}
       {sections.length > 1 && (
-        <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
+        // py-1: overflow-x-auto режет и по вертикали, а рамка фокуса
+        // (outline 2px + offset 2px, index.css) выступает за кнопку на 4px —
+        // без отступа от неё оставались две боковые палочки. -my-1 возвращает
+        // строку на прежнее место; зазор до списка ниже даёт его mt-3.
+        <div className="-mx-4 -my-1 flex gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none]">
           {chips.map((c) => {
             const on = c.key === active;
             return (
@@ -299,7 +303,7 @@ export function SearchPage() {
                 type="button"
                 aria-pressed={on}
                 onClick={() => setFilter(c.key)}
-                className="flex h-11 shrink-0 items-center"
+                className="flex h-11 shrink-0 items-center active:scale-95"
               >
                 <span
                   className={`flex h-8 items-center rounded-full px-3 text-sm tabular-nums ${
