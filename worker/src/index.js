@@ -48,12 +48,118 @@ async function authAccount(request, env) {
     .bind(accountId)
     .first();
   if (!row) {
-    await env.DB.prepare('INSERT INTO accounts (account_id, token_hash, created_at) VALUES (?, ?, ?)')
-      .bind(accountId, hash, new Date().toISOString())
-      .run();
+    // Предел на заведение с одного адреса (аудит 1.64.0, S4): иначе любой
+    // скрипт заводил аккаунты пачками и забивал базу. Отказ — 429 через
+    // брошенный Response, его отдаёт общий catch в fetch.
+    const quota = await hourlyQuota(env, request, 'acct', ACCOUNTS_PER_HOUR);
+    if (!quota) throw json({ error: 'too many requests' }, 429, env.ALLOW_ORIGIN || '*');
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO accounts (account_id, token_hash, created_at) VALUES (?, ?, ?)').bind(
+        accountId,
+        hash,
+        new Date().toISOString(),
+      ),
+      ...quota,
+    ]);
     return accountId;
   }
   return row.token_hash === hash ? accountId : null;
+}
+
+// === Пределы против постороннего (аудит 1.64.0, S4) ===
+//
+// Аккаунт и напоминание заводятся без всякой учётки — так задумано. Но без
+// пределов нескольких запросов хватало, чтобы выбрать суточную квоту записи
+// D1 (100 000 строк) или забить базу (500 МБ), и тогда у всей семьи вставали
+// обмен, копия и напоминания. Суточную квоту ЗАПРОСОВ (100 000) код не
+// защитит: отказанный запрос всё равно засчитан. Это решается тарифом.
+//
+// Счётчик — в D1, а не Rate Limiting binding: доступность binding на Free в
+// документации Cloudflare не нашлась (сверено 18.11.2026), а неподдержанный
+// binding уронил бы деплой всего воркера. Таблица своя и заводится лениво,
+// как копии: миграции D1 здесь применяются руками, и полагаться на то, что
+// на проде есть нужная таблица, нельзя.
+
+/** Новых аккаунтов в час с одного адреса. Свой аккаунт заводится один раз на
+ *  включение обмена, даже семье за одним роутером хватает с запасом. */
+const ACCOUNTS_PER_HOUR = 10;
+/** Напоминаний в час с одного адреса. Своё приложение ставит их на каждую
+ *  правку задачи и круг «Фокуса», плюс повторы после офлайна. Крон шлёт до
+ *  1200 в час (SEND_LIMIT), поэтому один адрес очередь не завалит. */
+const SCHEDULES_PER_HOUR = 200;
+/** Тело /schedule. Пуш больше 4 КБ служба не примет вовсе, своё приложение
+ *  шлёт сотни байт — а без потолка строку в пару мегабайт клал кто угодно. */
+const SCHEDULE_MAX_BYTES = 16 * 1024;
+/** /sync/push: клиент шлёт до 200 записей и 3 МиБ шифротекста (sync.ts,
+ *  PUSH_CHUNK и PUSH_MAX_BYTES), потолки — с запасом над ним. */
+const SYNC_PUSH_MAX_RECORDS = 500;
+const SYNC_PUSH_MAX_BYTES = 4 * 1024 * 1024;
+/** Кусков в копии. Клиент режет по миллиону символов; сто кусков — больше,
+ *  чем пролезет в один запрос (память изолята 128 МБ). Номера — только
+ *  0..total-1: кусок с номером вне диапазона хвостовое DELETE не стирало
+ *  никогда, и строки копились. */
+const BACKUP_MAX_CHUNKS = 100;
+/** /push-register: своё приложение зовёт его при каждом запуске — 120 в час
+ *  хватает семье за одним роутером; без предела фальшивые подписки копились и
+ *  отодвигали настоящие за 50 подзапросов рассылки об обновлении. */
+const PUSH_REGISTERS_PER_HOUR = 120;
+const PUSH_REGISTER_MAX_BYTES = 4096;
+/** Встреча сопряжения заводится без учётки: без предела и потолка это была
+ *  вторая дверь «забить базу» — до 2 МБ строки на запрос. Ключ встречи — 87
+ *  символов, конверт — сотни; 30 встреч в час — с запасом на повторы. */
+const PAIR_OFFERS_PER_HOUR = 30;
+const PAIR_MAX_BYTES = 4096;
+
+/** Чей запрос — для пределов: хеш адреса, не сам адрес (на сервере открытым
+ *  текстом не лежит ничего, задача 33; перебор IPv4 по хешу возможен — это
+ *  защита от случайного взгляда, а не от владельца базы). IPv6 — по сети
+ *  /48: бесплатный туннель выдаёт её целиком, и /64 внутри меняются даром;
+ *  серверу одной семьи такое укрупнение ничего не стоит. Без заголовка
+ *  (тесты, локальный запуск) — общий ключ. */
+async function clientKey(request) {
+  let ip = (request.headers.get('CF-Connecting-IP') || 'unknown').toLowerCase();
+  if (ip.includes(':')) {
+    const [head, tail = ''] = ip.split('::');
+    const h = head ? head.split(':') : [];
+    const t = tail ? tail.split(':') : [];
+    ip = [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t].slice(0, 3).join(':');
+  }
+  return (await sha256hex(`quota:${ip}`)).slice(0, 32);
+}
+
+/** Почасовой предел с одного адреса. Возвращает выражения, которые надо
+ *  выполнить В ТОЙ ЖЕ пачке, что и само заведение, или null — предел
+ *  исчерпан. Отказ ничего не пишет: иначе поток отказов выбирал бы квоту
+ *  записи D1 не хуже потока заведений.
+ *  ponytail: проверка и счёт не атомарны — параллельные запросы могут чуть
+ *  перебрать предел; для тормоза против потока это неважно, строгий — DO. */
+async function hourlyQuota(env, request, kind, max) {
+  const hour = Math.floor(Date.now() / 3_600_000);
+  const key = `${hour}:${kind}:${await clientKey(request)}`;
+  // Таблицы ещё нет (первое заведение после деплоя) или D1 ответила ошибкой —
+  // счётчик пуст: тормоз не должен запирать своих.
+  const row = await env.DB.prepare('SELECT n FROM quota WHERE k = ?')
+    .bind(key)
+    .first()
+    .catch(() => null);
+  if (row && Number(row.n) >= max) return null;
+  return [
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS quota (k TEXT PRIMARY KEY, n INTEGER NOT NULL)'),
+    env.DB.prepare('INSERT INTO quota (k, n) VALUES (?, 1) ON CONFLICT(k) DO UPDATE SET n = n + 1').bind(key),
+    // Прошлые часы всех видов — долой: ключ начинается с номера часа (шесть
+    // цифр до 2084 года), так что любая запись чистит всё старше.
+    env.DB.prepare('DELETE FROM quota WHERE k < ?').bind(`${hour}:`),
+  ];
+}
+
+/** JSON-тело не длиннее max символов, иначе — отказ 413 (брошенный Response).
+ *  Сначала по Content-Length, не читая тело. Шифротекст — base64, символ =
+ *  байт. */
+async function readJsonCapped(request, max, origin) {
+  if (Number(request.headers.get('Content-Length')) > max) throw json({ error: 'payload too large' }, 413, origin);
+  const text = await request.text();
+  if (text.length > max) throw json({ error: 'payload too large' }, 413, origin);
+  return JSON.parse(text);
 }
 
 const PULL_LIMIT = 500;
@@ -264,6 +370,74 @@ async function ensureBackupTable(env) {
   backupTableReady = true;
 }
 
+// === Защита напоминаний от постороннего (аудит 1.64.0, S5) ===
+//
+// /schedule и /push-register работают без учётки: так и задумано (задача 33),
+// напоминание ставит телефон без всякой регистрации. Но раньше сюда годился
+// любой адрес, и крон слал подписанный POST куда угодно, а адрес, который
+// принимает соединение и молчит, останавливал очередь (NEW-S-1). Теперь —
+// только push-службы браузеров: Chrome и браузеры на Chromium (FCM; старые
+// подписки — android.googleapis.com и jmt17.google.com), Safari и iOS (Apple
+// велит пускать *.push.apple.com), Firefox (Mozilla), Edge (WNS). Список
+// сверен 18.11.2026 с документацией Apple и со списком known-push-services
+// Pushpad (собран по их подпискам, не официальный). Яндекс Браузер в нём не
+// значится — по косвенным данным он на FCM, живой подпиской не проверено.
+// Поддомены — потому что Apple и Microsoft раздают адреса с разных узлов
+// (web.push.apple.com, wns2-par02p.notify.windows.com).
+const PUSH_DOMAINS = [
+  'fcm.googleapis.com',
+  'android.googleapis.com',
+  'jmt17.google.com',
+  'push.apple.com',
+  'push.services.mozilla.com',
+  'notify.windows.com',
+];
+
+/** Подписка в том виде, в каком её хранить: адрес и ключи, больше ничего, —
+ *  или null, если адрес не push-службы браузера. Лишние поля отбрасываем,
+ *  чтобы в базу не уезжал чужой мусор под видом подписки. */
+function pushSubscriptionOf(sub) {
+  const endpoint = sub?.endpoint;
+  const p256dh = sub?.keys?.p256dh;
+  const auth = sub?.keys?.auth;
+  if (typeof endpoint !== 'string' || endpoint.length > 1024) return null;
+  if (typeof p256dh !== 'string' || p256dh.length > 256 || typeof auth !== 'string' || auth.length > 256) return null;
+  let u;
+  try {
+    u = new URL(endpoint);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== 'https:' || u.port || u.username || u.password) return null;
+  const host = u.hostname;
+  if (!PUSH_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) return null;
+  return { endpoint, keys: { p256dh, auth } };
+}
+
+/** Тело — только с Content-Type: application/json. Это непростой заголовок:
+ *  браузер шлёт на него preflight, а CORS пускает лишь origin приложения
+ *  (ALLOW_ORIGIN). Без проверки чужая страница слала text/plain без preflight
+ *  — ответа не видела, но напоминание ставилось, и поток мог идти с браузеров
+ *  всех её посетителей, а не с одного адреса. Своё приложение шлёт JSON всегда. */
+function isJsonBody(request) {
+  return (request.headers.get('Content-Type') || '').toLowerCase().startsWith('application/json');
+}
+
+/** Насколько срок напоминания может быть в прошлом. Клиент сам отсекает
+ *  прошедшее по своим часам (push.ts), так что строгий отказ при расходе
+ *  часов с сервером увёл бы напоминание в вечный повтор. А 0 и «год назад»
+ *  ставили фальшивку в голову очереди, впереди всех настоящих. */
+const FIRE_AT_SLACK_MS = 10 * 60_000;
+
+/** Сколько напоминаний крон шлёт за один запуск. На Free у запуска 50
+ *  подзапросов на всё (fetch и D1 вместе), напоминание тратит два (fetch и
+ *  DELETE), ещё четыре-пять уходят на SCRUB, SELECT и сторожа версии. Без
+ *  потолка цикл упирался в «Too many subrequests» посреди строки — и fetch
+ *  мог уйти, а DELETE нет (дубль следующей минутой). Остаток — следующей
+ *  минутой, раньше те, чей срок раньше.
+ *  ponytail: 20 в минуту; больше — Workers Paid (1000 подзапросов). */
+const SEND_LIMIT = 20;
+
 /** Встреча двух устройств живёт пятнадцать минут: хватает, чтобы дойти до
  *  второго телефона и открыть нужный экран, и мало, чтобы подсмотренный QR
  *  пригодился кому-то потом. */
@@ -280,17 +454,22 @@ export default {
 
       // === Напоминания (push) — хранятся в D1 (cron делает SELECT, не KV list) ===
       if (url.pathname === '/schedule' && request.method === 'POST') {
-        const { taskId, fireAt, title, body, subscription } = await request.json();
-        if (!taskId || typeof fireAt !== 'number' || !subscription?.endpoint) {
+        if (!isJsonBody(request)) return json({ error: 'unsupported media type' }, 415, origin);
+        const { taskId, fireAt, title, body, subscription } = await readJsonCapped(request, SCHEDULE_MAX_BYTES, origin);
+        const sub = pushSubscriptionOf(subscription);
+        if (!taskId || typeof fireAt !== 'number' || fireAt < Date.now() - FIRE_AT_SLACK_MS || !sub) {
           return json({ error: 'bad request' }, 400, origin);
         }
+        const quota = await hourlyQuota(env, request, 'sched', SCHEDULES_PER_HOUR);
+        if (!quota) return json({ error: 'too many requests' }, 429, origin);
         // Только шифротекст — открытый текст не хранится (reminderText.js).
         const text = storableReminderText(title, body);
-        await env.DB.prepare(
-          'INSERT OR REPLACE INTO reminders (task_id, fire_at, title, body, subscription) VALUES (?, ?, ?, ?, ?)',
-        )
-          .bind(taskId, fireAt, text.title, text.body, JSON.stringify(subscription))
-          .run();
+        await env.DB.batch([
+          env.DB.prepare(
+            'INSERT OR REPLACE INTO reminders (task_id, fire_at, title, body, subscription) VALUES (?, ?, ?, ?, ?)',
+          ).bind(taskId, fireAt, text.title, text.body, JSON.stringify(sub)),
+          ...quota,
+        ]);
         return json({ ok: true }, 200, origin);
       }
 
@@ -302,12 +481,20 @@ export default {
 
       // Регистрация подписки в глобальный список (для рассылки об обновлении).
       if (url.pathname === '/push-register' && request.method === 'POST') {
-        const { subscription } = await request.json();
-        if (subscription?.endpoint) {
-          await env.DB.prepare('INSERT OR REPLACE INTO push_subs (endpoint, sub, created_at) VALUES (?, ?, ?)')
-            .bind(subscription.endpoint, JSON.stringify(subscription), new Date().toISOString())
-            .run();
-        }
+        if (!isJsonBody(request)) return json({ error: 'unsupported media type' }, 415, origin);
+        const { subscription } = await readJsonCapped(request, PUSH_REGISTER_MAX_BYTES, origin);
+        const sub = pushSubscriptionOf(subscription);
+        if (!sub) return json({ error: 'bad request' }, 400, origin);
+        const quota = await hourlyQuota(env, request, 'preg', PUSH_REGISTERS_PER_HOUR);
+        if (!quota) return json({ error: 'too many requests' }, 429, origin);
+        await env.DB.batch([
+          env.DB.prepare('INSERT OR REPLACE INTO push_subs (endpoint, sub, created_at) VALUES (?, ?, ?)').bind(
+            sub.endpoint,
+            JSON.stringify(sub),
+            new Date().toISOString(),
+          ),
+          ...quota,
+        ]);
         return json({ ok: true }, 200, origin);
       }
 
@@ -380,13 +567,25 @@ export default {
             .bind(pairKey(id), JSON.stringify(rec))
             .run();
 
-        // Устройство с аккаунтом открывает встречу и показывает QR.
+        // Устройство с аккаунтом открывает встречу и показывает QR. Только
+        // новую: pairId клиент каждый раз берёт случайный, а перезапись поверх
+        // живой встречи сбрасывала ответ второго телефона — и тот, кто знал
+        // код, успевал ответить первым своим ключом (аудит 1.64.0, S7).
         if (url.pathname === '/pair/offer' && request.method === 'POST') {
-          const { pairId, pubA } = await request.json();
+          const { pairId, pubA } = await readJsonCapped(request, PAIR_MAX_BYTES, origin);
           if (!pairId || !pubA || !/^[A-Za-z0-9_-]{8,64}$/.test(pairId)) {
             return json({ error: 'bad request' }, 400, origin);
           }
-          await writePair(pairId, { pubA, exp: Date.now() + PAIR_TTL_MS });
+          const quota = await hourlyQuota(env, request, 'pair', PAIR_OFFERS_PER_HOUR);
+          if (!quota) return json({ error: 'too many requests' }, 429, origin);
+          const [res] = await env.DB.batch([
+            env.DB.prepare('INSERT INTO app_meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO NOTHING').bind(
+              pairKey(pairId),
+              JSON.stringify({ pubA, exp: Date.now() + PAIR_TTL_MS }),
+            ),
+            ...quota,
+          ]);
+          if (!res.meta?.changes) return json({ error: 'taken' }, 409, origin);
           return json({ ok: true }, 200, origin);
         }
 
@@ -394,7 +593,7 @@ export default {
         // побеждает: иначе кто-то, подсмотревший QR, мог бы перебить чужой
         // ответ и встать на место второго телефона.
         if (url.pathname === '/pair/answer' && request.method === 'POST') {
-          const { pairId, pubB } = await request.json();
+          const { pairId, pubB } = await readJsonCapped(request, PAIR_MAX_BYTES, origin);
           const rec = await readPair(pairId);
           if (!rec) return json({ error: 'expired' }, 404, origin);
           if (rec.pubB) return json({ error: 'taken' }, 409, origin);
@@ -411,12 +610,22 @@ export default {
           return json({ pubB: rec.pubB ?? null, sealed: Boolean(rec.sealed) }, 200, origin);
         }
 
+        // Конверт кладётся один раз и только после ответа: иначе знающий код
+        // подменял его, и второй телефон получал чужой шифротекст, а первый
+        // показывал «Устройство подключено» (S7). Клиент шлёт seal один раз.
+        // Условие — в самом UPDATE, а не проверкой перед записью: два
+        // одновременных seal иначе оба получали бы 200.
         if (url.pathname === '/pair/seal' && request.method === 'POST') {
-          const { pairId, sealed } = await request.json();
+          const { pairId, sealed } = await readJsonCapped(request, PAIR_MAX_BYTES, origin);
           const rec = await readPair(pairId);
           if (!rec) return json({ error: 'expired' }, 404, origin);
           if (!sealed) return json({ error: 'bad request' }, 400, origin);
-          await writePair(pairId, { ...rec, sealed });
+          const res = await env.DB.prepare(
+            "UPDATE app_meta SET v = ? WHERE k = ? AND json_extract(v, '$.pubB') IS NOT NULL AND json_extract(v, '$.sealed') IS NULL",
+          )
+            .bind(JSON.stringify({ ...rec, sealed }), pairKey(pairId))
+            .run();
+          if (!res.meta?.changes) return json({ error: 'taken' }, 409, origin);
           return json({ ok: true }, 200, origin);
         }
 
@@ -463,9 +672,10 @@ export default {
       if (url.pathname === '/sync/push' && request.method === 'POST') {
         const accountId = await authAccount(request, env);
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
-        const body = await request.json();
+        const body = await readJsonCapped(request, SYNC_PUSH_MAX_BYTES, origin);
         const records = body?.records;
         if (!Array.isArray(records)) return json({ error: 'bad request' }, 400, origin);
+        if (records.length > SYNC_PUSH_MAX_RECORDS) return json({ error: 'payload too large' }, 413, origin);
         const deviceId = deviceOf(body?.device);
         await ensureRecordsSchema(env);
 
@@ -669,7 +879,7 @@ export default {
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
         await ensureBackupTable(env);
         const { chunks, total, manifest } = await request.json();
-        if (!Array.isArray(chunks) || typeof total !== 'number') {
+        if (!Array.isArray(chunks) || !Number.isInteger(total) || total < 0 || total > BACKUP_MAX_CHUNKS) {
           return json({ error: 'bad request' }, 400, origin);
         }
         const at = new Date().toISOString();
@@ -681,7 +891,7 @@ export default {
           'INSERT OR REPLACE INTO backups (account_id, chunk, updated_at, ciphertext) VALUES (?, ?, ?, ?)',
         );
         for (const c of chunks) {
-          if (!c || typeof c.chunk !== 'number' || typeof c.ciphertext !== 'string') continue;
+          if (!c || !Number.isInteger(c.chunk) || c.chunk < 0 || c.chunk >= total || typeof c.ciphertext !== 'string') continue;
           batch.push(put.bind(accountId, c.chunk, at, c.ciphertext));
         }
         // Манифест пишем в той же пачке: он обязан меняться вместе с копией,
@@ -904,6 +1114,8 @@ export default {
 
       return json({ error: 'not found' }, 404, origin);
     } catch (e) {
+      // Отказ, брошенный из глубины (предел, потолок тела), — отдаём как есть.
+      if (e instanceof Response) return e;
       return json({ error: String(e) }, 500, origin);
     }
   },
@@ -973,6 +1185,13 @@ const DEFAULT_UPDATE_TEXT = 'Приложение обновилось — от�
 const LAST_NOTIFIED_KEY = 'update:last-notified-version';
 const APP_INDEX_URL = 'https://xabos02.github.io/life-hub/index.html';
 
+/** Срок на один запрос к push-службе. У исходящего fetch в Workers своего
+ *  срока нет, а очередь крона и рассылка идут по одному адресу за раз: адрес,
+ *  который принял соединение и молчит, держал весь цикл, и напоминания после
+ *  него не уходили (аудит 1.64.0, NEW-S-1). Настоящая служба отвечает за
+ *  доли секунды, 10 с — с большим запасом. */
+const PUSH_TIMEOUT_MS = 10_000;
+
 /** Разослать пуш «вышло обновление» всем подписчикам. Возвращает число доставок. */
 async function broadcastUpdate(env, bodyText) {
   const vapid = {
@@ -992,7 +1211,7 @@ async function broadcastUpdate(env, bodyText) {
         ttl: 86400,
         urgency: 'normal',
       });
-      const res = await fetch(endpoint, { method: 'POST', headers, body });
+      const res = await fetch(endpoint, { method: 'POST', headers, body, signal: AbortSignal.timeout(PUSH_TIMEOUT_MS) });
       if (res.ok) sent++;
       else if (res.status === 404 || res.status === 410) {
         await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ?').bind(r.endpoint).run();
@@ -1039,8 +1258,10 @@ async function sendDue(env) {
   await env.DB.prepare(SCRUB_PLAIN_REMINDERS_SQL).run();
   // Запас 30с (cron раз в минуту). Один SELECT по индексу fire_at вместо
   // KV list — D1-чтения практически безлимитны на free-тарифе.
-  const due = await env.DB.prepare('SELECT task_id, fire_at, title, body, subscription FROM reminders WHERE fire_at <= ?')
-    .bind(Date.now() + 30_000)
+  const due = await env.DB.prepare(
+    'SELECT task_id, fire_at, title, body, subscription FROM reminders WHERE fire_at <= ? ORDER BY fire_at LIMIT ?',
+  )
+    .bind(Date.now() + 30_000, SEND_LIMIT)
     .all();
   for (const r of due.results || []) {
     try {
@@ -1051,12 +1272,16 @@ async function sendDue(env) {
         ttl: 3600,
         urgency: 'high',
       });
-      const res = await fetch(endpoint, { method: 'POST', headers, body });
+      const res = await fetch(endpoint, { method: 'POST', headers, body, signal: AbortSignal.timeout(PUSH_TIMEOUT_MS) });
       console.log(`push ${r.task_id}: ${res.status}`);
     } catch (e) {
       console.log(`push ${r.task_id} error: ${String(e)}`);
+    } finally {
+      // снимаем в любом случае — напоминание одноразовое (404/410 = подписка
+      // мертва, обрыв по сроку = адрес не отвечает). Удалять ДО отправки
+      // нельзя: при обрыве самого запуска крона напоминание пропало бы, а так
+      // оно уйдёт в следующую минуту.
+      await env.DB.prepare('DELETE FROM reminders WHERE task_id = ?').bind(r.task_id).run();
     }
-    // снимаем в любом случае — напоминание одноразовое (404/410 = подписка мертва)
-    await env.DB.prepare('DELETE FROM reminders WHERE task_id = ?').bind(r.task_id).run();
   }
 }
