@@ -780,8 +780,20 @@ export class FamilyRoom extends DurableObject {
       if (!delivered && msg.kind === 'offer' && msg.to) {
         // ОДИН пуш на звонок (не серия): trackPendingCall вернёт true только на
         // первый недоставленный offer; повторные offer каждые 2.5с пуш не дублируют.
+        // Уведомление принято службой пушей — у собеседника звонит: говорим
+        // звонящему «звонит» от его имени, у него пойдут гудки. Открытое
+        // приложение собеседника скажет это само. Повторы приглашения получают
+        // «звонит» снова — одиночный кадр мог потеряться.
         if (this.trackPendingCall(msg.to, msg.call)) {
-          this.ctx.waitUntil(this.pushCall(msg.to, msg.call));
+          this.ctx.waitUntil(
+            this.pushCall(msg.to, msg.call).then((ok) => {
+              if (!ok) return;
+              this.markCallPushed(msg.call);
+              this.sendRinging(ws, from, msg.to, msg.call);
+            }),
+          );
+        } else if (this.callPushed(msg.call)) {
+          this.sendRinging(ws, from, msg.to, msg.call);
         }
       }
       // Звонящий отменил (в т.ч. по таймауту «не ответили»), адресат так и не
@@ -1001,14 +1013,14 @@ export class FamilyRoom extends DurableObject {
     const row = this.sql
       .exec('SELECT push_sub FROM members WHERE member_id=? AND push_sub IS NOT NULL', toMemberId)
       .toArray()[0];
-    if (!row) return;
+    if (!row) return false;
     let sub;
     try {
       sub = JSON.parse(row.push_sub);
     } catch {
-      return;
+      return false;
     }
-    await this.sendPushTo(sub, {
+    return this.sendPushTo(sub, {
       // Без названия группы: экран блокировки виден любому, кто рядом, а само
       // название хранится на сервере открытым текстом — двойная утечка ради
       // строки, которую всё равно видно уже в приложении.
@@ -1092,7 +1104,7 @@ export class FamilyRoom extends DurableObject {
       privateKey: this.env.VAPID_PRIVATE,
       subject: this.env.VAPID_SUBJECT || 'mailto:noreply@life-hub.app',
     };
-    if (!vapid.privateKey) return;
+    if (!vapid.privateKey) return false;
     try {
       const { endpoint, headers, body } = await buildPushRequest({
         subscription: sub,
@@ -1101,9 +1113,40 @@ export class FamilyRoom extends DurableObject {
         ttl,
         urgency: 'high',
       });
-      await fetch(endpoint, { method: 'POST', headers, body });
+      const r = await fetch(endpoint, { method: 'POST', headers, body });
+      return r.ok; // служба приняла уведомление (201); 404/410 — подписка мертва
     } catch {
-      /* мёртвая подписка — игнор */
+      return false; /* мёртвая подписка — игнор */
+    }
+  }
+
+  /** Дозвону с этим callId ушёл пуш — отметка в записи страховки (callpend). */
+  markCallPushed(callId) {
+    const k = `callpend:${callId}`;
+    const row = this.sql.exec('SELECT v FROM meta WHERE k=?', k).toArray()[0];
+    if (!row) return; // страховку уже сняли: адресат ответил или звонок кончился
+    try {
+      this.sql.exec('UPDATE meta SET v=? WHERE k=?', JSON.stringify({ ...JSON.parse(row.v), pushed: true }), k);
+    } catch {
+      /* битая запись — без отметки повторы просто не скажут «звонит» */
+    }
+  }
+
+  callPushed(callId) {
+    const row = this.sql.exec('SELECT v FROM meta WHERE k=?', `callpend:${callId}`).toArray()[0];
+    try {
+      return Boolean(row && JSON.parse(row.v).pushed);
+    } catch {
+      return false;
+    }
+  }
+
+  /** «У собеседника звонит» — звонящему, от имени собеседника. */
+  sendRinging(ws, caller, callee, callId) {
+    try {
+      ws.send(JSON.stringify({ type: 'signal', from: callee, to: caller, call: callId, kind: 'ringing', data: null }));
+    } catch {
+      /* сокет звонящего закрывается — повтор приглашения спросит снова */
     }
   }
 

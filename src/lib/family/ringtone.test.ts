@@ -54,6 +54,10 @@ describe('гудки звонящему', () => {
       expect(oscs[i].start).toBeCloseTo(10.05 + i * 5, 5);
       expect(oscs[i].stop - oscs[i].start).toBeCloseTo(1, 5);
     }
+    // «Звонит» приходит повторами — повторный старт не перезапускает ритм.
+    const n = oscs.length;
+    startRingback();
+    expect(oscs.length).toBe(n);
     stopRingback();
     expect(oscs.every((o) => o.stopped)).toBe(true);
   });

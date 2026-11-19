@@ -166,4 +166,34 @@ test.describe('разбор неудавшегося звонка', () => {
     // Без relay-маршрутов вердикт обязан назвать причину человеческим языком.
     await expect(page.getByText(/не получило ретранслятор/)).toBeVisible();
   });
+
+  test('соединения не было: дата, проверки маршрутов, канал и вердикт «не дошло», а не «обрыв в разговоре»', async ({ page }) => {
+    await openApp(page, '/more/family');
+    await seedFamily(page, ['Отец']);
+    await page.evaluate(() => {
+      localStorage.setItem(
+        'life-hub-call-diag',
+        JSON.stringify({
+          at: new Date(2026, 10, 19, 21, 7).getTime(),
+          turn: 'ok',
+          local: { host: 2, relay: 2 },
+          remote: { host: 1, relay: 1 },
+          relayVia: ['tls', 'udp'],
+          connected: false,
+          checks: { sent: 14, recv: 0 },
+          dtls: 'new',
+          reason: 'Соединение не состоялось',
+        }),
+      );
+    });
+    await openFamilyCard(page);
+    await page.getByRole('button', { name: 'Почему звонок не вышел' }).click();
+
+    await expect(page.getByText('19 ноября, 21:07')).toBeVisible();
+    await expect(page.getByText('есть ретранслятор · tls, udp')).toBeVisible();
+    await expect(page.getByText('отправлено 14 · ответов 0')).toBeVisible();
+    await expect(page.getByText('не начинался')).toBeVisible();
+    await expect(page.getByText(/проверки до собеседника остались без ответа/)).toBeVisible();
+    await expect(page.getByText(/обрыв случился уже во время разговора/)).toHaveCount(0);
+  });
 });

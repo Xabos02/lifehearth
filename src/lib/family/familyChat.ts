@@ -27,6 +27,7 @@ import {
   registerMember,
 } from './familyKeys';
 import { reconnectDelay } from './reconnectDelay';
+import { enqueueSignal, freshSignals, type QueuedSignal } from './signalQueue';
 
 import { WORKER_WS_URL as WS_URL } from '../workerUrl';
 import { hasConsent } from '../consent';
@@ -52,7 +53,7 @@ type Channel = 'msg' | 'task' | 'member' | 'key';
 
 // Сигнал звонка (WebRTC): эфемерный, проходит через WS, в БД не пишется.
 // 'accepted' — «трубку сняли», уходит по нажатию, раньше ответа.
-export type SignalKind = 'offer' | 'answer' | 'ice' | 'decline' | 'hangup' | 'busy' | 'cancel' | 'accepted';
+export type SignalKind = 'offer' | 'answer' | 'ice' | 'decline' | 'hangup' | 'busy' | 'cancel' | 'accepted' | 'ringing';
 export interface SignalFrame {
   from: string | null;
   to: string | null;
@@ -185,6 +186,7 @@ class FamilyEngine {
   private presenceListeners = new Set<(ids: string[]) => void>();
   private readsListeners = new Set<(r: Record<string, number>) => void>();
   private signalListeners = new Set<(f: SignalFrame) => void>();
+  private signalQueue: QueuedSignal[] = []; // сигналы звонка, ждущие сокета
   private typingListeners = new Set<(memberId: string) => void>();
   private lastTypingSentAt = 0; // троттл исходящего «печатает…»
   private lastSeen: Record<string, string> = {}; // memberId → ISO последнего выхода из сети
@@ -258,8 +260,21 @@ class FamilyEngine {
   }
   /** Отправить сигнал звонка адресату (to = memberId). */
   sendSignal(frame: { to: string; call: string; kind: SignalKind; data: string | null }): void {
-    this.trySendFrame({ type: 'signal', ...frame });
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
+    if (this.trySendFrame({ type: 'signal', ...frame })) return;
+    // Сокет переподключается — кадр ждёт его в очереди (signalQueue.ts).
+    this.signalQueue = enqueueSignal(this.signalQueue, frame, Date.now());
+    void this.connect();
+  }
+
+  /** Отдать накопленные сигналы звонка — на ready, первыми, до переписки. */
+  private flushSignals() {
+    const pending = freshSignals(this.signalQueue, Date.now());
+    this.signalQueue = [];
+    for (const f of pending) {
+      if (!this.trySendFrame({ type: 'signal', ...f })) {
+        this.signalQueue = enqueueSignal(this.signalQueue, f, Date.now());
+      }
+    }
   }
 
   private setState(s: ConnState) {
@@ -647,6 +662,7 @@ class FamilyEngine {
           if (Array.isArray(m.reads)) this.setAllReads(m.reads);
           if (m.name) void patchFamilyConfig(this.familyId, { familyName: String(m.name) });
           this.startPing(sock);
+          this.flushSignals(); // сигналы звонка — первыми: звонок ждёт их секунды, а не минуты
           // Ключ на сервере уже зарегистрирован — до тикета, см. connect().
           await publishBoxPub(this.familyId);
           await this.resendOutbox();
