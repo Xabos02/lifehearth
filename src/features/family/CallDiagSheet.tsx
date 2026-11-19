@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { Sheet } from '../../components/ui/Sheet';
-import { getCallDiag, type CallDiag } from '../../lib/family/familyCall';
+import { getCallAudio, getCallDiag, type CallAudio, type CallDiag } from '../../lib/family/familyCall';
 import { getLang, t } from '../../lib/i18n';
 import { dateLocale } from '../../lib/dates';
 
@@ -12,13 +12,17 @@ import { dateLocale } from '../../lib/dates';
  *  человеческим языком, без консоли и без переписки со мной. */
 export function CallDiagSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const d = getCallDiag();
+  const audio = getCallAudio();
 
   return (
     <Sheet open={open} onClose={onClose} title={t('Почему звонок не вышел')}>
       {!d ? (
-        <p className="py-6 text-center text-sm text-lh-text-secondary">
-          {t('Неудачных звонков пока не было.')}
-        </p>
+        <>
+          <p className="py-6 text-center text-sm text-lh-text-secondary">
+            {t('Неудачных звонков пока не было.')}
+          </p>
+          {audio && <AudioRow a={audio} />}
+        </>
       ) : (
         <div className="space-y-4">
           {/* Дата — чтобы свежий разбор не путать с прошлым звонком. */}
@@ -60,6 +64,7 @@ export function CallDiagSheet({ open, onClose }: { open: boolean; onClose: () =>
           {!!d.iceErrors?.length && (
             <Row label={t('Отказы ретранслятора')} value={d.iceErrors.join(', ')} bad />
           )}
+          {audio && <AudioRow a={audio} />}
 
           <p className="rounded-xl bg-lh-surface-2 p-3 text-xs leading-relaxed text-lh-text-secondary">
             {verdict(d)}
@@ -68,6 +73,17 @@ export function CallDiagSheet({ open, onClose }: { open: boolean; onClose: () =>
       )}
     </Sheet>
   );
+}
+
+/** Выходы звука последнего звонка на этом телефоне и куда ушёл звук: по ним
+ *  видно, почему не нашлась кнопка «К уху» (имя слухового динамика на языке
+ *  телефона заранее не известно). */
+function AudioRow({ a }: { a: CallAudio }) {
+  const error = a.error && (a.ms ? `${a.error} ${(a.ms / 1000).toFixed(1)} s` : a.error);
+  const value = [a.outputs.join(', ') || t('не видны'), a.ear ? t('у уха') : t('на громкой'), error]
+    .filter(Boolean)
+    .join(' · ');
+  return <Row label={t('Выходы звука')} value={value} bad={!!a.error} />;
 }
 
 function Row({ label, value, bad }: { label: string; value: string; bad?: boolean }) {

@@ -52,6 +52,14 @@ const STUCK_MS = 8_000;
 // конце показал бы «проверок нет».
 const STATS_SAMPLE_MS = 2_000;
 const ICE_GATHER_CAP_MS = 2000;
+// Слуховой динамик среди выходов звука (enumerateDevices, kind 'audiooutput').
+// iOS 26 по-английски зовёт его «Earpiece Speaker» (рядом «Main Speaker») —
+// по отчёту LiveKit (client-sdk-js issue 1568, июнь 2025). Русское имя не
+// найдено нигде — варианты на глаз; не совпало — кнопки «К уху» не будет, а
+// имена выходов покажет «Почему звонок не вышел» (CallAudio).
+const RECEIVER_LABEL = /earpiece|receiver|приёмник|приемник|трубк|разговорн|верхн/i;
+// Что звонок нашёл и выбрал из выходов звука — для разбора: последняя запись.
+const AUDIO_KEY = 'life-hub-call-audio';
 // Фолбэк на случай недоступности /family/turn: только STUN. TURN-креды
 // короткоживущие и приходят с воркера — статических здесь держать нельзя
 // (анонимный Open Relay мёртв — проверено).
@@ -142,6 +150,33 @@ export function getCallDiag(): CallDiag | null {
   }
 }
 
+/** Выходы звука последнего звонка: какие видны, ушёл ли звук «к уху» и чем
+ *  кончилась последняя смена выхода. */
+export interface CallAudio {
+  outputs: string[];
+  ear: boolean;
+  error?: string;
+  /** Сколько мс прошло от касания до отказа — окно Safari 5 с. */
+  ms?: number;
+}
+
+export function getCallAudio(): CallAudio | null {
+  try {
+    const raw = localStorage.getItem(AUDIO_KEY);
+    return raw ? (JSON.parse(raw) as CallAudio) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveAudio(a: CallAudio): void {
+  try {
+    localStorage.setItem(AUDIO_KEY, JSON.stringify(a));
+  } catch {
+    /* приватный режим — разбор не критичен */
+  }
+}
+
 function saveDiag(d: CallDiag): void {
   try {
     localStorage.setItem(DIAG_KEY, JSON.stringify(d));
@@ -171,6 +206,20 @@ class CallManager {
   private pc: RTCPeerConnection | null = null;
   private localStream: MediaStream | null = null;
   private audioEl: HTMLAudioElement | null = null;
+  // Звук собеседника на iPhone идёт не прямо в <audio>, а через WebAudio:
+  // поток → relayCtx → MediaStreamDestination → <audio>. В Safari 26 выбор
+  // выхода (setSinkId) для <audio> с единственной WebRTC-дорожкой молча
+  // сбрасывается на системный — громкоговоритель (WebKit bug 320087:
+  // исправлен в main 29.07.2026, в iOS 26.5 и ветках 7625 исправления нет).
+  // Дорожка ретранслятора — локальная, на неё выбор ложится. Фон ретранслятор
+  // не глушит: WebKit не прерывает WebAudio свёрнутого приложения, если граф не
+  // выведен в ctx.destination или тип audioSession — 'play-and-record'
+  // (AudioContext::shouldOverrideBackgroundPlaybackRestriction). Приём тот же,
+  // что в LiveKit для iOS 26 (client-sdk-js PR 1635).
+  private relayCtx: AudioContext | null = null;
+  private relaySrc: MediaStreamAudioSourceNode | null = null;
+  private relayOut: MediaStream | null = null;
+  private remoteStream: MediaStream | null = null;
 
   private familyId: string | null = null;
   private peerId: string | null = null;
@@ -215,25 +264,38 @@ class CallManager {
   // и ответ уходит на секунду раньше.
   private icePrefetch: Promise<IceResult> | null = null;
 
-  // Громкая связь.
-  // iOS/Safari: Audio Session API — type 'play-and-record' ведёт звук «к уху»
-  // как обычный телефонный звонок (и позволяет аудио жить в фоне), 'playback' —
-  // громкоговоритель. Дефолт на iOS — «к уху», как у телефона.
-  // Прочие: setSinkId на <audio> (receiver по label) или смена микрофонного
-  // входа (Android Chrome, лейблы 'Speakerphone'/'Headset earpiece' захардкожены
-  // в Chromium). Ни один путь не доступен — кнопки нет.
-  private speakerMode: 'none' | 'audioSession' | 'sinkId' | 'inputSwitch' = 'none';
+  // Громкая связь и «к уху».
+  // iOS/Safari: звонок с микрофоном WebKit ведёт в категории PlayAndRecord с
+  // опцией DefaultToSpeaker — в громкоговоритель, — и navigator.audioSession
+  // 'play-and-record' этого не меняет (AudioSessionIOS.mm, setCategory). Раньше
+  // считалось, что меняет: кнопка «К уху» горела, а звук шёл в динамик. На
+  // слуховой динамик звук уходит, только если страница сама выберет его
+  // выходом: setSinkId на <audio> с устройством-приёмником — тогда WebKit
+  // снимает DefaultToSpeaker и включает режим голосового звонка (VoiceChat;
+  // коммиты WebKit 19888c4 и 773ecfa, декабрь 2024 — январь 2025).
+  // Прочие: тот же setSinkId или смена микрофонного входа (Android Chrome,
+  // лейблы 'Speakerphone'/'Headset earpiece' захардкожены в Chromium).
+  // Ни один путь не доступен — кнопки нет.
+  private speakerMode: 'none' | 'sinkId' | 'inputSwitch' = 'none';
   private receiverSinkId: string | null = null;
+  private sinkError: string | undefined; // чем Safari отказал в смене выхода
+  private tapAt = 0; // касание «Позвонить»/«Ответить» — от него 5 с на выбор выхода
   private earpieceInputId: string | null = null;
   private speakerInputId: string | null = null;
 
-  // Блокировка гашения экрана на время разговора.
+  // Блокировка гашения экрана. Держим, пока на экран смотрят: дозвон, входящий,
+  // соединение, громкая связь. У уха — отпускаем, и экран гаснет и запирается
+  // сам, по автоблокировке или боковой кнопкой, как у телефона: датчика
+  // приближения у веба нет (в WebKit его нет вовсе, features.json — «Not
+  // Considering»), а щека жала кнопки.
   //
-  // Это лечение самой частой причины «поговорили и связь оборвалась» на
-  // телефоне: когда экран гаснет, iOS замораживает WebRTC, а спустя 30 секунд
-  // без подтверждения канала соединение обязано умереть по спецификации
-  // (consent freshness, RFC 7675). Человек в это время просто держит телефон
-  // у уха и ничего не трогает.
+  // Раньше экран держали весь разговор: считалось, что погасший экран
+  // морозит WebRTC и через 30 с без подтверждения канала звонок умирает
+  // (consent freshness, RFC 7675). Для iOS 26 код этого не подтверждает:
+  // Safari и веб-приложение с «Домой» объявляют фоновый звук (UIBackgroundModes
+  // audio — Info.plist в iOS 26.5), и при таком объявлении WebKit не глушит
+  // микрофон скрытой страницы (shouldInterruptAudioOnPageVisibilityChange),
+  // а <audio> уход в фон не прерывает. На устройстве не проверено.
   private wakeLock: WakeLockSentinel | null = null;
 
   private ringTimer: ReturnType<typeof setTimeout> | null = null;
@@ -250,9 +312,10 @@ class CallManager {
       if (document.visibilityState !== 'visible') return;
       void this.recoverMicIfDead();
       // Уход в фон отбирает блокировку экрана, а 'connected' при возврате
-      // заново не наступает — без этого экран гас у уха, и iOS морозил связь.
-      if (this.snap.status !== 'idle' && this.snap.status !== 'ended') void this.holdScreen();
+      // заново не наступает: на громкой связи и на дозвоне её надо вернуть.
+      this.syncScreen();
       // Система могла поставить звук собеседника на паузу (звонок GSM, Siri).
+      void this.relayCtx?.resume().catch(() => {});
       if (this.audioEl?.srcObject) void this.audioEl.play().catch(() => {});
     };
     document.addEventListener('visibilitychange', onVis);
@@ -380,6 +443,52 @@ class CallManager {
     return this.audioEl;
   }
 
+  /** Завести ретранслятор звука (см. relayCtx). Только там, где выход можно
+   *  выбрать (Safari 26+), и только в касании: созданный без него AudioContext
+   *  Safari держит на паузе. */
+  private armRelay() {
+    this.tapAt = performance.now();
+    if (this.relayCtx || !this.audioSession() || !('setSinkId' in HTMLMediaElement.prototype)) return;
+    try {
+      const ctx = new AudioContext();
+      // Siri, будильник, входящий GSM ставят WebAudio на паузу, не уводя
+      // страницу в фон: звук тогда идёт прямо, а не тишиной (см. playRemote).
+      ctx.onstatechange = () => this.playRemote();
+      void ctx.resume().catch(() => {});
+      this.relayCtx = ctx;
+    } catch {
+      this.relayCtx = null; // WebAudio нет — звук пойдёт прямо в <audio>
+    }
+  }
+
+  /** Отдать звук собеседника в <audio>: через ретранслятор, если найден
+   *  слуховой динамик и ретранслятор запущен, иначе прямо. Звук не теряется
+   *  ни в каком случае — без ретранслятора пропадает лишь «к уху». */
+  private playRemote() {
+    const stream = this.remoteStream;
+    if (!stream) return;
+    const el = this.ensureAudio();
+    const ctx = this.relayCtx;
+    let out: MediaStream = stream;
+    if (ctx?.state === 'running' && this.speakerMode === 'sinkId') {
+      try {
+        if (this.relaySrc?.mediaStream !== stream) {
+          this.relaySrc?.disconnect();
+          const src = ctx.createMediaStreamSource(stream);
+          const dest = ctx.createMediaStreamDestination();
+          src.connect(dest);
+          this.relaySrc = src;
+          this.relayOut = dest.stream;
+        }
+        out = this.relayOut!;
+      } catch {
+        /* ретранслятор не собрался — играем прямо */
+      }
+    }
+    if (el.srcObject !== out) el.srcObject = out;
+    void el.play().catch(() => {});
+  }
+
   private async peerName(peerId: string): Promise<string> {
     const m = await db.familyMembers.get(peerId);
     return m?.displayName || t('Участник');
@@ -425,16 +534,30 @@ class CallManager {
     }
   }
 
-  /** Держать экран включённым, пока идёт разговор. Система может отобрать
-   *  блокировку при уходе в фон — тогда её возвращает armMicRecovery по
-   *  возвращении на экран. */
+  /** Нужен ли сейчас включённый экран: звонок идёт и телефон не у уха. */
+  private wantsScreen(): boolean {
+    const s = this.snap.status;
+    if (s === 'idle' || s === 'ended') return false;
+    // Только iPhone/Safari (audioSession): на Android «к уху» экран держим, как раньше.
+    return !(s === 'active' && !this.snap.speakerOn && !!this.audioSession());
+  }
+
+  /** Привести блокировку экрана к состоянию звонка (см. wantsScreen). */
+  private syncScreen() {
+    if (this.wantsScreen()) void this.holdScreen();
+    else this.releaseScreen();
+  }
+
+  /** Держать экран включённым. Система отбирает блокировку при уходе в фон —
+   *  её возвращает syncScreen по возвращении на экран. */
   private async holdScreen() {
     try {
       if (this.wakeLock || !('wakeLock' in navigator)) return;
       const wl = await navigator.wakeLock.request('screen');
-      // Звонок кончился, пока система выдавала блокировку (мгновенное «Нет
-      // связи», отказ в микрофоне) — иначе экран не гас бы до ухода из приложения.
-      if (this.snap.status === 'idle' || this.snap.status === 'ended') {
+      // Пока система выдавала блокировку, звонок кончился (мгновенное «Нет
+      // связи», отказ в микрофоне) или ушёл «к уху», а то и вторая такая же
+      // просьба успела раньше, — иначе экран не гас бы до ухода из приложения.
+      if (!this.wantsScreen() || this.wakeLock) {
         void wl.release().catch(() => {});
         return;
       }
@@ -623,8 +746,8 @@ class CallManager {
     pc.ontrack = (e) => {
       const [stream] = e.streams;
       if (stream) {
-        this.ensureAudio().srcObject = stream;
-        void this.audioEl?.play().catch(() => {});
+        this.remoteStream = stream;
+        this.playRemote();
       }
     };
     pc.onicecandidate = (e) => {
@@ -654,8 +777,8 @@ class CallManager {
         this.clearRingTimer();
         if (this.snap.reconnecting) this.set({ reconnecting: false });
         this.restartAttempt = 0; // связь ожила — счётчик попыток с чистого листа
-        void this.holdScreen();
         if (this.snap.status !== 'active') this.set({ status: 'active', startedAt: Date.now() });
+        this.syncScreen(); // «к уху» — экран отпускаем, громкая — держим
       } else if (s === 'disconnected' || s === 'failed') {
         // Мобильная сеть роняет соединение на секунды (лифт, переход
         // вышки, WiFi↔LTE) и сама поднимает. Раньше 'disconnected'
@@ -870,8 +993,8 @@ class CallManager {
     // Статус — СИНХРОННО до любого await: иначе двойной тап «позвонить» прошёл бы
     // guard выше дважды и поднял бы два звонка (два микрофона/pc). Имя дозагрузим.
     this.set({ status: 'outgoing', familyId, peerId, peerName: '', muted: false, startedAt: null, endReason: null });
-    // Экран не гаснет уже на дозвоне: погасший экран iOS морозит приложение
-    // раньше, чем кто-то ответит.
+    this.armRelay(); // в касании «Позвонить»: без него Safari не запустит звук
+    // Экран не гаснет уже на дозвоне: человек смотрит, взяли ли трубку.
     void this.holdScreen();
     connectFamily(familyId);
     this.familyId = familyId;
@@ -950,6 +1073,7 @@ class CallManager {
     stopRingtone();
     this.clearCallNotifications(this.callId);
     this.set({ status: 'connecting' }); // синхронно до await — дедуп двойного «Принять»
+    this.armRelay(); // в касании «Ответить»: без него Safari не запустит звук
     // Звонящему — сразу «трубку сняли», до микрофона и сбора маршрутов: эти
     // секунды раньше шли в зачёт его дозвона, и ответ на последних секундах
     // он сбрасывал как «Не ответили». Старые версии сигнал пропускают молча.
@@ -1057,34 +1181,35 @@ class CallManager {
   private async probeSpeaker(): Promise<void> {
     this.speakerMode = 'none';
     this.receiverSinkId = null;
+    this.sinkError = undefined;
     this.earpieceInputId = null;
     this.speakerInputId = null;
-    // iOS/Safari: телефонная аудиосессия. Дефолт — «к уху», как обычный звонок;
-    // заодно iOS перестаёт глушить микрофон при сворачивании (VoIP-поведение).
+    // iOS/Safari: явная телефонная сессия. Маршрут она не задаёт (см.
+    // speakerMode), но перебивает тип, оставленный другими разделами: шум
+    // «Фокуса» ставит 'playback', а в нём микрофон не пишет.
     const as = this.audioSession();
     if (as) {
-      this.speakerMode = 'audioSession';
       try {
         as.type = 'play-and-record';
       } catch {
         /* тип не поддержан — остаёмся на системном дефолте */
       }
-      // AirPlay-пикер WebKit: системный выбор выхода (AirPods/колонка/телефон).
-      const el = this.ensureAudio() as HTMLAudioElement & {
-        webkitShowPlaybackTargetPicker?: () => void;
-      };
-      const hasPicker = typeof el.webkitShowPlaybackTargetPicker === 'function';
-      this.set({ speakerAvailable: true, speakerOn: false, outputPickerAvailable: hasPicker });
-      return;
     }
+    const audioEl = this.ensureAudio() as HTMLAudioElement & {
+      setSinkId?: (id: string) => Promise<void>;
+      webkitShowPlaybackTargetPicker?: () => void;
+    };
+    // AirPlay-пикер WebKit: системный выбор выхода (AirPods/колонка).
+    const outputPickerAvailable = !!as && typeof audioEl.webkitShowPlaybackTargetPicker === 'function';
     const gen = this.gen;
+    let outputs: string[] = [];
     try {
       const devs = await navigator.mediaDevices.enumerateDevices();
       if (this.gen !== gen) return; // звонок снесли, пока перечисляли устройства
-      const audioEl = this.ensureAudio() as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
+      const outs = devs.filter((d) => d.kind === 'audiooutput');
+      outputs = outs.map((d) => d.label);
       if (typeof audioEl.setSinkId === 'function') {
-        const outs = devs.filter((d) => d.kind === 'audiooutput');
-        const receiver = outs.find((d) => /receiver|earpiece|приёмник|приемник|трубк/i.test(d.label));
+        const receiver = outs.find((d) => RECEIVER_LABEL.test(d.label));
         if (receiver && outs.length >= 2) {
           this.speakerMode = 'sinkId';
           this.receiverSinkId = receiver.deviceId;
@@ -1103,7 +1228,55 @@ class CallManager {
     } catch {
       /* enumerateDevices недоступен — остаёмся без кнопки */
     }
-    this.set({ speakerAvailable: this.speakerMode !== 'none', speakerOn: true });
+    // iPhone — «к уху» с первой секунды, как обычный телефонный звонок,
+    // громкая — кнопкой. Прочие платформы начинают с системного выхода.
+    let ear = false;
+    const ctx = this.relayCtx;
+    if (as && this.speakerMode === 'sinkId' && ctx) {
+      if (ctx.state !== 'running') {
+        await Promise.race([ctx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 1000))]);
+        if (this.gen !== gen) return;
+      }
+      // Без запущенного ретранслятора выбор приёмника Safari 26 сбросит (см.
+      // relayCtx) — тогда начинаем на громкой, «К уху» запустит его кнопкой.
+      // Подключены наушники (выходов больше двух встроенных) — звук остаётся в
+      // них, как выбрала система. Выход Safari меняет только в течение 5 с
+      // после касания (transient activation): «Позвонить»/«Ответить» обычно
+      // укладываются, нет — «К уху» кнопкой. Выход прошлого звонка остался на
+      // приёмнике — просить снова не надо.
+      if (ctx.state === 'running' && outputs.length === 2) {
+        ear = (audioEl as HTMLAudioElement & { sinkId?: string }).sinkId === this.receiverSinkId || (await this.setSink(this.receiverSinkId!));
+        if (this.gen !== gen) return;
+      }
+    } else if (as && this.speakerMode === 'sinkId') {
+      this.speakerMode = 'none'; // WebAudio нет — «к уху» в Safari 26 не удержать
+    }
+    if (as && this.speakerMode !== 'sinkId' && ctx) {
+      void ctx.close().catch(() => {}); // слухового нет — ретранслятор не нужен
+      this.relayCtx = null;
+    }
+    this.set({ speakerAvailable: this.speakerMode !== 'none', speakerOn: !ear, outputPickerAvailable });
+    if (as) saveAudio({ outputs, ear, error: this.sinkError, ms: this.sinkError ? Math.round(performance.now() - this.tapAt) : undefined });
+    this.playRemote(); // ретранслятор мог запуститься уже после прихода звука
+    this.syncScreen();
+  }
+
+  /** Вывести звук собеседника на устройство; '' — системный выход (на
+   *  iPhone — громкоговоритель: WebKit снимает выбор приёмника). */
+  private async setSink(id: string): Promise<boolean> {
+    const el = this.ensureAudio() as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
+    if (typeof el.setSinkId !== 'function') return false;
+    // Safari 26.0: первое переключение могло падать — одна повторная попытка.
+    this.sinkError = undefined;
+    for (let i = 0; i < 2; i++) {
+      try {
+        await el.setSinkId(id);
+        return true;
+      } catch (e) {
+        this.sinkError = (e as Error)?.name || 'Error'; // NotAllowedError — касание было давно
+      }
+    }
+    return false;
   }
 
   /** Системный выбор аудиовыхода (AirPlay-пикер): AirPods, наушники, колонки.
@@ -1121,34 +1294,29 @@ class CallManager {
 
   async toggleSpeaker(): Promise<void> {
     const wantOn = !this.snap.speakerOn;
-    if (this.speakerMode === 'audioSession') {
-      const as = this.audioSession();
-      if (!as) return;
-      try {
-        as.type = wantOn ? 'playback' : 'play-and-record';
-      } catch {
-        return; // маршрут не сменился — состояние кнопки не трогаем
-      }
-      this.set({ speakerOn: wantOn });
-      // По спецификации Audio Session тип 'playback' завершает захват
-      // микрофона; живёт ли так WebKit — не проверено. Если трек умер,
-      // поднимаем новый сразу, а не при следующем возврате в приложение.
-      void this.recoverMicIfDead();
-      return;
-    }
     if (this.speakerMode === 'sinkId') {
-      const audioEl = this.ensureAudio() as HTMLAudioElement & { setSinkId: (id: string) => Promise<void> };
-      const target = wantOn ? '' : this.receiverSinkId!;
-      try {
-        await audioEl.setSinkId(target);
-      } catch {
-        try {
-          await audioEl.setSinkId(target); // Safari 26.0: первый switch мог падать — одна повторная попытка
-        } catch {
-          return; // маршрут не сменился — состояние кнопки не трогаем
-        }
+      const gen = this.gen;
+      // Касание — тот момент, когда Safari даст запустить ретранслятор, если
+      // при старте разговора он не запустился.
+      const ctx = this.relayCtx;
+      const resumed = ctx && ctx.state !== 'running' ? ctx.resume().catch(() => {}) : null;
+      const ok = await this.setSink(wantOn ? '' : this.receiverSinkId!);
+      await resumed;
+      if (this.gen !== gen) return;
+      this.playRemote();
+      // «К уху» в Safari 26 держится только через ретранслятор. Не вышло —
+      // состояние кнопки не трогаем.
+      const done = ok && (wantOn || !ctx || ctx.state === 'running');
+      const a = getCallAudio();
+      if (a) saveAudio({ ...a, ear: done ? !wantOn : a.ear, error: this.sinkError, ms: undefined });
+      if (!done) {
+        // Выход уже на приёмнике, а звук идёт мимо ретранслятора: вернуть, пока
+        // касание свежее, — иначе исправленный Safari увёл бы звук к уху молча.
+        if (ok && !wantOn) void this.setSink('');
+        return;
       }
       this.set({ speakerOn: wantOn });
+      this.syncScreen();
     } else if (this.speakerMode === 'inputSwitch') {
       const targetId = wantOn ? this.speakerInputId : this.earpieceInputId;
       if (!targetId || !this.pc || !this.localStream) return;
@@ -1185,6 +1353,7 @@ class CallManager {
       for (const t of this.localStream.getTracks()) t.stop();
       this.localStream = stream;
       this.set({ speakerOn: wantOn });
+      this.syncScreen();
     }
   }
 
@@ -1437,6 +1606,14 @@ class CallManager {
     if (this.localStream) {
       for (const t of this.localStream.getTracks()) t.stop();
       this.localStream = null;
+    }
+    this.remoteStream = null;
+    this.relaySrc?.disconnect();
+    this.relaySrc = null;
+    this.relayOut = null;
+    if (this.relayCtx) {
+      void this.relayCtx.close().catch(() => {});
+      this.relayCtx = null;
     }
     if (this.audioEl) {
       try {

@@ -410,3 +410,236 @@ test.describe('звонок между двумя телефонами', () => {
     expect(diag?.reason).toBe('Связь не восстановилась');
   });
 });
+
+// iPhone: разговор «к уху» и сворачивание приложения.
+//
+// В Safari звонок с микрофоном по умолчанию идёт в громкоговоритель
+// (PlayAndRecord + DefaultToSpeaker), а navigator.audioSession маршрут не
+// меняет — раньше кнопка «К уху» горела, а звук шёл в динамик. На слуховой
+// динамик звук уводит только выбор выхода страницей (setSinkId на приёмник), и
+// в Safari 26 он держится только на локальной дорожке — поэтому звук
+// собеседника идёт через WebAudio-ретранслятор. Выход Safari меняет лишь в
+// течение 5 секунд после касания. И экран: раньше его держали весь разговор, и
+// у уха щека жала кнопки; теперь у уха блокировка отпускается — iPhone гасит и
+// запирает экран сам.
+//
+// Chromium не iPhone: здесь подставлены сессия звука, выходы с именами iOS 26,
+// смена выхода с журналом (и отказом, когда касание было давно) и блокировка
+// экрана, которую, как в WebKit, снимает уход в фон. Звук между телефонами —
+// настоящий.
+function iphone() {
+  const log = { sinks: [] as string[], held: 0, refuse: false, headset: false, stuck: false };
+  (window as unknown as { __ear: typeof log }).__ear = log;
+  Object.defineProperty(navigator, 'audioSession', { value: { type: 'auto' }, configurable: true });
+  const md = navigator.mediaDevices;
+  const enumerate = md.enumerateDevices.bind(md);
+  md.enumerateDevices = async () => [
+    ...(await enumerate()).filter((d) => d.kind !== 'audiooutput'),
+    { kind: 'audiooutput', deviceId: 'spk', label: 'Main Speaker', groupId: 'b' } as MediaDeviceInfo,
+    { kind: 'audiooutput', deviceId: 'rcv', label: 'Earpiece Speaker', groupId: 'b' } as MediaDeviceInfo,
+    ...(log.headset ? [{ kind: 'audiooutput', deviceId: 'pods', label: 'AirPods Pro', groupId: 'p' } as MediaDeviceInfo] : []),
+  ];
+  // Chromium (в отличие от WebKit, который опрашивает libwebrtc сам) не отдаёт
+  // удалённый звук в WebAudio, пока дорожку не играет media-элемент, — даём ему
+  // немой, чтобы ретранслятор в тесте звучал, как на iPhone.
+  const PC = window.RTCPeerConnection;
+  window.RTCPeerConnection = class extends PC {
+    constructor(c?: RTCConfiguration) {
+      super(c);
+      this.addEventListener('track', (e) => {
+        const el = document.createElement('audio');
+        el.muted = true;
+        el.srcObject = e.streams[0] ?? new MediaStream([e.track]);
+        void el.play().catch(() => {});
+      });
+    }
+  };
+  // WebAudio, который Safari так и не запустил (создан без касания).
+  const AC = window.AudioContext;
+  window.AudioContext = class extends AC {
+    constructor(o?: AudioContextOptions) {
+      super(o);
+      if (log.stuck) void super.suspend();
+    }
+    resume() {
+      return log.stuck ? Promise.resolve() : super.resume();
+    }
+  };
+  const proto = HTMLMediaElement.prototype as unknown as { setSinkId(id: string): Promise<void>; sinkId: string };
+  let sink = '';
+  Object.defineProperty(proto, 'sinkId', { get: () => sink, configurable: true });
+  proto.setSinkId = async (id: string) => {
+    if (log.refuse) throw new DOMException('A user gesture is required', 'NotAllowedError');
+    log.sinks.push(id);
+    sink = id;
+  };
+  const sentinels = new Set<EventTarget & { release(): Promise<void> }>();
+  const drop = (s: EventTarget & { release(): Promise<void> }) => {
+    if (!sentinels.delete(s)) return;
+    log.held = sentinels.size;
+    s.dispatchEvent(new Event('release'));
+  };
+  Object.defineProperty(navigator, 'wakeLock', {
+    configurable: true,
+    value: {
+      request: async () => {
+        const s = Object.assign(new EventTarget(), { release: async () => drop(s) });
+        sentinels.add(s);
+        log.held = sentinels.size;
+        return s;
+      },
+    },
+  });
+  // Свернуть/развернуть приложение — по команде теста.
+  let state: DocumentVisibilityState = 'visible';
+  Object.defineProperty(document, 'visibilityState', { get: () => state, configurable: true });
+  Object.defineProperty(document, 'hidden', { get: () => state === 'hidden', configurable: true });
+  (window as unknown as { __setVisible(v: boolean): void }).__setVisible = (v) => {
+    state = v ? 'visible' : 'hidden';
+    if (!v) for (const s of [...sentinels]) drop(s);
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+}
+
+type EarLog = { sinks: string[]; held: number; refuse: boolean; headset: boolean; stuck: boolean };
+const setEar = (p: Page, patch: Partial<EarLog>) =>
+  p.evaluate((patch) => Object.assign((window as unknown as { __ear: EarLog }).__ear, patch), patch);
+const ear = (p: Page) => p.evaluate(() => (window as unknown as { __ear: EarLog }).__ear);
+const setVisible = (p: Page, v: boolean) =>
+  p.evaluate((v) => (window as unknown as { __setVisible(v: boolean): void }).__setVisible(v), v);
+const toggleSpeaker = (p: Page) =>
+  p.evaluate(async () => (await import('/src/lib/family/familyCall.ts')).callManager.toggleSpeaker());
+/** Звук собеседника играет через ретранслятор, а не прямой WebRTC-дорожкой. */
+const relayed = (p: Page) =>
+  p.evaluate(async () => {
+    const { callManager } = await import('/src/lib/family/familyCall.ts');
+    const cm = callManager as unknown as { audioEl: HTMLAudioElement | null; remoteStream: MediaStream | null };
+    const src = cm.audioEl?.srcObject as MediaStream | null;
+    return !!src && !!cm.remoteStream && src !== cm.remoteStream;
+  });
+/** Громкость того, что выходит из ретранслятора: звук правда идёт, а не
+ *  только пакеты (поддельный микрофон Chromium пищит). */
+const relayLevel = (p: Page) =>
+  p.evaluate(async () => {
+    const { callManager } = await import('/src/lib/family/familyCall.ts');
+    const cm = callManager as unknown as { relayCtx: AudioContext; relayOut: MediaStream };
+    const src = cm.relayCtx.createMediaStreamSource(cm.relayOut); // то, что уходит в <audio>
+    const an = cm.relayCtx.createAnalyser();
+    src.connect(an);
+    const buf = new Float32Array(an.fftSize);
+    let max = 0;
+    for (let i = 0; i < 30; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      an.getFloatTimeDomainData(buf);
+      for (const v of buf) max = Math.max(max, Math.abs(v));
+    }
+    src.disconnect();
+    return max;
+  });
+const callAudio = (p: Page) =>
+  p.evaluate(async () => (await import('/src/lib/family/familyCall.ts')).getCallAudio());
+
+async function talk(browser: Browser, before?: (mom: Page) => Promise<void>) {
+  const relay = makeRelay();
+  const key = await familyKey(browser);
+  const mom = await phone(browser, relay, key, MOM, VLAD, iphone);
+  const vlad = await phone(browser, relay, key, VLAD, MOM);
+  await before?.(mom);
+  await mom.getByRole('button', { name: 'Позвонить: Влад' }).click();
+  // На дозвоне экран держится: человек смотрит, взяли ли трубку.
+  await expect.poll(async () => (await ear(mom)).held).toBe(1);
+  await expect(vlad.getByText('Входящий звонок')).toBeVisible({ timeout: 15_000 });
+  await vlad.getByRole('button', { name: 'Ответить' }).click();
+  await expectTalking(mom, vlad);
+  return { mom, vlad };
+}
+
+test.describe('iPhone: к уху и свёрнутое приложение', () => {
+  test.setTimeout(90_000);
+
+  test('разговор начинается у уха, экран отпущен; громкая связь возвращает экран', async ({ browser }) => {
+    const { mom } = await talk(browser);
+
+    // Звук ушёл на слуховой динамик, и через ретранслятор — иначе Safari 26
+    // молча вернул бы его в громкоговоритель.
+    expect((await ear(mom)).sinks).toEqual(['rcv']);
+    expect(await relayed(mom)).toBe(true);
+    expect(await relayLevel(mom)).toBeGreaterThan(0.01);
+    expect((await snapshot(mom)).speakerOn).toBe(false);
+    expect(await callAudio(mom)).toEqual({ outputs: ['Main Speaker', 'Earpiece Speaker'], ear: true });
+    // Экран отпущен — iPhone погасит его сам; от щеки до тех пор закрывает защита.
+    await expect.poll(async () => (await ear(mom)).held).toBe(0);
+    await expect(mom.getByText('Экран заблокирован, чтобы не нажать щекой')).toBeVisible();
+
+    await toggleSpeaker(mom);
+    expect((await ear(mom)).sinks.at(-1)).toBe(''); // системный выход — громкоговоритель
+    await expect.poll(async () => (await ear(mom)).held).toBe(1);
+    expect(await relayed(mom)).toBe(true);
+
+    await toggleSpeaker(mom);
+    expect((await ear(mom)).sinks.at(-1)).toBe('rcv');
+    await expect.poll(async () => (await ear(mom)).held).toBe(0);
+  });
+
+  test('касание было давно — Safari не дал сменить выход: разговор на громкой, «К уху» — кнопкой', async ({ browser }) => {
+    const { mom } = await talk(browser, (mom) => setEar(mom, { refuse: true }));
+
+    expect((await snapshot(mom)).speakerOn).toBe(true); // не врёт «к уху»
+    expect((await snapshot(mom)).speakerAvailable).toBe(true);
+    expect(await callAudio(mom)).toMatchObject({ ear: false, error: 'NotAllowedError' });
+    expect((await ear(mom)).held).toBe(1); // на громкой экран держится
+
+    await setEar(mom, { refuse: false });
+    await toggleSpeaker(mom);
+    expect((await ear(mom)).sinks).toEqual(['rcv']);
+    expect((await snapshot(mom)).speakerOn).toBe(false);
+    await expect.poll(async () => (await ear(mom)).held).toBe(0);
+  });
+
+  test('подключены наушники — звук остаётся в них, «К уху» — кнопкой', async ({ browser }) => {
+    const { mom } = await talk(browser, (mom) => setEar(mom, { headset: true }));
+    expect((await ear(mom)).sinks).toEqual([]); // в трубку насильно не уводим
+    expect((await snapshot(mom)).speakerOn).toBe(true);
+    expect((await snapshot(mom)).speakerAvailable).toBe(true);
+    await toggleSpeaker(mom);
+    expect((await ear(mom)).sinks).toEqual(['rcv']);
+  });
+
+  test('WebAudio не запустился — звук идёт напрямую, кнопка не врёт про «к уху»', async ({ browser }) => {
+    // Ретранслятор нужен только для «к уху»; без него звонок не должен
+    // остаться без звука — это хуже громкой связи.
+    const { mom } = await talk(browser, (mom) => setEar(mom, { stuck: true }));
+    expect(await relayed(mom)).toBe(false);
+    expect((await ear(mom)).sinks).toEqual([]);
+    expect((await snapshot(mom)).speakerOn).toBe(true);
+    await toggleSpeaker(mom); // касание, но WebAudio так и стоит
+    expect((await snapshot(mom)).speakerOn).toBe(true);
+    expect(await relayed(mom)).toBe(false);
+    // Выход вернули на системный: исправленный Safari не увёл бы звук к уху молча.
+    await expect.poll(async () => (await ear(mom)).sinks).toEqual(['rcv', '']);
+  });
+
+  test('свернули и вернулись — разговор идёт, экран у уха не захватывается снова', async ({ browser }) => {
+    const { mom, vlad } = await talk(browser);
+    await expect.poll(async () => (await ear(mom)).held).toBe(0);
+
+    // Свёрнуто: звонок не закрывается и звук идёт в обе стороны.
+    await setVisible(mom, false);
+    for (const p of [mom, vlad]) {
+      const was = await packets(p);
+      await expect.poll(() => packets(p), { timeout: 10_000 }).toBeGreaterThan(was + 10);
+    }
+    expect((await snapshot(mom)).status).toBe('active');
+    await setVisible(mom, true);
+    expect((await ear(mom)).held).toBe(0);
+
+    // На громкой связи экран после возврата снова держится.
+    await toggleSpeaker(mom);
+    await expect.poll(async () => (await ear(mom)).held).toBe(1);
+    await setVisible(mom, false);
+    expect((await ear(mom)).held).toBe(0);
+    await setVisible(mom, true);
+    await expect.poll(async () => (await ear(mom)).held).toBe(1);
+    await expectConnected(mom);
+  });
+});
