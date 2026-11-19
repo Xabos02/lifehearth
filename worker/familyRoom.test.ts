@@ -687,3 +687,46 @@ describe('гудки звонящему, когда у собеседника з
     expect(r.ringing()).toEqual([]);
   });
 });
+
+describe('«звонит» и страховка дозвона', () => {
+  it('«звонит» от собеседника с молчащим сокетом не снимает страховку: пуш один, «пропущенный» alarm найдёт', async () => {
+    const { room, addSocket } = makeRoom();
+    const inner = room as unknown as { ctx: { waitUntil: (p: Promise<unknown>) => void }; pushCall: () => Promise<boolean> };
+    const pending: Promise<unknown>[] = [];
+    inner.ctx.waitUntil = (p) => void pending.push(p);
+    let pushes = 0;
+    inner.pushCall = async () => {
+      pushes++;
+      return true;
+    };
+    const caller = addSocket('mom');
+    caller.serializeAttachment({ memberId: 'mom', bound: true, at: Date.now() });
+    // Вкладка собеседника в фоне: кадры доходят, пинги редкие — сервер считает сокет молчащим.
+    const callee = addSocket('vlad');
+    callee.serializeAttachment({ memberId: 'vlad', bound: true, at: Date.now() - 60_000 });
+    const sig = (ws: FakeSocket, f: Record<string, unknown>) => room.webSocketMessage(ws, JSON.stringify({ type: 'signal', ...f }));
+    for (let i = 0; i < 3; i++) {
+      await sig(caller, { to: 'vlad', call: 'c1', kind: 'offer', data: 'x' });
+      await Promise.all(pending);
+      await sig(callee, { to: 'mom', call: 'c1', kind: 'ringing', data: null });
+    }
+    expect(pushes, 'серия «Входящий звонок»').toBe(1);
+    const pend = room.sql.exec("SELECT k FROM meta WHERE k LIKE 'callpend:%'").toArray() as { k: string }[];
+    expect(pend.map((r) => r.k), 'alarm не пошлёт «пропущенный»').toEqual(['callpend:c1']);
+  });
+
+  it('доставленное приглашение — «звонит» сервер не говорит: телефон мог только что потерять сеть, скажет приложение', async () => {
+    const { room, addSocket } = makeRoom();
+    const caller = addSocket('mom');
+    caller.serializeAttachment({ memberId: 'mom', bound: true, at: Date.now() });
+    const callee = addSocket('vlad');
+    callee.serializeAttachment({ memberId: 'vlad', bound: true, at: Date.now() });
+    await room.webSocketMessage(caller, JSON.stringify({ type: 'signal', to: 'vlad', call: 'c1', kind: 'offer', data: 'x' }));
+    expect(framesOf(caller).filter((f) => f.kind === 'ringing')).toEqual([]);
+    // Приложение собеседника показало входящий — его «звонит» доходит до звонящего.
+    await room.webSocketMessage(callee, JSON.stringify({ type: 'signal', to: 'mom', call: 'c1', kind: 'ringing', data: null }));
+    expect(framesOf(caller).filter((f) => f.kind === 'ringing')).toEqual([
+      { type: 'signal', from: 'vlad', to: 'mom', call: 'c1', kind: 'ringing', data: null },
+    ]);
+  });
+});
