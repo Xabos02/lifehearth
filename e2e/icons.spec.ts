@@ -191,14 +191,24 @@ test('один раздел — один рисунок, даже когда о�
       content: '', tags: [], pinned: false });
   });
 
-  /** Пара «наш глиф — родная иконка lucide» для одного и того же раздела. */
+  /** Знак раздела из реестра (с 19.11.2026 — Font Awesome, PROTOCOL §20) и
+   *  прежние рисунки того же раздела: наш глиф и родная иконка lucide. Любой
+   *  из них рядом со знаком реестра — тот же раздел двумя рисунками. */
   const PAIRS: [string, string][] = [
-    ['lucide-tasks', 'lucide-list-todo'],
-    ['lucide-notes', 'lucide-notebook-text'],
-    ['lucide-places', 'lucide-map-pin'],
-    ['lucide-learning', 'lucide-graduation-cap'],
-    ['lucide-finance', 'lucide-wallet'],
-    ['lucide-energy', 'lucide-battery-charging'],
+    ['lucide-fa-square-check', 'lucide-tasks'],
+    ['lucide-fa-square-check', 'lucide-list-todo'],
+    ['lucide-fa-note-sticky', 'lucide-notes'],
+    ['lucide-fa-note-sticky', 'lucide-notebook-text'],
+    ['lucide-fa-location-dot', 'lucide-places'],
+    ['lucide-fa-location-dot', 'lucide-map-pin'],
+    ['lucide-fa-book-open', 'lucide-learning'],
+    ['lucide-fa-book-open', 'lucide-graduation-cap'],
+    ['lucide-fa-wallet', 'lucide-finance'],
+    ['lucide-fa-wallet', 'lucide-wallet'],
+    ['lucide-fa-bolt', 'lucide-energy'],
+    ['lucide-fa-bolt', 'lucide-battery-charging'],
+    ['lucide-fa-comments', 'lucide-family'],
+    ['lucide-fa-comments', 'lucide-messages-square'],
   ];
 
   const namesOnPage = async () =>
@@ -231,5 +241,23 @@ test('один раздел — один рисунок, даже когда о�
       names.includes(own) && names.includes(theirs),
       `в корзине раздел нарисован двумя иконками: ${own} и ${theirs}`,
     ).toBe(false);
+  }
+
+  // Знак раздела внутри экранов: «В задачи» в «Захвате» и «Временные задачи
+  // отдельно» в настройках стоят под меню, где у «Задач» тот же знак реестра.
+  // 19.11.2026 после смены значков на Font Awesome здесь остался прежний глиф
+  // задач рядом с новым значком вкладки — нашло ревью, не этот тест.
+  for (const route of ['/share', '/more/settings']) {
+    await page.goto(route);
+    await expect(page.locator('header h1')).toBeVisible();
+    await page.waitForTimeout(400);
+    names = await namesOnPage();
+    expect(names, `на ${route} нет знака «Задач» из реестра — проверять нечего`).toContain('lucide-fa-square-check');
+    for (const [own, theirs] of PAIRS) {
+      expect(
+        names.includes(own) && names.includes(theirs),
+        `на ${route} раздел нарисован двумя иконками: ${own} и ${theirs}`,
+      ).toBe(false);
+    }
   }
 });

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Первый запуск: что важнее</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 1291px; height: 1180px; box-sizing: border-box; padding: 32px; background: #101015; color: #F0EEE8; font-family: Inter, system-ui, sans-serif">
+<div style="display: grid; grid-template-columns: repeat(3, 393px); column-gap: 24px; row-gap: 10px; align-items: start">
+<div style="font-size: 15px; font-weight: 600; color: #8C8A85">Макет Abacus</div>
+<div style="font-size: 15px; font-weight: 600">Сейчас</div>
+<div style="font-size: 15px; font-weight: 600; color: #C9A84C">Как у Abacus — в приложении</div>
+<img src="shots/mock-gate.webp" alt="Макет Abacus: «Что для вас важнее всего?»" style="display: block; width: 393px; height: 1076px; border-radius: 24px">
+<img src="shots/gate-now-dark.webp" alt="«Что для вас важнее всего?», сейчас" style="display: block; width: 393px; height: 1020px; border-radius: 24px">
+<img src="shots/gate-abacus-dark.webp" alt="«Что для вас важнее всего?», как у Abacus" style="display: block; width: 393px; height: 1020px; border-radius: 24px">
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1291,"height":1180}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
