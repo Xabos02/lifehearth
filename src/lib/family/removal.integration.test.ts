@@ -361,6 +361,12 @@ describe('исключение участника: клиент против с�
     const owner = await snapshot();
     expect(owner!.keyEpoch).toBe(1);
     expect(owner!.familyToken).not.toBe(TOKEN);
+    // Кому не досталось — запомнено: по этой пометке карточка группы
+    // показывает владельцу повтор и после закрытой шторки, и после
+    // перезапуска. Себя владелец в списке не видит — его устройства получат
+    // ключ аккаунтным синком, а «не дошёл до Влада» самому Владу ничего не
+    // говорит.
+    expect(owner!.undeliveredKeys).toEqual([aliceId.slice(0, 4)]);
 
     // Сервер тоже сменил токен: старый больше не пускает.
     routeToRoom();
@@ -376,6 +382,8 @@ describe('исключение участника: клиент против с�
     const ownerNow = await snapshot();
     await restore(ownerNow);
     expect(await resendKeys(FAMILY_ID)).toEqual([]);
+    // Прошедший повтор снимает пометку — карточка повтора уходит.
+    expect((await snapshot())!.undeliveredKeys).toBeUndefined();
     await restore(aliceCfg);
     expect(await recoverAccess(FAMILY_ID)).toBe(true);
     expect((await snapshot())!.familyToken).toBe(owner!.familyToken);
