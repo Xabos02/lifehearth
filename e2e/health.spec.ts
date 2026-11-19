@@ -1,5 +1,5 @@
 import { test, expect, openApp, answerConfirm } from './fixtures';
-import { addDaysKey, todayKey } from '../src/lib/dates';
+import { addDaysKey } from '../src/lib/dates';
 
 // Раздел «Здоровье» (задача 14): спорт-календарь, ритм «через день», цель
 // недели, замеры, импорт CSV.
@@ -46,8 +46,11 @@ async function seedWorkout(page: import('@playwright/test').Page, date: string, 
 }
 
 test('ритм «через день»: вчера была — сегодня отдых, позавчера — сегодня тренировка', async ({ page }) => {
+  // Среда: в конце недели «отдых» уступает цели (lastChance), и с настоящей
+  // датой тест краснел бы по выходным.
+  await page.clock.setFixedTime(new Date('2026-09-16T12:00:00'));
   await openApp(page, '/more/health');
-  const today = todayKey();
+  const today = '2026-09-16';
   const status = page.getByTestId('sport-status');
 
   await seedWorkout(page, addDaysKey(today, -1));

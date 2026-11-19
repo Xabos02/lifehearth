@@ -21,6 +21,14 @@ export function lastWorkout(workouts: Workout[], today: string): Workout | null 
   return best;
 }
 
+/** С какого вида начинать новую запись: первый вид последнего занятия — у
+ *  «силовая + растяжка» это силовая, а не растяжка, введённая последней. */
+export function lastSessionLead(workouts: Workout[], today: string): Workout | null {
+  const last = lastWorkout(workouts, today);
+  if (!last?.groupId) return last;
+  return workouts.filter((w) => w.groupId === last.groupId).reduce((a, b) => (b.createdAt < a.createdAt ? b : a), last);
+}
+
 /** Тренировки на неделе (понедельник — воскресенье), к которой относится день. */
 export function weekWorkouts(workouts: Workout[], day: string): Workout[] {
   const start = weekStartKey(day);
@@ -50,8 +58,18 @@ export function todayAdvice(workouts: Workout[], today: string, goal = 3): Today
   const since = daysSinceLast(workouts, today);
   if (since === null) return 'start';
   if (since === 0) return 'done';
-  if (since === 1 && goal <= 4) return 'rest';
+  if (since === 1 && goal <= 4 && !lastChance(workouts, today, goal)) return 'rest';
   return 'train';
+}
+
+/** Без тренировки сегодня цель недели уже не закрыть: недостающих дней
+ *  ровно столько, сколько осталось до воскресенья включая сегодня. В конце
+ *  недели «отдых» по ритму молча жертвовал целью, которую карточка показывает
+ *  тут же (аудит 1.64.0, H7). Цель, которую не закрыть ничем, совет не трогает. */
+function lastChance(workouts: Workout[], today: string, goal: number): boolean {
+  const missing = Math.max(1, goal) - weekProgress(workouts, today, goal).done;
+  const daysLeft = diffDays(today, addDaysKey(weekStartKey(today), 6)) + 1;
+  return missing === daysLeft;
 }
 
 /** Средний интервал между тренировочными днями за период, в днях; null —
@@ -62,16 +80,36 @@ export function avgIntervalDays(workouts: Workout[], from: string, to: string): 
   return diffDays(days[0], days[days.length - 1]) / (days.length - 1);
 }
 
+/** История цели недели: с какой недели (её понедельник) действовала какая
+ *  цель. Первая запись — `from: ''`, цель до первой правки. */
+export type GoalHistory = { from: string; goal: number }[];
+
+/** Правка цели на неделе weekStart: заменяет правку той же недели. Без
+ *  истории сначала запоминает прежнюю цель — по ней считаются прошлые недели. */
+export function withGoalChange(history: GoalHistory | undefined, weekStart: string, prev: number, next: number): GoalHistory {
+  const base = history?.length ? history : [{ from: '', goal: prev }];
+  return [...base.filter((h) => h.from !== weekStart), { from: weekStart, goal: next }].sort((a, b) => a.from.localeCompare(b.from));
+}
+
+/** Цель, действовавшая на неделе weekStart; без истории — нынешняя. */
+function goalOn(history: GoalHistory | undefined, weekStart: string, current: number): number {
+  let goal = current;
+  for (const h of history ?? []) if (h.from <= weekStart) goal = h.goal;
+  return goal;
+}
+
 /** Серия недель подряд (включая текущую, если цель уже выполнена; иначе —
  *  начиная с прошлой), в которых цель по дням выполнена. Терпима к отдыху:
- *  считаются недели, а не дни, — пропущенный день серию не рвёт. */
-export function weekStreak(workouts: Workout[], today: string, goal: number): number {
+ *  считаются недели, а не дни, — пропущенный день серию не рвёт. Прошлые
+ *  недели сверяются с целью, что действовала тогда: поднятая цель обнуляла
+ *  серию задним числом, сниженная — раздувала (аудит 1.64.0, H8). */
+export function weekStreak(workouts: Workout[], today: string, goal: number, history?: GoalHistory): number {
   let streak = 0;
   let cursor = weekStartKey(today);
   const current = weekProgress(workouts, today, goal);
   if (current.done < current.goal) cursor = addDaysKey(cursor, -7);
   for (let i = 0; i < 520; i++) {
-    const p = weekProgress(workouts, cursor, goal);
+    const p = weekProgress(workouts, cursor, cursor === weekStartKey(today) ? goal : goalOn(history, cursor, goal));
     if (p.done < p.goal) break;
     streak++;
     cursor = addDaysKey(cursor, -7);

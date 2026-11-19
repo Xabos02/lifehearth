@@ -405,6 +405,9 @@ function TemplateEditor({
 
   async function save() {
     if (!canSave || savingRef.current) return;
+    // Нетронутый шаблон — назад без записи: новая метка правки и лишний круг
+    // синка ни к чему (аудит 1.64.0, H17).
+    if (template && snapshot === initial.current) return onDone();
     savingRef.current = true;
     try {
       if (template) await updateTemplate(template.id, draft);

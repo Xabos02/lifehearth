@@ -68,6 +68,15 @@ export function newItem(type: WorkoutType = 'run', minutes?: string): Item {
   };
 }
 
+/** Новый вид того же рода, что прошлая запись: новая тренировка начинается с
+ *  последнего вида, а не всегда с бега (аудит 1.64.0, H19). Минуты — по виду,
+ *  км не переносятся. */
+export function newItemLike(last: Pick<WorkoutTemplateItem, 'type' | 'customLabel' | 'customColor'> | null): Item {
+  if (!last) return newItem();
+  const custom = last.type === 'custom';
+  return { ...newItem(last.type), customLabel: custom ? last.customLabel : null, customColor: custom ? last.customColor : null };
+}
+
 /** Сохранённый вид (запись или строка шаблона) → строки формы. Минуты 0 —
  *  «не указано», в поле — пусто, а не «0». `collapsed` — вид из шаблона. */
 export function itemFromSaved(src: WorkoutTemplateItem, collapsed = false): Item {

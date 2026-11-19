@@ -99,6 +99,16 @@ export function ItemFields({
   async function confirmCustom() {
     const name = item.newKind?.trim();
     if (!name) return;
+    // Название встроенного вида — это он и есть: «+ Своё: бег» заводил второй
+    // «бег» рядом с встроенным, без дистанции и своей строкой в сводках
+    // (аудит 1.64.0, H12).
+    const lower = name.toLowerCase();
+    const builtin = WORKOUT_KINDS.find((k) => [k.label, t(k.label)].some((l) => l.toLowerCase() === lower));
+    if (builtin) {
+      onChange({ newKind: null });
+      pickType(builtin.value);
+      return;
+    }
     const def = await addExerciseDef(name);
     pickType('custom', def.label, def.color);
     onChange({ newKind: null });

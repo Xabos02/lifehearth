@@ -18,7 +18,9 @@ export interface ConfirmOptions {
 }
 
 export interface ConfirmRequest extends ConfirmOptions {
-  resolve: (ok: boolean) => void;
+  /** true — глагол, false — кнопка отказа, null — шит закрыт мимо кнопок
+   *  (тап по затемнению, свайп, крестик). */
+  resolve: (ok: boolean | null) => void;
 }
 
 type Listener = (req: ConfirmRequest | null) => void;
@@ -35,15 +37,22 @@ export function subscribeConfirm(l: Listener): () => void {
 
 /** Спрашивает подтверждение. Без смонтированного хоста (тесты, ранний старт)
  *  откатывается на window.confirm — действие не должно молча пропасть. */
-export function confirmAction(opts: ConfirmOptions | string): Promise<boolean> {
+export async function confirmAction(opts: ConfirmOptions | string): Promise<boolean> {
+  return (await chooseAction(opts)) === true;
+}
+
+/** Как confirmAction, но различает отказ кнопкой (false) и шит, закрытый мимо
+ *  кнопок (null): когда у отказа своё действие («Только этот вид»), тап мимо
+ *  должен ничего не делать, а не выполнять его. */
+export function chooseAction(opts: ConfirmOptions | string): Promise<boolean | null> {
   const o: ConfirmOptions = typeof opts === 'string' ? { title: opts } : opts;
   if (!listener) {
     const text = o.message ? `${o.title}\n\n${o.message}` : o.title;
     return Promise.resolve(typeof window !== 'undefined' ? window.confirm(text) : false);
   }
   // Предыдущий незакрытый вопрос считаем отказом.
-  pending?.resolve(false);
-  return new Promise<boolean>((resolve) => {
+  pending?.resolve(null);
+  return new Promise<boolean | null>((resolve) => {
     pending = {
       danger: true,
       ...o,
