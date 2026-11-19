@@ -10,7 +10,6 @@ import {
   GTrash as Trash2,
   GLearning as GraduationCap,
   GBellRing as BellRing,
-  GTasks as ListChecks,
 } from '../../components/ui/glyphs';
 import { getLang, resolveLang, t } from '../../lib/i18n';
 import { APP_VERSION } from '../../lib/changelog';
@@ -35,6 +34,10 @@ import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { Switch } from '../../components/ui/Switch';
 import { ButtonRow, LinkRow, Row, Section } from './SettingsSection';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+// Знак раздела «Задачи» — из реестра (PROTOCOL §20): тот же значок, что у раздела в меню.
+const TasksIcon = SECTION_BY_ID.get('tasks')!.icon;
 
 const THEME_OPTIONS: { value: Settings['theme']; label: string }[] = [
   { value: 'dark', label: 'Тёмная' },
@@ -392,7 +395,7 @@ export function SettingsPage() {
                 незаметна: пока ни одна задача не помечена временной, разделять
                 нечего. Выключатель — для тех, кто так о задачах не думает:
                 навязанная группировка в чужой голове только мешает. */}
-            <Row icon={ListChecks} label={t('Временные задачи отдельно')}>
+            <Row icon={TasksIcon} label={t('Временные задачи отдельно')}>
               <Switch
                 checked={settings.groupTemporary !== false}
                 onChange={(on) => void updateSettings({ groupTemporary: on })}

@@ -11,7 +11,6 @@ import {
   GChevronLeft as ChevronLeft,
   GChevronRight as ChevronRight,
   GCheck as Check,
-  GNotes as NotebookText,
   GFolderPlus as FolderPlus,
   GMore as More,
   GCheckCircle as CheckCircle,
@@ -37,6 +36,10 @@ import { useHoldToReorder } from '../tasks/useHoldToReorder';
 import { buzz } from '../../lib/feedback';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { useToast } from '../../components/ui/toastContext';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+// Знак раздела «Заметки» — из реестра (PROTOCOL §20): тот же значок, что у вкладки.
+const NotesIcon = SECTION_BY_ID.get('notes')!.icon;
 
 /** HTML заметки → плоский текст для превью/поиска (с переносами на блоках).
  *
@@ -723,7 +726,7 @@ export function NotesPage() {
         loaded &&
         levelFolders.length === 0 && (
           <EmptyState
-            icon={NotebookText}
+            icon={NotesIcon}
             title={current ? t('В папке пусто') : t('Пока нет заметок')}
             hint={
               current

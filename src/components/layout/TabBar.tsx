@@ -29,7 +29,7 @@ export function TabBar() {
     // каждой вкладки — 52px в высоту и не уже пятой части ряда.
     <nav className="z-30 shrink-0 border-t border-lh-border bg-[color-mix(in_srgb,var(--lh-canvas)_92%,transparent)] backdrop-blur-[20px] pb-[clamp(6px,env(safe-area-inset-bottom),8px)]">
       <div className="mx-auto flex max-w-lg px-2 pt-1.5">
-        {bottom.map(({ id, to, label, icon: Icon, end }) => {
+        {bottom.map(({ id, to, label, icon: Icon, activeIcon: ActiveIcon, end }) => {
           // Бейджи привязаны к разделу, куда бы он ни встал: непрочитанное у
           // «Семьи», «пора сделать копию» у «Ещё» (настройки живут там).
           const showBadge = (id === 'home' && backupStale) || (id === 'family' && familyUnread);
@@ -50,7 +50,11 @@ export function TabBar() {
               {({ isActive }) => (
                 <>
                   <span className={`relative shrink-0 ${isActive ? 'text-lh-accent' : 'text-lh-text-secondary'}`}>
-                    <Icon size={ICON.header} strokeWidth={isActive ? STROKE_STRONG : STROKE} />
+                    {isActive && ActiveIcon ? (
+                      <ActiveIcon size={ICON.header} strokeWidth={STROKE_STRONG} />
+                    ) : (
+                      <Icon size={ICON.header} strokeWidth={isActive ? STROKE_STRONG : STROKE} />
+                    )}
                     {showBadge && (
                       <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-lh-canvas" />
                     )}
