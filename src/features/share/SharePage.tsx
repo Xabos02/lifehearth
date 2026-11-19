@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   ClipboardPaste,
-  NotebookPen,
 } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { AutoGrowTextarea } from '../../components/ui/Input';
@@ -19,9 +18,12 @@ import { plainTextToNoteHtml } from '../notes/pasteHtml';
 import { t, tPlur } from '../../lib/i18n';
 import { formatDueDate, toKey } from '../../lib/dates';
 import { ICON } from '../../components/ui/icons';
-import {
-  GTasks as ListTodo,
-} from '../../components/ui/glyphs';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+// Знаки разделов «Задачи» и «Заметки» — из реестра (PROTOCOL §20): «в задачу» и
+// «в заметку» рисуются тем же значком, что раздел в меню.
+const TasksIcon = SECTION_BY_ID.get('tasks')!.icon;
+const NotesIcon = SECTION_BY_ID.get('notes')!.icon;
 
 function firstLine(text: string): string {
   return (text.split('\n').map((s) => s.trim()).find(Boolean) ?? '').slice(0, 300);
@@ -177,7 +179,7 @@ export function SharePage() {
               onClick={() => void createTask()}
               className="flex h-[104px] flex-col items-center justify-center gap-2.5 rounded-[16px] bg-lh-accent text-lh-bg active:opacity-80 disabled:opacity-40"
             >
-              <ListTodo size={ICON.accent} />
+              <TasksIcon size={ICON.accent} />
               <span className="text-base font-semibold">{t('В задачи')}</span>
             </button>
             <button
@@ -186,7 +188,7 @@ export function SharePage() {
               onClick={() => void createNote()}
               className="card flex h-[104px] flex-col items-center justify-center gap-2.5 text-lh-text-primary active:opacity-80 disabled:opacity-40"
             >
-              <NotebookPen size={ICON.accent} className="text-lh-accent" />
+              <NotesIcon size={ICON.accent} className="text-lh-accent" />
               <span className="text-base font-semibold">{t('В заметки')}</span>
             </button>
           </section>
@@ -202,7 +204,7 @@ export function SharePage() {
             </h2>
             <ul className="card divide-y divide-lh-border overflow-hidden">
               {recent.map((r) => {
-                const Icon = r.kind === 'task' ? ListTodo : NotebookPen;
+                const Icon = r.kind === 'task' ? TasksIcon : NotesIcon;
                 return (
                   <li key={r.id}>
                     <Link

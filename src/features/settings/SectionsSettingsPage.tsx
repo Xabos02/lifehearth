@@ -438,7 +438,7 @@ export function SectionsSettingsPage() {
                     i === 0 ? 'text-lh-accent' : s.id === ANCHOR_ID ? 'text-lh-text-secondary' : 'text-lh-text-primary'
                   }`}
                 >
-                  <s.icon size={ICON.base} />
+                  {i === 0 && s.activeIcon ? <s.activeIcon size={ICON.base} /> : <s.icon size={ICON.base} />}
                   <span className={`max-w-full truncate text-2xs ${i === 0 ? 'font-semibold' : ''}`}>{t(s.label)}</span>
                 </div>
               ) : null,

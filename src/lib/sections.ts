@@ -1,27 +1,37 @@
 import type { LucideIcon } from 'lucide-react';
-// Глифы собственные (см. components/ui/glyphs.tsx): реестр разделов кормит
-// иконками и таб-бар, и плитки «Главной» — то есть ровно те два места, где
-// набор виден постоянно и любая лишняя деталь читается как шум.
+// Значки разделов — Font Awesome Free 6.5.1 из макетов Abacus (PROTOCOL §20),
+// пути перенесены в components/ui/glyphs.tsx. Реестр кормит ими все места,
+// где виден раздел: нижнее меню, «Ещё», «Настроить разделы», первый запуск,
+// «Поиск», корзину — поэтому у раздела везде один рисунок.
 import {
-  GSun as Sun,
-  GTasks as ListTodo,
-  GNotes as NotebookText,
-  GFamily as Users,
-  GMore as MoreHorizontal,
-  GCalendar as CalendarDays,
-  GSparkle as Sparkles,
-  GTimer as Timer,
-  GHabits as CalendarCheck,
-  GTarget as Target,
-  GLearning as GraduationCap,
-  GFinance as Wallet,
-  GEnergy as BatteryCharging,
-  GPlaces as MapPin,
-  GStats as ChartColumnBig,
-  GDrop as Droplet,
-  GHeart as Heart,
-  GBot as Bot,
-  GSettings as SettingsIcon,
+  GFaSun,
+  GFaSunSolid,
+  GFaSquareCheck,
+  GFaSquareCheckSolid,
+  GFaNoteSticky,
+  GFaNoteStickySolid,
+  GFaComments,
+  GFaCommentsSolid,
+  GFaEllipsis,
+  GFaCalendar,
+  GFaCalendarSolid,
+  GFaClipboard,
+  GFaClipboardSolid,
+  GFaHourglass,
+  GFaHourglassSolid,
+  GFaArrowsRotate,
+  GFaFlag,
+  GFaFlagSolid,
+  GFaBookOpen,
+  GFaWallet,
+  GFaBolt,
+  GFaHeart,
+  GFaHeartSolid,
+  GFaLocationDot,
+  GFaChartSimple,
+  GFaDroplet,
+  GFaWandSparkles,
+  GFaGear,
 } from '../components/ui/glyphs';
 
 // Единый реестр разделов навигации. Раньше данные были разбросаны между TabBar
@@ -55,6 +65,8 @@ export interface Section {
   label: string; // короткая метка (нижняя панель)
   to: string; // маршрут
   icon: LucideIcon;
+  /** Значок активной вкладки, если он не тот же рисунок потолще. */
+  activeIcon?: LucideIcon;
   end?: boolean; // точное совпадение маршрута для активной подсветки NavLink
   /** «Главная» — контейнер: всегда ПЕРВЫЙ слот панели, не прячется и не входит
    *  в собственный список. */
@@ -70,63 +82,63 @@ export interface Section {
 }
 
 export const SECTIONS: Section[] = [
-  { id: 'today', label: 'Сегодня', to: '/', icon: Sun, end: true, nonHideable: true },
+  { id: 'today', label: 'Сегодня', to: '/', icon: GFaSun, activeIcon: GFaSunSolid, end: true, nonHideable: true },
   {
     id: 'calendar',
     label: 'Календарь',
     to: '/calendar',
-    icon: CalendarDays,
+    icon: GFaCalendar, activeIcon: GFaCalendarSolid,
     subtitle: 'События и расписание',
   },
-  { id: 'tasks', label: 'Задачи', to: '/tasks', icon: ListTodo },
-  { id: 'notes', label: 'Заметки', to: '/notes', icon: NotebookText, subtitle: 'Быстрые записи и списки' },
-  { id: 'family', label: 'Семья', to: '/more/family', icon: Users, subtitle: 'Общие задачи, чат и звонки' },
+  { id: 'tasks', label: 'Задачи', to: '/tasks', icon: GFaSquareCheck, activeIcon: GFaSquareCheckSolid },
+  { id: 'notes', label: 'Заметки', to: '/notes', icon: GFaNoteSticky, activeIcon: GFaNoteStickySolid, subtitle: 'Быстрые записи и списки' },
+  { id: 'family', label: 'Семья', to: '/more/family', icon: GFaComments, activeIcon: GFaCommentsSolid, subtitle: 'Общие задачи, чат и звонки' },
   {
     id: 'capture',
     label: 'Захват',
     to: '/share',
-    icon: Sparkles,
+    icon: GFaClipboard, activeIcon: GFaClipboardSolid,
     subtitle: 'Вставить текст → задача или заметка',
   },
-  { id: 'focus', label: 'Фокус', to: '/more/focus', icon: Timer, subtitle: 'Таймер помодоро' },
+  { id: 'focus', label: 'Фокус', to: '/more/focus', icon: GFaHourglass, activeIcon: GFaHourglassSolid, subtitle: 'Таймер помодоро' },
   {
     id: 'habits',
     label: 'Привычки',
     to: '/more/habits',
-    icon: CalendarCheck,
+    icon: GFaArrowsRotate,
     subtitle: 'Ежедневные ритуалы и серии',
   },
-  { id: 'goals', label: 'Цели', to: '/goals', icon: Target, subtitle: 'Большие цели и прогресс' },
+  { id: 'goals', label: 'Цели', to: '/goals', icon: GFaFlag, activeIcon: GFaFlagSolid, subtitle: 'Большие цели и прогресс' },
   {
     id: 'learning',
     label: 'Обучение',
     to: '/more/learning',
-    icon: GraduationCap,
+    icon: GFaBookOpen,
     subtitle: 'Книги, курсы и языки',
   },
-  { id: 'finance', label: 'Финансы', to: '/more/finance', icon: Wallet, subtitle: 'Траты и доходы' },
+  { id: 'finance', label: 'Финансы', to: '/more/finance', icon: GFaWallet, subtitle: 'Траты и доходы' },
   {
     id: 'energy',
     label: 'Энергия',
     to: '/more/energy',
-    icon: BatteryCharging,
+    icon: GFaBolt,
     subtitle: 'Уровень сил и что восстанавливает',
   },
   {
     id: 'health',
     label: 'Здоровье',
     to: '/more/health',
-    icon: Heart,
+    icon: GFaHeart, activeIcon: GFaHeartSolid,
     subtitle: 'Тренировки и замеры',
   },
   {
     id: 'places',
     label: 'Места',
     to: '/more/places',
-    icon: MapPin,
+    icon: GFaLocationDot,
     subtitle: 'Советы, идеи, рекомендации',
   },
-  { id: 'stats', label: 'Статистика', to: '/stats', icon: ChartColumnBig, subtitle: 'Обзор продуктивности' },
+  { id: 'stats', label: 'Статистика', to: '/stats', icon: GFaChartSimple, subtitle: 'Обзор продуктивности' },
   // Подпись нейтральная намеренно: список разделов видно с чужого плеча чаще,
   // чем содержимое самого раздела. Кому раздел не нужен — прячет его через
   // «Настроить разделы», как любой другой.
@@ -134,7 +146,7 @@ export const SECTIONS: Section[] = [
     id: 'cycle',
     label: 'Женские дни',
     to: '/more/cycle',
-    icon: Droplet,
+    icon: GFaDroplet,
     subtitle: 'Цикл, самочувствие и прогноз',
     hiddenByDefault: true,
   },
@@ -145,7 +157,7 @@ export const SECTIONS: Section[] = [
     id: 'ai',
     label: 'ИИ',
     to: '/more/ai',
-    icon: Bot,
+    icon: GFaWandSparkles,
     subtitle: 'Чат с языковой моделью',
     featured: true,
   },
@@ -153,7 +165,7 @@ export const SECTIONS: Section[] = [
     id: 'settings',
     label: 'Настройки',
     to: '/more/settings',
-    icon: SettingsIcon,
+    icon: GFaGear,
     nonHideable: true,
     subtitle: 'Копии, синхронизация, оформление',
   },
@@ -164,7 +176,7 @@ export const SECTIONS: Section[] = [
   // Редизайн «Ember Gold» (15.11.2026): якорь снова «Ещё» и стоит ПОСЛЕДНИМ —
   // нижнее меню «Сегодня · Задачи · Заметки · Семья · Ещё» с подписями. Экран
   // тот же (/home): профиль, состояние данных, все разделы и настройки.
-  { id: 'home', label: 'Ещё', to: '/home', icon: MoreHorizontal, end: true, anchor: true },
+  { id: 'home', label: 'Ещё', to: '/home', icon: GFaEllipsis, end: true, anchor: true },
 ];
 
 export const SECTION_BY_ID = new Map<string, Section>(SECTIONS.map((s) => [s.id, s]));

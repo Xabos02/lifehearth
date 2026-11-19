@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Bell, MessagesSquare, SearchX } from 'lucide-react';
+import { Bell, SearchX } from 'lucide-react';
 // Иконки разделов берём из РЕЕСТРА, а не держим свой список.
 //
 // Экран поиска рисовал их собственным набором на lucide, а таб-бар под ним —
@@ -263,7 +263,7 @@ export function SearchPage() {
       build('notes', t('Заметки'), SECTION_BY_ID.get('notes')!.icon, noteHits),
       build('goals', t('Цели'), SECTION_BY_ID.get('goals')!.icon, goalHits),
       build('reminders', t('Напоминания'), Bell, reminderHits),
-      build('family', t('Семейный чат'), MessagesSquare, chatHits),
+      build('family', t('Семейный чат'), SECTION_BY_ID.get('family')!.icon, chatHits),
       build('places', t('Места'), SECTION_BY_ID.get('places')!.icon, placeHits),
       build('learning', t('Обучение'), SECTION_BY_ID.get('learning')!.icon, learningHits),
       build('energy', t('Энергия'), SECTION_BY_ID.get('energy')!.icon, energyHits),

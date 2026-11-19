@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Меню, светлая тема, 393 px</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 874px; height: 660px; box-sizing: border-box; padding: 32px; background: #101015; color: #F0EEE8; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; gap: 20px">
+<div style="display: grid; grid-template-columns: repeat(2, 393px); column-gap: 24px; row-gap: 8px; align-items: end">
+<div style="font-size: 15px; font-weight: 600">Сейчас</div>
+<div style="font-size: 15px; font-weight: 600; color: #C9A84C">Как у Abacus — в приложении</div>
+
+<div style="grid-column: 1 / -1; font-size: 13px; color: #8C8A85; margin-top: 4px">Активна «Сегодня»</div>
+<img src="shots/tab-now-light-393-today.webp" alt="Сейчас, светлая, активна «Сегодня»" style="display: block; width: 393px; height: 65px">
+<img src="shots/tab-abacus-light-393-today.webp" alt="Как у Abacus, светлая, активна «Сегодня»" style="display: block; width: 393px; height: 65px">
+
+<div style="grid-column: 1 / -1; font-size: 13px; color: #8C8A85; margin-top: 4px">Активны «Задачи»</div>
+<img src="shots/tab-now-light-393-tasks.webp" alt="Сейчас, светлая, активны «Задачи»" style="display: block; width: 393px; height: 65px">
+<img src="shots/tab-abacus-light-393-tasks.webp" alt="Как у Abacus, светлая, активны «Задачи»" style="display: block; width: 393px; height: 65px">
+
+<div style="grid-column: 1 / -1; font-size: 13px; color: #8C8A85; margin-top: 4px">Активны «Заметки»</div>
+<img src="shots/tab-now-light-393-notes.webp" alt="Сейчас, светлая, активны «Заметки»" style="display: block; width: 393px; height: 65px">
+<img src="shots/tab-abacus-light-393-notes.webp" alt="Как у Abacus, светлая, активны «Заметки»" style="display: block; width: 393px; height: 65px">
+
+<div style="grid-column: 1 / -1; font-size: 13px; color: #8C8A85; margin-top: 4px">Активна «Семья»</div>
+<img src="shots/tab-now-light-393-family.webp" alt="Сейчас, светлая, активна «Семья»" style="display: block; width: 393px; height: 65px">
+<img src="shots/tab-abacus-light-393-family.webp" alt="Как у Abacus, светлая, активна «Семья»" style="display: block; width: 393px; height: 65px">
+
+<div style="grid-column: 1 / -1; font-size: 13px; color: #8C8A85; margin-top: 4px">Активно «Ещё»</div>
+<img src="shots/tab-now-light-393-more.webp" alt="Сейчас, светлая, активно «Ещё»" style="display: block; width: 393px; height: 65px">
+<img src="shots/tab-abacus-light-393-more.webp" alt="Как у Abacus, светлая, активно «Ещё»" style="display: block; width: 393px; height: 65px">
+</div>
+<div style="font-size: 14px; line-height: 1.5; color: #8C8A85">У Abacus светлой темы нет: справа его значки на наших светлых цветах.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":874,"height":660}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
