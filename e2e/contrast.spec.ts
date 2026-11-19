@@ -590,22 +590,32 @@ test('шторки «Исключить» и «Очистить день»: кр
   await openApp(page, '/more/family');
   await page.evaluate(async () => {
     const { db } = await import('/src/db/db.ts');
-    const { generateKey } = await import('/src/lib/crypto.ts');
+    const { generateKey, generateBoxKeyPair, exportBoxPublic, exportBoxPrivate } = await import('/src/lib/crypto.ts');
     const key = await generateKey();
     const ts = new Date().toISOString();
+    const mine = await generateBoxKeyPair();
     // ownerSecret — иначе кнопки исключения нет вовсе (её видит только создатель).
+    // undeliveredKeys и ключи конвертов — для карточки повтора раздачи ключа.
     await db.family.put({
       id: 'f1', familyId: 'f1', familyToken: 't', familyKey: key, familyName: 'Наши',
       selfMemberId: 'me', lastSeq: 0, lastReadSeq: 0, enabled: true, joinedAt: ts,
-      keyEpoch: 0, keyRing: { '0': key }, ownerSecret: 's',
+      keyEpoch: 0, keyRing: { '0': key }, ownerSecret: 's', undeliveredKeys: ['Отец'],
+      boxPriv: await exportBoxPrivate(mine.privateKey), boxPub: await exportBoxPublic(mine.publicKey),
     } as never);
     await db.familyMembers.bulkPut([
       { id: 'me', familyId: 'f1', seq: 1, displayName: 'Влад', color: '#5b7cfa', joinedAt: ts, leftAt: null, removedAt: null },
-      { id: 'p1', familyId: 'f1', seq: 2, displayName: 'Отец', color: '#10b981', joinedAt: ts, leftAt: null, removedAt: null },
+      { id: 'p1', familyId: 'f1', seq: 2, displayName: 'Отец', color: '#10b981', joinedAt: ts, leftAt: null, removedAt: null,
+        boxPub: await exportBoxPublic((await generateBoxKeyPair()).publicKey) },
     ] as never[]);
   });
   await page.goto('/more/family?g=f1');
   await openFamilyCard(page);
+  // Карточка повтора раздачи ключа: вторичный и красный текст на жёлтой
+  // подложке. Сеть в тестах оборвана — повтор не дойдёт, и покажется красный.
+  await page.getByRole('button', { name: 'Отправить ключ ещё раз' }).click();
+  const again = page.getByText('Снова не дошло. Проверьте интернет и попробуйте ещё раз.');
+  await expect(again).toBeVisible();
+  await both('карточка «Новый ключ дошёл не до всех»', async () => {}, again.locator('..'));
   // «Удалить группу» — красный текст строкой в карточке группы.
   const dropGroup = page.getByRole('button', { name: 'Удалить группу' });
   await both('участники: «Удалить группу»', async () => {}, dropGroup);
