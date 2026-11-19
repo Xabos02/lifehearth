@@ -42,6 +42,25 @@ test('после полуночи совет спорта — уже на нов
     .toBe('2026-09-17');
 });
 
+test('быстрый ввод в первую минуту после полуночи — уже на новый день, ещё до перерисовки экрана', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-09-16T23:00:00') });
+  await openApp(page, '/');
+  await expect(page.getByPlaceholder('Что нужно сделать?')).toBeVisible();
+  // Часы перескочили без таймеров: экран прежний, опрос смены суток ещё не
+  // сработал, а запись уже должна уйти на новые сутки.
+  await page.clock.setSystemTime(new Date('2026-09-17T00:00:10'));
+  await page.getByPlaceholder('Что нужно сделать?').fill('Позвонить маме');
+  await page.getByPlaceholder('Что нужно сделать?').press('Enter');
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { db } = await import('/src/db/db.ts');
+        return (await db.tasks.toArray()).find((t) => t.title === 'Позвонить маме')?.dueDate ?? null;
+      }),
+    )
+    .toBe('2026-09-17');
+});
+
 test('форма «Отметить», открытая до полуночи, не сбрасывается после неё и пишет на день открытия', async ({ page }) => {
   await page.clock.install({ time: new Date('2026-09-16T23:00:00') });
   await openApp(page, '/');
