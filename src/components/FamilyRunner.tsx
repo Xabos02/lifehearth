@@ -19,11 +19,13 @@ export function FamilyRunner() {
   }, []);
 
   // Сигнатура включённых групп — пересоздаём эффект при добавлении/выходе.
+  // И при снятой пометке «сервер не признал» (синк принёс подтверждённую пару):
+  // иначе группа ждала бы до следующего возврата в приложение.
   const sig = useLiveQuery(async () => {
     const cfgs = await listFamilyConfigs();
     return cfgs
       .filter((c) => c.enabled)
-      .map((c) => c.familyId)
+      .map((c) => (c.unverifiedAt ? `${c.familyId}!` : c.familyId))
       .sort()
       .join(',');
   }, []);

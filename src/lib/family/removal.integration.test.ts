@@ -46,6 +46,8 @@ const {
   NotOwnerError,
 } = await import('./familyKeys');
 const { getFamilyConfig, patchFamilyConfig } = await import('./familyState');
+const { createFamilyInvite, joinFamily } = await import('./familyLifecycle');
+const { RECONNECT_BASE_MS } = await import('./reconnectDelay');
 
 // === Комната на node:sqlite, доступная через подменённый fetch ===
 
@@ -581,6 +583,97 @@ describe('права в комнате: клиент несёт доказате
     // Подтверждённая пара отмечена — синк отдаст её другим моим устройствам.
     await new Promise((r) => setTimeout(r, 20));
     expect((await getFamilyConfig(FAMILY_ID))?.boxVerifiedAt, 'пара не отмечена подтверждённой').toBeTruthy();
+  });
+
+  // Пара ключей на устройстве разошлась с закреплённой на сервере (восстановлено
+  // из очень старой копии, а другого своего устройства с верной парой нет —
+  // синку нечего перенести). Сервер такому тикета не даст никогда: стучаться
+  // раз в минуту бессмысленно, а «не в сети» человеку ничего не объясняет.
+  async function divergedDevice(): Promise<string> {
+    const memberId = await makeMember({ token: TOKEN });
+    await patchFamilyConfig(FAMILY_ID, { boxPub: undefined, boxPriv: undefined });
+    await ensureBoxKeys((await getFamilyConfig(FAMILY_ID))!);
+    return memberId;
+  }
+  async function until(cond: () => Promise<unknown> | unknown) {
+    for (let i = 0; i < 150 && !(await cond()); i++) await new Promise((r) => setTimeout(r, 10));
+  }
+  const retryPlanned = (timers: { mock: { calls: unknown[][] } }) =>
+    timers.mock.calls.some(([, ms]) => typeof ms === 'number' && ms >= RECONNECT_BASE_MS);
+
+  it('устройство, чья пара не открывает задачу сервера, помечает группу и больше не стучится', async () => {
+    await makeMember({ owner: true, token: TOKEN });
+    await divergedDevice();
+    seen = [];
+    const timers = vi.spyOn(globalThis, 'setTimeout');
+    const { connectFamily, disconnectFamily } = await import('./familyChat');
+    try {
+      connectFamily(FAMILY_ID);
+      await until(async () => (await getFamilyConfig(FAMILY_ID))?.unverifiedAt);
+      await new Promise((r) => setTimeout(r, 30));
+      expect(seen.find((s) => s.path.endsWith('/ticket'))?.res, 'сервер пустил чужую пару').toEqual({ error: 'unverified' });
+      expect((await getFamilyConfig(FAMILY_ID))?.unverifiedAt, 'группа не помечена').toBeTruthy();
+      expect(retryPlanned(timers), 'повтор запланирован — устройство стучалось бы вечно').toBe(false);
+      expect(FakeWS.last, 'сокет без тикета').toBeNull();
+      // Возврат в приложение (focus, visibilitychange) — тоже не повод.
+      connectFamily(FAMILY_ID);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(seen.filter((s) => s.path.endsWith('/ticket')).length, 'повторный запрос тикета').toBe(1);
+    } finally {
+      disconnectFamily(FAMILY_ID);
+      timers.mockRestore();
+    }
+  });
+
+  it('сбой сети на задаче — не повод: группа не помечается, повтор идёт как обычно', async () => {
+    await makeMember({ owner: true, token: TOKEN });
+    const recorded = globalThis.fetch;
+    let failed = false;
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!failed && String(input).includes('/family/challenge')) {
+        failed = true;
+        return Promise.reject(new TypeError('Failed to fetch'));
+      }
+      return recorded(input, init);
+    }) as typeof fetch;
+    seen = [];
+    const timers = vi.spyOn(globalThis, 'setTimeout');
+    const { connectFamily, disconnectFamily } = await import('./familyChat');
+    try {
+      connectFamily(FAMILY_ID);
+      await until(() => retryPlanned(timers));
+      expect(seen.find((s) => s.path.endsWith('/ticket'))?.res).toEqual({ error: 'unverified' });
+      expect(retryPlanned(timers), 'после сбоя сети повтор не запланирован').toBe(true);
+      expect((await getFamilyConfig(FAMILY_ID))?.unverifiedAt, 'обычный сбой сети запер группу').toBeFalsy();
+    } finally {
+      disconnectFamily(FAMILY_ID);
+      timers.mockRestore();
+    }
+  });
+
+  it('новое приглашение заводит такое устройство заново: новый участник, переписка на месте', async () => {
+    await makeMember({ owner: true, token: TOKEN });
+    const invite = (await createFamilyInvite(FAMILY_ID))!;
+    const oldId = await divergedDevice();
+    const at = new Date().toISOString();
+    await db.familyMessages.put({ clientMsgId: 'old-1', familyId: FAMILY_ID, seq: 1, senderMemberId: oldId, text: 'старое', createdAt: at, deletedAt: null } as never);
+    const { connectFamily, disconnectFamily } = await import('./familyChat');
+    try {
+      connectFamily(FAMILY_ID);
+      await until(async () => (await getFamilyConfig(FAMILY_ID))?.unverifiedAt);
+      expect((await getFamilyConfig(FAMILY_ID))?.unverifiedAt).toBeTruthy();
+
+      seen = [];
+      await joinFamily(invite.code, 'Я', invite.word);
+      await until(() => FakeWS.last);
+      const c = (await getFamilyConfig(FAMILY_ID))!;
+      expect(c.selfMemberId, 'остался прежним участником, которого сервер не признаёт').not.toBe(oldId);
+      expect(c.unverifiedAt, 'пометка пережила новый вход').toBeFalsy();
+      expect((seen.find((s) => s.path.endsWith('/ticket'))?.res as { bound?: boolean })?.bound, 'тикета нет и после приглашения').toBe(true);
+      expect(await db.familyMessages.get('old-1'), 'переписка на устройстве пропала').toBeTruthy();
+    } finally {
+      disconnectFamily(FAMILY_ID);
+    }
   });
 
   it('конверты с новым ключом владелец кладёт со своим секретом', async () => {

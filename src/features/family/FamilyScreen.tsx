@@ -1,4 +1,4 @@
-import { useSyncExternalStore, type ReactNode } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { LucideIcon } from 'lucide-react';
@@ -7,6 +7,8 @@ import type { FamilyConfig, FamilyMember } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
+import { Button } from '../../components/ui/Button';
+import { JoinFamilySheet } from './FamilyOnboarding';
 import { screenAction, subscribeScreenAction } from '../../lib/ui/screenAction';
 import { t, tPlur } from '../../lib/i18n';
 import { MembersTab } from './MembersTab';
@@ -129,12 +131,16 @@ function ChatScreen({
   // Группы больше нет — «не в сети» под названием было бы враньём: чинить
   // нечего, правду говорит баннер над чатом.
   const gone = config.removedAt || config.groupDeletedAt;
+  // Сервер не признал это устройство (familyChat: unverifiedAt) — тоже не
+  // «не в сети»: связь не вернётся сама, выход один — новое приглашение.
+  const unverified = Boolean(config.unverifiedAt);
+  const [joining, setJoining] = useState(false);
   return (
     <Screen
       compact
       fill
       title={title}
-      subtitleNode={gone ? undefined : subtitleNode}
+      subtitleNode={gone || unverified ? undefined : subtitleNode}
       backTo="/more/family"
       titleLead={lead}
       onTitlePress={() => navigate(chatPath(familyId, 'members'))}
@@ -168,6 +174,21 @@ function ChatScreen({
               : t('Вас исключили из этой группы. Переписка на этом устройстве осталась, но новые сообщения приходить не будут.')}
           </div>
         )}
+        {/* Жёлтый, а не красный, как у «исключили»: здесь всё чинится, и кнопка
+            ведёт прямо к входу (канва design/family-unverified, вариант Б). */}
+        {unverified && (
+          <div className="mb-3 shrink-0 rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm leading-snug">
+            <p>{t('Это устройство не может подтвердить, что вы участник группы. Попросите новое приглашение.')}</p>
+            <Button variant="secondary" className="mt-3 w-full" onClick={() => setJoining(true)}>
+              {t('Ввести приглашение')}
+            </Button>
+          </div>
+        )}
+        <JoinFamilySheet
+          open={joining}
+          onClose={() => setJoining(false)}
+          onReady={(id) => navigate(chatPath(id), { replace: true })}
+        />
         {/* Без внешнего скролла: у ChatTab свой, два вложенных overflow-y-auto
             давали «войну скроллов» и заморозку. */}
         <div className="min-h-0 flex-1 overflow-hidden">

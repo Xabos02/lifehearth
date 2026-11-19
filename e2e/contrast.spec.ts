@@ -314,6 +314,31 @@ test('семья: список чатов, карточка личного ча�
 // Кнопка «Отправить» в ИИ активна только с текстом в поле, а плитка с искрой
 // видна только в пустом чате — обход SCREENS видел кнопку погашенной и
 // плитку не видел вовсе. Белая стрелка на индиго #8B7CF6 давала 3.33.
+// Жёлтый баннер «нужно новое приглашение» есть только у устройства, которое
+// сервер не признал (familyChat: unverifiedAt), — обход экранов до него не
+// доходит. Текст и кнопка лежат на warning/10.
+test('семья: баннер «нужно новое приглашение» — AA в обеих темах', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    const key = await generateKey();
+    const ts = new Date().toISOString();
+    await db.family.put({
+      id: 'f1', familyId: 'f1', familyToken: 't', familyKey: key, familyName: 'Наши',
+      selfMemberId: 'me', lastSeq: 0, lastReadSeq: 0, enabled: true, joinedAt: ts,
+      keyEpoch: 0, keyRing: { '0': key }, unverifiedAt: ts,
+    } as never);
+    await db.familyMembers.put(
+      { id: 'me', familyId: 'f1', seq: 1, displayName: 'Влад', color: '#5b7cfa', joinedAt: ts, leftAt: null, removedAt: null } as never,
+    );
+  });
+  await page.goto('/more/family?g=f1');
+  await expect(page.getByRole('button', { name: 'Ввести приглашение' })).toBeVisible();
+  const bad = await scanThemes(page, 'баннер');
+  expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+});
+
 test('ИИ: кнопка «Отправить» и плитка пустого чата — глиф на заливке', async ({ page }) => {
   await openApp(page, '/more/ai');
   await page.getByPlaceholder('Сообщение…').fill('Что у меня по задачам?');
