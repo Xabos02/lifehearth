@@ -21,7 +21,13 @@ import {
  *  Тот, кто добрался до устройства и умеет открыть хранилище браузера,
  *  прочитает записи мимо этого экрана. Шифрование ключом из кода было бы
  *  сильнее, но забытый код означал бы безвозвратную потерю истории — а данные
- *  раздела существуют в одном экземпляре. Об этом прямо сказано в настройках. */
+ *  раздела существуют в одном экземпляре. Об этом прямо сказано в настройках.
+ *
+ *  Копия файлом спрашивает тот же код (BackupPinSheet): файл — открытый JSON,
+ *  и без вопроса «Сохранить в файл» уносила записи раздела двумя тапами
+ *  (ST4 аудита 1.64.0). Облачная копия кода не спрашивает: она зашифрована
+ *  ключом синхронизации, а на устройстве, куда её восстановили, раздел закрыт
+ *  тем же кодом — настройки с отпечатком кода едут в копии. */
 
 /** Задержка после неверной попытки. Растёт, чтобы подбор четырёхзначного кода
  *  перестал быть делом одной минуты, но не наказывал за одну опечатку. */
@@ -36,6 +42,35 @@ export function CycleLock({
 }: {
   settings: CycleSettings;
   onUnlock: () => void;
+}) {
+  return (
+    <div className="flex min-h-[60dvh] flex-col items-center justify-center gap-4 px-6 text-center">
+      <span className="flex size-14 items-center justify-center rounded-2xl bg-lh-surface-2 text-lh-text-secondary">
+        <Lock size={ICON.accent} />
+      </span>
+      <div>
+        <p className="text-lg font-light">{t('Раздел закрыт')}</p>
+        <p className="mt-1 text-sm text-lh-text-secondary">{t('Введи код, чтобы открыть.')}</p>
+      </div>
+      <PinForm settings={settings} onUnlock={onUnlock} submitLabel={t('Открыть')} />
+    </div>
+  );
+}
+
+/** Поле кода, ошибка с паузой и кнопка — общие для экрана замка и для окна
+ *  перед копией файлом. Одна проверка на всё, что закрыто кодом: вторая копия
+ *  с отдельной паузой разошлась бы с первой при первой же правке. Верный код
+ *  открывает раздел до перезагрузки, где бы его ни ввели. */
+export function PinForm({
+  settings,
+  onUnlock,
+  submitLabel,
+  width = 'max-w-56',
+}: {
+  settings: CycleSettings;
+  onUnlock: () => void;
+  submitLabel: string;
+  width?: string;
 }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -76,16 +111,8 @@ export function CycleLock({
   }
 
   return (
-    <div className="flex min-h-[60dvh] flex-col items-center justify-center gap-4 px-6 text-center">
-      <span className="flex size-14 items-center justify-center rounded-2xl bg-lh-surface-2 text-lh-text-secondary">
-        <Lock size={ICON.accent} />
-      </span>
-      <div>
-        <p className="text-lg font-light">{t('Раздел закрыт')}</p>
-        <p className="mt-1 text-sm text-lh-text-secondary">{t('Введи код, чтобы открыть.')}</p>
-      </div>
-
-      <div className="w-full max-w-56">
+    <>
+      <div className={`w-full ${width}`}>
         <Input
           ref={inputRef}
           type="password"
@@ -116,9 +143,9 @@ export function CycleLock({
         </p>
       )}
 
-      <Button onClick={() => void check()} disabled={pin.length < 4 || left > 0} className="w-full max-w-56">
-        {t('Открыть')}
+      <Button onClick={() => void check()} disabled={pin.length < 4 || left > 0} className={`w-full ${width}`}>
+        {submitLabel}
       </Button>
-    </div>
+    </>
   );
 }

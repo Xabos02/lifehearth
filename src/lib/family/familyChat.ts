@@ -37,7 +37,7 @@ const PROBE_MS = 5_000;
 /** Запрос при подключении не висит дольше 10 с. Пока он висит, connect()
  *  закрыт для повторов — на заглохшей сети это минута без связи, а значит и
  *  без звонков. Старый Safari без AbortSignal.timeout живёт как раньше. */
-function connectDeadline(): { signal?: AbortSignal } {
+export function connectDeadline(): { signal?: AbortSignal } {
   return typeof AbortSignal.timeout === 'function' ? { signal: AbortSignal.timeout(10_000) } : {};
 }
 // Сколько символов dataURL безопасно уходит одним WS-фреймом. Лимит фрейма —
@@ -561,6 +561,15 @@ class FamilyEngine {
         return;
       }
       this.lastReadSeqMem = Math.max(this.lastReadSeqMem, c.lastReadSeq ?? 0);
+      // Публичный ключ — на сервер ДО тикета, на каждом подключении. Задачу
+      // на подтверждение личности сервер задаёт по уже известному ему ключу:
+      // устройство, которое регистрировалось бы после ready, первое
+      // соединение получало бы без привязки к участнику, а такому соединению
+      // сервер не доверяет ни авторство, ни профиль (аудит 18.11, S3).
+      // Конфиг перечитываем: долго не открывавшееся устройство заводит пару
+      // ключей прямо здесь, и без перечитывания тикет просили бы без неё.
+      await registerMember(this.familyId, connectDeadline());
+      c = (await this.cfg()) ?? c;
       let tr = await this.fetchTicket(c);
       // 401 после смены ключа группы — обычное дело: пока нас не было, кого-то
       // исключили, и токен сменился. Новый лежит в личном конверте.
@@ -588,7 +597,14 @@ class FamilyEngine {
         return;
       }
       if (!tr.ok) throw new Error('ticket');
-      const { ticket } = (await tr.json()) as { ticket: string };
+      const { ticket, bound } = (await tr.json()) as { ticket: string; bound?: boolean };
+      // Сервер подтвердил нашу пару ключей — отмечаем и отдаём синку: моё
+      // другое устройство, чья пара разошлась с закреплённой, переймёт эту
+      // (sync.ts, applyFamilyShare). Один раз: дальше отметка уже стоит.
+      if (bound && !c.boxVerifiedAt) {
+        const now = new Date().toISOString();
+        void patchFamilyConfig(this.familyId, { boxVerifiedAt: now, updatedAt: now });
+      }
       // Ещё раз после сетевой задержки тикета — окно, в котором мог случиться leave.
       if (!this.wantConnected || engines.get(this.familyId) !== this) {
         this.connecting = false;
@@ -620,10 +636,7 @@ class FamilyEngine {
           if (Array.isArray(m.reads)) this.setAllReads(m.reads);
           if (m.name) void patchFamilyConfig(this.familyId, { familyName: String(m.name) });
           this.startPing(sock);
-          // Публичный ключ регистрируем на КАЖДОМ подключении, а не только при
-          // входе: у тех, кто в группе давно, его нет вовсе, и без него их
-          // нечем перевести на новый ключ при исключении кого-то другого.
-          await registerMember(this.familyId);
+          // Ключ на сервере уже зарегистрирован — до тикета, см. connect().
           await publishBoxPub(this.familyId);
           await this.resendOutbox();
           await this.registerPush(c);
@@ -698,20 +711,30 @@ class FamilyEngine {
    *  чужим memberId в hello и получать адресованные тому сигналы звонка.
    *
    *  Для человека не меняется ничего: ни одного нового экрана, кода или
-   *  подтверждения — всё внутри подключения. Любая осечка (нет ключа, старый
-   *  сервер, чужой формат конверта) молча возвращает прежний путь: лучше
-   *  соединение без привязки, чем семья, запертая снаружи собственного чата. */
+   *  подтверждения — всё внутри подключения. Без ответа на задачу тикета нет
+   *  (сервер отвечает 409): «запасной путь» без привязки, где участник
+   *  называл себя сам, позволял любому писать от чужого имени (аудит 18.11,
+   *  S3). Чтобы задача была всегда, ключ регистрируется до тикета (connect). */
   private async fetchTicket(c: FamilyConfig): Promise<Response> {
     const base = `familyId=${c.familyId}&memberId=${encodeURIComponent(c.selfMemberId)}`;
     const auth = { Authorization: `Bearer ${c.familyToken}` };
-    // Осечка не должна запирать вход — см. комментарий выше.
-    const answer = await this.solveChallenge(c, base, auth).catch(() => null);
+    const answer = await this.proof(c);
     return fetch(`${WORKER_URL}/family/ticket?${base}`, {
       method: 'POST',
       headers: answer ? { ...auth, 'Content-Type': 'application/json' } : auth,
       ...(answer ? { body: JSON.stringify(answer) } : {}),
       ...connectDeadline(),
     });
+  }
+
+  /** Ответ на задачу сервера — доказательство «я и есть этот участник» для
+   *  любого запроса от его имени: тикета, подписки на уведомления, отписки.
+   *  memberId в теле запроса сервер на веру не берёт — назваться чужим может
+   *  каждый, у кого есть токен группы (аудит 18.11, S6). Осечка — null, а не
+   *  исключение: решает сервер, вызывающий просто идёт без ответа. */
+  private proof(c: FamilyConfig): Promise<{ challengeId: string; nonce: string } | null> {
+    const base = `familyId=${c.familyId}&memberId=${encodeURIComponent(c.selfMemberId)}`;
+    return this.solveChallenge(c, base, { Authorization: `Bearer ${c.familyToken}` }).catch(() => null);
   }
 
   /** Открыть присланный сервером конверт своим ключом. null — задача не
@@ -749,10 +772,13 @@ class FamilyEngine {
     const sub = getPushSubscription();
     if (!sub) return;
     try {
+      // memberId остаётся для сервера прежней версии; нынешний верит только
+      // ответу на задачу (см. proof).
+      const answer = await this.proof(cfg);
       await fetch(`${WORKER_URL}/family/push-sub?familyId=${cfg.familyId}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${cfg.familyToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memberId: cfg.selfMemberId, subscription: sub }),
+        body: JSON.stringify({ memberId: cfg.selfMemberId, subscription: sub, ...(answer ?? {}) }),
       });
     } catch {
       /* офлайн — переедет при следующем ready */
@@ -765,10 +791,11 @@ class FamilyEngine {
     const cfg = c ?? (await this.cfg());
     if (!cfg) return;
     try {
+      const answer = await this.proof(cfg);
       await fetch(`${WORKER_URL}/family/push-unsub?familyId=${cfg.familyId}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${cfg.familyToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memberId: cfg.selfMemberId }),
+        body: JSON.stringify({ memberId: cfg.selfMemberId, ...(answer ?? {}) }),
       });
     } catch {
       /* нет сети — уведомления перестанут доходить сами, когда истечёт

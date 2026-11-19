@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Bell, MessagesSquare, SearchX } from 'lucide-react';
+import { Bell, SearchX } from 'lucide-react';
 // Иконки разделов берём из РЕЕСТРА, а не держим свой список.
 //
 // Экран поиска рисовал их собственным набором на lucide, а таб-бар под ним —
@@ -263,7 +263,7 @@ export function SearchPage() {
       build('notes', t('Заметки'), SECTION_BY_ID.get('notes')!.icon, noteHits),
       build('goals', t('Цели'), SECTION_BY_ID.get('goals')!.icon, goalHits),
       build('reminders', t('Напоминания'), Bell, reminderHits),
-      build('family', t('Семейный чат'), MessagesSquare, chatHits),
+      build('family', t('Семейный чат'), SECTION_BY_ID.get('family')!.icon, chatHits),
       build('places', t('Места'), SECTION_BY_ID.get('places')!.icon, placeHits),
       build('learning', t('Обучение'), SECTION_BY_ID.get('learning')!.icon, learningHits),
       build('energy', t('Энергия'), SECTION_BY_ID.get('energy')!.icon, energyHits),
@@ -290,7 +290,11 @@ export function SearchPage() {
           результатами: один чип «Всё» рядом с одним разделом ничего не
           отбирает. */}
       {sections.length > 1 && (
-        <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
+        // py-1: overflow-x-auto режет и по вертикали, а рамка фокуса
+        // (outline 2px + offset 2px, index.css) выступает за кнопку на 4px —
+        // без отступа от неё оставались две боковые палочки. -my-1 возвращает
+        // строку на прежнее место; зазор до списка ниже даёт его mt-3.
+        <div className="-mx-4 -my-1 flex gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none]">
           {chips.map((c) => {
             const on = c.key === active;
             return (
@@ -299,7 +303,7 @@ export function SearchPage() {
                 type="button"
                 aria-pressed={on}
                 onClick={() => setFilter(c.key)}
-                className="flex h-11 shrink-0 items-center"
+                className="flex h-11 shrink-0 items-center active:scale-95"
               >
                 <span
                   className={`flex h-8 items-center rounded-full px-3 text-sm tabular-nums ${

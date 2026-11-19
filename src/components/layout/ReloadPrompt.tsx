@@ -1,26 +1,13 @@
 import { useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { callManager } from '../../lib/family/familyCall';
+import { inCall, reloadWhenIdle } from '../../lib/updateReload';
 
 const CHECK_INTERVAL = 15 * 60 * 1000; // проверять обновление раз в 15 мин
 
-// Обновление — только вне звонка: перезагрузка посреди разговора убивала
-// соединение без единого сигнала собеседнику. К перезагрузке ведут два пути:
-// свой controllerchange ниже и обработчик самого плагина (в autoUpdate он
-// перезагружает страницу на 'activated' сам, если не передать onNeedReload).
-// Оба идут сюда, и новая версия ждёт конца звонка.
-const inCall = () => callManager.getSnapshot().status !== 'idle';
-let reloading = false;
-function reloadWhenIdle() {
-  if (reloading) return;
-  reloading = true;
-  if (!inCall()) return window.location.reload();
-  const unsub = callManager.subscribe(() => {
-    if (inCall()) return;
-    unsub();
-    window.location.reload();
-  });
-}
+// К перезагрузке ведут два пути: свой controllerchange ниже и обработчик
+// самого плагина (в autoUpdate он перезагружает страницу на 'activated' сам,
+// если не передать onNeedReload). Оба идут в reloadWhenIdle: новая версия ждёт
+// конца звонка и набора текста и сохраняет набранное (см. lib/updateReload).
 
 /**
  * Тихое авто-обновление PWA (registerType: 'autoUpdate'). Новый service worker

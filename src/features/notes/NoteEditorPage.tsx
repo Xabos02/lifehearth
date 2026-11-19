@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -51,6 +52,7 @@ import { IconButton } from '../../components/ui/IconButton';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { confirmAction } from '../../components/ui/confirmStore';
 import { buzz } from '../../lib/feedback';
+import { saveBeforeReload } from '../../lib/updateReload';
 
 const AUTOSAVE_MS = 600;
 
@@ -73,16 +75,22 @@ function deriveTitle(text: string): string {
  *  Страница — новой вкладкой: заметка остаётся открытой, возврат к ней —
  *  одним движением. Почта и телефон — через location: их адрес браузер
  *  отдаёт системе и своего окна для них не заводит, а window.open на таком
- *  адресе в части браузеров оставляет пустую вкладку. Через location же
- *  уходит и страница, которой не дал открыться блокировщик окон.
+ *  адресе в части браузеров оставляет пустую вкладку.
+ *
+ *  Что вернул window.open, НЕ смотрим. С noopener он по спецификации всегда
+ *  возвращает null — и в Chromium, и в WebKit. Раньше null принимали за
+ *  «окно заблокировано» и уходили на ту же страницу через location: сайт
+ *  открывался дважды, а само приложение уезжало с заметки (аудит 18.11.2026,
+ *  N3). Чтобы блокировщику было не к чему придраться, открываем по click —
+ *  это жест пользователя в любом движке.
  *
  *  Протокол здесь НЕ проверяем, и это намеренно: в DOM редактора содержимое
  *  попадает только через sanitizeNoteHtml (три места выше), а его хук уже
  *  снял href со всем, кроме http(s)/mailto/tel. Вторая проверка тут
  *  создавала бы вид, что сюда может прийти что-то ещё. */
 function openLink(href: string): void {
-  if (/^https?:/i.test(href) && window.open(href, '_blank', 'noopener,noreferrer')) return;
-  window.location.href = href;
+  if (/^https?:/i.test(href)) window.open(href, '_blank', 'noopener,noreferrer');
+  else window.location.href = href;
 }
 
 function ToolBtn({
@@ -141,11 +149,35 @@ export function NoteEditorPage() {
    *  автосохранения — иначе каждое своё сохранение выглядело бы как чужое. */
   const knownAtRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
+  // Счётчик правок: touch() его увеличивает. Запись снимает «есть
+  // несохранённое», только если за время записи счётчик не сдвинулся, —
+  // иначе буква, набранная ровно во время записи, считалась сохранённой и
+  // пропадала (аудит 18.11.2026, N1).
+  const editsRef = useRef(0);
   const deletedRef = useRef(false);
   const initializedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pinnedRef = useRef(false);
-  const savingRef = useRef(false);
+  // Очередь записей: следующая стартует, когда закончилась предыдущая. Так
+  // новая заметка не создаётся дважды, а снимок, сделанный во время
+  // создания, пишется уже в неё. Обещание очереди ждут «Готово», «Удалить» и
+  // перезагрузка обновления.
+  const savingRef = useRef<Promise<void>>(Promise.resolve());
+  // Правка, снимок которой уже стоит в очереди: второй вызов подряд (уход
+  // фокуса и тут же «Готово», visibilitychange и pagehide) не пишет то же самое.
+  const queuedRef = useRef(-1);
+  // Экран закрывается. С закрытого экрана запись новой заметки не должна
+  // переводить адрес на /notes/<id>: это возвращало человека в заметку, из
+  // которой он только что вышел (аудит, NEW-N-1 и N4).
+  const leavingRef = useRef(false);
+  // Подменять адрес экрана на /notes/<id> созданной заметки можно, только
+  // пока человек на этом адресе. Ссылка «‹ Заметки» сначала меняет адрес и
+  // лишь потом закрывает экран: в этот промежуток запись подменяла уже /notes
+  // и возвращала в заметку. Адрес экрана — не обязательно /notes/new: так же
+  // создаётся заметка на адресе удалённой или ненайденной.
+  const routeRef = useRef(routeId);
+  const stillHere = () => !leavingRef.current && window.location.pathname.endsWith(`/notes/${routeRef.current}`);
+  const flushRef = useRef<() => Promise<void>>(() => Promise.resolve());
   // Последняя автозаглавная — чтобы человек мог её отменить (см. autocapitalize.ts).
   const capMemo = useRef<CapitalizeMemo | null>(null);
 
@@ -338,54 +370,80 @@ export function NoteEditorPage() {
     setRemoteChanged(false);
   }, [liveNote, isNew]);
 
-  const flush = useCallback(async () => {
+  // Записать текст заметки. Снимок берётся СРАЗУ, синхронно: при уходе с
+  // экрана редактора к моменту записи уже нет. Сама запись встаёт в очередь
+  // за идущей. Возвращает обещание всей очереди.
+  const flush = useCallback((): Promise<void> => {
     const el = editorRef.current;
-    if (deletedRef.current || !dirtyRef.current || !el || savingRef.current) return;
-    savingRef.current = true; // in-flight guard: не создаём дубль новой заметки
-    try {
-      const html = sanitizeNoteHtml(el.innerHTML);
-      const plain = (el.innerText ?? '').trim();
-      // Заметка из одной фотографии: innerText пуст, но содержимое есть —
-      // и сохранить её надо, и в списке ей нужен хоть какой-то заголовок.
-      const hasImage = Boolean(el.querySelector('img'));
-      const title = deriveTitle(el.innerText ?? '') || (hasImage ? t('Фото') : '');
-      if (savedIdRef.current) {
-        await update(db.notes, savedIdRef.current, {
-          title,
-          content: html,
-          pinned: pinnedRef.current,
-        });
-        // Свою же запись не должны принять за чужую: запоминаем её штамп.
-        knownAtRef.current = (await db.notes.get(savedIdRef.current))?.updatedAt ?? null;
-      } else if (plain || hasImage) {
-        // Пустую новую заметку не сохраняем (как в iOS).
-        const created = await create(db.notes, {
-          title,
-          content: html,
-          tags: [],
-          pinned: pinnedRef.current,
-          folderId: folderRef.current,
-        });
-        savedIdRef.current = created.id;
-        knownAtRef.current = created.updatedAt;
-        navigate(`/notes/${created.id}`, { replace: true });
-      }
-      // Флаг «есть несохранённое» снимаем ТОЛЬКО после успешной записи.
-      // Раньше он снимался до неё, и упавшее сохранение уже не повторялось:
-      // текст оставался на экране, но в базу не попадал никогда, а человеку
-      // об этом не говорили. Заметку теряла первая же нехватка места.
-      dirtyRef.current = false;
-      setSaved(true);
-    } catch {
-      // Не молчим: на экране текст цел, и человек должен знать, что его надо
-      // сохранить ещё раз (или освободить место), а не закрывать заметку.
-      toast(t('Не удалось сохранить заметку. Текст на экране цел — попробуйте ещё раз'));
-    } finally {
-      savingRef.current = false;
+    const seq = editsRef.current;
+    if (deletedRef.current || !dirtyRef.current || !el || queuedRef.current === seq) {
+      return savingRef.current;
     }
+    queuedRef.current = seq;
+    const html = sanitizeNoteHtml(el.innerHTML);
+    const text = el.innerText ?? '';
+    const plain = text.trim();
+    // Заметка из одной фотографии: innerText пуст, но содержимое есть —
+    // и сохранить её надо, и в списке ей нужен хоть какой-то заголовок.
+    const hasImage = Boolean(el.querySelector('img'));
+    const title = deriveTitle(text) || (hasImage ? t('Фото') : '');
+    const write = async () => {
+      try {
+        if (deletedRef.current) return;
+        if (savedIdRef.current) {
+          await update(db.notes, savedIdRef.current, {
+            title,
+            content: html,
+            pinned: pinnedRef.current,
+          });
+          // Свою же запись не должны принять за чужую: запоминаем её штамп.
+          knownAtRef.current = (await db.notes.get(savedIdRef.current))?.updatedAt ?? null;
+        } else if (plain || hasImage) {
+          // Пустую новую заметку не сохраняем (как в iOS).
+          const created = await create(db.notes, {
+            title,
+            content: html,
+            tags: [],
+            pinned: pinnedRef.current,
+            folderId: folderRef.current,
+          });
+          savedIdRef.current = created.id;
+          // Новая заметка дальше живёт как открытая из списка: правку с
+          // другого устройства подхватываем или предупреждаем о ней. Без этого
+          // её не было видно, а первая же набранная буква стирала её везде
+          // (аудит, N7).
+          initializedRef.current = true;
+          knownAtRef.current = created.updatedAt;
+          if (stillHere()) navigate(`/notes/${created.id}`, { replace: true });
+        }
+        // Флаг «есть несохранённое» снимаем ТОЛЬКО после успешной записи и
+        // только если за время записи ничего не набрали. Раньше он снимался до
+        // записи, и упавшее сохранение уже не повторялось: текст оставался на
+        // экране, но в базу не попадал никогда.
+        if (editsRef.current === seq) {
+          dirtyRef.current = false;
+          setSaved(true);
+        }
+      } catch {
+        // Не молчим: на экране текст цел, и человек должен знать, что его надо
+        // сохранить ещё раз (или освободить место), а не закрывать заметку.
+        // Если экран уже закрыт, «на экране цел» было бы неправдой.
+        toast(
+          leavingRef.current
+            ? t('Не удалось сохранить последние правки заметки')
+            : t('Не удалось сохранить заметку. Текст на экране цел — попробуйте ещё раз'),
+        );
+      } finally {
+        if (queuedRef.current === seq) queuedRef.current = -1;
+      }
+    };
+    const next = savingRef.current.then(write);
+    savingRef.current = next;
+    return next;
   }, [navigate, toast]);
 
   const touch = useCallback(() => {
+    editsRef.current += 1;
     dirtyRef.current = true;
     setSaved(false);
     setEditedAt(new Date().toISOString());
@@ -402,7 +460,7 @@ export function NoteEditorPage() {
   // Куда смотрела каретка в момент нажатия кнопки: системный пикер уводит
   // фокус, и к возвращению выбранного файла выделение уже потеряно.
   const caretBeforePickRef = useRef<number | null>(null);
-  // Нажатие, начавшееся на ссылке: открываем его на pointerup и только если
+  // Нажатие, начавшееся на ссылке: открываем его на click и только если
   // палец не уехал — иначе прокрутка, начатая со ссылки, уводила бы в браузер.
   const linkTapRef = useRef<{ href: string; x: number; y: number } | null>(null);
 
@@ -437,7 +495,9 @@ export function NoteEditorPage() {
         folderId: folderRef.current,
       });
       savedIdRef.current = created.id;
-      navigate(`/notes/${created.id}`, { replace: true });
+      initializedRef.current = true;
+      knownAtRef.current = created.updatedAt;
+      if (stillHere()) navigate(`/notes/${created.id}`, { replace: true });
     }
     return savedIdRef.current;
   }, [flush, navigate]);
@@ -625,14 +685,47 @@ export function NoteEditorPage() {
     keepCaretVisible();
   };
 
-  // Сохранение при уходе со страницы.
-  useEffect(
-    () => () => {
+  useLayoutEffect(() => {
+    flushRef.current = flush;
+    routeRef.current = routeId;
+  }, [flush, routeId]);
+
+  // Сохранение при уходе с экрана.
+  //
+  // useLayoutEffect, а не useEffect: в очистке обычного эффекта React уже
+  // отцепил ref, editorRef.current там null, и flush выходил, ничего не
+  // записав, — с самого появления этого кода. В очистке layout-эффекта
+  // редактор ещё в документе, и снимок текста верный. Пустые зависимости —
+  // чтобы очистка шла один раз, при уходе, а не на каждой смене flush (он
+  // меняется вместе с адресом). Уход «назад» системой, тап по уведомлению —
+  // всё, что уводит с экрана без снятия фокуса, — раньше терял набранное с
+  // последней паузы, а новую заметку целиком (аудит, N2).
+  useLayoutEffect(() => {
+    leavingRef.current = false; // StrictMode в разработке монтирует экран дважды
+    const unregister = saveBeforeReload(() => flushRef.current());
+    return () => {
+      leavingRef.current = true;
       clearTimeout(timerRef.current);
-      void flush();
-    },
-    [flush],
-  );
+      void flushRef.current().finally(unregister);
+    };
+  }, []);
+
+  // Уход приложения в фон: из фона iPhone может выгрузить его без единого
+  // события, и набранное с последней паузы пропало бы. pagehide — уход со
+  // страницы целиком.
+  useEffect(() => {
+    const away = (e: Event) => {
+      if (e.type === 'visibilitychange' && document.visibilityState !== 'hidden') return;
+      clearTimeout(timerRef.current);
+      void flushRef.current();
+    };
+    document.addEventListener('visibilitychange', away);
+    window.addEventListener('pagehide', away);
+    return () => {
+      document.removeEventListener('visibilitychange', away);
+      window.removeEventListener('pagehide', away);
+    };
+  }, []);
 
   // Голосовой ввод: дописываем распознанный текст в конец заметки и
   // запускаем тот же автосейв, что и обычный набор (touch → flush).
@@ -739,7 +832,13 @@ export function NoteEditorPage() {
 
   const handleDelete = async () => {
     deletedRef.current = true;
+    leavingRef.current = true;
     clearTimeout(timerRef.current);
+    // Тап по корзине снимает фокус раньше клика, и уход фокуса уже начал
+    // запись. У новой заметки id появится только по её окончании — без
+    // ожидания корзина ничего не удаляла, а созданная заметка открывалась
+    // снова (аудит, N4).
+    await savingRef.current;
     const id = savedIdRef.current;
     if (id) await remove(db.notes, id);
     navigate('/notes');
@@ -747,9 +846,14 @@ export function NoteEditorPage() {
   };
 
   // «Готово»: гасим отложенный автосейв, сохраняем текущее состояние и уходим.
+  // flush возвращает всю очередь: запись, начатая уходом фокуса, тоже
+  // закончится до ухода.
   const handleDone = async () => {
     clearTimeout(timerRef.current);
     await flush();
+    // Не записалось (или успели набрать ещё) — экран не закрываем: тост уже
+    // сказал, что текст на экране цел, и уход унёс бы его.
+    if (dirtyRef.current) return;
     navigate('/notes');
   };
 
@@ -862,7 +966,7 @@ export function NoteEditorPage() {
           linkTapRef.current = null;
           // Тап по ссылке открывает её — как в Apple Notes (выбор Влада
           // 06.11.2026, канва design/notes-links). Здесь только запоминаем
-          // нажатие: открываем на pointerup, когда уже видно, тап это или
+          // нажатие: открываем на click, когда уже видно, тап это или
           // начало прокрутки. Каретку отсюда НЕ удержать — на тапе пальцем
           // Chromium шлёт pointerdown неотменяемым (прокрутка по touch-action
           // разрешена), и preventDefault тут ничего не делает; её держит
@@ -890,12 +994,14 @@ export function NoteEditorPage() {
           // поверх уходящего в браузер экрана успевала вылезти клавиатура.
           if ((e.target as Element | null)?.closest?.('a[href]')) e.preventDefault();
         }}
-        onPointerUp={(e) => {
+        onClick={(e) => {
           const tap = linkTapRef.current;
           linkTapRef.current = null;
           if (!tap) return;
-          // Палец уехал — это была прокрутка, начатая со строки со ссылкой.
-          // 10px: порог, после которого браузер и сам считает жест протяжкой.
+          e.preventDefault();
+          // Указатель уехал — это было выделение или прокрутка, начатые со
+          // ссылки. 10px: порог, после которого браузер и сам считает жест
+          // протяжкой. Протяжку пальцем браузер в click и не превращает.
           if (Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) return;
           openLink(tap.href);
         }}
@@ -909,7 +1015,13 @@ export function NoteEditorPage() {
           // Адрес, набранный последним словом, пробела за собой не оставил —
           // по нему живое распознавание не сработало. Ловим его здесь: уходя,
           // человек уже ничего не набирает, и каретку возвращать некуда.
-          if (editorRef.current) linkifyIn(editorRef.current);
+          // Это правка, как любая другая: без отметки она жила только в DOM, и
+          // при следующем открытии адрес снова был простым текстом. Через
+          // счётчик, а не touch: человек ничего не набирал, дату не двигаем.
+          if (editorRef.current && linkifyIn(editorRef.current)) {
+            editsRef.current += 1;
+            dirtyRef.current = true;
+          }
           void flush();
         }}
       />

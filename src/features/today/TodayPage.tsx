@@ -4,7 +4,6 @@ import { useLoaded } from '../../hooks/useLoaded';
 import { useDayRollover } from '../../hooks/useDayRollover';
 import {
   GSearch as Search,
-  GSun as Sun,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
@@ -28,6 +27,10 @@ import { ProtectDataCard } from './ProtectDataCard';
 import { IconButton } from '../../components/ui/IconButton';
 import { t } from '../../lib/i18n';
 import { useSettings } from '../../hooks/useSettings';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+// Знак раздела «Сегодня» — из реестра (PROTOCOL §20): тот же значок, что у вкладки.
+const TodayIcon = SECTION_BY_ID.get('today')!.icon;
 
 /** Приветствие по времени суток (макет «Сегодня»: крупно — приветствие,
  *  мелко над ним — дата). */
@@ -160,7 +163,7 @@ export function TodayPage() {
       />
 
       {noTasks ? (
-        loaded && <EmptyState icon={Sun} title={t('На сегодня задач нет')} hint={t('Добавьте задачу кнопкой +')} />
+        loaded && <EmptyState icon={TodayIcon} title={t('На сегодня задач нет')} hint={t('Добавьте задачу кнопкой +')} />
       ) : (
         <section className="mb-3">
           <div className="mb-2.5 flex items-end justify-between gap-3 px-1">

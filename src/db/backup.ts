@@ -90,7 +90,13 @@ const CYCLE_TABLES: readonly TableName[] = [
  *  восстановлении не трогаем: importBackup пропускает отсутствующий ключ. */
 const CYCLE_CONFIG_TABLES: readonly TableName[] = ['cycleSettings', 'cycleSymptoms'];
 
-export async function exportBackup(): Promise<BackupFile> {
+/** withoutCycle — разовая копия файлом без раздела, когда код к нему не
+ *  введён. Ключей cycle* в файле нет вовсе, а не пустые массивы: importBackup
+ *  отсутствующую таблицу не трогает, и восстановление такой копии оставит
+ *  историю цикла на месте. Пустые массивы её бы стёрли. Это не то же самое,
+ *  что выключенная настройка «Включать в копию»: там пустой массив — осознанное
+ *  «в копии раздела нет, при восстановлении очистить». */
+export async function exportBackup({ withoutCycle = false }: { withoutCycle?: boolean } = {}): Promise<BackupFile> {
   // Настройка раздела решает, попадёт ли он в копию. По умолчанию попадает:
   // синхронизация ему закрыта, и без копии история существует в одном
   // экземпляре. Кто выключил — получает файл без раздела, и это его выбор,
@@ -100,6 +106,7 @@ export async function exportBackup(): Promise<BackupFile> {
 
   const data = {} as Record<TableName, unknown[]>;
   for (const name of TABLES) {
+    if (withoutCycle && (CYCLE_TABLES.includes(name) || CYCLE_CONFIG_TABLES.includes(name))) continue;
     if (!includeCycle && CYCLE_CONFIG_TABLES.includes(name)) {
       // Ключа нет вовсе — importBackup такую таблицу не тронет, и код доступа
       // с настройкой приватности переживут восстановление.
@@ -125,6 +132,13 @@ export async function exportBackup(): Promise<BackupFile> {
     return rest;
   });
   return { app: 'life-hub', schemaVersion: SCHEMA_VERSION, exportedAt: now(), data };
+}
+
+/** Закрыт ли раздел «Женские дни» кодом так, что код нужен и для копии файлом.
+ *  Раздел, выключенный из копий, в файл не попадает — спрашивать нечего. */
+export async function cycleBackupLocked(): Promise<boolean> {
+  const s = await db.cycleSettings.get('app');
+  return s?.lock === 'pin' && s.pin !== undefined && s.includeInGeneralBackup !== false;
 }
 
 export function backupFilename(): string {

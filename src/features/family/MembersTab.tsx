@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import {
   GPhone as Phone,
-  GTasks,
   GPencil,
   GAlert,
   GLock,
@@ -42,6 +41,10 @@ import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { GroupAvatar, MemberAvatar } from './MemberAvatar';
 import { chatPath, isAlive } from './chats';
 import { confirmAction } from '../../components/ui/confirmStore';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+// Знак раздела «Задачи» — из реестра (PROTOCOL §20): тот же значок, что у раздела в меню.
+const TasksIcon = SECTION_BY_ID.get('tasks')!.icon;
 
 type Glyph = ComponentType<{ size?: number | string; className?: string }>;
 
@@ -207,7 +210,7 @@ export function MembersTab({
             />
           )}
           <QuickTile
-            icon={GTasks}
+            icon={TasksIcon}
             label={activeTasks > 0 ? t('Задачи · {n}', { n: activeTasks }) : t('Задачи')}
             onClick={() => navigate(chatPath(familyId, 'tasks'), { state: { from: 'members' } })}
           />
@@ -424,6 +427,10 @@ function RemoveMemberSheet({
       <div className="space-y-4 pb-2">
         <ul className="space-y-2 text-sm leading-snug text-lh-text-primary/90">
           <li>{t('Новые сообщения, задачи и звонки станут ему недоступны: группа перейдёт на новый ключ.')}</li>
+          {/* Граница, которую исключение не переходит: приглашённые им — свои
+              участники со своими ключами. В том числе он сам под другим
+              именем, если подготовился заранее (аудит 18.11, S2). */}
+          <li>{t('Тех, кого он успел пригласить, это не касается: они останутся в группе, пока вы не исключите и их.')}</li>
           <li>{t('Переписку, которую он уже скачал, вернуть нельзя — она осталась на его устройстве.')}</li>
           <li>{t('Вернуть его можно только новым приглашением.')}</li>
         </ul>

@@ -6,7 +6,6 @@ import {
   GChevronRight as ChevronRight,
   GCloud as Cloud,
   GCloudOff as CloudOff,
-  GSettings as SettingsIcon,
   GSearch as Search,
 } from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
@@ -264,7 +263,7 @@ export function HomePage() {
           <section className="card overflow-hidden [&>a>div:last-child]:border-t-0">
             <MenuCard
               to={settingsSection.to}
-              icon={SettingsIcon}
+              icon={settingsSection.icon}
               title={t(settingsSection.label)}
               subtitle={backupDue ? t('Пора сделать резервную копию') : settingsSection.subtitle && t(settingsSection.subtitle)}
               subtitleWarning={backupDue}

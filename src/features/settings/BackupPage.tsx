@@ -16,8 +16,11 @@ import {
   validateBackup,
   previewBackup,
   importBackup,
+  cycleBackupLocked,
   type BackupFile,
 } from '../../db/backup';
+import { isUnlocked } from '../cycle/lockState';
+import { BackupPinSheet } from './BackupPinSheet';
 import {
   BackupWouldLoseDataError,
   cloudBackupDate,
@@ -149,14 +152,28 @@ export function BackupPage() {
     };
   }, [syncOn]);
 
-  async function handleExport() {
+  const [pinOpen, setPinOpen] = useState(false);
+
+  // Раздел «Женские дни» закрыт кодом и в этом сеансе не открыт — сначала
+  // код (или копия без раздела). Настройки читаются в момент нажатия, а не
+  // живым запросом: тап до его первого ответа ушёл бы мимо проверки.
+  async function handleExportTap() {
+    if (exportingRef.current) return;
+    if (!isUnlocked() && (await cycleBackupLocked())) {
+      setPinOpen(true);
+      return;
+    }
+    await handleExport(false);
+  }
+
+  async function handleExport(withoutCycle: boolean) {
     if (exportingRef.current) return;
     exportingRef.current = true;
     try {
       // Отметка о копии — до сборки файла: иначе в самом файле lastBackupAt
       // пустой, и восстановление из свежей копии показывало «никогда».
       await updateSettings({ lastBackupAt: now() });
-      const backup = await exportBackup();
+      const backup = await exportBackup({ withoutCycle });
       const json = JSON.stringify(backup, null, 2);
       const file = new File([json], backupFilename(), { type: 'application/json' });
 
@@ -184,7 +201,7 @@ export function BackupPage() {
         URL.revokeObjectURL(url);
       }
 
-      toast(t('Резервная копия сохранена'));
+      toast(withoutCycle ? t('Резервная копия сохранена без закрытых записей') : t('Резервная копия сохранена'));
     } finally {
       exportingRef.current = false;
     }
@@ -456,7 +473,7 @@ export function BackupPage() {
               />
               <button
                 type="button"
-                onClick={() => void handleExport()}
+                onClick={() => void handleExportTap()}
                 className="flex h-14 w-full items-center gap-3 px-4 text-left text-base text-lh-accent active:bg-lh-surface-2"
               >
                 <Download size={ICON.header} />
@@ -517,6 +534,14 @@ export function BackupPage() {
           </p>
         </section>
       </div>
+      <BackupPinSheet
+        open={pinOpen}
+        onClose={() => setPinOpen(false)}
+        onSave={(withoutCycle) => {
+          setPinOpen(false);
+          void handleExport(withoutCycle);
+        }}
+      />
     </Screen>
   );
 }
