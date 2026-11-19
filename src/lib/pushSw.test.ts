@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const CODE = readFileSync(new URL('../../public/push-sw.js', import.meta.url), 'utf8');
 
-function bootSw(scope: string, openClients: { postMessage: (m: unknown) => void; focus: () => void }[] = []) {
+function bootSw(scope: string, openClients: { postMessage: (m: unknown) => void; focus: () => void }[] = [], reg: object = {}) {
   const handlers: Record<string, (e: unknown) => void> = {};
   const shown: { title: string; opts: { icon: string; data: { url: string } } }[] = [];
   const openWindow = vi.fn(async () => {});
@@ -20,6 +20,7 @@ function bootSw(scope: string, openClients: { postMessage: (m: unknown) => void;
     registration: {
       scope,
       showNotification: async (title: string, opts: never) => void shown.push({ title, opts }),
+      ...reg,
     },
     clients: { matchAll: async () => openClients, openWindow },
     addEventListener: (type: string, fn: (e: unknown) => void) => (handlers[type] = fn),
@@ -144,5 +145,80 @@ describe('ключ напоминаний: первый запуск в двух
     await sw.fire('push', pushOf({ title: 'Напоминание', body: a, taskId: 'a' }));
     await sw.fire('push', pushOf({ title: 'Напоминание', body: b, taskId: 'b' }));
     expect(sw.shown.map((n) => n.title)).toEqual(['Задача вкладки А', 'Задача вкладки Б']);
+  });
+});
+
+// Серия «Входящий звонок»: на iPhone каждый пуш — своя карточка со звуком
+// (tag WebKit не склеивает), а закрыть уведомление система даёт не раньше 30 с
+// после показа (Notification::close). Двойник центра уведомлений повторяет
+// ровно это — иначе тест проверял бы Android, где tag заменяет карточку сам.
+describe('push-sw: карточки звонка на iPhone', () => {
+  const SCOPE = 'https://xabos02.github.io/lifehearth/';
+  type Card = { title: string; tag: string; data: { missed?: boolean }; at: number; close: () => void };
+
+  function iosCenter() {
+    const cards: Card[] = [];
+    return {
+      cards,
+      titles: () => cards.map((c) => `${c.title}@${c.at / 1000}`),
+      reg: {
+        showNotification: async (title: string, opts: { tag: string; data: { missed?: boolean } }) => {
+          const card: Card = {
+            title,
+            tag: opts.tag,
+            data: opts.data,
+            at: Date.now(),
+            close: () => {
+              if (Date.now() - card.at >= 30_000 && cards.includes(card)) cards.splice(cards.indexOf(card), 1);
+            },
+          };
+          cards.push(card);
+        },
+        getNotifications: async ({ tag }: { tag?: string } = {}) => cards.filter((c) => !tag || c.tag === tag),
+      },
+    };
+  }
+  const call = { title: 'Входящий звонок', family: true, call: true, tag: 'family-call:c1' };
+  const missed = { title: 'Пропущенный звонок', family: true, missed: true, tag: 'family-call:c1' };
+
+  it('серия не копится: каждый пуш убирает карточки звонка старше 30 с, «Пропущенный» — тоже', async () => {
+    vi.useFakeTimers({ now: 0 });
+    try {
+      const ios = iosCenter();
+      const sw = bootSw(SCOPE, [], ios.reg);
+      for (let t = 0; t <= 40_000; t += 5000) {
+        vi.setSystemTime(t);
+        await sw.fire('push', pushOf(call));
+      }
+      // Каждый пуш серии убрал карточки старше 30 с — их уже не девять.
+      expect(ios.titles()).toEqual(['Входящий звонок@15', 'Входящий звонок@20', 'Входящий звонок@25', 'Входящий звонок@30', 'Входящий звонок@35', 'Входящий звонок@40']);
+      vi.setSystemTime(45_000);
+      await sw.fire('push', pushOf(missed));
+      expect(ios.titles()).toEqual(['Входящий звонок@20', 'Входящий звонок@25', 'Входящий звонок@30', 'Входящий звонок@35', 'Входящий звонок@40', 'Пропущенный звонок@45']);
+      // Увидел позже и нажал — уходит весь звонок.
+      vi.setSystemTime(120_000);
+      const tapped = ios.cards.at(-1)!;
+      await sw.fire('notificationclick', { notification: { close: tapped.close, tag: 'family-call:c1', data: { url: '/lifehearth/more/family' } } });
+      expect(ios.titles()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('тап по карточке звонка убирает остальные карточки того же звонка', async () => {
+    vi.useFakeTimers({ now: 0 });
+    try {
+      const ios = iosCenter();
+      const sw = bootSw(SCOPE, [], ios.reg);
+      await sw.fire('push', pushOf(call));
+      vi.setSystemTime(5000);
+      await sw.fire('push', pushOf(call));
+      await sw.fire('push', pushOf({ ...missed, tag: 'family-call:other' }));
+      vi.setSystemTime(40_000);
+      await sw.fire('notificationclick', { notification: { close: () => {}, tag: 'family-call:c1', data: { url: '/lifehearth/more/family' } } });
+      expect(ios.titles(), '«Пропущенный» другого звонка остаётся').toEqual(['Пропущенный звонок@5']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

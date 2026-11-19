@@ -197,3 +197,77 @@ test.describe('разбор неудавшегося звонка', () => {
     await expect(page.getByText(/обрыв случился уже во время разговора/)).toHaveCount(0);
   });
 });
+
+// Свёрнутое приложение на iOS заморожено: входящий в нём не зазвонит, а сокет
+// ещё до 40 с выглядит для сервера живым — и звонок, пришедший в это время,
+// проходил в тишине. Теперь приложение говорит «я в фоне», и сервер сразу
+// звонит серией пушей. Посреди разговора — нет: повтор приглашения при
+// переподключении стал бы пушем «Входящий звонок».
+test.describe('свёрнутое приложение говорит серверу «я в фоне»', () => {
+  async function serverAndVisibility(page: Page) {
+    const frames: string[] = [];
+    let ready = false;
+    await page.route(/\/family\/ticket/, (r) => r.fulfill({ json: { ticket: 't' } }));
+    await page.routeWebSocket(/\/family\/ws/, (ws) => {
+      ws.onMessage((m) => {
+        const f = JSON.parse(String(m));
+        if (f.type === 'hello') {
+          ws.send(JSON.stringify({ type: 'ready', online: ['me'] }));
+          ready = true;
+        }
+        if (f.type === 'away' || f.type === 'back') frames.push(f.type);
+      });
+    });
+    // Свернуть вкладку в headless нельзя — подменяем то, что читает приложение.
+    await page.addInitScript(() => {
+      let hidden = false;
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') });
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+      (window as unknown as { setHidden: (v: boolean) => void }).setHidden = (v) => {
+        hidden = v;
+        document.dispatchEvent(new Event('visibilitychange'));
+      };
+    });
+    const setHidden = (v: boolean) => page.evaluate((v) => (window as unknown as { setHidden: (v: boolean) => void }).setHidden(v), v);
+    return { frames, isReady: () => ready, setHidden };
+  }
+
+  test('свернули — «в фоне», вернулись — «на виду»', async ({ page }) => {
+    const s = await serverAndVisibility(page);
+    await openApp(page, '/more/family');
+    await seedFamily(page, ['Отец']);
+    await expect.poll(s.isReady).toBe(true);
+    await s.setHidden(true);
+    await expect.poll(() => s.frames).toEqual(['away']);
+    await s.setHidden(false);
+    await expect.poll(() => s.frames).toEqual(['away', 'back']);
+  });
+
+  test('свернули во время вызова — «в фоне» не шлём; вызов кончился в фоне — шлём', async ({ page }) => {
+    // Микрофон с настоящей дорожкой: без неё приглашение не собрать, и вызов
+    // кончился бы раньше, чем его успели свернуть.
+    await page.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia = async () => {
+        const ac = new AudioContext();
+        const dest = ac.createMediaStreamDestination();
+        ac.createOscillator().connect(dest);
+        return dest.stream;
+      };
+    });
+    const s = await serverAndVisibility(page);
+    await openApp(page, '/more/family');
+    await seedFamily(page, ['Отец']);
+    await expect.poll(s.isReady).toBe(true);
+    await page.getByRole('button', { name: 'Позвонить: Отец' }).click();
+    await expect(page.getByText('Вызов…')).toBeVisible();
+    await s.setHidden(true);
+    await page.waitForTimeout(500);
+    expect(s.frames, 'разговор идёт — сервер не должен звонить сюда пушами').toEqual([]);
+    // Отбой, пока свёрнуто: разговора больше нет — теперь можно.
+    await page.evaluate(async () => {
+      const { callManager } = await import('/src/lib/family/familyCall.ts');
+      callManager.hangup();
+    });
+    await expect.poll(() => s.frames).toEqual(['away']);
+  });
+});

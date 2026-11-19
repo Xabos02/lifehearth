@@ -17,6 +17,17 @@ const CALL_PENDING_TTL_MS = 47_000; // 45с ринга (RING_TIMEOUT_MS в famil
 // а соединение на стороне сервера живёт ещё долго. Раньше приглашение в
 // такой сокет считалось доставленным — и пуш «Входящий звонок» не уходил.
 const SOCKET_STALE_MS = 40_000;
+// Серия «Входящий звонок»: пока звонящий зовёт, а приложение собеседника
+// закрыто или в фоне, пуш повторяется — каждый звучит, как звонок у телефона.
+// Один пуш звякал раз и замолкал (Влад 20.11: «чтобы я слышал звонок»).
+// Такт серии — на повторах приглашения (каждые 2.5 с): звонящий перестал
+// звать (ответили, отменил, его приложение умерло) — серия кончилась сама.
+// ponytail: 5 с на глаз — чаще баннеры наезжают друг на друга, реже теряется
+// ощущение звонка; после 40 с не шлём — пуш не успел бы до конца дозвона (45 с).
+const CALL_PUSH_EVERY_MS = 5_000;
+const CALL_PUSH_UNTIL_MS = 40_000;
+// Пометку «отвечен» держим дольше любого разговора; старые чистит следующая.
+const CALL_ANSWERED_KEEP_MS = 12 * 3600_000;
 const BACKFILL_PAGE = 500;
 const MSG_RETENTION_DAYS = 180;
 const MSG_RETENTION_MAX = 5000;
@@ -751,6 +762,14 @@ export class FamilyRoom extends DurableObject {
       }
       return;
     }
+    // Приложение ушло в фон / вернулось. Свёрнутое на iOS заморожено: кадр
+    // примет, а входящий не покажет и не зазвонит — звонить ему будет пуш.
+    // Без пометки сервер считал бы его живым до 40 с после пинга (SOCKET_STALE_MS),
+    // и звонок, пришедший в это время, проходил бы в тишине.
+    if (msg.type === 'away' || msg.type === 'back') {
+      ws.serializeAttachment({ ...att, away: msg.type === 'away' });
+      return;
+    }
     // Сигналинг звонков (WebRTC): эфемерный релей — НЕ пишем в БД. data —
     // шифротекст (SDP/ICE, зашифрован семейным ключом). Адресуется конкретному
     // участнику (to). Если адресата нет онлайн и это приглашение (offer) —
@@ -771,8 +790,10 @@ export class FamilyRoom extends DurableObject {
         if (msg.to && boundMember(sock) !== msg.to) continue;
         try {
           sock.send(frame);
-          // Замороженный сокет кадр примет и промолчит — это не доставка.
-          if (this.isFresh(sock)) delivered = true;
+          // Замороженный сокет кадр примет и промолчит — это не доставка. Как и
+          // свёрнутое приложение: на iOS оно спит, входящий не покажет и не
+          // зазвонит, хотя пинговало только что (см. 'away').
+          if (this.isFresh(sock) && !sock.deserializeAttachment()?.away) delivered = true;
         } catch {
           /* сокет закрывается */
         }
@@ -782,15 +803,17 @@ export class FamilyRoom extends DurableObject {
       // сеть, дал бы звонящему гудки, хотя у него не звонит ничего. Живое
       // приложение собеседника скажет «звонит» само, показав входящий.
       if (!delivered && msg.kind === 'offer' && msg.to) {
-        // ОДИН пуш на звонок (не серия): trackPendingCall вернёт true только на
-        // первый недоставленный offer; повторные offer каждые 2.5с пуш не дублируют.
+        // Серия пушей, а не пуш на каждый повтор: trackPendingCall отдаёт TTL
+        // очередного пуша только раз в CALL_PUSH_EVERY_MS, остальные повторы
+        // приглашения (каждые 2.5 с) пуш не дублируют.
         // Уведомление принято службой пушей — у собеседника звонит: говорим
         // звонящему «звонит» от его имени, у него пойдут гудки. Открытое
         // приложение собеседника скажет это само. Повторы приглашения получают
         // «звонит» снова — одиночный кадр мог потеряться.
-        if (this.trackPendingCall(msg.to, msg.call)) {
+        const ttl = this.trackPendingCall(msg.to, msg.call);
+        if (ttl) {
           this.ctx.waitUntil(
-            this.pushCall(msg.to, msg.call).then((ok) => {
+            this.pushCall(msg.to, msg.call, ttl).then((ok) => {
               if (!ok) return;
               this.markCallPushed(msg.call);
               this.sendRinging(ws, from, msg.to, msg.call);
@@ -827,8 +850,14 @@ export class FamilyRoom extends DurableObject {
       // и приложение, до которого сервер не достучался по свежести (вкладка в
       // фоне с редкими пингами), и снятая страховка давала бы новый пуш на
       // каждый повтор приглашения, а alarm — ни одного «пропущенного».
-      if (msg.call && msg.kind !== 'offer' && msg.kind !== 'ringing') {
-        this.sql.exec('DELETE FROM meta WHERE k=?', `callpend:${msg.call}`);
+      // «ice» — тоже нет: поздние кандидаты звонящего (после потолка сбора)
+      // идут и до ответа, и снятая страховка начинала серию пушей заново.
+      // Ответ страховку не снимает, а помечает «отвечен»: переподключение
+      // посреди разговора шлёт приглашения снова, и собеседник без сокета
+      // получал бы серию «Входящий звонок» прямо в разговоре.
+      if (msg.call && msg.kind !== 'offer' && msg.kind !== 'ringing' && msg.kind !== 'ice') {
+        if (msg.kind === 'accepted' || msg.kind === 'answer') this.markCallAnswered(msg.call);
+        else this.sql.exec('DELETE FROM meta WHERE k=?', `callpend:${msg.call}`);
       }
       return;
     }
@@ -1013,10 +1042,11 @@ export class FamilyRoom extends DurableObject {
     return { iceServers: servers, turnError };
   }
 
-  // Пуш о входящем звонке участнику, которого нет онлайн (WS мёртв). Один на
-  // звонок (дедуп по callpend в trackPendingCall): юзер попросил без серии —
-  // единственное уведомление, дальше исход решает alarm/cancel («пропущенный»).
-  async pushCall(toMemberId, callId) {
+  // Пуш о входящем звонке участнику, которого нет онлайн (WS мёртв или
+  // приложение в фоне). Серия — такт решает trackPendingCall; у всех пушей
+  // серии один tag — карточка одна, заменяется. Исход решает alarm/cancel
+  // («пропущенный» с тем же tag).
+  async pushCall(toMemberId, callId, ttl = 40) {
     const row = this.sql
       .exec('SELECT push_sub FROM members WHERE member_id=? AND push_sub IS NOT NULL', toMemberId)
       .toArray()[0];
@@ -1037,7 +1067,7 @@ export class FamilyRoom extends DurableObject {
       familyId: this.familyIdMeta(),
       call: true,
       tag: 'family-call:' + (callId || this.familyIdMeta() || 'all'),
-    }, 40); // TTL в пределах ринга (45 с): опоздавший «звонит» после его конца не нужен
+    }, ttl); // TTL в пределах ринга (45 с): опоздавший «звонит» после его конца не нужен
   }
 
   // «Пропущенный звонок»: тот же tag — на Android заменяет карточку «звонит».
@@ -1069,16 +1099,33 @@ export class FamilyRoom extends DurableObject {
   // Страховка от «вечной карточки звонит»: если приложение звонящего умрёт до
   // таймаута ринга (свернул PWA — iOS убивает фон), cancel не придёт и missed
   // некому послать. Запоминаем НАЧАЛО дозвона и alarm'ом добиваем сами.
-  // Возвращает true, если это ПЕРВЫЙ offer звонка (маркер «пуш ещё не слали»).
+  // Заодно такт серии «Входящий звонок»: возвращает TTL пуша (с), если он
+  // сейчас положен — первое приглашение или CALL_PUSH_EVERY_MS с прошлого, —
+  // иначе 0. Отметку ставим сразу, до отправки: следующий повтор приглашения
+  // придёт раньше, чем служба пушей ответит.
   trackPendingCall(toMemberId, callId) {
-    if (!callId) return false;
+    if (!callId) return 0;
     const k = `callpend:${callId}`;
-    const exists = this.sql.exec('SELECT 1 FROM meta WHERE k=? LIMIT 1', k).toArray()[0];
-    if (!exists) {
-      this.sql.exec('INSERT INTO meta (k, v) VALUES (?, ?)', k, JSON.stringify({ to: toMemberId, at: Date.now() }));
+    const now = Date.now();
+    this.ctx.waitUntil(this.ctx.storage.setAlarm(now + CALL_PENDING_TTL_MS + 3000));
+    const row = this.sql.exec('SELECT v FROM meta WHERE k=?', k).toArray()[0];
+    let p = null;
+    try {
+      p = row ? JSON.parse(row.v) : null;
+    } catch {
+      return 0; // битая запись — серию не начинаем; alarm её подчистит
     }
-    this.ctx.waitUntil(this.ctx.storage.setAlarm(Date.now() + CALL_PENDING_TTL_MS + 3000));
-    return !exists;
+    if (p?.answered) return 0; // приглашение переподключения, а не дозвон
+    if (!p) {
+      this.sql.exec('INSERT INTO meta (k, v) VALUES (?, ?)', k, JSON.stringify({ to: toMemberId, at: now, lastPush: now }));
+      return 40;
+    }
+    const age = now - (p.at || now);
+    if (age > CALL_PUSH_UNTIL_MS || now - (p.lastPush ?? p.at ?? 0) < CALL_PUSH_EVERY_MS) return 0;
+    this.sql.exec('UPDATE meta SET v=? WHERE k=?', JSON.stringify({ ...p, lastPush: now }), k);
+    // Повтор нужен сейчас или никогда — и не дольше конца дозвона: опоздавший
+    // «звонит» лёг бы поверх «пропущенного».
+    return Math.max(1, Math.min(10, Math.floor((CALL_PENDING_TTL_MS - 2000 - age) / 1000)));
   }
 
   async alarm() {
@@ -1093,6 +1140,7 @@ export class FamilyRoom extends DurableObject {
         continue;
       }
       const age = Date.now() - (p.at || 0);
+      if (p.answered) continue; // разговор, а не дозвон — «пропущенного» нет
       if (age >= CALL_PENDING_TTL_MS) {
         this.sql.exec('DELETE FROM meta WHERE k=?', r.k);
         await this.pushMissedCall(p.to, r.k.slice('callpend:'.length));
@@ -1131,12 +1179,29 @@ export class FamilyRoom extends DurableObject {
   markCallPushed(callId) {
     const k = `callpend:${callId}`;
     const row = this.sql.exec('SELECT v FROM meta WHERE k=?', k).toArray()[0];
-    if (!row) return; // страховку уже сняли: адресат ответил или звонок кончился
+    if (!row) return; // страховку уже сняли: звонок кончился
     try {
-      this.sql.exec('UPDATE meta SET v=? WHERE k=?', JSON.stringify({ ...JSON.parse(row.v), pushed: true }), k);
+      const p = JSON.parse(row.v);
+      if (p.answered) return; // ответили, пока служба пушей отвечала
+      this.sql.exec('UPDATE meta SET v=? WHERE k=?', JSON.stringify({ ...p, pushed: true }), k);
     } catch {
       /* битая запись — без отметки повторы просто не скажут «звонит» */
     }
+  }
+
+  /** Трубку сняли: запись страховки остаётся пометкой на весь разговор —
+   *  приглашения переподключения не звонят пушами, alarm «пропущенный» не шлёт.
+   *  Есть и у звонка, дошедшего до живого приложения (записи до ответа не было). */
+  markCallAnswered(callId) {
+    for (const r of this.sql.exec("SELECT k, v FROM meta WHERE k LIKE 'callpend:%'").toArray()) {
+      try {
+        const p = JSON.parse(r.v);
+        if (p.answered && Date.now() - p.at >= CALL_ANSWERED_KEEP_MS) this.sql.exec('DELETE FROM meta WHERE k=?', r.k);
+      } catch {
+        /* битую запись разберёт alarm */
+      }
+    }
+    this.sql.exec('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', `callpend:${callId}`, JSON.stringify({ answered: true, at: Date.now() }));
   }
 
   callPushed(callId) {
