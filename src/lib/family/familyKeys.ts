@@ -322,7 +322,7 @@ export class KeyDeliveryError extends Error {
   readonly names: string[];
   constructor(names: string[]) {
     super(
-      t('Участник исключён, но новый ключ пока не дошёл до: {names}. Повторите, когда они будут в сети.', {
+      t('Участник исключён, но новый ключ не дошёл до: {names}. Отправить его ещё раз можно в карточке группы.', {
         names: names.join(', '),
       }),
     );
@@ -377,11 +377,17 @@ export async function resendKeys(familyId: string): Promise<string[]> {
         },
         body: JSON.stringify({ channel: 'key', itemId: m.id, ciphertext }),
       });
-      if (!r.ok) failed.push(m.displayName || t('участник'));
+      if (!r.ok) throw new Error();
     } catch {
-      failed.push(m.displayName || t('участник'));
+      // Свой конверт не называем: «не дошёл до Влада» самому Владу ничего не
+      // говорит, а его другие устройства получат ключ аккаунтным синком.
+      if (m.id !== c.selfMemberId) failed.push(m.displayName || t('участник'));
     }
   }
+  // Итог запоминаем: по нему карточка группы показывает владельцу повтор,
+  // пока раздача не пройдёт. Успешная — в том числе после следующего
+  // исключения — снимает пометку.
+  await patchFamilyConfig(familyId, { undeliveredKeys: failed.length ? failed : undefined });
   return failed;
 }
 

@@ -152,8 +152,17 @@ export const EN: Record<string, string> = {
   'участник': 'member',
 
   // === Семья: группа и файлы ===
-  'Участник исключён, но новый ключ пока не дошёл до: {names}. Повторите, когда они будут в сети.':
-    "Member removed, but the new key hasn't reached: {names}. Retry when they are online.",
+  'Участник исключён, но новый ключ не дошёл до: {names}. Отправить его ещё раз можно в карточке группы.':
+    "Member removed, but the new key didn't reach: {names}. You can send it again from the group card.",
+  'Новый ключ дошёл не до всех': "The new key didn't reach everyone",
+  '{names} пока не видит новых сообщений группы. Интернет нужен только вам: ключ подтянется сам, когда на том телефоне откроют приложение.':
+    "{names} can't see new group messages yet. Only you need to be online: the key will arrive on their phone by itself once the app is opened there.",
+  '{names} пока не видят новых сообщений группы. Интернет нужен только вам: ключ они заберут сами, когда откроют приложение.':
+    "{names} can't see new group messages yet. Only you need to be online: they'll pick up the key themselves when they open the app.",
+  'Снова не дошло. Проверьте интернет и попробуйте ещё раз.': "Didn't go through again. Check your connection and try once more.",
+  'Отправить ключ ещё раз': 'Send the key again',
+  'Отправляем…': 'Sending…',
+  'Новый ключ отправлен': 'New key sent',
   'Исключать участников может только владелец группы': 'Only the group owner can remove members',
   'Группа не найдена': 'Group not found',
   'Без имени': 'Unnamed',

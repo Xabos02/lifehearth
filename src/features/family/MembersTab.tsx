@@ -30,8 +30,11 @@ import {
   familyHasOwner,
   planRemoval,
   removeMember,
+  resendKeys,
+  KeyDeliveryError,
   type RemovalPlan,
 } from '../../lib/family/familyKeys';
+import { useToast } from '../../components/ui/toastContext';
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
 import { CallDiagSheet } from './CallDiagSheet';
@@ -125,6 +128,9 @@ export function MembersTab({
   const [editName, setEditName] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [removing, setRemoving] = useState<FamilyMember | null>(null);
+  const toast = useToast();
+  const [resending, setResending] = useState(false);
+  const [resendFailed, setResendFailed] = useState(false);
 
   const alive = members.filter((m) => !m.leftAt).sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
   const self = alive.find((m) => m.id === selfId);
@@ -132,6 +138,16 @@ export function MembersTab({
   // только его сервер пустит. У остальных кнопки нет вовсе — показывать её,
   // чтобы потом отказать, хуже, чем не показывать.
   const isOwner = Boolean(config?.ownerSecret);
+  const undelivered = isOwner ? (config?.undeliveredKeys ?? []) : [];
+
+  async function resend() {
+    setResending(true);
+    setResendFailed(false);
+    const failed = await resendKeys(familyId).catch(() => null);
+    setResending(false);
+    if (failed?.length === 0) toast(t('Новый ключ отправлен'), { tone: 'success' });
+    else setResendFailed(true);
+  }
   // Группы, созданные до появления владельцев, остались без него: поля
   // ownerSecret тогда не было ни у кого, заявку не шлёт никто, и «Исключить»
   // не появится ни у кого и никогда. Спрашиваем сервер и предлагаем взять
@@ -216,6 +232,27 @@ export function MembersTab({
           />
         </div>
       </section>
+
+      {/* Повтор раздачи ключа (канва design/key-retry, вариант А): над
+          участниками, чтобы кнопку было видно сразу после закрытия шторки
+          исключения при любом числе участников. Висит, пока раздача не пройдёт:
+          до тех пор у названных людей чат группы правда не работает. */}
+      {undelivered.length > 0 && (
+        <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4">
+          <p className="font-semibold">{t('Новый ключ дошёл не до всех')}</p>
+          {/* Основным цветом, как в остальных жёлтых карточках: вторичный на
+              подложке warning/10 в светлой теме — 4.45:1, ниже AA. */}
+          <p className="mt-0.5 text-sm leading-relaxed">
+            {undelivered.length === 1
+              ? t('{names} пока не видит новых сообщений группы. Интернет нужен только вам: ключ подтянется сам, когда на том телефоне откроют приложение.', { names: undelivered[0] })
+              : t('{names} пока не видят новых сообщений группы. Интернет нужен только вам: ключ они заберут сами, когда откроют приложение.', { names: undelivered.join(', ') })}
+          </p>
+          {resendFailed && <p className="mt-2 text-sm text-danger">{t('Снова не дошло. Проверьте интернет и попробуйте ещё раз.')}</p>}
+          <Button className="mt-3 w-full" disabled={resending} onClick={() => void resend()}>
+            {resending ? t('Отправляем…') : t('Отправить ключ ещё раз')}
+          </Button>
+        </div>
+      )}
 
       <section>
         <div className="mb-2.5 flex items-center justify-between px-1">
@@ -414,6 +451,10 @@ function RemoveMemberSheet({
       await removeMember(familyId, member.id);
       onClose();
     } catch (e) {
+      // Исключение уже состоялось, не дошли только конверты с ключом. Повтор —
+      // в карточке группы (undeliveredKeys), а оставленная здесь кнопка
+      // «Исключить» исключила бы человека заново и сменила ключ ещё раз.
+      if (e instanceof KeyDeliveryError) return onClose();
       setError(e instanceof Error ? e.message : t('Не удалось исключить участника. Проверьте связь и попробуйте ещё раз'));
     } finally {
       setBusy(false);
