@@ -304,6 +304,8 @@ export const EN: Record<string, string> = {
     'They will lose access to new messages, tasks and calls: the group moves to a new key.',
   'Переписку, которую он уже скачал, вернуть нельзя — она осталась на его устройстве.':
     "Messages they already downloaded can't be taken back — they stay on their device.",
+  'Тех, кого он успел пригласить, это не касается: они останутся в группе, пока вы не исключите и их.':
+    "People they invited aren't affected: they stay in the group until you remove them too.",
   'Вернуть его можно только новым приглашением.': 'They can only come back with a new invitation.',
   'Исключаем…': 'Removing…',
   'Исключить': 'Remove',
@@ -1449,6 +1451,7 @@ export const EN: Record<string, string> = {
   'Изменить цель накоплений': 'Edit savings goal',
   'Не удалось сохранить заметку. Текст на экране цел — попробуйте ещё раз':
     'Could not save the note. The text on screen is intact — try again',
+  'Не удалось сохранить последние правки заметки': 'Could not save the latest changes to the note',
   'Последняя попытка не удалась: {when}': 'Last attempt failed: {when}',
   'Нет синхронизации и облачной копии': 'No sync or cloud backup',
   'Напоминания не придут при закрытом приложении':

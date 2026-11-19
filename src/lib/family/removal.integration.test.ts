@@ -452,9 +452,10 @@ describe('удаление группы: клиент против сервер�
     globalThis.fetch = realFetch;
   });
 
-  const ticket = (token: string) =>
-    fetch(`https://w/family/ticket?familyId=${FAMILY_ID}`, {
-      method: 'POST',
+  // Жива ли группа на сервере — по истории: тикет без ответа на задачу сервер
+  // не выдаёт вовсе, а история отвечает на один токен.
+  const alive = (token: string) =>
+    fetch(`https://w/family/messages?familyId=${FAMILY_ID}&since=0`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -468,7 +469,7 @@ describe('удаление группы: клиент против сервер�
     expect(await getFamilyConfig(FAMILY_ID)).toBeFalsy();
     // 410, а не 401: по 401 приложение участника полезло бы за новым ключом
     // и переподключалось бы вечно, так и не сказав, что группы больше нет.
-    expect((await ticket(TOKEN)).status).toBe(410);
+    expect((await alive(TOKEN)).status).toBe(410);
   });
 
   it('с чужим секретом сервер отказывает, и группа остаётся цела', async () => {
@@ -481,7 +482,7 @@ describe('удаление группы: клиент против сервер�
     await expect(deleteFamily(FAMILY_ID)).rejects.toThrow('Удалить группу может только её создатель');
 
     expect(await getFamilyConfig(FAMILY_ID)).toBeTruthy();
-    expect((await ticket(TOKEN)).status).toBe(200);
+    expect((await alive(TOKEN)).status).toBe(200);
   });
 });
 
@@ -618,5 +619,82 @@ describe('права в комнате: клиент несёт доказате
       .toArray()[0];
     if (row) expect(JSON.parse(row.v).nonce).toBe(nonce);
     else expect(nonce).toBeTruthy(); // сервер уже погасил задачу, приняв ответ
+  });
+
+  // Аудит 18.11, S1/F1 — проба keyhijack: участник подменяет профиль Алисы
+  // своим вторым публичным ключом. Владелец после его исключения печатает
+  // «конверт Алисы» на этот ключ: исключённый читает дальше, Алиса молча
+  // теряет группу. Здесь настоящий клиент владельца принимает историю комнаты
+  // настоящим кодом приёма и настоящим removeMember исключает злоумышленника.
+  it('подменить чужой профиль нельзя — исключённый не получает новый ключ, Алиса не теряет группу', async () => {
+    const { connectFamily, disconnectFamily } = await import('./familyChat');
+    const crypto_ = await import('../crypto');
+    await makeMember({ owner: true, token: TOKEN });
+    const ownerCfg = (await snapshot())!;
+    const aliceId = await makeMember({ token: TOKEN });
+    const aliceCfg = (await snapshot())!;
+    const malloryId = await makeMember({ token: TOKEN });
+    const malloryCfg = (await snapshot())!;
+    // Сокеты в комнате — как их открывает воркер по привязанным тикетам.
+    const socketOf = (memberId: string) => {
+      const s = { memberId, closed: null as number | null, sent: [] as string[], att: { memberId, bound: true } as Record<string, unknown> };
+      Object.assign(s, {
+        deserializeAttachment: () => s.att,
+        serializeAttachment: (a: Record<string, unknown>) => void (s.att = a),
+        send: (f: string) => void s.sent.push(f),
+        close: (code: number) => void (s.closed = code),
+      });
+      sockets.push(s);
+      return s;
+    };
+    const wsFrame = (sock: unknown, f: object) =>
+      (room as unknown as { webSocketMessage: (w: unknown, raw: string) => Promise<void> }).webSocketMessage(sock, JSON.stringify(f));
+
+    // Настоящий профиль Алисы — его публикует её приложение.
+    const aliceProfile = (await db.familyMembers.get(aliceId))!;
+    await wsFrame(socketOf(aliceId), { type: 'send', channel: 'member', itemId: aliceId, ciphertext: await encFamily(aliceCfg, aliceProfile) });
+
+    // Подделка: профиль Алисы со вторым ключом злоумышленника.
+    const m2 = await crypto_.generateBoxKeyPair();
+    const poisoned = await encFamily(malloryCfg, { ...aliceProfile, boxPub: await crypto_.exportBoxPublic(m2.publicKey) });
+    const viaHttp = await fetch(`https://w/family/send?familyId=${FAMILY_ID}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel: 'member', itemId: aliceId, senderMemberId: aliceId, ciphertext: poisoned }),
+    });
+    expect(viaHttp.status, 'подмена по HTTP принята').toBe(403);
+    const mallorySock = socketOf(malloryId);
+    await wsFrame(mallorySock, { type: 'send', channel: 'member', itemId: aliceId, senderMemberId: aliceId, ciphertext: poisoned });
+    expect(mallorySock.sent.map((f) => JSON.parse(f).type), 'подмена по сокету принята').toEqual(['nack']);
+
+    // Телефон владельца принимает историю комнаты настоящим кодом приёма.
+    await restore(ownerCfg);
+    await db.familyMembers.delete(aliceId);
+    connectFamily(FAMILY_ID);
+    for (let i = 0; i < 200 && !FakeWS.last; i++) await new Promise((r) => setTimeout(r, 10));
+    const sock = FakeWS.last!;
+    sock.readyState = 1;
+    sock.onopen?.();
+    const hist = (await (await fetch(`https://w/family/messages?familyId=${FAMILY_ID}&since=0`, { headers: { Authorization: `Bearer ${TOKEN}` } })).json()) as { items: unknown[] };
+    await sock.onmessage?.({ data: JSON.stringify({ type: 'backfill', items: hist.items, hasMore: false }) });
+    disconnectFamily(FAMILY_ID);
+    expect((await db.familyMembers.get(aliceId))?.boxPub, 'у владельца ключ Алисы подменён').toBe(aliceCfg.boxPub);
+
+    // Владелец исключает злоумышленника.
+    await removeMember(FAMILY_ID, malloryId);
+    const ownerAfter = (await snapshot())!;
+    expect(ownerAfter.keyEpoch).toBe(1);
+
+    // Злоумышленник забирает «конверт Алисы» и не открывает его своим ключом.
+    const sealed = ((await (await fetch(`https://w/family/keys?familyId=${FAMILY_ID}&member=${aliceId}`)).json()) as { sealed: string }).sealed;
+    await expect(
+      crypto_.openFrom(await crypto_.importBoxPublic(ownerCfg.boxPub!), m2.privateKey, sealed),
+      'исключённый открыл конверт Алисы',
+    ).rejects.toThrow();
+
+    // А Алиса, вернувшись со старым токеном, свой конверт открывает.
+    await restore(aliceCfg);
+    expect(await recoverAccess(FAMILY_ID), 'Алиса потеряла группу').toBe(true);
+    expect((await snapshot())!.familyToken).toBe(ownerAfter.familyToken);
   });
 });

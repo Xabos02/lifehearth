@@ -87,6 +87,11 @@ function makeDb(rows: PullRow[], opts: { hasColumns?: boolean; changes?: number;
     async batch(stmts: { sql: string; args: unknown[] }[]) {
       const out: { meta: { changes: number } }[] = [];
       for (const st of stmts) {
+        // Заведение аккаунта и его предел (limits.test.ts) — не обмен, в учёт не идут.
+        if (/\b(accounts|quota)\b/.test(st.sql)) {
+          out.push({ meta: { changes: 1 } });
+          continue;
+        }
         if (/^\s*(ALTER|CREATE|UPDATE records SET seq = rowid)/.test(st.sql)) {
           ddl.push(st.sql);
           if (st.sql.includes('ADD COLUMN seq') && ddlWorks) hasColumns = true;

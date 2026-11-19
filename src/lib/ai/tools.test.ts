@@ -8,7 +8,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const { db } = await import('../../db/db');
-const { runTool, toolsSystemPrompt } = await import('./tools');
+const { runTool, toolsSystemPrompt, noDataSystemPrompt } = await import('./tools');
 
 const base = { createdAt: '2026-08-01T00:00:00.000Z', updatedAt: '2026-08-01T00:00:00.000Z', deletedAt: null };
 const task = (id: string, title: string, extra: Record<string, unknown> = {}) => ({
@@ -79,6 +79,36 @@ describe('list_tasks', () => {
   });
 });
 
+describe('list_goals', () => {
+  it('цель «по задачам» — доля живых связанных задач, как на карточке', async () => {
+    await db.goals.add({
+      ...base,
+      id: 'g1',
+      title: 'Ремонт',
+      description: '',
+      targetDate: null,
+      status: 'active',
+      progressMode: 'tasks',
+      progressManual: 0, // устаревшее ручное значение — его модели отдавать нельзя
+      targetValue: null,
+      currentValue: null,
+      unitLabel: '',
+      color: '#fff',
+      sortOrder: 1,
+    } as never);
+    await db.tasks.bulkAdd([
+      task('a', 'Сделана', { goalId: 'g1', completedAt: '2026-08-10T10:00:00.000Z' }),
+      task('b', 'Открыта', { goalId: 'g1' }),
+      task('c', 'Удалена', { goalId: 'g1', completedAt: '2026-08-10T10:00:00.000Z', deletedAt: '2026-08-11T10:00:00.000Z' }),
+      task('d', 'Чужая', { goalId: 'g2' }),
+    ] as never[]);
+    const r = JSON.parse((await runTool('list_goals', '{}')).text) as {
+      goals: { progress: string; percent: number }[];
+    };
+    expect(r.goals[0]).toMatchObject({ progress: '1 из 2 задач', percent: 50 });
+  });
+});
+
 describe('заметки', () => {
   beforeEach(async () => {
     await db.notes.bulkAdd([
@@ -140,6 +170,20 @@ describe('системная приписка', () => {
     const p = toolsSystemPrompt();
     expect(p).not.toMatch(/женские дни \(цикл\)/i);
     expect(p).toContain('«Женские дни» тебе недоступен');
+  });
+
+  it('описание приложения — в обеих приписках: разделы из реестра, без «Женских дней» в списке', () => {
+    // Без описания модель на «оцени приложение» отказывалась или выдумывала
+    // («данные без шифрования», «повторы надо доделать») — 18.11.2026.
+    for (const p of [toolsSystemPrompt(), noDataSystemPrompt()]) {
+      expect(p).toContain('О самом приложении');
+      expect(p).toMatch(/Разделы: Сегодня, Календарь, Задачи, Заметки, Семья[^\n]*, ИИ\./);
+      expect(p).toContain('содержимое шифруется на устройстве');
+      // Иначе модель обобщит фразу про шифрование и на «шифруется ли то, что я
+      // пишу ассистенту?» ответит «да».
+      expect(p).toContain('без сквозного шифрования');
+    }
+    expect(noDataSystemPrompt()).not.toContain('Женские дни');
   });
 });
 

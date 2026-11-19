@@ -81,4 +81,10 @@ export default defineConfig(({ command }) => ({
       },
     }),
   ],
+  // Legal-комментарии («/*!», @license) остаются в бандле. Без этого минификатор
+  // вырезает все комментарии, и вместе с ними — атрибуцию значков Font Awesome
+  // (CC BY 4.0, components/ui/glyphs.tsx) и уведомления MIT библиотек.
+  build: {
+    rolldownOptions: { output: { comments: { legal: true } } },
+  },
 }))

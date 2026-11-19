@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>«Сегодня» целиком</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 1708px; height: 960px; box-sizing: border-box; padding: 32px; background: #101015; color: #F0EEE8; font-family: Inter, system-ui, sans-serif">
+<div style="display: grid; grid-template-columns: repeat(4, 393px); column-gap: 24px; row-gap: 10px; align-items: end">
+<div style="font-size: 15px; font-weight: 600">Сейчас, тёмная</div>
+<div style="font-size: 15px; font-weight: 600; color: #C9A84C">Как у Abacus, тёмная</div>
+<div style="font-size: 15px; font-weight: 600">Сейчас, светлая</div>
+<div style="font-size: 15px; font-weight: 600; color: #C9A84C">Как у Abacus, светлая</div>
+<img src="shots/full-now-dark-393.webp" alt="«Сегодня», сейчас, тёмная" style="display: block; width: 393px; height: 852px; border-radius: 24px">
+<img src="shots/full-abacus-dark-393.webp" alt="«Сегодня», как у Abacus, тёмная" style="display: block; width: 393px; height: 852px; border-radius: 24px">
+<img src="shots/full-now-light-393.webp" alt="«Сегодня», сейчас, светлая" style="display: block; width: 393px; height: 852px; border-radius: 24px">
+<img src="shots/full-abacus-light-393.webp" alt="«Сегодня», как у Abacus, светлая" style="display: block; width: 393px; height: 852px; border-radius: 24px">
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1708,"height":960}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
