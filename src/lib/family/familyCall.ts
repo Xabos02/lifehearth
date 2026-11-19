@@ -12,7 +12,7 @@ import { db } from '../../db/db';
 import { encryptJSON, decryptJSON } from '../crypto';
 import { getFamilyConfig } from './familyState';
 import { sendSignal, sendSystemMessage, connectFamily, connectionSettled, type SignalFrame, type SignalKind } from './familyChat';
-import { startRingtone, stopRingtone } from './ringtone';
+import { startRingtone, stopRingtone, startRingback, stopRingback } from './ringtone';
 import { tuneOpusSdp } from './callTuning';
 import { t } from '../i18n';
 
@@ -317,6 +317,9 @@ class CallManager {
   };
   getSnapshot = (): CallSnapshot => this.snap;
   private set(p: Partial<CallSnapshot>) {
+    // Гудки — только пока звоним: сняли трубку, отказ, отбой, ошибка — любой
+    // уход из «Вызов…» их глушит. Одна проверка здесь, а не в каждом выходе.
+    if (p.status && p.status !== 'outgoing') stopRingback();
     this.snap = { ...this.snap, ...p };
     this.listeners.forEach((l) => l());
   }
@@ -771,6 +774,8 @@ class CallManager {
     }
     const sendOffer = () => void this.signal('offer', { sdp: pc.localDescription });
     sendOffer();
+    // Приглашение ушло — звонящему гудки, как в обычном телефоне.
+    if (this.getSnapshot().status === 'outgoing') startRingback();
     this.resendTimer = setInterval(sendOffer, OFFER_RESEND_MS);
     this.ringTimer = setTimeout(() => {
       this.ringTimer = null;

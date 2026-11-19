@@ -142,6 +142,58 @@ export function stopRingtone(): void {
   }
 }
 
+// Гудки звонящему — «контроль посылки вызова» телефонной сети: 425 Гц, 1 с
+// звук, 4 с пауза (приказ Мининформсвязи № 48 от 2007, прил. 7; тот же ритм в
+// ГОСТ 28384-89 и у ETSI). Раньше «Вызов…» шёл в тишине, и звонящий не
+// понимал, идёт ли вызов вообще.
+const RINGBACK_HZ = 425;
+const RINGBACK_ON_S = 1;
+const RINGBACK_CYCLE_S = 5;
+// Весь дозвон (45 с) с запасом. Расписание кладём на часы аудиоконтекста
+// разом, а не тикаем таймером: iOS притормаживает таймеры, и гудки поплыли
+// бы. У приостановленного контекста часы стоят — расписание просто сдвинется
+// целиком и зазвучит с разлочки, без залпа.
+const RINGBACK_CYCLES = 12;
+
+let stopBack: (() => void) | null = null;
+
+/** Гудки, пока у собеседника звонит. Останавливает stopRingback. */
+export function startRingback(): void {
+  stopRingback();
+  let ac: AudioContext;
+  try {
+    ctx = ctx ?? new AudioContext();
+    ac = ctx;
+  } catch {
+    return; // WebAudio недоступен — «Вызов…» на экране остаётся
+  }
+  // iOS держит контекст 'interrupted' после захвата микрофона — будим.
+  if (ac.state !== 'running') void ac.resume().catch(() => {});
+  const master = ac.createGain();
+  master.gain.value = 0.3; // ≈ −10 дБ: середина допуска сигнала (−15…−5 дБ)
+  master.connect(ac.destination);
+  const t0 = ac.currentTime + 0.05;
+  const cancels: (() => void)[] = [];
+  for (let i = 0; i < RINGBACK_CYCLES; i++) {
+    cancels.push(burst(ac, t0 + i * RINGBACK_CYCLE_S, RINGBACK_ON_S, master, [RINGBACK_HZ]));
+  }
+  stopBack = () => {
+    for (const c of cancels) c();
+    try {
+      master.disconnect();
+    } catch {
+      /* контекст уже закрыт */
+    }
+  };
+}
+
+export function stopRingback(): void {
+  if (stopBack) {
+    stopBack();
+    stopBack = null;
+  }
+}
+
 /** Короткое прослушивание варианта (для настроек): одна трель, затем стоп.
  *  Останавливаем только СВОЙ предпрослушиваемый рингтон: если за 2.2 с придёт
  *  реальный входящий (сменит startToken), его трель мы не глушим. */

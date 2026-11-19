@@ -41,6 +41,15 @@ export function tuneOpusSdp(sdp: string | undefined): string | undefined {
  */
 export function orderTurnUrls(urls: string[]): string[] {
   const kept = urls.filter((u) => typeof u === 'string' && !/:53(\?|$)/.test(u));
+  // Запасные порты Cloudflare: по документации TURN тот же ретранслятор
+  // слушает 443/udp рядом с 3478/udp и 80/tcp рядом с 3478/tcp. В выдаче
+  // ключа их нет, а сеть, которая режет 3478, их может пропустить.
+  for (const u of [...kept]) {
+    const m = /^turn:(turn\.cloudflare\.com):3478\?transport=(udp|tcp)$/.exec(u);
+    if (!m) continue;
+    const alt = `turn:${m[1]}:${m[2] === 'udp' ? 443 : 80}?transport=${m[2]}`;
+    if (!kept.includes(alt)) kept.push(alt);
+  }
   const rank = (u: string) => {
     if (u.startsWith('turns:') && u.includes(':443')) return 0;
     if (u.startsWith('turns:')) return 1;

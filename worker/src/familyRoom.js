@@ -1133,6 +1133,13 @@ function orderTurn(ice) {
     const urls = (Array.isArray(s.urls) ? s.urls : [s.urls]).filter(
       (u) => typeof u === 'string' && !/:53(\?|$)/.test(u),
     );
+    // Запасные порты Cloudflare (443/udp, 80/tcp) — см. orderTurnUrls.
+    for (const u of [...urls]) {
+      const m = /^turn:(turn\.cloudflare\.com):3478\?transport=(udp|tcp)$/.exec(u);
+      if (!m) continue;
+      const alt = `turn:${m[1]}:${m[2] === 'udp' ? 443 : 80}?transport=${m[2]}`;
+      if (!urls.includes(alt)) urls.push(alt);
+    }
     const rank = (u) => {
       if (u.startsWith('turns:') && u.includes(':443')) return 0;
       if (u.startsWith('turns:')) return 1;
