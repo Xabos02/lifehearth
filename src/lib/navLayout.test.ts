@@ -8,7 +8,7 @@ const REG: NavRegistryItem[] = [
   { id: 'notes' },
   { id: 'goals' },
   { id: 'finance' },
-  { id: 'cycle', hiddenByDefault: true },
+  { id: 'cycle' },
   { id: 'settings', nonHideable: true },
   { id: 'home', anchor: true },
 ];
@@ -65,45 +65,5 @@ describe('computeNavLayout', () => {
     expect(computeNavLayout(reg, undefined, OPTS).more[0]).toBe('ai');
     expect(computeNavLayout(reg, { bottom: ['today'], more: ['goals', 'ai'] }, OPTS).more.slice(0, 2)).toEqual(['goals', 'ai']);
     expect(computeNavLayout(reg, { bottom: ['today'], hidden: ['ai'] }, OPTS).more).not.toContain('ai');
-  });
-});
-
-describe('разделы «по запросу» (hiddenByDefault)', () => {
-  it('скрыт, когда конфига нет вообще', () => {
-    const l = computeNavLayout(REG, undefined, OPTS);
-    expect(l.hidden).toContain('cycle');
-    expect(l.more).not.toContain('cycle');
-    expect(l.bottom).not.toContain('cycle');
-  });
-
-  it('скрыт, когда конфиг есть, но раздел в нём не упомянут', () => {
-    const l = computeNavLayout(REG, { bottom: ['today', 'tasks'], more: ['goals'] }, OPTS);
-    expect(l.hidden).toContain('cycle');
-  });
-
-  it('показывается, как только человек положил его в «Главную»', () => {
-    const l = computeNavLayout(REG, { bottom: ['today'], more: ['cycle', 'goals'] }, OPTS);
-    expect(l.more[0]).toBe('cycle');
-    expect(l.hidden).not.toContain('cycle');
-  });
-
-  it('показывается, если человек вынес его в панель', () => {
-    const l = computeNavLayout(REG, { bottom: ['today', 'cycle'] }, OPTS);
-    expect(l.bottom).toContain('cycle');
-    expect(l.hidden).not.toContain('cycle');
-  });
-
-  it('остаётся скрытым, если человек спрятал его сам — и это не то же самое, что «не видел»', () => {
-    // Важный случай: раздел упомянут в hidden явно. Если бы флаг проверял
-    // «нет в hidden», такой раздел вёл бы себя как никогда не виденный, и
-    // любая перестройка конфига возвращала бы его на экран.
-    const l = computeNavLayout(REG, { bottom: ['today'], hidden: ['cycle'] }, OPTS);
-    expect(l.hidden).toContain('cycle');
-    expect(l.hidden.filter((id) => id === 'cycle')).toHaveLength(1);
-  });
-
-  it('не влияет на остальные разделы', () => {
-    const l = computeNavLayout(REG, undefined, OPTS);
-    expect(l.hidden).toEqual(['cycle']);
   });
 });

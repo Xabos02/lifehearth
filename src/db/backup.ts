@@ -1,4 +1,4 @@
-import { db, SCHEMA_VERSION } from './db';
+import { db, SCHEMA_VERSION, showCycleForFemale } from './db';
 import { now } from './repo';
 import { t } from '../lib/i18n';
 
@@ -224,11 +224,13 @@ export async function importBackup(b: BackupFile): Promise<void> {
     for (const name of TABLES) {
       let rows = b.data[name];
       if (name === 'settings' && rows) {
-        rows = rows.map((r) => ({
-          ...(r as object),
-          consentAt: here?.consentAt,
-          consentAskedAt: here?.consentAskedAt,
-        }));
+        rows = rows.map((r) => {
+          const row = { ...(r as object), consentAt: here?.consentAt, consentAskedAt: here?.consentAskedAt };
+          // Копия до v25 несёт «Женские дни» спрятанными старым умолчанием —
+          // та же правка, что апгрейд v25 сделал на этом телефоне.
+          if (b.schemaVersion < 25) showCycleForFemale(row);
+          return row;
+        });
       }
       // Таблицу, отсутствующую в файле, НЕ трогаем — иначе частичный или
       // старый бэкап молча затёр бы её текущие данные без возможности отката.
