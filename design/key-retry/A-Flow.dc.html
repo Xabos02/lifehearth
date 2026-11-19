@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>А: повтор снова не дошёл и дошёл</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1572px; height: 876px; display: flex; flex-direction: column; background: #f4f3ef; font-family: Inter, system-ui, sans-serif; color: #1c1b18">
+<div style="height: 64px; box-sizing: border-box; padding: 10px 14px; display: flex; flex-direction: column; justify-content: center; gap: 2px">
+<p style="margin: 0; font-size: 15px; font-weight: 600">А после нажатия: снова не дошло (слева) · дошло (справа)</p>
+<p style="margin: 0; font-size: 13px; color: #55524a">Неудача — словами в самой карточке, кнопка остаётся; успех — тост «Новый ключ отправлен», карточка уходит. В Б и В — те же тексты в подписи строки</p>
+</div>
+<div style="display: flex; gap: 24px">
+<img src="shots/a-fail-dark.webp" alt="Снова не дошло, тёмная тема" style="width: 375px; height: 812px; display: block">
+<img src="shots/a-fail-light.webp" alt="Снова не дошло, светлая тема" style="width: 375px; height: 812px; display: block">
+<img src="shots/a-done-dark.webp" alt="Ключ отправлен, тёмная тема" style="width: 375px; height: 812px; display: block">
+<img src="shots/a-done-light.webp" alt="Ключ отправлен, светлая тема" style="width: 375px; height: 812px; display: block">
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1572,"height":876}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
