@@ -676,7 +676,7 @@ describe('гудки звонящему, когда у собеседника з
     await r.offer();
     expect(r.ringing()).toEqual([{ type: 'signal', from: 'vlad', to: 'mom', call: 'c1', kind: 'ringing', data: null }]);
     await r.offer();
-    expect(r.pushes(), 'пуш — один на звонок').toBe(1);
+    expect(r.pushes(), 'повтор в пределах такта серии — без нового пуша').toBe(1);
     expect(r.ringing(), 'одиночный кадр мог потеряться — повтор приглашения спрашивает снова').toHaveLength(2);
   });
 
@@ -689,7 +689,7 @@ describe('гудки звонящему, когда у собеседника з
 });
 
 describe('«звонит» и страховка дозвона', () => {
-  it('«звонит» от собеседника с молчащим сокетом не снимает страховку: пуш один, «пропущенный» alarm найдёт', async () => {
+  it('«звонит» от собеседника с молчащим сокетом не снимает страховку: пуш не дублируется, «пропущенный» alarm найдёт', async () => {
     const { room, addSocket } = makeRoom();
     const inner = room as unknown as { ctx: { waitUntil: (p: Promise<unknown>) => void }; pushCall: () => Promise<boolean> };
     const pending: Promise<unknown>[] = [];
@@ -710,7 +710,7 @@ describe('«звонит» и страховка дозвона', () => {
       await Promise.all(pending);
       await sig(callee, { to: 'mom', call: 'c1', kind: 'ringing', data: null });
     }
-    expect(pushes, 'серия «Входящий звонок»').toBe(1);
+    expect(pushes, 'повторы в пределах такта серии пуш не дублируют').toBe(1);
     const pend = room.sql.exec("SELECT k FROM meta WHERE k LIKE 'callpend:%'").toArray() as { k: string }[];
     expect(pend.map((r) => r.k), 'alarm не пошлёт «пропущенный»').toEqual(['callpend:c1']);
   });
@@ -728,5 +728,208 @@ describe('«звонит» и страховка дозвона', () => {
     expect(framesOf(caller).filter((f) => f.kind === 'ringing')).toEqual([
       { type: 'signal', from: 'vlad', to: 'mom', call: 'c1', kind: 'ringing', data: null },
     ]);
+  });
+});
+
+describe('серия «Входящий звонок», пока звонящий зовёт', () => {
+  // Один пуш звякал раз и замолкал — звонок не было слышно (Влад, 20.11).
+  // Теперь пуш повторяется раз в 5 с, пока идут повторы приглашения
+  // (каждые 2.5 с), и кончается вместе с ними: ответили, отказали, звонящий
+  // отменил или пропал. «Пропущенный» — один.
+  const T0 = Date.UTC(2026, 10, 20, 12, 0, 0);
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(T0);
+    return () => vi.useRealTimers();
+  });
+
+  function room() {
+    const r = makeRoom();
+    const inner = r.room as unknown as {
+      ctx: { waitUntil: (p: Promise<unknown>) => void };
+      pushCall: (to: string, call: string, ttl: number) => Promise<boolean>;
+      pushMissedCall: (to: string, call: string) => Promise<void>;
+      alarm: () => Promise<void>;
+    };
+    const pending: Promise<unknown>[] = [];
+    inner.ctx.waitUntil = (p) => void pending.push(p);
+    const pushes: { at: number; ttl: number }[] = [];
+    inner.pushCall = async (_to, _call, ttl) => {
+      pushes.push({ at: Date.now() - T0, ttl });
+      return true;
+    };
+    let missed = 0;
+    inner.pushMissedCall = async () => {
+      missed++;
+    };
+    const caller = r.addSocket('mom');
+    const fresh = (ws: FakeSocket, memberId: string, extra: Record<string, unknown> = {}) =>
+      ws.serializeAttachment({ memberId, bound: true, at: Date.now(), ...extra });
+    fresh(caller, 'mom');
+    const sig = async (ws: FakeSocket, f: Record<string, unknown>) => {
+      await r.room.webSocketMessage(ws, JSON.stringify({ type: 'signal', call: 'c1', data: null, ...f }));
+      await Promise.all(pending);
+    };
+    // Повторы приглашения, как их шлёт приложение звонящего: раз в 2.5 с.
+    const ringFor = async (fromMs: number, toMs: number) => {
+      for (let t = fromMs; t <= toMs; t += 2500) {
+        vi.setSystemTime(T0 + t);
+        fresh(caller, 'mom'); // звонящий на виду — его сокет живой
+        await sig(caller, { to: 'vlad', kind: 'offer', data: 'x' });
+      }
+    };
+    const pend = () => (r.room.sql.exec("SELECT k FROM meta WHERE k LIKE 'callpend:%'").toArray() as { k: string }[]).map((x) => x.k);
+    return { ...r, inner, caller, fresh, sig, ringFor, pushes, missed: () => missed, pend };
+  }
+
+  it('приложение закрыто: пуш раз в 5 с весь дозвон, последний — не позже 40 с и не живёт дольше дозвона', async () => {
+    const r = room();
+    await r.ringFor(0, 45_000);
+    expect(r.pushes.map((p) => p.at)).toEqual([0, 5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000]);
+    // TTL: первый ждёт телефон без сети до 40 с; повтор нужен сейчас или
+    // никогда; ни один не ляжет поверх «пропущенного» после 45 с.
+    expect(r.pushes.map((p) => p.ttl)).toEqual([40, 10, 10, 10, 10, 10, 10, 10, 5]);
+    for (const p of r.pushes) expect(p.at / 1000 + p.ttl, `пуш на ${p.at} мс`).toBeLessThanOrEqual(45);
+    expect(framesOf(r.caller).filter((f) => f.kind === 'ringing').length, 'гудки звонящему на каждый повтор').toBe(19);
+  });
+
+  it('ответили — серия кончилась, «пропущенного» нет', async () => {
+    const r = room();
+    await r.ringFor(0, 7500);
+    expect(r.pushes).toHaveLength(2);
+    // Тап по уведомлению: приложение открылось, сокет живой, трубку сняли.
+    const phone = r.addSocket('vlad');
+    r.fresh(phone, 'vlad');
+    await r.sig(phone, { to: 'mom', kind: 'accepted' });
+    await r.ringFor(10_000, 12_500); // хвост повторов, пока звонящий не узнал
+    expect(r.pushes, 'приглашение доставлено живому приложению — пуш не нужен').toHaveLength(2);
+    vi.setSystemTime(T0 + 60_000);
+    await r.inner.alarm();
+    expect(r.missed()).toBe(0);
+  });
+
+  it('ответили на другом устройстве — телефон, свёрнутый в фоне, больше не получает пушей', async () => {
+    const r = room();
+    const phone = r.addSocket('vlad');
+    r.fresh(phone, 'vlad', { away: true });
+    await r.ringFor(0, 5000);
+    expect(r.pushes, 'телефон в фоне — серия идёт').toHaveLength(2);
+    const mac = r.addSocket('vlad');
+    r.fresh(mac, 'vlad');
+    await r.sig(mac, { to: 'mom', kind: 'accepted' });
+    expect(framesOf(phone).some((f) => f.kind === 'cancel'), 'телефон перестаёт звонить').toBe(true);
+    await r.ringFor(7500, 10_000);
+    expect(r.pushes).toHaveLength(2);
+  });
+
+  it('отказали — серия кончилась, «пропущенного» нет', async () => {
+    const r = room();
+    await r.ringFor(0, 5000);
+    const phone = r.addSocket('vlad');
+    r.fresh(phone, 'vlad');
+    await r.sig(phone, { to: 'mom', kind: 'decline' });
+    expect(r.pend()).toEqual([]);
+    vi.setSystemTime(T0 + 60_000);
+    await r.inner.alarm();
+    expect(r.pushes).toHaveLength(2);
+    expect(r.missed()).toBe(0);
+  });
+
+  it('звонящий отменил — серия кончилась, «пропущенный» ровно один', async () => {
+    const r = room();
+    await r.ringFor(0, 12_500);
+    await r.sig(r.caller, { to: 'vlad', kind: 'cancel' });
+    expect(r.missed()).toBe(1);
+    expect(r.pend(), 'alarm второй «пропущенный» не пошлёт').toEqual([]);
+    vi.setSystemTime(T0 + 60_000);
+    await r.inner.alarm();
+    expect(r.missed()).toBe(1);
+    expect(r.pushes).toHaveLength(3);
+  });
+
+  it('таймаут: звонящий не дождался и отменил на 45 с — один «пропущенный»', async () => {
+    const r = room();
+    await r.ringFor(0, 42_500);
+    vi.setSystemTime(T0 + 45_000);
+    await r.sig(r.caller, { to: 'vlad', kind: 'cancel' });
+    vi.setSystemTime(T0 + 60_000);
+    await r.inner.alarm();
+    expect(r.missed()).toBe(1);
+    expect(r.pushes).toHaveLength(9);
+  });
+
+  it('приложение звонящего умерло посреди дозвона — серия стоит, «пропущенный» один от alarm', async () => {
+    const r = room();
+    await r.ringFor(0, 10_000); // дальше повторов нет: iOS убил свёрнутое приложение
+    expect(r.pushes).toHaveLength(3);
+    vi.setSystemTime(T0 + 48_000);
+    await r.inner.alarm();
+    await r.inner.alarm();
+    expect(r.missed()).toBe(1);
+    expect(r.pushes).toHaveLength(3);
+  });
+
+  it('поздние кандидаты звонящего (ice) не перезапускают серию', async () => {
+    // Кандидаты, собранные после потолка сбора (2 с), идут отдельными
+    // сигналами ещё до ответа. Раньше любой сигнал снимал страховку — и
+    // следующий повтор приглашения начинал серию заново: лишний пуш через
+    // 2.5 с, срок жизни 40 с, окно 40 с отсчитывалось снова.
+    const r = room();
+    await r.ringFor(0, 0);
+    vi.setSystemTime(T0 + 1000);
+    await r.sig(r.caller, { to: 'vlad', kind: 'ice', data: 'cand' });
+    await r.ringFor(2500, 10_000);
+    vi.setSystemTime(T0 + 30_000);
+    await r.sig(r.caller, { to: 'vlad', kind: 'ice', data: 'cand' });
+    await r.ringFor(30_000, 45_000);
+    expect(r.pushes.map((p) => p.at)).toEqual([0, 5000, 10000, 30000, 35000, 40000]);
+    for (const p of r.pushes) expect(p.at / 1000 + p.ttl, `пуш на ${p.at} мс`).toBeLessThanOrEqual(45);
+  });
+
+  it('переподключение посреди разговора — ни пушей «Входящий звонок», ни «звонит», ни «пропущенного»', async () => {
+    // Сеть сменилась — звонящий шлёт приглашение заново, а у собеседника
+    // сокет как раз закрылся. Это разговор, а не дозвон.
+    const r = room();
+    await r.ringFor(0, 2500);
+    const phone = r.addSocket('vlad');
+    r.fresh(phone, 'vlad');
+    await r.sig(phone, { to: 'mom', kind: 'accepted' });
+    await r.sig(phone, { to: 'mom', kind: 'answer', data: 'sdp' });
+    const before = framesOf(r.caller).filter((f) => f.kind === 'ringing').length;
+    phone.serializeAttachment({ memberId: 'vlad', bound: true, at: Date.now() - 60_000 }); // замолчал
+    await r.ringFor(120_000, 135_000);
+    expect(r.pushes, 'только дозвон до ответа').toHaveLength(1);
+    expect(framesOf(r.caller).filter((f) => f.kind === 'ringing').length, '«звонит» посреди разговора').toBe(before);
+    vi.setSystemTime(T0 + 300_000);
+    await r.inner.alarm();
+    expect(r.missed()).toBe(0);
+  });
+
+  it('звонок дошёл до живого приложения и отвечен — переподключение тоже не звонит пушами', async () => {
+    const r = room();
+    const phone = r.addSocket('vlad');
+    r.fresh(phone, 'vlad');
+    await r.ringFor(0, 2500);
+    await r.sig(phone, { to: 'mom', kind: 'accepted' });
+    phone.serializeAttachment({ memberId: 'vlad', bound: true, at: Date.now() - 60_000 });
+    await r.ringFor(60_000, 70_000);
+    expect(r.pushes).toEqual([]);
+    // Пометка живёт дольше разговора, а не вечно: следующий ответ чистит старые.
+    vi.setSystemTime(T0 + 13 * 3600_000);
+    await r.sig(phone, { to: 'mom', kind: 'accepted', call: 'c2' });
+    expect(r.pend()).toEqual(['callpend:c2']);
+  });
+
+  it('приложение в фоне: живой сокет с пометкой away — приглашение не доставлено, идёт серия; вернулся — пуша нет', async () => {
+    const r = room();
+    const phone = r.addSocket('vlad');
+    r.fresh(phone, 'vlad');
+    await r.room.webSocketMessage(phone, JSON.stringify({ type: 'away' }));
+    await r.ringFor(0, 2500);
+    expect(framesOf(phone).some((f) => f.kind === 'offer'), 'кадр всё равно отдан — вдруг проснётся').toBe(true);
+    expect(r.pushes, 'свёрнутое приложение не зазвонит — звонит пуш').toHaveLength(1);
+    await r.room.webSocketMessage(phone, JSON.stringify({ type: 'back' }));
+    await r.ringFor(5000, 10_000);
+    expect(r.pushes, 'на виду — входящий покажет само приложение').toHaveLength(1);
   });
 });
