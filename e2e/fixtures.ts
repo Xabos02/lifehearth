@@ -110,7 +110,9 @@ export async function seedFamilyChats(page: Page) {
       { id: 'f1', name: 'Наши', self: 'me', read: 2 },
       { id: 'p-mom', name: 'Влад и Мама', self: 'me-mom', read: 1 },
       { id: 'p-anya', name: 'Влад и Аня', self: 'me-anya', read: 1 },
-      { id: 'p-wait', name: 'Влад и Бабушка', self: 'me-wait', read: 0 },
+      // Бабушку позвал я по QR: у создателя есть секрет владельца, и только
+      // он «ждёт»; пометка pair — чат заводили, чтобы позвать одного человека.
+      { id: 'p-wait', name: 'Влад и Бабушка', self: 'me-wait', read: 0, owner: true },
     ];
     for (const [i, g] of groups.entries()) {
       const key = await generateKey();
@@ -118,6 +120,7 @@ export async function seedFamilyChats(page: Page) {
         id: g.id, familyId: g.id, familyToken: 't', familyKey: key, familyName: g.name,
         selfMemberId: g.self, lastSeq: 0, lastReadSeq: g.read, enabled: true,
         joinedAt: iso(10_000 - i), keyEpoch: 0, keyRing: { '0': key }, sortOrder: i,
+        ...('owner' in g ? { ownerSecret: 'owner-secret', ownerMemberId: g.self, pair: true } : {}),
       } as never);
     }
     const mk = (id: string, familyId: string, displayName: string, color: string) =>

@@ -57,6 +57,29 @@ describe('приглашение под кодовым словом', () => {
     expect(opened).toEqual(DATA);
   });
 
+  it('приглашение в личный чат несёт пометку открыто, групповое — нет', async () => {
+    // По пометке вошедший держит чат в «Личных», даже если других групп у
+    // него нет; без неё единственный чат был бы «Группой».
+    const word = generateInviteWord();
+    const pair = await sealInvite({ ...DATA, pair: true }, word);
+    expect(peekInvite(pair).pair).toBe(true);
+    expect((await openInvite(pair, word)).pair).toBe(true);
+    const group = await sealInvite(DATA, word);
+    expect('pair' in peekInvite(group)).toBe(false);
+    expect((await openInvite(group, word)).pair).toBeUndefined();
+  });
+
+  it('код из сообщения с подсказкой и ссылкой на приложение разбирается', async () => {
+    // «Скопировать код» отдаёт текст с подсказкой и адресом: в адресе бывают
+    // длинные куски из тех же символов, что и код (lifehearth-app-preview).
+    const word = generateInviteWord();
+    const code = await sealInvite({ ...DATA, pair: true }, word);
+    const msg = `Приглашение в LifeHearth. Откройте https://lifehearth-app-preview-branch.pages.dev/lifehearth/ → «Семья» → «Войти по приглашению» → «Вставить код» и вставьте это сообщение целиком. Кодовое слово скажу голосом.\n\n${code}`;
+    const parsed = parsePastedInvite(msg);
+    expect(parsed.kind).toBe('v3');
+    expect(parsed.code).toBe(code);
+  });
+
   it('прощает регистр и пробелы при вводе', async () => {
     const word = 'ABCDEFGH';
     const code = await sealInvite(DATA, word);

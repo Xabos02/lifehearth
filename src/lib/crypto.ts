@@ -316,6 +316,10 @@ export interface SealedInvite {
    *  зовут, ещё до ввода слова. Секретом оно не является — сервер его и так
    *  видит. */
   familyName: string;
+  /** Приглашение в личный чат. Открыто, как и название («Личный чат»): по
+   *  нему вошедший видит, куда его зовут, а его список держит чат личным,
+   *  даже если других групп у него нет. Секрета в этом нет. */
+  pair?: true;
   salt: string;
   payload: string;
   /** До какого момента приглашение считается годным (ISO). Проверяется на
@@ -335,6 +339,7 @@ export interface InviteSecrets {
   familyName: string;
   keys?: Record<string, string>;
   epoch?: number;
+  pair?: boolean;
 }
 
 export async function sealInvite(
@@ -348,6 +353,7 @@ export async function sealInvite(
     v: 3,
     familyId: data.familyId,
     familyName: data.familyName,
+    ...(data.pair ? { pair: true as const } : {}),
     salt: bytesToB64url(salt),
     payload: await encryptJSON(k, {
       familyToken: data.familyToken,
@@ -407,6 +413,7 @@ export async function openInvite(code: string, word: string): Promise<InviteSecr
       key: inner.key,
       keys: inner.keys,
       epoch: inner.epoch,
+      ...(sealed.pair === true ? { pair: true } : {}),
     };
   } catch {
     // AES-GCM не расшифровал — либо слово неверное, либо код испорчен.

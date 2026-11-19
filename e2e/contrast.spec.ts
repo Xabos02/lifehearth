@@ -301,8 +301,16 @@ test('семья: список чатов, карточка личного ча�
   await page.getByRole('button', { name: 'Новый личный чат' }).click();
   await expect(page.getByRole('heading', { name: 'Новый чат' })).toBeVisible();
   bad.push(...(await scanThemes(page, 'новый чат')));
+  await page.getByRole('button', { name: /Пригласить по QR/ }).click();
+  await expect(page.getByRole('heading', { name: 'Новый личный чат' })).toBeVisible();
+  bad.push(...(await scanThemes(page, 'новый личный чат')));
   await page.getByRole('button', { name: 'Закрыть' }).click();
-  await expect(page.getByRole('heading', { name: 'Новый чат' })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Новый личный чат' })).toBeHidden();
+
+  // Плашка «ждём» с «Показать QR» над перепиской личного чата.
+  await page.goto('/more/family?g=p-wait');
+  await expect(page.getByRole('button', { name: 'Показать QR' })).toBeVisible();
+  bad.push(...(await scanThemes(page, 'чат ждёт собеседника')));
 
   await page.goto('/more/family?g=p-anya&t=members');
   await expect(page.getByRole('button', { name: 'Выйти из группы' })).toBeVisible();

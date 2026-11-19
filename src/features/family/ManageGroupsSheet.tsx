@@ -21,10 +21,14 @@ export function ManageGroupsSheet({
   open,
   onClose,
   configs,
+  pairLabels = {},
 }: {
   open: boolean;
   onClose: () => void;
   configs: FamilyConfig[];
+  /** Личные чаты — под именем собеседника. Название пары («Личный чат»)
+   *  нигде не видно, поэтому и переименовывать у них нечего. */
+  pairLabels?: Record<string, string>;
 }) {
   const [order, setOrder] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -106,7 +110,8 @@ export function ManageGroupsSheet({
           {t('Перетащите за ручку, чтобы изменить порядок. Нажмите на название — переименовать.')}
         </p>
         {order.map((id) => {
-          const name = nameById[id] ?? t('Семья');
+          const label = pairLabels[id];
+          const name = label ?? nameById[id] ?? t('Семья');
           const isDragging = dragId === id;
           return (
             <div
@@ -125,7 +130,9 @@ export function ManageGroupsSheet({
               >
                 <GripVertical size={ICON.header} />
               </button>
-              {editingId === id ? (
+              {label !== undefined ? (
+                <span className="min-w-0 flex-1 truncate py-2 pr-1 font-medium">{name}</span>
+              ) : editingId === id ? (
                 <input
                   autoFocus
                   defaultValue={name}

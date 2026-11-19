@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import Dexie from 'dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
-import type { FamilyConfig, FamilyMember, FamilyMessage } from '../../db/types';
+import type { FamilyConfig, FamilyMessage } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { IconButton } from '../../components/ui/IconButton';
 import {
@@ -25,7 +25,7 @@ import { getLang, t, tPlur } from '../../lib/i18n';
 import { ManageGroupsSheet } from './ManageGroupsSheet';
 import { NewChatSheet } from './NewChatSheet';
 import { GroupAvatar, MemberAvatar } from './MemberAvatar';
-import { chatPath, isAlive, partnerOf, pendingPartners, previewWhen, snippetOf, splitChats } from './chats';
+import { awaitingPartner, chatPath, isAlive, partnerOf, pendingPartners, previewWhen, snippetOf, splitChats } from './chats';
 import { SECTION_BY_ID } from '../../lib/sections';
 
 // Знак раздела «Задачи» — из реестра (PROTOCOL §20): тот же значок, что у раздела в меню.
@@ -89,14 +89,14 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
   const nameOf = (familyId: string, id: string) =>
     members.find((m) => m.familyId === familyId && m.id === id)?.displayName;
 
-  function preview(c: FamilyConfig, pair: boolean, partner?: FamilyMember): ReactNode {
+  function preview(c: FamilyConfig, pair: boolean): ReactNode {
     // Группы больше нет — превью не должно выглядеть живым чатом.
     if (c.groupDeletedAt) return t('Группа удалена');
     if (c.removedAt) return t('Вас исключили из группы');
     if (c.unverifiedAt) return t('Нужно новое приглашение');
     const last = sums[c.familyId]?.last;
     if (!last) {
-      if (pair && !partner) return t('Ждём, пока войдёт по приглашению');
+      if (pair && awaitingPartner(c, members)) return t('Ждём, пока войдёт по приглашению');
       return t('Пока нет сообщений');
     }
     const own = last.senderMemberId === c.selfMemberId;
@@ -169,7 +169,7 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
               divider={i > 0}
               avatar={partner ? <MemberAvatar member={partner} /> : <GroupAvatar />}
               title={partner?.displayName ?? pending[c.familyId] ?? (c.familyName || t('Семья'))}
-              preview={preview(c, true, partner)}
+              preview={preview(c, true)}
               when={when(c)}
               unread={sums[c.familyId]?.unread ?? 0}
               onOpen={() => navigate(chatPath(c.familyId))}
@@ -190,16 +190,25 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
         </button>
       </div>
 
-      <ManageGroupsSheet open={manageOpen} onClose={() => setManageOpen(false)} configs={configs} />
+      <ManageGroupsSheet
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        configs={configs}
+        // Личные — под именем собеседника, как в списке: три строки «Личный
+        // чат» подряд не дали бы понять, из какого выходишь.
+        pairLabels={Object.fromEntries(
+          personal.map((c) => [c.familyId, partnerOf(c, members)?.displayName ?? pending[c.familyId] ?? (c.familyName || t('Семья'))]),
+        )}
+      />
       <NewChatSheet
         open={newOpen}
         onClose={() => setNewOpen(false)}
         groups={groups}
         pairs={pairs}
         members={members}
-        onOpenChat={(id) => {
+        onOpenChat={(id, invite) => {
           setNewOpen(false);
-          navigate(chatPath(id));
+          navigate(chatPath(id), invite ? { state: { invite: true } } : undefined);
         }}
       />
     </Screen>

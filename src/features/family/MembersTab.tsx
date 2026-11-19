@@ -103,12 +103,15 @@ export function MembersTab({
   familyId,
   title,
   partner,
+  waiting = false,
   onLeft,
 }: {
   familyId: string;
   title: string;
   /** Собеседник, если это личный чат: тогда в шапке он, а не группа. */
   partner?: FamilyMember;
+  /** Личный чат, куда собеседник ещё не вошёл: приглашают в личный чат. */
+  waiting?: boolean;
   onLeft: () => void;
 }) {
   const navigate = useNavigate();
@@ -200,9 +203,11 @@ export function MembersTab({
     ? onlineSet.has(partner.id)
       ? t('в сети')
       : t('не в сети')
-    : [tPlur(live.length, ['участник', 'участника', 'участников']), onlineCount > 0 ? t('{n} в сети', { n: onlineCount }) : '']
-        .filter(Boolean)
-        .join(' · ');
+    : waiting
+      ? t('Ждём, пока войдёт по приглашению')
+      : [tPlur(live.length, ['участник', 'участника', 'участников']), onlineCount > 0 ? t('{n} в сети', { n: onlineCount }) : '']
+          .filter(Boolean)
+          .join(' · ');
 
   return (
     <div className="space-y-6 pb-4">
@@ -401,7 +406,7 @@ export function MembersTab({
         member={removing}
         onClose={() => setRemoving(null)}
       />
-      <FamilyInviteSheet familyId={familyId} open={invite} onClose={() => setInvite(false)} />
+      <FamilyInviteSheet familyId={familyId} pair={waiting} open={invite} onClose={() => setInvite(false)} />
       <CallDiagSheet open={diag} onClose={() => setDiag(false)} />
       <ProfileNameSheet familyId={familyId} open={editName} currentName={self?.displayName ?? ''} onClose={() => setEditName(false)} />
       <RenameSheet

@@ -4,9 +4,10 @@
 //
 // Личного сообщения в протоколе нет: у сообщения нет адресата, его читает
 // вся группа. Поэтому личный чат — это отдельная группа на двоих со своим
-// ключом, а не фильтр общей ленты. Признак «личный» не хранится, а
-// вычисляется по составу: приглашение живёт сутки и не одноразовое, так что
-// пара может стать тройкой — тогда она честно переедет наверх.
+// ключом, а не фильтр общей ленты. Вид вычисляется по составу: приглашение
+// живёт сутки и не одноразовое, так что пара может стать тройкой — тогда она
+// честно переедет наверх. Пометка pair у конфига (чат заведён как личный)
+// только исключает его из правила «первая группа — общая» (firstGroupId).
 
 import type { FamilyConfig, FamilyMember, FamilyMessage } from '../../db/types';
 import { t } from '../../lib/i18n';
@@ -21,10 +22,15 @@ export const chatPath = (familyId: string, view?: 'tasks' | 'members') =>
  *  по-разному. */
 export const isAlive = (m: FamilyMember) => !m.leftAt && !m.removedAt;
 
-/** Общий чат — первая группа по порядку и любая, где больше двух живых
- *  участников. Первая — всегда общая: семья из двоих (вы и жена) — это
+/** Общий чат — любая группа, где больше двух живых участников, и «первая»
+ *  (firstGroupId). Первая общая всегда: семья из двоих (вы и жена) — это
  *  семья с общими задачами, а не «личка». Остальные — личные. */
 export const isGroupChat = (first: boolean, alive: number) => first || alive > 2;
+
+/** «Первая» группа — первая по порядку из НЕ заведённых как личные. Личный
+ *  чат по QR часто стоит у человека первым (других групп ещё нет), и если бы
+ *  первым считался он, семья из двоих, созданная после, ушла бы в «Личные». */
+export const firstGroupId = (configs: FamilyConfig[]) => configs.find((c) => !c.pair)?.familyId;
 
 export function splitChats(
   configs: FamilyConfig[],
@@ -32,10 +38,11 @@ export function splitChats(
 ): { groups: FamilyConfig[]; pairs: FamilyConfig[] } {
   const groups: FamilyConfig[] = [];
   const pairs: FamilyConfig[] = [];
-  configs.forEach((c, i) => {
+  const first = firstGroupId(configs);
+  for (const c of configs) {
     const alive = members.filter((m) => m.familyId === c.familyId && isAlive(m)).length;
-    (isGroupChat(i === 0, alive) ? groups : pairs).push(c);
-  });
+    (isGroupChat(c.familyId === first, alive) ? groups : pairs).push(c);
+  }
   return { groups, pairs };
 }
 
@@ -44,6 +51,21 @@ export function splitChats(
 export function partnerOf(cfg: FamilyConfig, members: FamilyMember[]): FamilyMember | undefined {
   const others = members.filter((m) => m.familyId === cfg.familyId && m.id !== cfg.selfMemberId && isAlive(m));
   return others.length === 1 ? others[0] : undefined;
+}
+
+/** Личный чат ждёт собеседника: его заводили, чтобы позвать одного человека
+ *  (пометка pair или имя в pendingPartners — у пар до 1.79 пометки нет), я его
+ *  завёл (секрет владельца есть только у создателя и его устройств) и, кроме
+ *  меня, в нём никого ещё не было. Новая обычная группа, где пока я один, —
+ *  не «ждём»: звали не одного человека. Вошедший по приглашению до прихода
+ *  участников с сервера собеседника тоже не видит — но звать ему некого.
+ *  Ушедший собеседник — не «ждём»: он был и вышел. */
+export function awaitingPartner(cfg: FamilyConfig, members: FamilyMember[]): boolean {
+  return (
+    Boolean(cfg.pair || pendingPartners()[cfg.familyId]) &&
+    Boolean(cfg.ownerSecret) &&
+    !members.some((m) => m.familyId === cfg.familyId && m.id !== cfg.selfMemberId)
+  );
 }
 
 /** Сниппет сообщения: цитата ответа в чате и превью строки в списке. */

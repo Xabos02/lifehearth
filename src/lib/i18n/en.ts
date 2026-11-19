@@ -248,8 +248,8 @@ export const EN: Record<string, string> = {
 
   // === Семья: онбординг и приглашение ===
   'Семейная группа': 'Family group',
-  'Общий чат и задачи с близкими. Содержимое шифруется на устройстве.':
-    'Shared chat and tasks with your loved ones. Content is encrypted on your device.',
+  'Общий чат и задачи с близкими или личный чат на двоих. Содержимое шифруется на устройстве.':
+    'Shared chat and tasks with your loved ones, or a personal chat for two. Content is encrypted on your device.',
   'Создать группу': 'Create a group',
   'Войти по приглашению': 'Join with an invitation',
   'Название группы': 'Group name',
@@ -2230,7 +2230,19 @@ export const EN: Record<string, string> = {
   'участники и настройки': 'members and settings',
   'Начать чат': 'Start chat',
   'Показать QR': 'Show QR',
-  'Пока не с кем: сначала пригласите людей в общую группу': 'No one yet: first invite people to a shared group',
+  'Пригласить по QR': 'Invite with a QR',
+  'Для того, кого нет в ваших группах': 'For someone who isn’t in your groups',
+  'Пригласить в личный чат': 'Invite to a personal chat',
+  'Кого приглашаете': 'Who are you inviting',
+  'Например, Мама': 'For example, Mom',
+  'Собеседник войдёт один раз: отсканирует QR и введёт кодовое слово, которое вы ему назовёте.':
+    'They join once: scan the QR and enter the code word you tell them.',
+  'Ждём, пока {name} войдёт по приглашению': 'Waiting for {name} to join with the invite',
+  'Ждём, пока собеседник войдёт по приглашению': 'Waiting for them to join with the invite',
+  '{name} в чате': '{name} is in the chat',
+  'Приглашение в личный чат': 'Personal chat invitation',
+  'Приглашение в LifeHearth. Откройте {url} → «Семья» → «Войти по приглашению» → «Вставить код» и вставьте это сообщение целиком. Кодовое слово скажу голосом.':
+    'LifeHearth invitation. Open {url} → “Family” → “Join with an invitation” → “Paste code” and paste this whole message. I’ll tell you the code word by voice.',
   'Личный чат — отдельная группа на двоих со своим ключом: остальные в семье его не видят. Пока приглашение действует (сутки), войти может любой, у кого есть ваш QR и кодовое слово, — показывайте их только собеседнику.':
     'A personal chat is a separate two-person group with its own key: the rest of the family can’t see it. While the invite is valid (one day), anyone with your QR and code word can join — show them only to the person you’re inviting.',
   'Пригласить ещё одного человека? Чат станет общим: новый участник увидит всю переписку.':

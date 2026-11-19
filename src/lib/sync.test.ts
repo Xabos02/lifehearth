@@ -516,6 +516,21 @@ describe('пара ключей группы между моими устрой�
     await localGroup({ boxPub: 'pub-своя', boxPriv: 'priv-своя' });
     expect(await pullShare(accountKey, { boxPub: 'pub-другая', boxPriv: 'priv-другая' })).toMatchObject({ boxPub: 'pub-своя' });
   });
+
+  it('личный чат приезжает на второе устройство личным', async () => {
+    // Без пометки единственный чат человека встал бы на втором телефоне
+    // «Группой» с общими задачами: первая группа без неё — общая.
+    const accountKey = await seedSync();
+    expect(await pullShare(accountKey, { pair: true })).toMatchObject({ pair: true });
+  });
+
+  it('пометку «личный» дописывает и в копию без неё, даже если та новее', async () => {
+    // Копию завела версия до 1.79 (без пометки), а локальный конфиг новее
+    // входящего — «новейший побеждает» её бы не пустил.
+    const accountKey = await seedSync();
+    await localGroup({});
+    expect(await pullShare(accountKey, { pair: true })).toMatchObject({ pair: true });
+  });
 });
 
 describe('пачки отправки ограничены объёмом, а не только числом записей', () => {

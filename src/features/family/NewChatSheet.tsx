@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { ScanLine } from 'lucide-react';
+import { ScanLine, UserPlus } from 'lucide-react';
 import type { FamilyConfig, FamilyMember } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { GChevronRight, GFamily } from '../../components/ui/glyphs';
@@ -7,20 +7,24 @@ import { ICON } from '../../components/ui/icons';
 import { useToast } from '../../components/ui/toastContext';
 import { createFamily } from '../../lib/family/familyLifecycle';
 import { t } from '../../lib/i18n';
-import { CreateFamilySheet, JoinFamilySheet } from './FamilyOnboarding';
-import { FamilyInviteSheet } from './FamilyInviteSheet';
+import { CreateFamilySheet, JoinFamilySheet, NewPairSheet } from './FamilyOnboarding';
 import { MemberAvatar } from './MemberAvatar';
-import { isAlive, partnerOf, pendingPartners, rememberPending } from './chats';
+import { awaitingPartner, isAlive, partnerOf, pendingPartners, rememberPending } from './chats';
 
 const norm = (s: string) => s.trim().toLocaleLowerCase();
 
 /**
- * «Новый чат» (канва design/family-chats, артборд New-Chat).
+ * «Новый чат» (канва design/family-chats, артборд New-Chat; строка «Пригласить
+ * по QR» — канва design/family-new-pair).
  *
  * Личный чат — новая группа на двоих со своим ключом. Человек входит в неё
  * так же, как в семью: один раз сканирует QR и вводит кодовое слово. Создать
  * пару молча, без этого шага, нельзя без смены модели безопасности
  * (docs/family-chat-security.md: ключ передаётся только с глазу на глаз).
+ *
+ * Позвать можно и того, кого нет ни в одной вашей группе («Пригласить по QR»),
+ * и любого из ваших групп одним нажатием. QR в обоих случаях показывает уже
+ * экран чата (onOpenChat с invite): закрыли — вы в переписке.
  */
 export function NewChatSheet({
   open,
@@ -35,11 +39,11 @@ export function NewChatSheet({
   groups: FamilyConfig[];
   pairs: FamilyConfig[];
   members: FamilyMember[];
-  onOpenChat: (familyId: string) => void;
+  /** invite — открыть поверх чата его приглашение. */
+  onOpenChat: (familyId: string, invite?: boolean) => void;
 }) {
   const toast = useToast();
-  const [mode, setMode] = useState<null | 'create' | 'join'>(null);
-  const [inviteFor, setInviteFor] = useState<string | null>(null);
+  const [mode, setMode] = useState<null | 'create' | 'pair' | 'join'>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   // Люди из общих групп, кроме меня. Один человек в разных группах — разные
@@ -68,17 +72,19 @@ export function NewChatSheet({
     return undefined;
   };
 
+  // Своё имя — то, под которым меня знают в общей группе: вводить его на
+  // каждую пару заново незачем.
+  const selfName = (g: FamilyConfig | undefined) =>
+    g ? members.find((m) => m.familyId === g.familyId && m.id === g.selfMemberId)?.displayName : undefined;
+
   async function start(person: FamilyMember, source: FamilyConfig) {
-    // Своё имя — то, под которым меня знают в общей группе: вводить его на
-    // каждую пару заново незачем.
-    const myName = members.find((m) => m.familyId === source.familyId && m.id === source.selfMemberId)?.displayName ?? '';
     setBusy(person.id);
     try {
       // Название нейтральное: в списке и шапке пару всё равно видно под
       // именем собеседника, а название открыто лежит в коде приглашения.
-      const id = await createFamily(t('Личный чат'), myName);
+      const id = await createFamily(t('Личный чат'), selfName(source) ?? '', { pair: true });
       rememberPending(id, person.displayName);
-      setInviteFor(id);
+      onOpenChat(id, true);
     } catch {
       toast(t('Не удалось создать чат. Попробуйте ещё раз'));
     } finally {
@@ -88,12 +94,18 @@ export function NewChatSheet({
 
   return (
     <>
-      <Sheet open={open && !mode && !inviteFor} onClose={onClose} title={t('Новый чат')}>
+      <Sheet open={open && !mode} onClose={onClose} title={t('Новый чат')}>
         <div className="pb-2">
           <h3 className="mb-1 px-1 text-sm font-semibold text-lh-text-secondary">{t('Личный чат')}</h3>
-          {people.length === 0 && (
-            <p className="px-1 pb-2 text-sm text-lh-text-secondary">{t('Пока не с кем: сначала пригласите людей в общую группу')}</p>
-          )}
+          {/* Первой строкой — человек не из ваших групп (канва
+              design/family-new-pair, вариант А): раньше на его месте было
+              «Пока не с кем», и личный чат без общей группы не начинался. */}
+          <Row
+            icon={<RingIcon><UserPlus size={ICON.header} /></RingIcon>}
+            title={t('Пригласить по QR')}
+            hint={t('Для того, кого нет в ваших группах')}
+            onClick={() => setMode('pair')}
+          />
           {people.map(({ member, source }) => {
             const chat = chatWith(member.displayName);
             return (
@@ -112,7 +124,7 @@ export function NewChatSheet({
                 }
                 disabled={busy !== null}
                 // Ожидающей паре — то же приглашение заново, а не вторая пара.
-                onClick={() => (chat?.waiting ? setInviteFor(chat.id) : chat ? onOpenChat(chat.id) : void start(member, source))}
+                onClick={() => (chat ? onOpenChat(chat.id, chat.waiting) : void start(member, source))}
                 end={
                   chat && !chat.waiting ? (
                     <GChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
@@ -157,6 +169,16 @@ export function NewChatSheet({
           onOpenChat(id);
         }}
       />
+      <NewPairSheet
+        open={open && mode === 'pair'}
+        onClose={() => setMode(null)}
+        myName={selfName(groups[0] ?? pairs[0])}
+        waitingWith={(name) => pairs.find((p) => awaitingPartner(p, members) && norm(pending[p.familyId] ?? '') === norm(name))?.familyId}
+        onReady={(id) => {
+          setMode(null);
+          onOpenChat(id, true);
+        }}
+      />
       <JoinFamilySheet
         open={open && mode === 'join'}
         onClose={() => setMode(null)}
@@ -165,17 +187,6 @@ export function NewChatSheet({
           onOpenChat(id);
         }}
       />
-      {inviteFor && (
-        <FamilyInviteSheet
-          familyId={inviteFor}
-          open
-          onClose={() => {
-            const id = inviteFor;
-            setInviteFor(null);
-            onOpenChat(id);
-          }}
-        />
-      )}
     </>
   );
 }

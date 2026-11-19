@@ -19,12 +19,24 @@ import { Haptic } from '../../components/ui/Haptic';
 
 interface Props {
   familyId: string;
+  /** Приглашение в личный чат: заголовок говорит, куда зовём, а не «в группу». */
+  pair?: boolean;
   open: boolean;
   onClose: () => void;
 }
 
+type Invite = { code: string; word: string; expiresAt: string };
+
+/** Последнее приглашение группы — только в памяти, пока приложение открыто и
+ *  до срока минус час. Повторный показ отдаёт тот же код и то же слово: код
+ *  часто уже ушёл собеседнику в мессенджер, а слово ему называют потом, и
+ *  новое слово к старому коду дало бы «Слово не подошло». На диск не пишется:
+ *  слово по-прежнему нигде не хранится (familyLifecycle.createFamilyInvite). */
+const recent = new Map<string, Invite>();
+const FRESH_MS = 3_600_000;
+
 /** Показ QR-кода приглашения в группу (для второго устройства/человека). */
-export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
+export function FamilyInviteSheet({ familyId, pair = false, open, onClose }: Props) {
   const [code, setCode] = useState('');
   const [word, setWord] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
@@ -33,24 +45,40 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
 
   useEffect(() => {
     if (!open) return;
-    void createFamilyInvite(familyId).then(async (inv) => {
-      if (!inv) return;
+    let live = true;
+    void (async () => {
+      const cached = recent.get(familyId);
+      const inv = cached && Date.parse(cached.expiresAt) - Date.now() > FRESH_MS ? cached : await createFamilyInvite(familyId);
+      if (!inv || !live) return;
+      recent.set(familyId, inv);
       setCode(inv.code);
       setWord(inv.word);
       setExpiresAt(inv.expiresAt);
-      setQrUrl(await QRCode.toDataURL(inv.code, { margin: 1, width: 260 }));
-    });
+      const url = await QRCode.toDataURL(inv.code, { margin: 1, width: 260 });
+      if (live) setQrUrl(url);
+    })();
+    return () => {
+      live = false;
+    };
   }, [open, familyId]);
 
+  // Код уходит в мессенджер вместе с подсказкой, что с ним делать: голая
+  // строка из сотен символов ничего не говорит тому, у кого приложения ещё
+  // нет. Разбор вставленного (parsePastedInvite) сопроводительный текст терпит.
+  const message = () =>
+    `${t('Приглашение в LifeHearth. Откройте {url} → «Семья» → «Войти по приглашению» → «Вставить код» и вставьте это сообщение целиком. Кодовое слово скажу голосом.', {
+      url: new URL(import.meta.env.BASE_URL, location.origin).href,
+    })}\n\n${code}`;
+
   function copyCode() {
-    void navigator.clipboard?.writeText(code).then(() => {
+    void navigator.clipboard?.writeText(message()).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
   }
 
   function saveFile() {
-    const file = new File([code], 'life-hub-family-invite.txt', { type: 'text/plain' });
+    const file = new File([message()], 'life-hub-family-invite.txt', { type: 'text/plain' });
     const url = URL.createObjectURL(file);
     const a = document.createElement('a');
     a.href = url;
@@ -62,7 +90,7 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={t('Пригласить в группу')}>
+    <Sheet open={open} onClose={onClose} title={pair ? t('Пригласить в личный чат') : t('Пригласить в группу')}>
       <div className="space-y-4">
         <p className="text-sm leading-snug text-lh-text-secondary">
           {t('Покажите QR участнику: у него — «Семья → Войти по приглашению», а если чаты уже есть — «Семья → Новый личный чат → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.')}

@@ -10,6 +10,8 @@ import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { t } from '../../lib/i18n';
 import { createFamily, joinFamily } from '../../lib/family/familyLifecycle';
+import { useToast } from '../../components/ui/toastContext';
+import { rememberPending } from './chats';
 import {
   InviteDamagedError,
   InviteExpiredError,
@@ -24,11 +26,12 @@ const JOIN_TABS = [
   { value: 'paste' as const, label: 'Вставить код' },
 ];
 
-/** Первый экран семьи (групп ещё нет): крупная иконка «＋» с подсказкой.
- *  По нажатию — выбор «Создать группу / Войти по приглашению».
- *  onReady получает familyId созданной/выбранной группы — чтобы её сразу открыть. */
-export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => void }) {
-  const [mode, setMode] = useState<null | 'create' | 'join'>(null);
+/** Первый экран семьи (групп ещё нет): крупная иконка «＋» с подсказкой и
+ *  три пути — группа, личный чат на двоих, вход по чужому приглашению.
+ *  onReady получает familyId созданной/выбранной группы — чтобы её сразу открыть;
+ *  invite — открыть поверх чата его приглашение (новый личный чат). */
+export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string, invite?: boolean) => void }) {
+  const [mode, setMode] = useState<null | 'create' | 'pair' | 'join'>(null);
 
   // Кнопки действий — прямо на экране, а не за иконкой-плюсом: раньше первый
   // тап открывал шит с теми же двумя кнопками, то есть человек делал два шага
@@ -44,11 +47,14 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
       </div>
       <div className="space-y-1.5">
         <p className="text-lg font-light tracking-tight">{t('Семейная группа')}</p>
-        <p className="px-6 text-sm text-lh-text-secondary">{t('Общий чат и задачи с близкими. Содержимое шифруется на устройстве.')}</p>
+        <p className="px-6 text-sm text-lh-text-secondary">{t('Общий чат и задачи с близкими или личный чат на двоих. Содержимое шифруется на устройстве.')}</p>
       </div>
       <div className="w-full max-w-sm space-y-3 px-6 pt-2">
         <Button className="w-full" onClick={() => setMode('create')}>
           {t('Создать группу')}
+        </Button>
+        <Button variant="secondary" className="w-full" onClick={() => setMode('pair')}>
+          {t('Личный чат')}
         </Button>
         <Button variant="secondary" className="w-full" onClick={() => setMode('join')}>
           {t('Войти по приглашению')}
@@ -62,6 +68,14 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
           onReady?.(id);
         }}
       />
+      <NewPairSheet
+        open={mode === 'pair'}
+        onClose={() => setMode(null)}
+        onReady={(id) => {
+          setMode(null);
+          onReady?.(id, true);
+        }}
+      />
       <JoinFamilySheet
         open={mode === 'join'}
         onClose={() => setMode(null)}
@@ -71,6 +85,89 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
         }}
       />
     </div>
+  );
+}
+
+/**
+ * «Новый личный чат» с человеком, которого нет в ваших группах: имя того, кого
+ * зовёте, — и сразу QR с кодовым словом. Пара — та же группа на двоих со своим
+ * ключом, что и у «Начать чат» из списка людей групп.
+ *
+ * QR показывает уже экран чата (onReady → чат с приглашением поверх), а не эта
+ * шторка: на первом экране семьи созданная группа тут же сменяет его списком,
+ * и приглашение, открытое здесь, пропало бы вместе с ним.
+ *
+ * Имя собеседника живёт только на этом телефоне (rememberPending): в название
+ * пары его не кладём — название открыто лежит в коде приглашения. Когда он
+ * войдёт, строка и шапка покажут имя, которое он выбрал себе сам.
+ */
+export function NewPairSheet({
+  open,
+  onClose,
+  myName,
+  waitingWith,
+  onReady,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Своё имя из общей группы — подставляем, но даём поправить: в семье вы
+   *  «Папа», а коллеге, которого зовёте, нужно настоящее имя. */
+  myName?: string;
+  /** Уже ждём собеседника с таким именем — его чат, а не второй такой же. */
+  waitingWith?: (name: string) => string | undefined;
+  onReady: (familyId: string) => void;
+}) {
+  const toast = useToast();
+  const [partner, setPartner] = useState('');
+  // Своё имя из группы подставлено, пока поле не трогали: участники могут
+  // догрузиться из базы позже первой отрисовки.
+  const [typed, setTyped] = useState<string | null>(null);
+  const name = typed ?? myName ?? '';
+  const [busy, setBusy] = useState(false);
+  const self = name.trim();
+
+  async function create() {
+    if (!partner.trim() || !self || busy) return;
+    const again = waitingWith?.(partner.trim());
+    if (again) {
+      setPartner('');
+      onReady(again);
+      return;
+    }
+    setBusy(true);
+    try {
+      const id = await createFamily(t('Личный чат'), self, { pair: true });
+      rememberPending(id, partner.trim());
+      setPartner('');
+      onReady(id);
+    } catch {
+      toast(t('Не удалось создать чат. Попробуйте ещё раз'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={t('Новый личный чат')}>
+      <div className="space-y-4">
+        <p className="text-sm leading-snug text-lh-text-secondary">
+          {t('Собеседник войдёт один раз: отсканирует QR и введёт кодовое слово, которое вы ему назовёте.')}
+        </p>
+        <Field label={t('Кого приглашаете')}>
+          <Input value={partner} onChange={(e) => setPartner(e.target.value)} placeholder={t('Например, Мама')} />
+        </Field>
+        <Field label={t('Ваше имя')}>
+          <Input
+            value={name}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder={t('Например, Влад')}
+          />
+        </Field>
+        <Button className="w-full" disabled={!partner.trim() || !self || busy} onClick={() => void create()}>
+          {busy ? t('Создаём…') : t('Показать QR')}
+        </Button>
+      </div>
+    </Sheet>
   );
 }
 
@@ -123,10 +220,18 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
   // Код прочитан, ждём кодовое слово. null — этого шага сейчас нет.
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [pendingName, setPendingName] = useState('');
+  const [pendingPair, setPendingPair] = useState(false);
   const [wordInput, setWordInput] = useState('');
 
   async function confirmWord() {
     if (!pendingCode || busy) return;
+    // Имя спрашиваем здесь, а не до чтения кода: человек обычно сразу
+    // наводит камеру на QR, и проверка имени на скане гасила камеру —
+    // видоискатель оставался мёртвым, пока не переключишь вкладки.
+    if (!name.trim()) {
+      setError(t('Сначала введите своё имя'));
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -150,10 +255,6 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
   useEffect(() => {
     joinRef.current = (raw: string) => {
       if (busy) return;
-      if (!name.trim()) {
-        setError(t('Сначала введите своё имя'));
-        return;
-      }
       // Разбор терпит то, что приезжает из мессенджера вместе с кодом:
       // сопроводительный текст, невидимые символы, переносы. Битый код при
       // этом называется битым, а не «неверным» — человеку с верным кодом
@@ -180,6 +281,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
       // бесполезен, и это второй шаг, а не лишний вопрос.
       setPendingCode(parsed.code);
       setPendingName(parsed.peeked.familyName);
+      setPendingPair(parsed.peeked.pair === true);
       setError('');
     };
   });
@@ -288,7 +390,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
           // группы — человек должен видеть, куда его зовут, до ввода.
           <div className="space-y-3">
             <div className="card p-4 text-center">
-              <p className="text-sm text-lh-text-secondary">{t('Приглашение в группу')}</p>
+              <p className="text-sm text-lh-text-secondary">{pendingPair ? t('Приглашение в личный чат') : t('Приглашение в группу')}</p>
               <p className="mt-0.5 font-semibold">{pendingName || t('Семья')}</p>
             </div>
             <label className="block">
