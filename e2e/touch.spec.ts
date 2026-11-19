@@ -692,6 +692,14 @@ test('список чатов семьи и «Новый чат»: не мень
   await page.getByRole('button', { name: 'Новый личный чат' }).click();
   await expect(page.getByRole('heading', { name: 'Новый чат' })).toBeVisible();
   await check('«Новый чат»', SHEET);
+  // «Пригласить по QR» — своя шторка с полем имени и кнопкой.
+  await page.getByRole('button', { name: /Пригласить по QR/ }).click();
+  await expect(page.getByRole('heading', { name: 'Новый личный чат' })).toBeVisible();
+  await check('«Новый личный чат»', SHEET);
+  // Чат, где ждём собеседника: «Показать QR» в плашке над перепиской.
+  await page.goto('/more/family?g=p-wait');
+  await expect(page.getByRole('button', { name: 'Показать QR' })).toBeVisible();
+  await check('чат ждёт собеседника');
   expect(bad, `мелких зон и перекрытий: ${bad.length}`).toEqual([]);
 });
 

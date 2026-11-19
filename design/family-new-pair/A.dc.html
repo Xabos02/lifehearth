@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>А: «Пригласить по QR» в «Личный чат»</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body{margin:0;background:#f6f6fa;font-family:-apple-system,system-ui,sans-serif}
+  </style>
+</helmet>
+<div style="width: 375px; background: #f6f6fa">
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 16px 16px 0; font-size: 12px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: #5f5f6b">А — первой строкой в «Личный чат»</p>
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 18px 16px 0; font-size: 13px; font-weight: 600; color: #26262f">Звать из групп некого — светлая</p>
+  <p style="height: 28px; box-sizing: border-box; margin: 0; padding: 10px 16px 0; font-size: 11px; color: #5f5f6b">Вместо «Пока не с кем» — действие: «Пригласить по QR»</p>
+  <img src="shots/sheet-a-empty-light.webp" alt="Вариант А без людей из групп, светлая тема" style="display: block; width: 375px; height: 812px">
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 18px 16px 0; font-size: 13px; font-weight: 600; color: #26262f">Звать из групп некого — тёмная</p>
+  <p style="height: 28px; box-sizing: border-box; margin: 0; padding: 10px 16px 0; font-size: 11px; color: #5f5f6b">«Ещё» — как было: новая группа и вход по приглашению</p>
+  <img src="shots/sheet-a-empty-dark.webp" alt="Вариант А без людей из групп, тёмная тема" style="display: block; width: 375px; height: 812px">
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 18px 16px 0; font-size: 13px; font-weight: 600; color: #26262f">Люди в группах есть — светлая</p>
+  <p style="height: 28px; box-sizing: border-box; margin: 0; padding: 10px 16px 0; font-size: 11px; color: #5f5f6b">Новый человек — первой строкой, люди групп сразу под ней</p>
+  <img src="shots/sheet-a-people-light.webp" alt="Вариант А с людьми из групп, светлая тема" style="display: block; width: 375px; height: 812px">
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 18px 16px 0; font-size: 13px; font-weight: 600; color: #26262f">Люди в группах есть — тёмная</p>
+  <p style="height: 28px; box-sizing: border-box; margin: 0; padding: 10px 16px 0; font-size: 11px; color: #5f5f6b">Шторка выросла на одну строку (60 px)</p>
+  <img src="shots/sheet-a-people-dark.webp" alt="Вариант А с людьми из групп, тёмная тема" style="display: block; width: 375px; height: 812px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":3560}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

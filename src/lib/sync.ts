@@ -156,6 +156,9 @@ interface FamilySharePayload {
   boxVerifiedAt?: string;
   ownerSecret?: string;
   ownerMemberId?: string;
+  // Чат заведён как личный: без пометки на втором устройстве он, единственный
+  // у человека, показался бы «Группой».
+  pair?: boolean;
 }
 
 /** Связка ключей из сырых значений синка. Общая для «группы ещё нет» и
@@ -317,6 +320,7 @@ async function applyFamilyShare(c: SyncConfig, ciphertext: string, seen: boolean
         boxVerifiedAt: p.boxVerifiedAt,
         ownerSecret: p.ownerSecret,
         ownerMemberId: p.ownerMemberId,
+        ...(p.pair ? { pair: true } : {}),
       });
       return true;
     }
@@ -330,6 +334,14 @@ async function applyFamilyShare(c: SyncConfig, ciphertext: string, seen: boolean
     let adopted = false;
     if (p.boxVerifiedAt && p.boxPub && p.boxPriv && !local.boxVerifiedAt && p.boxPub !== local.boxPub) {
       await db.family.update(p.familyId, { boxPub: p.boxPub, boxPriv: p.boxPriv, boxVerifiedAt: p.boxVerifiedAt, unverifiedAt: undefined });
+      adopted = true;
+    }
+    // Пометка «личный» только ставится, никогда не снимается, и мимо «новейший
+    // побеждает»: копия, заведённая версией до 1.79 (тот же конфиг без
+    // пометки), иначе осталась бы «Группой» навсегда. updatedAt не трогаем —
+    // запись не уезжает эхом обратно.
+    if (p.pair && !local.pair) {
+      await db.family.update(p.familyId, { pair: true });
       adopted = true;
     }
     if (shouldApply(local.updatedAt, p.updatedAt)) {
@@ -671,6 +683,7 @@ async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number 
       boxVerifiedAt: f.boxVerifiedAt,
       ownerSecret: f.ownerSecret,
       ownerMemberId: f.ownerMemberId,
+      ...(f.pair ? { pair: true } : {}),
     };
     out.push({
       ...(await wireOf(k, 'familyShare', f.familyId)),

@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { LucideIcon } from 'lucide-react';
@@ -9,16 +9,18 @@ import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
 import { Button } from '../../components/ui/Button';
 import { JoinFamilySheet } from './FamilyOnboarding';
+import { useToast } from '../../components/ui/toastContext';
 import { screenAction, subscribeScreenAction } from '../../lib/ui/screenAction';
 import { t, tPlur } from '../../lib/i18n';
 import { MembersTab } from './MembersTab';
+import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ChatTab } from './ChatTab';
 import { FamilyTasksTab } from './FamilyTasksTab';
 import { CallButton } from './CallButton';
 import { MemberAvatar, StackAvatar } from './MemberAvatar';
 import { chatPresence, subscribeChatPresence } from './chatPresence';
 import { useFamilyStatusLine } from './useFamilyStatusLine';
-import { chatPath, isAlive, isGroupChat, partnerOf } from './chats';
+import { awaitingPartner, chatPath, isAlive, isGroupChat, partnerOf, pendingPartners } from './chats';
 
 export type GroupView = 'chat' | 'tasks' | 'members';
 
@@ -39,8 +41,12 @@ export function FamilyScreen({ config, first, view }: { config: FamilyConfig; fi
       </Screen>
     );
   }
-  const partner = isGroupChat(first, members.filter(isAlive).length) ? undefined : partnerOf(config, members);
-  const title = partner?.displayName ?? (config.familyName || t('Семья'));
+  const pair = !isGroupChat(first, members.filter(isAlive).length);
+  const partner = pair ? partnerOf(config, members) : undefined;
+  // Личный чат, куда собеседник ещё не вошёл, — под именем того, кого позвали
+  // (как строка в списке), а не под безликим «Личный чат».
+  const waiting = pair && awaitingPartner(config, members) && !config.removedAt && !config.groupDeletedAt;
+  const title = partner?.displayName ?? (waiting ? pendingPartners()[familyId] : undefined) ?? (config.familyName || t('Семья'));
   const onLeft = () => navigate('/more/family', { replace: true });
 
   if (view === 'tasks') {
@@ -56,7 +62,7 @@ export function FamilyScreen({ config, first, view }: { config: FamilyConfig; fi
   if (view === 'members') {
     return (
       <Screen title="" backLabel={title} backTo={chatPath(familyId)}>
-        <MembersTab familyId={familyId} title={title} partner={partner} onLeft={onLeft} />
+        <MembersTab familyId={familyId} title={title} partner={partner} waiting={waiting} onLeft={onLeft} />
       </Screen>
     );
   }
@@ -68,6 +74,9 @@ export function FamilyScreen({ config, first, view }: { config: FamilyConfig; fi
       title={title}
       partner={partner}
       alive={alive}
+      pair={pair}
+      waiting={waiting}
+      waitingName={waiting ? pendingPartners()[familyId] : undefined}
     />
   );
 }
@@ -77,14 +86,44 @@ function ChatScreen({
   title,
   partner,
   alive,
+  pair,
+  waiting,
+  waitingName,
 }: {
   config: FamilyConfig;
   title: string;
   partner: FamilyMember | undefined;
   alive: FamilyMember[];
+  /** Личный вид чата (на двоих): от него заголовок приглашения. */
+  pair: boolean;
+  /** Личный чат, куда собеседник ещё не вошёл. */
+  waiting: boolean;
+  waitingName?: string;
 }) {
   const navigate = useNavigate();
+  const { pathname, search, state } = useLocation();
   const familyId = config.familyId;
+  // Новый личный чат открывается сразу с приглашением поверх (state.invite от
+  // «Нового чата» и первого экрана семьи): закрыли QR — вы в переписке.
+  const [inviteOpen, setInviteOpen] = useState(() => (state as { invite?: boolean } | null)?.invite === true);
+  const closeInvite = () => {
+    setInviteOpen(false);
+    // Пометку из истории убираем: иначе «назад-вперёд» и перезагрузка
+    // (history.state её переживает) снова открывали бы QR.
+    if ((state as { invite?: boolean } | null)?.invite) navigate(pathname + search, { replace: true, state: null });
+  };
+  // Собеседник вошёл, пока QR открыт (приглашают обычно при встрече, держа
+  // экран перед ним), — шторка закрывается сама, и видно, что он в чате.
+  // Иначе живой QR висел бы дальше, а заголовок без перемен.
+  const toast = useToast();
+  const wasWaiting = useRef(waiting);
+  useEffect(() => {
+    if (wasWaiting.current && !waiting && partner && inviteOpen) {
+      closeInvite();
+      toast(t('{name} в чате', { name: partner.displayName }));
+    }
+    wasWaiting.current = waiting;
+  });
   // Только сбой НАШЕЙ связи («нет связи», «подключение…»): пока связь есть,
   // под именем — присутствие собеседников, как в мессенджерах.
   const conn = useFamilyStatusLine(familyId, true);
@@ -104,7 +143,8 @@ function ChatScreen({
   );
   const tone = (s: string | null | undefined, k: 'typing' | 'online' | 'plain') =>
     s ? <span className={k === 'typing' ? 'text-lh-accent' : k === 'online' ? 'text-success' : ''}>{s}</span> : null;
-  const count = partner ? null : tPlur(alive.length, ['участник', 'участника', 'участников']);
+  // Личный чат, где ждём собеседника, — не «1 участник»: это не группа.
+  const count = partner || waiting ? null : tPlur(alive.length, ['участник', 'участника', 'участников']);
   // Общий чат на двоих (первая группа всегда общая: «вы и жена») — под
   // названием статус собеседника с именем, как над лентой до редизайна:
   // «Жена · был(а) в сети 2 ч назад». Без числа участников: строка
@@ -123,7 +163,7 @@ function ChatScreen({
               // подпись «4 участника · 3 в сети».
               <>{count} · {tone(t('{n} в сети', { n: alive.filter((m) => m.id === config.selfMemberId || p.onlineIds.includes(m.id)).length }), 'online')}</>
             : count;
-  const subtitleNode: ReactNode = conn ? <>{count ? `${count} · ` : ''}{conn}</> : presenceNode;
+  const subtitleNode: ReactNode = conn ? <>{count ? `${count} · ` : ''}{conn}</> : waiting ? undefined : presenceNode;
   // Действие от чата (поиск по переписке): чат сам объявляет о нём, шапка
   // только показывает. Своя строка под кнопку стоила бы переписке высоты.
   const action = useSyncExternalStore(subscribeScreenAction, screenAction, () => null);
@@ -189,12 +229,33 @@ function ChatScreen({
           onClose={() => setJoining(false)}
           onReady={(id) => navigate(chatPath(id), { replace: true })}
         />
+        {/* Собеседник ещё не вошёл — над перепиской правда об этом и QR ещё
+            раз: шторку приглашения легко закрыть раньше, чем он отсканирует,
+            а приглашение живёт сутки. Писать можно уже сейчас — вошедший
+            увидит переписку. */}
+        {waiting && !gone && (
+          <div className="card mb-3 flex shrink-0 items-center gap-3 p-3">
+            <span className="min-w-0 flex-1 text-sm leading-snug text-lh-text-secondary">
+              {waitingName
+                ? t('Ждём, пока {name} войдёт по приглашению', { name: waitingName })
+                : t('Ждём, пока собеседник войдёт по приглашению')}
+            </span>
+            <button
+              type="button"
+              onClick={() => setInviteOpen(true)}
+              className={`shrink-0 font-semibold text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
+            >
+              {t('Показать QR')}
+            </button>
+          </div>
+        )}
         {/* Без внешнего скролла: у ChatTab свой, два вложенных overflow-y-auto
             давали «войну скроллов» и заморозку. */}
         <div className="min-h-0 flex-1 overflow-hidden">
           <ChatTab familyId={familyId} />
         </div>
       </div>
+      <FamilyInviteSheet familyId={familyId} pair={pair} open={inviteOpen} onClose={closeInvite} />
     </Screen>
   );
 }

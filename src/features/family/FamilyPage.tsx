@@ -6,7 +6,7 @@ import { getFamilyConfig, listFamilyConfigs } from '../../lib/family/familyState
 import { FamilyOnboarding } from './FamilyOnboarding';
 import { FamilyScreen, type GroupView } from './FamilyScreen';
 import { ChatList } from './ChatList';
-import { chatPath } from './chats';
+import { chatPath, firstGroupId } from './chats';
 import { t } from '../../lib/i18n';
 import { useConsent } from '../../lib/consent';
 import { ConsentPause } from '../onboarding/ConsentGate';
@@ -73,7 +73,7 @@ export function FamilyPage() {
   if (configs.length === 0) {
     return (
       <Screen title={t('Семья')} backTo="/home">
-        <FamilyOnboarding onReady={(id) => navigate(chatPath(id), { replace: true })} />
+        <FamilyOnboarding onReady={(id, invite) => navigate(chatPath(id), { replace: true, ...(invite ? { state: { invite: true } } : {}) })} />
       </Screen>
     );
   }
@@ -82,9 +82,10 @@ export function FamilyPage() {
   const view: GroupView = tab === 'tasks' || tab === 'members' ? tab : 'chat';
   // Группы по ссылке больше нет (удалили, вышли) — список, а не чужой чат.
   // Старые адреса «?t=…» без группы открывают первую, как раньше.
-  const current = configs.find((c) => c.familyId === g) ?? (tab && !g ? configs[0] : undefined);
+  const first = firstGroupId(configs);
+  const current = configs.find((c) => c.familyId === g) ?? (tab && !g ? (configs.find((c) => c.familyId === first) ?? configs[0]) : undefined);
   if (!current) return <ChatList configs={configs} />;
 
   // key: смена группы полностью перемонтирует экран — чистый сброс подписок.
-  return <FamilyScreen key={current.familyId} config={current} first={current.familyId === configs[0].familyId} view={view} />;
+  return <FamilyScreen key={current.familyId} config={current} first={current.familyId === first} view={view} />;
 }

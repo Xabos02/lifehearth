@@ -21,8 +21,9 @@ import { WORKER_URL } from '../workerUrl';
 import { t } from '../i18n';
 
 /** Создать новую группу на этом устройстве (ты — первый участник). Возвращает
- *  familyId созданной группы (чтобы UI сразу её выбрал). */
-export async function createFamily(familyName: string, displayName: string): Promise<string> {
+ *  familyId созданной группы (чтобы UI сразу её выбрал). pair — личный чат на
+ *  двоих: пометка едет в приглашение и держит чат в «Личных» у обоих. */
+export async function createFamily(familyName: string, displayName: string, opts: { pair?: boolean } = {}): Promise<string> {
   const key = await generateKey();
   const familyId = newAccountId();
   const selfMemberId = newAccountId();
@@ -44,16 +45,19 @@ export async function createFamily(familyName: string, displayName: string): Pro
     // единственное отличие того, кто может исключать, от всех остальных.
     ownerSecret: randomToken(),
     ownerMemberId: selfMemberId,
+    ...(opts.pair ? { pair: true } : {}),
   });
   await ensureBoxKeys((await getFamilyConfig(familyId))!);
   await upsertSelfMember(familyId, displayName);
-  // Ждём регистрацию, а не пускаем её вперегонки с подключением: тикет,
-  // взятый раньше, чем сервер узнал ключ создателя, не привязан к нему, а
-  // от непривязанного соединения сервер не примет ни профиль, ни пометку
-  // «исключён» — то есть владелец не смог бы исключать. Со сроком: без сети
-  // группа всё равно создаётся, а регистрацию повторит подключение.
-  await registerMember(familyId, connectDeadline());
-  connectFamily(familyId);
+  // Подключение — после регистрации, а не вперегонки с ней: тикет, взятый
+  // раньше, чем сервер узнал ключ создателя, не привязан к нему, а от
+  // непривязанного соединения сервер не примет ни профиль, ни пометку
+  // «исключён» — то есть владелец не смог бы исключать. Но экран регистрацию
+  // не ждёт: без сети она занимает до 10 с (срок), а группа уже есть
+  // локально — первый экран «Семьи» иначе сменялся бы списком без QR и лишь
+  // потом прыгал в чат. Порядок «регистрация → подключение» держит цепочка;
+  // само подключение тоже регистрирует перед тикетом (familyChat.connect).
+  void registerMember(familyId, connectDeadline()).then(() => connectFamily(familyId));
   return familyId;
 }
 
@@ -76,6 +80,9 @@ export async function joinFamily(
   const p = await openInvite(code, word);
   const existing = await getFamilyConfig(p.familyId);
   if (existing && !existing.unverifiedAt) {
+    // Вошли раньше версией, не знавшей пометки «личный»: повторный вход по
+    // тому же приглашению её дописывает, иначе чат так и остался бы «Группой».
+    if (p.pair && !existing.pair) await saveFamilyConfig({ ...existing, pair: true, updatedAt: new Date().toISOString() });
     connectFamily(p.familyId);
     return p.familyId;
   }
@@ -111,6 +118,7 @@ export async function joinFamily(
     // встала бы у всех. ownerMemberId оставляем: по нему проверяются конверты
     // настоящего владельца.
     ...(existing && { sortOrder: existing.sortOrder, ownerMemberId: existing.ownerMemberId }),
+    ...(p.pair || existing?.pair ? { pair: true } : {}),
   });
   await ensureBoxKeys((await getFamilyConfig(p.familyId))!);
   await upsertSelfMember(p.familyId, displayName);
@@ -154,6 +162,7 @@ export async function createFamilyInvite(
       familyName: c.familyName,
       keys,
       epoch: c.keyEpoch ?? 0,
+      pair: c.pair,
     },
     word,
   );
