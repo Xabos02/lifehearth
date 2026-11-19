@@ -79,6 +79,36 @@ describe('list_tasks', () => {
   });
 });
 
+describe('list_goals', () => {
+  it('цель «по задачам» — доля живых связанных задач, как на карточке', async () => {
+    await db.goals.add({
+      ...base,
+      id: 'g1',
+      title: 'Ремонт',
+      description: '',
+      targetDate: null,
+      status: 'active',
+      progressMode: 'tasks',
+      progressManual: 0, // устаревшее ручное значение — его модели отдавать нельзя
+      targetValue: null,
+      currentValue: null,
+      unitLabel: '',
+      color: '#fff',
+      sortOrder: 1,
+    } as never);
+    await db.tasks.bulkAdd([
+      task('a', 'Сделана', { goalId: 'g1', completedAt: '2026-08-10T10:00:00.000Z' }),
+      task('b', 'Открыта', { goalId: 'g1' }),
+      task('c', 'Удалена', { goalId: 'g1', completedAt: '2026-08-10T10:00:00.000Z', deletedAt: '2026-08-11T10:00:00.000Z' }),
+      task('d', 'Чужая', { goalId: 'g2' }),
+    ] as never[]);
+    const r = JSON.parse((await runTool('list_goals', '{}')).text) as {
+      goals: { progress: string; percent: number }[];
+    };
+    expect(r.goals[0]).toMatchObject({ progress: '1 из 2 задач', percent: 50 });
+  });
+});
+
 describe('заметки', () => {
   beforeEach(async () => {
     await db.notes.bulkAdd([
