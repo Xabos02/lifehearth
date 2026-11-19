@@ -478,6 +478,7 @@ export const EN: Record<string, string> = {
   'устанавливался': 'was connecting',
   'не начинался': 'not started',
   'Соединение не состоялось': 'The call did not connect',
+  'Маршруты были с обеих сторон, но соединение так и не встало. На каком шаге — браузер не сообщил.': "Both sides had routes, but the call never connected. The browser did not report at which step.",
   'Маршруты собраны с обеих сторон, но проверки до собеседника остались без ответа: сеть не пропускает трафик звонка ни напрямую, ни через этот ретранслятор. Поможет ретранслятор, до которого эта сеть пускает.': 'Both sides gathered routes, but route checks to the other side got no replies: the network passes call traffic neither directly nor through this relay. A relay this network can reach will help.',
   'Маршрут до собеседника нашёлся, но защищённый канал звонка не установился — похоже, сеть режет сами звонки, а не адреса. Обойти это может ретранслятор по TLS на порту 443.': "A route to the other side was found, but the call's secure channel never came up — the network seems to block calls themselves, not addresses. A relay over TLS on port 443 can get around this.",
   'Не найдено': 'Not found',

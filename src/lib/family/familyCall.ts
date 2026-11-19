@@ -41,6 +41,16 @@ const ICE_FETCH_TIMEOUT_MS = 5_000;
 const MAX_RESTARTS = 5;
 const RESTART_BACKOFF_MS = [0, 300, 1200, 2700, 4800];
 const OFFER_RESEND_MS = 2500;
+// Сколько висеть в «Соединение…» или «Восстанавливаю связь…», чтобы отбой
+// (свой или собеседника) считался зависанием и писал разбор. Короче —
+// передумали или промахнулись кнопкой, и вердикт «виновата сеть» соврал бы.
+// ponytail: порог на глаз — успешный ICE даже через ретранслятор по TLS
+// укладывается в несколько секунд; нужна точность — мерить по разборам.
+const STUCK_MS = 8_000;
+// Как часто снимать статистику пар, пока связь ищется: к концу 25-секундного
+// срока движок WebRTC уже удаляет пары без ответа (~15 с), и снимок только в
+// конце показал бы «проверок нет».
+const STATS_SAMPLE_MS = 2_000;
 const ICE_GATHER_CAP_MS = 2000;
 // Фолбэк на случай недоступности /family/turn: только STUN. TURN-креды
 // короткоживущие и приходят с воркера — статических здесь держать нельзя
@@ -193,6 +203,14 @@ class CallManager {
   private restarting = false; // переигровка в пути — вторую поверх не начинаем
   private failedGen = -1; // звонок, который уже сдаётся: второй fail() разбор не перезапишет
   private everConnected = false; // соединение за этот звонок было — для разбора
+  private connectingAt = 0; // когда начались «Соединение…» / «Восстанавливаю связь…»
+  private reconnectingAt = 0;
+  // Пиковые счётчики проверок по каждой паре и последнее состояние защищённого
+  // канала — копятся, пока связь ищется (см. STATS_SAMPLE_MS).
+  private pairPeak = new Map<string, { sent: number; recv: number }>();
+  private dtlsSeen: string | undefined;
+  private relaySeen = new Set<string>();
+  private statsTimer: ReturnType<typeof setInterval> | null = null;
   // Ретранслятор для входящего берём, пока звонит: к «Ответить» он уже на руках,
   // и ответ уходит на секунду раньше.
   private icePrefetch: Promise<IceResult> | null = null;
@@ -283,6 +301,7 @@ class CallManager {
 
   private armConnTimeout() {
     this.clearConnTimeout();
+    this.sampleStats();
     this.connTimer = setTimeout(() => {
       this.connTimer = null;
       // Самая частая неудача — и раньше единственная без разбора на экране
@@ -337,6 +356,8 @@ class CallManager {
     // Гудки — только пока звоним: сняли трубку, отказ, отбой, ошибка — любой
     // уход из «Вызов…» их глушит. Одна проверка здесь, а не в каждом выходе.
     if (p.status && p.status !== 'outgoing') stopRingback();
+    if (p.status === 'connecting' && this.snap.status !== 'connecting') this.connectingAt = Date.now();
+    if (p.reconnecting && !this.snap.reconnecting) this.reconnectingAt = Date.now();
     this.snap = { ...this.snap, ...p };
     this.listeners.forEach((l) => l());
   }
@@ -456,9 +477,8 @@ class CallManager {
     };
     try {
       const stats = await pc?.getStats();
-      let sent = 0;
-      let recv = 0;
-      const via = new Set<string>();
+      if (stats) this.notePeaks(stats);
+      let finalDtls: string | undefined;
       stats?.forEach(
         (
           s: RTCStats & {
@@ -472,27 +492,82 @@ class CallManager {
             relayProtocol?: string;
           },
         ) => {
-          if (s.type === 'candidate-pair') {
-            sent += s.requestsSent ?? 0;
-            recv += s.responsesReceived ?? 0;
-            if (s.state === 'succeeded') {
-              const l = stats.get(s.localCandidateId ?? '') as { candidateType?: string } | undefined;
-              const r = stats.get(s.remoteCandidateId ?? '') as { candidateType?: string } | undefined;
-              diag.pair = `${l?.candidateType ?? '?'} ↔ ${r?.candidateType ?? '?'}`;
-            }
+          if (s.type === 'candidate-pair' && s.state === 'succeeded') {
+            const l = stats.get(s.localCandidateId ?? '') as { candidateType?: string } | undefined;
+            const r = stats.get(s.remoteCandidateId ?? '') as { candidateType?: string } | undefined;
+            diag.pair = `${l?.candidateType ?? '?'} ↔ ${r?.candidateType ?? '?'}`;
           } else if (s.type === 'transport' && s.dtlsState) {
-            diag.dtls = s.dtlsState;
-          } else if (s.type === 'local-candidate' && s.candidateType === 'relay' && s.relayProtocol) {
-            via.add(s.relayProtocol);
+            finalDtls = s.dtlsState;
           }
         },
       );
-      if (sent || recv) diag.checks = { sent, recv };
-      if (via.size) diag.relayVia = [...via].sort();
+      // Канал по ходу мог дойти дальше «new», а к концу закрыться — важнее, докуда дошёл.
+      diag.dtls = this.dtlsSeen ?? finalDtls;
     } catch {
       /* статистика недоступна — остальных фактов достаточно */
     }
+    let sent = 0;
+    let recv = 0;
+    for (const p of this.pairPeak.values()) {
+      sent += p.sent;
+      recv += p.recv;
+    }
+    if (sent || recv) diag.checks = { sent, recv };
+    // relayProtocol отдают Chrome и Android; WebKit пока нет (FIXME в их коде) —
+    // на iPhone строка транспорта просто не появится.
+    if (this.relaySeen.size) diag.relayVia = [...this.relaySeen].sort();
     saveDiag(diag);
+  }
+
+  private sampleStats() {
+    if (this.statsTimer) return;
+    this.statsTimer = setInterval(() => {
+      void this.pc?.getStats().then((st) => this.notePeaks(st)).catch(() => {});
+    }, STATS_SAMPLE_MS);
+  }
+
+  private stopStats() {
+    if (this.statsTimer) {
+      clearInterval(this.statsTimer);
+      this.statsTimer = null;
+    }
+  }
+
+  /** Запомнить пиковые счётчики проверок по парам, докуда дошёл защищённый
+   *  канал и через что ответил ретранслятор. */
+  private notePeaks(stats: RTCStatsReport) {
+    stats.forEach(
+      (
+        s: RTCStats & {
+          requestsSent?: number;
+          responsesReceived?: number;
+          dtlsState?: string;
+          candidateType?: string;
+          relayProtocol?: string;
+        },
+      ) => {
+        if (s.type === 'candidate-pair') {
+          const prev = this.pairPeak.get(s.id);
+          this.pairPeak.set(s.id, {
+            sent: Math.max(prev?.sent ?? 0, s.requestsSent ?? 0),
+            recv: Math.max(prev?.recv ?? 0, s.responsesReceived ?? 0),
+          });
+        } else if (s.type === 'transport' && s.dtlsState && s.dtlsState !== 'new') {
+          this.dtlsSeen = s.dtlsState;
+        } else if (s.type === 'local-candidate' && s.candidateType === 'relay' && s.relayProtocol) {
+          this.relaySeen.add(s.relayProtocol);
+        }
+      },
+    );
+  }
+
+  /** Отбой сейчас — зависание, достойное разбора, или нет. Причина или null. */
+  private stuckReason(): string | null {
+    if (!this.pc) return null; // разбирать нечего: соединения ещё не заводили
+    const now = Date.now();
+    if (this.snap.status === 'connecting' && now - this.connectingAt >= STUCK_MS) return 'Соединение не состоялось';
+    if (this.snap.reconnecting && now - this.reconnectingAt >= STUCK_MS) return 'Связь не восстановилась';
+    return null;
   }
 
   // Ждём сбор ICE-кандидатов (с потолком), чтобы offer/answer ушли «полными».
@@ -572,6 +647,7 @@ class CallManager {
       if (this.pc !== pc) return; // событие осиротевшего соединения
       if (s === 'connected') {
         this.everConnected = true;
+        this.stopStats();
         this.clearResend();
         this.clearConnTimeout();
         this.clearRecovery();
@@ -600,6 +676,12 @@ class CallManager {
    *  'failed' — переигрываем сразу. */
   private beginRecovery(pc: RTCPeerConnection, failed: boolean) {
     if (!this.snap.reconnecting) this.set({ reconnecting: true });
+    this.sampleStats();
+    // Связь упала — часто вместе с сокетом (смена сети): он остаётся OPEN, но
+    // мёртв, и приглашения переигровки уходили в никуда, пока сторож пингов
+    // не заметит (25–50 с, дольше срока восстановления). connect() проверит
+    // живость сразу и поднимет новый; сигналы дождутся его в очереди.
+    if (this.familyId) connectFamily(this.familyId);
     if (!this.deadlineTimer) {
       this.deadlineTimer = setTimeout(() => {
         this.deadlineTimer = null;
@@ -931,10 +1013,17 @@ class CallManager {
 
   hangup(): void {
     const outgoing = this.snap.status === 'outgoing';
+    const stuck = this.stuckReason();
     if (this.familyId && this.peerId && this.callId) {
       const kind = outgoing ? 'cancel' : 'hangup';
       sendSignal(this.familyId, { to: this.peerId, call: this.callId, kind, data: null });
       this.finished.set(this.callId, kind);
+    }
+    // Нажали «Завершить», устав ждать «Соединение…», — это и есть неудачный
+    // звонок: разбор пишет и нажавший, иначе у него экран показывал прошлый.
+    if (stuck) {
+      this.endWithDiag(stuck);
+      return;
     }
     this.end(outgoing ? 'Отменено' : 'Звонок завершён');
   }
@@ -1250,8 +1339,9 @@ class CallManager {
       // соединения истёк раньше (у ответившего он идёт с «Ответить»). Разбор
       // пишет и эта сторона — раньше он был только у собеседника, а здесь
       // экран «Почему звонок не вышел» показывал прошлый звонок.
-      if (this.snap.status === 'connecting' || this.snap.reconnecting) {
-        this.endWithDiag(this.snap.status === 'connecting' ? 'Соединение не состоялось' : 'Связь не восстановилась');
+      const stuck = this.stuckReason();
+      if (stuck) {
+        this.endWithDiag(stuck);
         return;
       }
       // 'idle' — входящий ещё не успел показаться: для человека это тоже пропущенный.
@@ -1305,6 +1395,10 @@ class CallManager {
     this.releaseScreen();
     this.restartAttempt = 0;
     this.everConnected = false;
+    this.stopStats();
+    this.pairPeak.clear();
+    this.dtlsSeen = undefined;
+    this.relaySeen.clear();
     this.earlyCandidates.clear();
     // Разбор этого звонка уже записан — следующий начинает с чистого листа.
     // Раньше счётчики копились от звонка к звонку, и «Отказы ретранслятора»
@@ -1366,7 +1460,9 @@ class CallManager {
     this.receiverSinkId = null;
     this.earpieceInputId = null;
     this.speakerInputId = null;
-    this.set({ status: 'ended', endReason: reason, muted: false, speakerOn: true, speakerAvailable: false, outputPickerAvailable: false, startedAt: null });
+    // reconnecting — тоже: залипший флаг следующий звонок принял бы за
+    // восстановление, и «пропущенный» записался бы как «Связь не восстановилась».
+    this.set({ status: 'ended', endReason: reason, muted: false, speakerOn: true, speakerAvailable: false, outputPickerAvailable: false, startedAt: null, reconnecting: false });
     // Показать причину (~2.5с), затем скрыть оверлей.
     this.cancelDismiss();
     this.dismissTimer = setTimeout(() => {
