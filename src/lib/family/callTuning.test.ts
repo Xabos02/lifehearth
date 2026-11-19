@@ -59,6 +59,17 @@ describe('порядок адресов ретранслятора', () => {
     expect(out.some((u) => u.includes('transport=udp'))).toBe(true);
   });
 
+  it('запасные порты Cloudflare добавляются: 443/udp и 80/tcp, без дублей', () => {
+    const out = orderTurnUrls(raw);
+    expect(out).toContain('turn:turn.cloudflare.com:443?transport=udp');
+    expect(out).toContain('turn:turn.cloudflare.com:80?transport=tcp');
+    // Уже присланный запасной порт не дублируется.
+    const twice = orderTurnUrls([...raw, 'turn:turn.cloudflare.com:443?transport=udp']);
+    expect(twice.filter((u) => u === 'turn:turn.cloudflare.com:443?transport=udp')).toHaveLength(1);
+    // Чужим ретрансляторам порты не выдумываем.
+    expect(orderTurnUrls(['turn:relay.example.com:3478?transport=udp'])).toHaveLength(1);
+  });
+
   it('порт 53 выбрасывается — его режут провайдеры и браузеры', () => {
     const out = orderTurnUrls([...raw, 'turn:turn.cloudflare.com:53?transport=udp']);
     // Именно порт 53, а не любое вхождение «53»: 5349 — легальный TLS-порт.
