@@ -103,7 +103,14 @@ export async function joinFamily(
     updatedAt: new Date().toISOString(), // конфиг уедет на другие устройства аккаунта
     keyEpoch: epoch,
     keyRing: { ...existing?.keyRing, ...keyRing },
-    ...(existing && { sortOrder: existing.sortOrder, ownerSecret: existing.ownerSecret, ownerMemberId: existing.ownerMemberId }),
+    // Секрет владельца НЕ переносим. Новая личность — не владелец для
+    // остальных: конверт с новым ключом они проверяют по публичному ключу
+    // ПРЕЖНЕГО участника-владельца (ownerMemberId), а у этого устройства пара
+    // уже другая. С секретом кнопка «Исключить» осталась бы, сервер исключение
+    // принял бы — и после смены ключа конверт не открыл бы никто: группа
+    // встала бы у всех. ownerMemberId оставляем: по нему проверяются конверты
+    // настоящего владельца.
+    ...(existing && { sortOrder: existing.sortOrder, ownerMemberId: existing.ownerMemberId }),
   });
   await ensureBoxKeys((await getFamilyConfig(p.familyId))!);
   await upsertSelfMember(p.familyId, displayName);

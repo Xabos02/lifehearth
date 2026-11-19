@@ -676,6 +676,27 @@ describe('права в комнате: клиент несёт доказате
     }
   });
 
+  it('устройство владельца с чужой парой входит заново без секрета владельца — исключением группу не уронить', async () => {
+    // Конверт с новым ключом остальные проверяют по ключу ПРЕЖНЕГО участника-
+    // владельца. Новая личность исключить могла бы (секрет при ней), а вот
+    // разложить конверты так, чтобы их открыли, — нет: после первого же
+    // исключения группа встала бы у всех.
+    await makeMember({ owner: true, token: TOKEN });
+    const invite = (await createFamilyInvite(FAMILY_ID))!;
+    const oldId = await divergedDevice();
+    await patchFamilyConfig(FAMILY_ID, { ownerSecret: randomToken(), ownerMemberId: oldId, unverifiedAt: new Date().toISOString() });
+    const { disconnectFamily } = await import('./familyChat');
+    try {
+      await joinFamily(invite.code, 'Я', invite.word);
+      const c = (await getFamilyConfig(FAMILY_ID))!;
+      expect(c.selfMemberId).not.toBe(oldId);
+      expect(c.ownerSecret, 'секрет владельца переехал на новую личность').toBeUndefined();
+      expect(c.ownerMemberId, 'потерян владелец, по которому проверяются конверты').toBe(oldId);
+    } finally {
+      disconnectFamily(FAMILY_ID);
+    }
+  });
+
   it('конверты с новым ключом владелец кладёт со своим секретом', async () => {
     await makeMember({ owner: true, token: TOKEN });
     const owner = await snapshot();
