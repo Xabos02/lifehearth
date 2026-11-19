@@ -539,11 +539,17 @@ const relayLevel = (p: Page) =>
 const callAudio = (p: Page) =>
   p.evaluate(async () => (await import('/src/lib/family/familyCall.ts')).getCallAudio());
 
+// Телефоны этих тестов закрываются после каждого: иначе к последним тестам
+// файла в одном воркере живут десятки страниц с идущими звонками, и дозвон не
+// укладывается в свои 15 с (так и падал четвёртый из них в общем прогоне).
+const opened: Page[] = [];
+
 async function talk(browser: Browser, before?: (mom: Page) => Promise<void>) {
   const relay = makeRelay();
   const key = await familyKey(browser);
   const mom = await phone(browser, relay, key, MOM, VLAD, iphone);
   const vlad = await phone(browser, relay, key, VLAD, MOM);
+  opened.push(mom, vlad);
   await before?.(mom);
   await mom.getByRole('button', { name: 'Позвонить: Влад' }).click();
   // На дозвоне экран держится: человек смотрит, взяли ли трубку.
@@ -556,6 +562,9 @@ async function talk(browser: Browser, before?: (mom: Page) => Promise<void>) {
 
 test.describe('iPhone: к уху и свёрнутое приложение', () => {
   test.setTimeout(90_000);
+  test.afterEach(async () => {
+    for (const p of opened.splice(0)) await p.context().close();
+  });
 
   test('разговор начинается у уха, экран отпущен; громкая связь возвращает экран', async ({ browser }) => {
     const { mom } = await talk(browser);
