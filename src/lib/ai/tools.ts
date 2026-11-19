@@ -14,6 +14,7 @@
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { monthlyAmount } from '../finance';
+import { goalProgress, goalProgressLabel } from '../progress';
 import { SECTIONS } from '../sections';
 import type { Habit, LearningItem, Task } from '../../db/types';
 
@@ -356,17 +357,23 @@ async function runListHabits(): Promise<ToolResult> {
 }
 
 async function runListGoals(): Promise<ToolResult> {
-  const goals = alive(await db.goals.toArray());
-  const rows = goals.map((g) => ({
-    title: g.title,
-    status: g.status,
-    due: g.targetDate ?? undefined,
-    progress:
-      g.progressMode === 'numeric'
-        ? `${g.currentValue ?? 0}/${g.targetValue ?? 0} ${g.unitLabel}`.trim()
-        : `${g.progressManual}%`,
-    description: g.description.trim() ? g.description.slice(0, SNIPPET_CHARS) : undefined,
-  }));
+  const [goals, tasks] = await Promise.all([
+    alive(await db.goals.toArray()),
+    alive(await db.tasks.toArray()),
+  ]);
+  // Те же подпись и процент, что на карточке цели: в режиме «по задачам»
+  // прогресс считается по связанным задачам, а progressManual там — мусор.
+  const rows = goals.map((g) => {
+    const linked = tasks.filter((t) => t.goalId === g.id);
+    return {
+      title: g.title,
+      status: g.status,
+      due: g.targetDate ?? undefined,
+      progress: goalProgressLabel(g, linked),
+      percent: goalProgress(g, linked),
+      description: g.description.trim() ? g.description.slice(0, SNIPPET_CHARS) : undefined,
+    };
+  });
   return { text: JSON.stringify({ goals: rows }), count: rows.length };
 }
 
