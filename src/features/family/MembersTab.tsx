@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import {
   GPhone as Phone,
-  GTasks,
   GPencil,
   GAlert,
   GLock,
@@ -45,6 +44,10 @@ import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { GroupAvatar, MemberAvatar } from './MemberAvatar';
 import { chatPath, isAlive } from './chats';
 import { confirmAction } from '../../components/ui/confirmStore';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+// Знак раздела «Задачи» — из реестра (PROTOCOL §20): тот же значок, что у раздела в меню.
+const TasksIcon = SECTION_BY_ID.get('tasks')!.icon;
 
 type Glyph = ComponentType<{ size?: number | string; className?: string }>;
 
@@ -223,7 +226,7 @@ export function MembersTab({
             />
           )}
           <QuickTile
-            icon={GTasks}
+            icon={TasksIcon}
             label={activeTasks > 0 ? t('Задачи · {n}', { n: activeTasks }) : t('Задачи')}
             onClick={() => navigate(chatPath(familyId, 'tasks'), { state: { from: 'members' } })}
           />

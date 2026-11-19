@@ -13,7 +13,6 @@ import {
   GPhoto,
   GPlus,
   GSettings,
-  GTasks,
 } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
@@ -27,6 +26,10 @@ import { ManageGroupsSheet } from './ManageGroupsSheet';
 import { NewChatSheet } from './NewChatSheet';
 import { GroupAvatar, MemberAvatar } from './MemberAvatar';
 import { chatPath, isAlive, partnerOf, pendingPartners, previewWhen, snippetOf, splitChats } from './chats';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+// Знак раздела «Задачи» — из реестра (PROTOCOL §20): тот же значок, что у раздела в меню.
+const TasksIcon = SECTION_BY_ID.get('tasks')!.icon;
 
 interface Summary {
   last?: FamilyMessage;
@@ -141,7 +144,7 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
                 onClick={() => navigate(chatPath(c.familyId, 'tasks'))}
                 className="flex min-h-13 w-full items-center gap-3 border-t border-lh-border px-4 text-left active:bg-lh-surface-2"
               >
-                <GTasks size={ICON.base} className="shrink-0 text-lh-accent" />
+                <TasksIcon size={ICON.base} className="shrink-0 text-lh-accent" />
                 <span className="flex-1 text-sm font-medium">{t('Общие задачи')}</span>
                 {(s?.tasks ?? 0) > 0 && (
                   <span className="text-sm text-lh-text-secondary">
