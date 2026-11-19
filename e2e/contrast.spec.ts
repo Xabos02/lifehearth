@@ -313,7 +313,7 @@ test('семья: список чатов, карточка личного ча�
   bad.push(...(await scanThemes(page, 'чат ждёт собеседника')));
 
   await page.goto('/more/family?g=p-anya&t=members');
-  await expect(page.getByRole('button', { name: 'Выйти из группы' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Выйти из чата' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Аня', level: 1, exact: true })).toBeVisible();
   bad.push(...(await scanThemes(page, 'карточка личного чата')));
   expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);

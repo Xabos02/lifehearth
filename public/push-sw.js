@@ -65,6 +65,21 @@ async function unseal(text) {
 function toAppUrl(url) {
   return url.replace(/^\/life-hub\//, appBase());
 }
+// Карточки звонка (tag 'family-call:<id>'). iOS tag не склеивает — каждый пуш
+// серии «Входящий звонок» ложится своей карточкой (WebKit: идентификатор
+// уведомления — UUID, не tag; bug 258922), а закрыть уведомление даёт не
+// раньше 30 с после показа (Notification::close, младшие молча пропускает).
+// Поэтому закрываем при каждом случае: что старше 30 с — уйдёт. Ждать здесь,
+// пока подрастут младшие, нельзя: долгий обработчик пуша WebKit может
+// остановить и засчитать тихим пушем, а после трёх таких iOS снимает подписку.
+async function closeCallCards(tag) {
+  try {
+    const list = await self.registration.getNotifications({ tag: tag });
+    for (const n of list) n.close();
+  } catch (e) {
+    /* getNotifications недоступен — карточки останутся */
+  }
+}
 self.addEventListener('push', (event) => {
   let data = {};
   try {
@@ -76,8 +91,9 @@ self.addEventListener('push', (event) => {
   let body = data.body || '';
   // Звонок: renotify перезванивает одной карточкой на каждый пуш серии
   // «дозвона», requireInteraction держит её на экране до ответа (Android;
-  // iOS оба флага игнорирует — там серия сама складывается в баннеры со звуком).
+  // iOS оба флага игнорирует — там каждый пуш серии свой баннер со звуком).
   const isCall = !!data.call;
+  const isMissed = !!data.missed;
   const tag = data.taskId || data.tag || undefined;
   event.waitUntil(
     (async () => {
@@ -90,6 +106,11 @@ self.addEventListener('push', (event) => {
           body = 'Откройте приложение, чтобы увидеть, о чём оно';
         }
       }
+      // До показа, не после: на Android tag и так заменяет карточку, и закрытие
+      // после показа сняло бы только что показанную.
+      if (tag && (isCall || isMissed)) await closeCallCards(tag);
+      // Показ — всегда: пуш без уведомления iOS считает тихим и после трёх
+      // таких отзывает подписку.
       await self.registration.showNotification(title, {
         body: body,
         icon: appBase() + 'icons/icon-192.png',
@@ -97,7 +118,10 @@ self.addEventListener('push', (event) => {
         tag: tag,
         renotify: isCall && !!tag, // renotify без tag — TypeError, уведомление не показалось бы вовсе
         requireInteraction: isCall,
-        data: { url: data.family ? appBase() + 'more/family' + (data.familyId ? '?g=' + data.familyId : '') : appBase() },
+        data: {
+          url: data.family ? appBase() + 'more/family' + (data.familyId ? '?g=' + data.familyId : '') : appBase(),
+          missed: isMissed,
+        },
       });
     })(),
   );
@@ -106,8 +130,10 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = toAppUrl((event.notification.data && event.notification.data.url) || appBase());
+  const tag = event.notification.tag || '';
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    // Тап по карточке звонка — остальные карточки того же звонка больше не нужны.
+    (tag.startsWith('family-call:') ? closeCallCards(tag) : Promise.resolve()).then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true })).then((clients) => {
       for (const c of clients) {
         if ('focus' in c) {
           // Уже открытое окно: просим приложение перейти на нужный экран (чат

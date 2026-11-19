@@ -662,6 +662,7 @@ class FamilyEngine {
           if (Array.isArray(m.reads)) this.setAllReads(m.reads);
           if (m.name) void patchFamilyConfig(this.familyId, { familyName: String(m.name) });
           this.startPing(sock);
+          if (away) this.trySendFrame({ type: 'away' }); // новый сокет поднялся в фоне
           this.flushSignals(); // сигналы звонка — первыми: звонок ждёт их секунды, а не минуты
           // Ключ на сервере уже зарегистрирован — до тикета, см. connect().
           await publishBoxPub(this.familyId);
@@ -1082,6 +1083,10 @@ class FamilyEngine {
     }
   }
 
+  sendAway(): void {
+    this.trySendFrame({ type: away ? 'away' : 'back' });
+  }
+
   /** Возвращает, ушёл ли кадр прямо сейчас: вызывающий решает, помечать ли повтор. */
   async sendItem(channel: 'task' | 'member', itemId: string, payload: object, notify?: 'done'): Promise<boolean> {
     const c = await this.cfg();
@@ -1100,6 +1105,16 @@ const incomingListeners = new Set<(familyId: string) => void>();
 export function subscribeIncoming(fn: (familyId: string) => void): () => void {
   incomingListeners.add(fn);
   return () => incomingListeners.delete(fn);
+}
+
+// «Приложение в фоне» — для звонков (ставит CallRunner). Свёрнутое на iOS
+// заморожено: входящий само не покажет и не зазвонит, а сокет ещё до 40 с
+// выглядит для сервера живым. С пометкой сервер сразу звонит пушами.
+let away = false;
+export function setAway(v: boolean): void {
+  if (away === v) return;
+  away = v;
+  for (const [, e] of engines) e.sendAway();
 }
 
 // === Реестр движков (по одному на семью) ===
