@@ -41,15 +41,14 @@ for (const [path, title] of ROUTES) {
   });
 }
 
-test('«Женские дни» скрыты по умолчанию, но включаются в настройках', async ({ page }) => {
-  // Раздел намеренно не показан всем подряд: цикл — не то, что должно
-  // появляться в меню у человека, которому это не нужно. Но скрытый раздел
-  // обязан оставаться находимым, иначе он просто не существует.
+test('«Женские дни» в женском профиле видны на «Ещё» сразу, без похода в настройки', async ({ page }) => {
+  // Раздел существует только в женском профиле, и выбор пола — уже включение.
+  // Видно его без «Показать ещё»: пока раздел не расставляли, он первый.
   await openApp(page, '/home');
-  await expect(page.getByRole('link', { name: /Женские дни/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /Женские дни/ })).toBeVisible();
 
   await page.goto('/more/settings/sections');
-  await expect(page.getByText('Женские дни')).toBeVisible();
+  await expect(page.locator('[data-zone="enabled"]').getByText('Женские дни', { exact: true })).toBeVisible();
 });
 
 test('до календаря можно дойти: вкладка «Ещё» ведёт в него', async ({ page }) => {

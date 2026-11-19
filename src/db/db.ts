@@ -49,7 +49,7 @@ import type {
 // новую версию схемы. Отстав на две версии (11–12.09), константа пропускала
 // копию с тренировками в сборку, которая о них не знает. Сторож —
 // src/db/schemaVersion.test.ts.
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 25;
 
 export class LifeHearthDB extends Dexie {
   projects!: Table<Project, string>;
@@ -422,6 +422,17 @@ export class LifeHearthDB extends Dexie {
       workoutTemplates: 'id, updatedAt',
     });
 
+    // v25 — «Женские дни» видны в женском профиле без ручного включения.
+    // Схема не меняется: только разовая правка раскладки. Раньше раздел был
+    // скрыт по умолчанию, и экран «Что для вас важнее всего?» записывал его в
+    // спрятанные явно — отличить это от «спрятала сама» нельзя. Решение
+    // владельца 19.11.2026: показать раздел один раз всем женским профилям.
+    // Кто спрячет снова, тому он уже не вернётся: upgrade идёт один раз.
+    // Копия, снятая до v25, проходит ту же правку при восстановлении (backup.ts).
+    this.version(25)
+      .stores({})
+      .upgrade((tx) => tx.table('settings').toCollection().modify(showCycleForFemale));
+
     this.tasks.hook('reading', normalizeTask);
   }
 }
@@ -460,6 +471,16 @@ export const DEFAULT_SETTINGS: Settings = {
   schemaVersion: SCHEMA_VERSION,
   updatedAt: new Date().toISOString(),
 };
+
+/** Снимает «Женские дни» со спрятанных у женского профиля — для настроек,
+ *  записанных до v25, когда раздел был скрыт по умолчанию: апгрейд v25 и
+ *  восстановление старой копии (importBackup). */
+export function showCycleForFemale(row: Partial<Settings>): void {
+  const hidden = row.navConfig?.hidden;
+  if (row.gender === 'female' && row.navConfig && Array.isArray(hidden)) {
+    row.navConfig = { ...row.navConfig, hidden: hidden.filter((id) => id !== 'cycle') };
+  }
+}
 
 /** Создаёт строку настроек при первом запуске. Вызывается из main.tsx. */
 export async function ensureSettings(): Promise<void> {

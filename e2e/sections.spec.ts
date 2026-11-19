@@ -56,8 +56,7 @@ test.describe('тумблер', () => {
     await openApp(page, '/more/settings/sections');
     const enabledZone = page.locator('[data-zone="enabled"]');
     await expect(enabledZone.getByText('Привычки', { exact: true })).toBeVisible();
-    // «Женские дни» скрыты по умолчанию (hiddenByDefault) — группа уже не
-    // пуста, но «Привычек» в ней ещё нет.
+    // До нажатия «Привычек» среди выключенных нет.
     const hiddenZoneBefore = page.locator('[data-zone="hidden"]');
     await expect(hiddenZoneBefore.getByText('Привычки', { exact: true })).toHaveCount(0);
 

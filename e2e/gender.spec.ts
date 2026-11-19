@@ -30,7 +30,7 @@ test('первый запуск закрыт выбором пола, выбор
 test('мужской профиль: раздела нет в настройке разделов и по прямому адресу', async ({ page }) => {
   await openApp(page, '/more/settings/sections', { gender: 'male' });
   // В зонах настройки разделов «Женских дней» не существует — ни видимых, ни
-  // спрятанных (это сильнее, чем «скрыт по умолчанию» женского профиля).
+  // спрятанных: у мужского профиля раздела нет, а не «он выключен».
   await expect(page.getByText('Женские дни')).toHaveCount(0);
 
   // Прямой адрес не открывает раздел, а тихо уводит на «Главную».
@@ -41,4 +41,24 @@ test('мужской профиль: раздела нет в настройке
 test('женский профиль: раздел доступен по прямому адресу', async ({ page }) => {
   await openApp(page, '/more/cycle');
   await expect(page.locator('h1').first()).toHaveText(/Женские дни/);
+});
+
+test('выбор женского пола включает раздел сам — даже если он лежал среди спрятанных', async ({ page }) => {
+  // Мужской профиль с раскладкой, где раздел уже спрятан (остался с прошлого
+  // женского профиля). Выбор «Женский» в профиле обязан показать его без
+  // похода в «Настроить разделы».
+  await openApp(page, '/home/profile', {
+    gender: 'male',
+    navConfig: { bottom: ['today', 'tasks', 'notes', 'family'], hidden: ['cycle'] },
+  });
+  await page.getByRole('button', { name: 'Женский', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Женский', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+  // На «Ещё» раздел виден сразу, без «Показать ещё», — то, что видит человек.
+  await page.goto('/home');
+  await expect(page.getByRole('link', { name: /Женские дни/ })).toBeVisible();
+
+  await page.goto('/more/settings/sections');
+  await expect(page.locator('[data-zone="enabled"]').getByText('Женские дни', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-zone="hidden"]').getByText('Женские дни', { exact: true })).toHaveCount(0);
 });
