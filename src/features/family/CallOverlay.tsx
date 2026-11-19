@@ -17,6 +17,8 @@ import { CallGuard } from './CallGuard';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 import { Haptic } from '../../components/ui/Haptic';
+import { buzz } from '../../lib/feedback';
+import { useHoldToReorder } from '../tasks/useHoldToReorder';
 
 /** Через сколько заблокировать экран после того, как звонок ушёл «к уху». */
 const LOCK_AFTER_CONNECT_MS = 1800;
@@ -248,10 +250,40 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
   );
 }
 
-/** Свёрнутый звонок: узкая плашка сверху справа — не под стрелкой «назад»
- *  экрана (та слева), поэтому обе управляются пальцем без промаха. Таймер
- *  идёт своим independent тиком: полноэкранный оверлей размонтирован, и его
- *  собственный интервал (в CallOverlay) вместе с ним. */
+/** Где стоит свёрнутый звонок: доли 0…1 от свободного хода по каждой оси.
+ *  Доли, а не пиксели: плашка меняет ширину («Соединяю…» → «3:28») и экран
+ *  поворачивается — прижатая к правому краю остаётся у правого края. */
+type CallBarPos = { x: number; y: number };
+const CALL_BAR_POS_KEY = 'life-hub-call-bar-pos';
+/** Сверху справа — не под стрелкой «назад» экрана (та слева). */
+const CALL_BAR_DEFAULT: CallBarPos = { x: 1, y: 0 };
+
+function loadCallBarPos(): CallBarPos {
+  try {
+    const p = JSON.parse(localStorage.getItem(CALL_BAR_POS_KEY) ?? 'null') as Partial<CallBarPos> | null;
+    const ok = (v: unknown): v is number => typeof v === 'number' && v >= 0 && v <= 1;
+    if (ok(p?.x) && ok(p?.y)) return { x: p.x, y: p.y };
+  } catch {
+    /* хранилище закрыто или запись битая — ставим по умолчанию */
+  }
+  return CALL_BAR_DEFAULT;
+}
+
+function saveCallBarPos(p: CallBarPos) {
+  try {
+    localStorage.setItem(CALL_BAR_POS_KEY, JSON.stringify(p));
+  } catch {
+    /* приватный режим: позиция доживёт только до конца звонка */
+  }
+}
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+
+/** Свёрнутый звонок: плашка поверх приложения, по умолчанию сверху справа.
+ *  Тап разворачивает звонок, удержание (та же машина, что у проектов и
+ *  папок, 400 мс) берёт плашку — её можно перетащить куда удобно, и место
+ *  запоминается между звонками. Таймер идёт своим тиком: полноэкранный
+ *  оверлей размонтирован, и его собственный интервал вместе с ним. */
 export function MinimizedCallBar({ snap, onExpand }: { snap: CallSnapshot; onExpand: () => void }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -260,22 +292,87 @@ export function MinimizedCallBar({ snap, onExpand }: { snap: CallSnapshot; onExp
     return () => clearInterval(id);
   }, [snap.status]);
 
+  const areaRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState(loadCallBarPos);
+  // Снять идущий жест (слушатели окна). Зовётся и при размонтировании: звонок
+  // может кончиться, пока палец ещё ведёт плашку, — тогда место не пишем.
+  const stop = useRef<(() => void) | null>(null);
+  useEffect(() => () => stop.current?.(), []);
+  const { headerProps } = useHoldToReorder(({ x, y, pointerId }) => {
+    if (stop.current) return; // один жест за раз: второй палец не ведёт свой
+    const area = areaRef.current;
+    const bar = area?.firstElementChild as HTMLElement | null;
+    if (!area || !bar) return;
+    buzz(); // захват — Android вибрирует, на iPhone сигнал — сжатие при удержании (PROTOCOL §6.4)
+    // Ход считается от размеров без transform: удержание ещё доигрывает
+    // сжатие 0.97, и прямоугольник с экрана был бы на пару пикселей меньше.
+    const spanX = area.clientWidth - bar.offsetWidth;
+    const spanY = area.clientHeight - bar.offsetHeight;
+    const from = pos;
+    let to = pos;
+    const move = (e: PointerEvent) => {
+      if (e.pointerId !== pointerId) return;
+      to = {
+        x: spanX > 0 ? clamp01(from.x + (e.clientX - x) / spanX) : from.x,
+        y: spanY > 0 ? clamp01(from.y + (e.clientY - y) / spanY) : from.y,
+      };
+      setPos(to);
+    };
+    const off = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      stop.current = null;
+    };
+    const end = (e: PointerEvent) => {
+      if (e.pointerId !== pointerId) return;
+      off();
+      // Жест отняла система — плашка возвращается, как перенос в списках.
+      if (e.type === 'pointercancel') setPos(from);
+      else saveCallBarPos(to);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    stop.current = off;
+  }, onExpand);
+
   return (
-    <button
-      onClick={onExpand}
-      aria-label={t('Развернуть звонок: {name}, {status}', { name: snap.peerName || t('Участник'), status: statusText(snap) })}
-      // Плашка ~34px в высоту — зона добирается до 44 невидимо; POSITIONED,
-      // потому что relative из обычного HIT_SLOP сбил бы fixed. Зелёный по
-      // смыслу светлый — глиф тёмный, как у «Принять» (белый давал 1.75).
-      className={`fixed z-50 flex items-center gap-2 rounded-full bg-success-fill px-3 py-2 text-on-light shadow-lg active:opacity-90 ${HIT_SLOP_44_POSITIONED}`}
-      style={{ top: 'calc(env(safe-area-inset-top) + 10px)', right: '12px' }}
+    // Рамка хода: под вырезом и у краёв — safe-area, снизу — над таб-баром
+    // (линия 1 + pt 6 + вкладка 52 + нижний отступ ≤8 = 67px, плюс зазор 10;
+    // нижнюю safe-area таб-бар уже вобрал). Сама рамка касаний не ловит.
+    <div
+      ref={areaRef}
+      className="pointer-events-none fixed z-50"
+      style={{
+        top: 'calc(env(safe-area-inset-top) + 10px)',
+        left: 'calc(env(safe-area-inset-left) + 12px)',
+        right: 'calc(env(safe-area-inset-right) + 12px)',
+        bottom: '77px',
+      }}
     >
-      <Phone size={ICON.inline} className="animate-pulse" />
-      <span className="max-w-[7rem] truncate text-xs font-semibold">{snap.peerName || t('Участник')}</span>
-      <span className="text-xs tabular-nums opacity-90">
-        {snap.status === 'active' && snap.startedAt ? fmtElapsed(now - snap.startedAt) : statusText(snap)}
-      </span>
-    </button>
+      <button
+        {...headerProps}
+        aria-label={t('Развернуть звонок: {name}, {status}', { name: snap.peerName || t('Участник'), status: statusText(snap) })}
+        // Плашка ~34px в высоту — зона добирается до 44 невидимо; POSITIONED,
+        // потому что relative из обычного HIT_SLOP сбил бы absolute. Зелёный по
+        // смыслу светлый — глиф тёмный, как у «Принять» (белый давал 1.75).
+        // touch-none: с плашки нечего листать, а начатая прокрутка отняла бы
+        // жест у переноса — iOS решает это в миг касания, touchAction из хука
+        // через 400 мс уже поздно. Без выделения и системного меню, как у
+        // остальных удержаний. w-max: у края хода (left: 100%) ширина иначе
+        // сжалась бы до нуля. Сдвиг — свойством translate: transform занят
+        // сжатием удержания.
+        className={`pointer-events-auto absolute flex w-max touch-none select-none [-webkit-touch-callout:none] items-center gap-2 rounded-full bg-success-fill px-3 py-2 text-on-light shadow-lg active:opacity-90 ${HIT_SLOP_44_POSITIONED}`}
+        style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%`, translate: `${-pos.x * 100}% ${-pos.y * 100}%` }}
+      >
+        <Phone size={ICON.inline} className="animate-pulse" />
+        <span className="max-w-[7rem] truncate text-xs font-semibold">{snap.peerName || t('Участник')}</span>
+        <span className="text-xs tabular-nums opacity-90">
+          {snap.status === 'active' && snap.startedAt ? fmtElapsed(now - snap.startedAt) : statusText(snap)}
+        </span>
+      </button>
+    </div>
   );
 }
 
