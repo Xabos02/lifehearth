@@ -303,6 +303,14 @@ export const EN: Record<string, string> = {
   'Добавить группу': 'Add a group',
   'Выйти из группы': 'Leave the group',
   'Удалить группу': 'Delete group',
+  'Выйти из чата': 'Leave the chat',
+  'Выйти из чата с «{name}»? Переписка удалится с этого устройства (у собеседника она останется).':
+    'Leave the chat with “{name}”? Its messages will be deleted from this device (the other person keeps them).',
+  'Сервер сотрёт переписку и задачи, у собеседника останется уже пришедшее': 'The server will erase messages and tasks; what the other person already received stays with them',
+  'Выйти из чата? Переписка и задачи удалятся с этого телефона. Собеседник об этом не узнает, и его сообщения сюда больше не дойдут.':
+    'Leave the chat? Its messages and tasks will be deleted from this phone. The other person won’t be notified, and their messages won’t reach you anymore.',
+  'Удалить чат навсегда?\n\nСервер сотрёт его переписку и задачи, новых сообщений не будет ни у кого из вас. То, что уже пришло собеседнику, у него останется. Продолжить?':
+    'Delete the chat forever?\n\nThe server will erase its messages and tasks, and neither of you will get new ones. What already reached the other person stays with them. Continue?',
   'Не удалось удалить группу. Проверьте связь и попробуйте ещё раз':
     "Couldn't delete the group. Check your connection and try again",
   'Удалить группу может только её создатель': 'Only the group creator can delete it',

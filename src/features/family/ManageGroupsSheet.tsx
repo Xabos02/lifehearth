@@ -97,7 +97,11 @@ export function ManageGroupsSheet({
   }
 
   async function leaveGroup(id: string, name: string) {
-    const ok = (await confirmAction({ title: t('Выйти из «{name}»? Переписка этой группы удалится с этого устройства (у остальных участников она останется).', { name }), confirmLabel: t('Выйти') }));
+    const title =
+      pairLabels[id] !== undefined
+        ? t('Выйти из чата с «{name}»? Переписка удалится с этого устройства (у собеседника она останется).', { name })
+        : t('Выйти из «{name}»? Переписка этой группы удалится с этого устройства (у остальных участников она останется).', { name });
+    const ok = await confirmAction({ title, confirmLabel: t('Выйти') });
     if (!ok) return;
     await leaveFamily(id);
     setOrder((o) => o.filter((x) => x !== id));
@@ -153,7 +157,7 @@ export function ManageGroupsSheet({
                 </button>
               )}
               <button
-                aria-label={t('Выйти из группы')}
+                aria-label={label !== undefined ? t('Выйти из чата') : t('Выйти из группы')}
                 onClick={() => void leaveGroup(id, name)}
                 className="p-2 text-danger active:opacity-60"
               >

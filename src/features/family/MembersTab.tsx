@@ -42,7 +42,7 @@ import { t, tPlur } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { GroupAvatar, MemberAvatar } from './MemberAvatar';
-import { chatPath, isAlive } from './chats';
+import { chatPath, isAlive, pendingPartners } from './chats';
 import { confirmAction } from '../../components/ui/confirmStore';
 import { SECTION_BY_ID } from '../../lib/sections';
 
@@ -123,6 +123,9 @@ export function MembersTab({
     ) ?? 0;
   const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
   const selfId = config?.selfMemberId;
+  // Личный чат (есть собеседник или ждём его) — не «группа»: в шапке и списке
+  // он под именем собеседника, название пары нигде не видно.
+  const personal = Boolean(partner) || waiting;
   const [online, setOnline] = useState<string[]>([]);
   useEffect(() => subscribePresence(familyId, setOnline), [familyId]);
   const onlineSet = new Set(online);
@@ -180,7 +183,10 @@ export function MembersTab({
   async function leave() {
     // Правда целиком: leaveFamily стирает переписку с телефона, а события
     // «вышел» у протокола нет — остальные не узнают.
-    if (!(await confirmAction({ title: t('Выйти из группы? Переписка и задачи удалятся с этого телефона. Остальные об этом не узнают, и их сообщения сюда больше не дойдут.'), confirmLabel: t('Выйти') }))) return;
+    const title = personal
+      ? t('Выйти из чата? Переписка и задачи удалятся с этого телефона. Собеседник об этом не узнает, и его сообщения сюда больше не дойдут.')
+      : t('Выйти из группы? Переписка и задачи удалятся с этого телефона. Остальные об этом не узнают, и их сообщения сюда больше не дойдут.');
+    if (!(await confirmAction({ title, confirmLabel: t('Выйти') }))) return;
     await leaveFamily(familyId);
     onLeft();
   }
@@ -188,7 +194,18 @@ export function MembersTab({
   async function removeGroup() {
     // Сервер стирает группу, но уже пришедшее остаётся на телефонах: у
     // остальных баннер так и говорит — «переписка на этом устройстве осталась».
-    if (!(await confirmAction({ title: t('Удалить группу навсегда?\n\nСервер сотрёт её переписку и задачи, новых сообщений не будет ни у кого. То, что уже пришло на телефоны участников, там останется. Продолжить?'), confirmLabel: t('Удалить группу') }))) return;
+    const ok = await confirmAction(
+      personal
+        ? {
+            title: t('Удалить чат навсегда?\n\nСервер сотрёт его переписку и задачи, новых сообщений не будет ни у кого из вас. То, что уже пришло собеседнику, у него останется. Продолжить?'),
+            confirmLabel: t('Удалить чат'),
+          }
+        : {
+            title: t('Удалить группу навсегда?\n\nСервер сотрёт её переписку и задачи, новых сообщений не будет ни у кого. То, что уже пришло на телефоны участников, там останется. Продолжить?'),
+            confirmLabel: t('Удалить группу'),
+          },
+    );
+    if (!ok) return;
     try {
       await deleteFamily(familyId);
       onLeft();
@@ -371,9 +388,14 @@ export function MembersTab({
 
       {/* Новая группа и вход по приглашению живут в «Новом чате» списка. */}
       <section>
-        <h2 className="mb-2.5 px-1 lh-section">{partner ? t('Чат') : t('Группа')}</h2>
+        <h2 className="mb-2.5 px-1 lh-section">{personal ? t('Чат') : t('Группа')}</h2>
         <div className="divide-y divide-lh-border card">
-          <ActionRow icon={GPencil} label={t('Переименовать группу')} onClick={() => setRenaming(true)} />
+          {/* У чата, заведённого личным, название («Личный чат») не видно никому:
+              он под именем собеседника, переименование ничего бы не изменило.
+              Обычная группа на двоих — другое дело: её название видит второй. */}
+          {!(personal && (config?.pair || pendingPartners()[familyId])) && (
+            <ActionRow icon={GPencil} label={t('Переименовать группу')} onClick={() => setRenaming(true)} />
+          )}
           {/* Разбор последнего сорвавшегося звонка: сюда и приходят, когда «не дозвонился». */}
           <ActionRow icon={GAlert} label={t('Почему звонок не вышел')} onClick={() => setDiag(true)} chevron />
           <div className="flex min-h-14 items-center gap-3 px-4 py-2.5">
@@ -388,12 +410,16 @@ export function MembersTab({
       </section>
 
       <section className="divide-y divide-lh-border card">
-        <ActionRow icon={GPhoneOut} label={t('Выйти из группы')} onClick={() => void leave()} danger />
+        <ActionRow icon={GPhoneOut} label={personal ? t('Выйти из чата') : t('Выйти из группы')} onClick={() => void leave()} danger />
         {isOwner && (
           <ActionRow
             icon={GTrash}
-            label={t('Удалить группу')}
-            hint={t('Сервер сотрёт переписку и задачи, у участников останется уже пришедшее')}
+            label={personal ? t('Удалить чат') : t('Удалить группу')}
+            hint={
+              personal
+                ? t('Сервер сотрёт переписку и задачи, у собеседника останется уже пришедшее')
+                : t('Сервер сотрёт переписку и задачи, у участников останется уже пришедшее')
+            }
             onClick={() => void removeGroup()}
             danger
           />
