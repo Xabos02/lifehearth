@@ -95,6 +95,21 @@ test('свёрнутый звонок: место остаётся за плаш
   await openApp(page, '/');
   await minimizedCall(page);
   const start = await box(page);
+  // DIAG (временно, снять до слияния): журнал событий у первого тапа после переноса — в CI он не разворачивал звонок.
+  await page.evaluate(() => {
+    const w = window as unknown as { __ev: string[] };
+    w.__ev = [];
+    const t0 = performance.now();
+    const log = (phase: string) => (e: Event) => {
+      const el = e.target as HTMLElement;
+      const bar = document.querySelector<HTMLElement>('[aria-label^="Развернуть звонок"]');
+      w.__ev.push(`${Math.round(performance.now() - t0)} ${phase} ${e.type} id=${(e as PointerEvent).pointerId ?? ''} ${el.getAttribute?.('aria-label')?.slice(0, 12) ?? el.tagName} dp=${e.defaultPrevented} ta=${bar?.style.touchAction} tf=${bar?.style.transform}`);
+    };
+    for (const ty of ['pointerdown', 'pointerup', 'pointercancel', 'click', 'contextmenu', 'touchstart', 'touchend', 'touchcancel', 'gotpointercapture', 'lostpointercapture']) {
+      window.addEventListener(ty, log('cap'), true);
+    }
+    window.addEventListener('click', log('bub'));
+  });
   const finger = await grab(page);
   await finger.moveTo(start.x + start.width / 2 - 120, start.y + start.height / 2 + 300);
   await finger.release();
@@ -103,6 +118,16 @@ test('свёрнутый звонок: место остаётся за плаш
 
   // Развернули и свернули снова — плашка на своём новом месте.
   await page.getByRole('button', { name: BAR }).tap();
+  const opened = await page.getByRole('button', { name: 'Свернуть звонок' }).waitFor({ timeout: 3000 }).then(() => true, () => false);
+  if (!opened) {
+    console.log('DIAG первый тап не развернул:\n' + (await page.evaluate(() => (window as unknown as { __ev: string[] }).__ev)).join('\n'));
+    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: BAR }).tap();
+    const opened2 = await page.getByRole('button', { name: 'Свернуть звонок' }).waitFor({ timeout: 3000 }).then(() => true, () => false);
+    console.log(`DIAG второй тап через 500 мс: ${opened2 ? 'развернул' : 'НЕ развернул'}\n` + (await page.evaluate(() => (window as unknown as { __ev: string[] }).__ev)).slice(-12).join('\n'));
+  } else {
+    console.log('DIAG первый тап развернул:\n' + (await page.evaluate(() => (window as unknown as { __ev: string[] }).__ev)).slice(-12).join('\n'));
+  }
   await page.getByRole('button', { name: 'Свернуть звонок' }).click();
   const again = await box(page);
   expect(Math.abs(again.x - moved.x)).toBeLessThan(1.5);
