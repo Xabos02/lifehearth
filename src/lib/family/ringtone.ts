@@ -157,9 +157,11 @@ const RINGBACK_CYCLES = 12;
 
 let stopBack: (() => void) | null = null;
 
-/** Гудки, пока у собеседника звонит. Останавливает stopRingback. */
+/** Гудки, пока у собеседника звонит. Повторный вызов — мимо; глушит stopRingback. */
 export function startRingback(): void {
-  stopRingback();
+  // «Звонит» приходит повторами (каждый повтор приглашения) — перезапуск
+  // сбивал бы ритм на каждом. Уже идут — оставляем как есть.
+  if (stopBack) return;
   let ac: AudioContext;
   try {
     ctx = ctx ?? new AudioContext();

@@ -643,3 +643,47 @@ describe('звонок адресату с замороженным прилож
     expect(caller.sent.some((f) => f.includes('"accepted"'))).toBe(true);
   });
 });
+
+describe('гудки звонящему, когда у собеседника закрыто приложение', () => {
+  // Открытое приложение собеседника само говорит «звонит». Закрытое молчит, и
+  // звонить ему будет пуш: принят службой — звонящему «звонит» от имени
+  // собеседника, у него идут гудки. Не принят — гудков нет: не звонит ничего.
+  function room(pushOk: boolean) {
+    const r = makeRoom();
+    const inner = r.room as unknown as {
+      ctx: { waitUntil: (p: Promise<unknown>) => void };
+      pushCall: () => Promise<boolean>;
+    };
+    const pending: Promise<unknown>[] = [];
+    inner.ctx.waitUntil = (p) => void pending.push(p);
+    let pushes = 0;
+    inner.pushCall = async () => {
+      pushes++;
+      return pushOk;
+    };
+    const caller = r.addSocket('mom');
+    caller.serializeAttachment({ memberId: 'mom', bound: true, at: Date.now() });
+    const offer = async () => {
+      await r.room.webSocketMessage(caller, JSON.stringify({ type: 'signal', to: 'vlad', call: 'c1', kind: 'offer', data: 'x' }));
+      await Promise.all(pending);
+    };
+    const ringing = () => framesOf(caller).filter((f) => f.kind === 'ringing');
+    return { offer, ringing, pushes: () => pushes };
+  }
+
+  it('пуш принят — «звонит» от имени собеседника, и снова на каждый повтор приглашения', async () => {
+    const r = room(true);
+    await r.offer();
+    expect(r.ringing()).toEqual([{ type: 'signal', from: 'vlad', to: 'mom', call: 'c1', kind: 'ringing', data: null }]);
+    await r.offer();
+    expect(r.pushes(), 'пуш — один на звонок').toBe(1);
+    expect(r.ringing(), 'одиночный кадр мог потеряться — повтор приглашения спрашивает снова').toHaveLength(2);
+  });
+
+  it('пуш не принят (нет подписки, служба отказала) — «звонит» не говорим', async () => {
+    const r = room(false);
+    await r.offer();
+    await r.offer();
+    expect(r.ringing()).toEqual([]);
+  });
+});

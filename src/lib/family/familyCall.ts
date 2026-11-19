@@ -104,6 +104,16 @@ export interface CallDiag {
   iceErrors?: string[];
   /** Сколько раз пытались переиграть соединение до сдачи. */
   restarts?: number;
+  /** Было ли соединение за этот звонок хоть раз — отличает «не встало» от «оборвалось». */
+  connected?: boolean;
+  /** Проверки маршрутов (STUN-запросы пар): сколько ушло и сколько вернулось
+   *  ответов. Ответов ноль — трафик звонка до собеседника не доходит вовсе. */
+  checks?: { sent: number; recv: number };
+  /** Защищённый канал (DTLS) поверх найденного маршрута: 'connected' |
+   *  'failed' | 'connecting' | 'new'. Маршрут есть, а канал нет — режут сам звонок. */
+  dtls?: string;
+  /** Через что ретранслятор выдал свой адрес: udp / tcp / tls. */
+  relayVia?: string[];
   reason: string;
 }
 
@@ -182,6 +192,7 @@ class CallManager {
   private restartAttempt = 0; // сколько попыток восстановления уже сделано
   private restarting = false; // переигровка в пути — вторую поверх не начинаем
   private failedGen = -1; // звонок, который уже сдаётся: второй fail() разбор не перезапишет
+  private everConnected = false; // соединение за этот звонок было — для разбора
   // Ретранслятор для входящего берём, пока звонит: к «Ответить» он уже на руках,
   // и ответ уходит на секунду раньше.
   private icePrefetch: Promise<IceResult> | null = null;
@@ -286,11 +297,17 @@ class CallManager {
    *  мимо: второй разбор, снятый уже без соединения, затёр бы первый. */
   private fail(reason: string) {
     if (this.failedGen === this.gen || this.snap.status === 'idle' || this.snap.status === 'ended') return;
-    this.failedGen = this.gen;
     if (this.familyId && this.peerId && this.callId) {
       sendSignal(this.familyId, { to: this.peerId, call: this.callId, kind: 'hangup', data: null });
       this.finished.set(this.callId, 'hangup');
     }
+    this.endWithDiag(reason);
+  }
+
+  /** Закрыть звонок, сначала записав разбор. Один раз на звонок. */
+  private endWithDiag(reason: string) {
+    if (this.failedGen === this.gen || this.snap.status === 'idle' || this.snap.status === 'ended') return;
+    this.failedGen = this.gen;
     const gen = this.gen;
     void this.writeDiag(reason).finally(() => {
       if (this.gen === gen) this.end(reason);
@@ -434,17 +451,44 @@ class CallManager {
       connState: pc?.connectionState,
       iceErrors: this.diagIceErrors.length ? [...this.diagIceErrors] : undefined,
       restarts: this.restartAttempt || undefined,
+      connected: this.everConnected,
       reason,
     };
     try {
       const stats = await pc?.getStats();
-      stats?.forEach((s: RTCStats & { state?: string; localCandidateId?: string; remoteCandidateId?: string }) => {
-        if (s.type === 'candidate-pair' && s.state === 'succeeded') {
-          const l = stats.get(s.localCandidateId ?? '') as { candidateType?: string } | undefined;
-          const r = stats.get(s.remoteCandidateId ?? '') as { candidateType?: string } | undefined;
-          diag.pair = `${l?.candidateType ?? '?'} ↔ ${r?.candidateType ?? '?'}`;
-        }
-      });
+      let sent = 0;
+      let recv = 0;
+      const via = new Set<string>();
+      stats?.forEach(
+        (
+          s: RTCStats & {
+            state?: string;
+            localCandidateId?: string;
+            remoteCandidateId?: string;
+            requestsSent?: number;
+            responsesReceived?: number;
+            dtlsState?: string;
+            candidateType?: string;
+            relayProtocol?: string;
+          },
+        ) => {
+          if (s.type === 'candidate-pair') {
+            sent += s.requestsSent ?? 0;
+            recv += s.responsesReceived ?? 0;
+            if (s.state === 'succeeded') {
+              const l = stats.get(s.localCandidateId ?? '') as { candidateType?: string } | undefined;
+              const r = stats.get(s.remoteCandidateId ?? '') as { candidateType?: string } | undefined;
+              diag.pair = `${l?.candidateType ?? '?'} ↔ ${r?.candidateType ?? '?'}`;
+            }
+          } else if (s.type === 'transport' && s.dtlsState) {
+            diag.dtls = s.dtlsState;
+          } else if (s.type === 'local-candidate' && s.candidateType === 'relay' && s.relayProtocol) {
+            via.add(s.relayProtocol);
+          }
+        },
+      );
+      if (sent || recv) diag.checks = { sent, recv };
+      if (via.size) diag.relayVia = [...via].sort();
     } catch {
       /* статистика недоступна — остальных фактов достаточно */
     }
@@ -476,8 +520,14 @@ class CallManager {
   }
 
   private async createPc(familyId: string): Promise<RTCPeerConnection> {
-    const ice = await (this.icePrefetch ?? this.fetchIce(familyId));
+    const prefetched = this.icePrefetch;
     this.icePrefetch = null;
+    let ice = await (prefetched ?? this.fetchIce(familyId));
+    // Предзагрузку входящий запускает в момент пробуждения от пуша, когда сеть
+    // и сокет ещё поднимаются, — и сорвавшийся запрос раньше оставлял весь
+    // звонок без ретранслятора. На мобильном это верный обрыв: спрашиваем
+    // ещё раз, уже к «Ответить». 'no-config' не повторяем — ответ тот же.
+    if (prefetched && ice.turn !== 'ok' && ice.turn !== 'no-config') ice = await this.fetchIce(familyId);
     this.diagTurn = ice.turn;
     this.diagTurnDetail = ice.detail;
     // Только ретранслятором на сотовой сети («relay only», как у Jitsi) больше
@@ -521,6 +571,7 @@ class CallManager {
       const s = pc.connectionState;
       if (this.pc !== pc) return; // событие осиротевшего соединения
       if (s === 'connected') {
+        this.everConnected = true;
         this.clearResend();
         this.clearConnTimeout();
         this.clearRecovery();
@@ -679,6 +730,23 @@ class CallManager {
     }
   }
 
+  /** Маршрут собеседника текущего звонка — в соединение или в очередь. */
+  private async applyRemoteCandidate(candidate: RTCIceCandidateInit) {
+    const t = this.candType(candidate.candidate);
+    this.diagRemote[t] = (this.diagRemote[t] ?? 0) + 1;
+    // Пока ждём ответ на переигровку, описание собеседника ещё старое —
+    // его новые маршруты оно отвергнет. Придерживаем до ответа.
+    if (this.pc && this.pc.remoteDescription && this.pc.signalingState !== 'have-local-offer') {
+      try {
+        await this.pc.addIceCandidate(candidate);
+      } catch {
+        /* устаревший кандидат */
+      }
+    } else {
+      this.pendingCandidates.push(candidate);
+    }
+  }
+
   private async drainCandidates() {
     if (!this.pc) return;
     for (const cand of this.pendingCandidates) {
@@ -774,8 +842,9 @@ class CallManager {
     }
     const sendOffer = () => void this.signal('offer', { sdp: pc.localDescription });
     sendOffer();
-    // Приглашение ушло — звонящему гудки, как в обычном телефоне.
-    if (this.getSnapshot().status === 'outgoing') startRingback();
+    // Гудки — не здесь, а по сигналу «звонит» (onSignal): приглашение ушло ещё
+    // не значит, что у собеседника звонит. Телефон выключен или без сети —
+    // гудков нет, как в телефонной сети.
     this.resendTimer = setInterval(sendOffer, OFFER_RESEND_MS);
     this.ringTimer = setTimeout(() => {
       this.ringTimer = null;
@@ -1043,8 +1112,13 @@ class CallManager {
       // всё накопленное разом) проходила проверку «свободен» каждая —
       // с собственным таймером пропущенного, который потом рвал разговор.
       if (this.callId === f.call) {
-        if (!this.pc) this.pendingOffer = f.data; // ещё звонит — свежий SDP
-        else if (f.data) await this.onRepeatOffer(c.familyKey, f.data);
+        if (!this.pc) {
+          this.pendingOffer = f.data; // ещё звонит — свежий SDP
+          // Звонящий повторяет приглашение — значит, «звонит» до него могло
+          // не дойти. Повторяем: одиночный кадр в переподключающийся сокет
+          // оставил бы его без гудков.
+          if (this.snap.status === 'incoming') void this.signal('ringing', null);
+        } else if (f.data) await this.onRepeatOffer(c.familyKey, f.data);
         return;
       }
       if (this.finished.has(f.call)) {
@@ -1084,6 +1158,9 @@ class CallManager {
       this.icePrefetch = this.fetchIce(familyId);
       this.set({ status: 'incoming', familyId, peerId: f.from, peerName: name, muted: false, startedAt: null, endReason: null });
       startRingtone();
+      // Звонящему — «у собеседника звонит»: по этому сигналу у него идут гудки.
+      // Старые версии сигнал пропускают молча (у них «Вызов…» в тишине).
+      void this.signal('ringing', null);
       this.clearRingTimer();
       this.ringTimer = setTimeout(() => {
         this.ringTimer = null;
@@ -1098,12 +1175,20 @@ class CallManager {
       // прилетают в звонок, которого тут ещё «нет». Придерживаем их — при
       // появлении offer с этим call-id они уйдут в соединение.
       if (f.kind === 'ice' && f.data) {
-        const list = this.earlyCandidates.get(f.call) ?? [];
+        // Список кладём в Map ДО расшифровки: кадры приходят пачкой, и каждый,
+        // заводя свой пустой список после await, затирал соседей.
+        let list = this.earlyCandidates.get(f.call);
+        if (!list) {
+          list = [];
+          this.earlyCandidates.set(f.call, list);
+        }
         if (list.length < 40) {
           try {
             const { candidate } = await decryptJSON<{ candidate: RTCIceCandidateInit }>(c.familyKey, f.data);
-            list.push(candidate);
-            this.earlyCandidates.set(f.call, list);
+            // Пока расшифровывали, пришло приглашение этого звонка и забрало
+            // очередь — кандидат уже текущего звонка, а не сирота.
+            if (this.callId === f.call) await this.applyRemoteCandidate(candidate);
+            else list.push(candidate);
           } catch {
             /* чужой ключ — не наш звонок */
           }
@@ -1143,19 +1228,11 @@ class CallManager {
     } else if (f.kind === 'ice') {
       if (!f.data) return;
       const { candidate } = await decryptJSON<{ candidate: RTCIceCandidateInit }>(c.familyKey, f.data);
-      const t = this.candType(candidate.candidate);
-      this.diagRemote[t] = (this.diagRemote[t] ?? 0) + 1;
-      // Пока ждём ответ на переигровку, описание собеседника ещё старое —
-      // его новые маршруты оно отвергнет. Придерживаем до ответа.
-      if (this.pc && this.pc.remoteDescription && this.pc.signalingState !== 'have-local-offer') {
-        try {
-          await this.pc.addIceCandidate(candidate);
-        } catch {
-          /* устаревший кандидат */
-        }
-      } else {
-        this.pendingCandidates.push(candidate);
-      }
+      await this.applyRemoteCandidate(candidate);
+    } else if (f.kind === 'ringing') {
+      // У собеседника звонит (его приложение или пуш от сервера) — гудки.
+      // Приходит повторами; startRingback повтор не перезапускает.
+      if (this.snap.status === 'outgoing') startRingback();
     } else if (f.kind === 'accepted') {
       if (this.snap.status === 'outgoing') {
         // Трубку сняли — дозвон окончен, дальше решает таймер соединения.
@@ -1169,6 +1246,14 @@ class CallManager {
       // телефона — и раньше этим рвал идущий разговор.
       if (this.snap.status === 'outgoing') this.end(f.kind === 'decline' ? 'Отклонено' : 'Занято');
     } else if (f.kind === 'hangup' || f.kind === 'cancel') {
+      // Собеседник сдался, пока связь искалась или восстанавливалась: его срок
+      // соединения истёк раньше (у ответившего он идёт с «Ответить»). Разбор
+      // пишет и эта сторона — раньше он был только у собеседника, а здесь
+      // экран «Почему звонок не вышел» показывал прошлый звонок.
+      if (this.snap.status === 'connecting' || this.snap.reconnecting) {
+        this.endWithDiag(this.snap.status === 'connecting' ? 'Соединение не состоялось' : 'Связь не восстановилась');
+        return;
+      }
       // 'idle' — входящий ещё не успел показаться: для человека это тоже пропущенный.
       const ringing = this.snap.status === 'incoming' || this.snap.status === 'idle';
       this.end(ringing ? 'Пропущенный звонок' : 'Звонок завершён');
@@ -1219,6 +1304,7 @@ class CallManager {
     this.disarmMicRecovery();
     this.releaseScreen();
     this.restartAttempt = 0;
+    this.everConnected = false;
     this.earlyCandidates.clear();
     // Разбор этого звонка уже записан — следующий начинает с чистого листа.
     // Раньше счётчики копились от звонка к звонку, и «Отказы ретранслятора»
