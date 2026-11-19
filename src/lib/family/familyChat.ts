@@ -553,8 +553,8 @@ class FamilyEngine {
       }
       // Нас исключили — переподключаться незачем и нечем. Локальная переписка
       // остаётся: стирать человеку его же историю за то, что его убрали из
-      // группы, — лишнее.
-      if (c.removedAt || c.groupDeletedAt) {
+      // группы, — лишнее. То же, если сервер не признаёт наш ключ (unverifiedAt).
+      if (c.removedAt || c.groupDeletedAt || c.unverifiedAt) {
         this.wantConnected = false;
         this.connecting = false;
         this.setState('offline');
@@ -570,15 +570,26 @@ class FamilyEngine {
       // ключей прямо здесь, и без перечитывания тикет просили бы без неё.
       await registerMember(this.familyId, connectDeadline());
       c = (await this.cfg()) ?? c;
-      let tr = await this.fetchTicket(c);
+      let { res: tr, rejected } = await this.fetchTicket(c);
       // 401 после смены ключа группы — обычное дело: пока нас не было, кого-то
       // исключили, и токен сменился. Новый лежит в личном конверте.
       if (tr.status === 401 && (await recoverAccess(this.familyId))) {
         const fresh = await this.cfg();
         if (fresh) {
           c = fresh;
-          tr = await this.fetchTicket(fresh);
+          ({ res: tr, rejected } = await this.fetchTicket(fresh));
         }
+      }
+      // 409 на задачу, которую наш ключ не открыл, — пара разошлась с
+      // закреплённой, и тикета не будет никогда. Повторы раз в минуту ничего не
+      // дадут, а «не в сети» ничего не объясняет: помечаем, баннер скажет, что
+      // делать. Голый 409 (задача не дошла — моргнула сеть) — обычный повтор.
+      if (tr.status === 409 && rejected) {
+        await patchFamilyConfig(this.familyId, { unverifiedAt: new Date().toISOString() });
+        this.wantConnected = false;
+        this.connecting = false;
+        this.setState('offline');
+        return;
       }
       if (tr.status === 403) {
         await patchFamilyConfig(this.familyId, { removedAt: new Date().toISOString() });
@@ -714,17 +725,21 @@ class FamilyEngine {
    *  подтверждения — всё внутри подключения. Без ответа на задачу тикета нет
    *  (сервер отвечает 409): «запасной путь» без привязки, где участник
    *  называл себя сам, позволял любому писать от чужого имени (аудит 18.11,
-   *  S3). Чтобы задача была всегда, ключ регистрируется до тикета (connect). */
-  private async fetchTicket(c: FamilyConfig): Promise<Response> {
+   *  S3). Чтобы задача была всегда, ключ регистрируется до тикета (connect).
+   *
+   *  rejected — задача пришла, а наш ключ её не открыл (см. solveChallenge). */
+  private async fetchTicket(c: FamilyConfig): Promise<{ res: Response; rejected: boolean }> {
     const base = `familyId=${c.familyId}&memberId=${encodeURIComponent(c.selfMemberId)}`;
     const auth = { Authorization: `Bearer ${c.familyToken}` };
-    const answer = await this.proof(c);
-    return fetch(`${WORKER_URL}/family/ticket?${base}`, {
+    const solved = await this.solveChallenge(c, base, auth).catch(() => null);
+    const answer = solved === 'rejected' ? null : solved;
+    const res = await fetch(`${WORKER_URL}/family/ticket?${base}`, {
       method: 'POST',
       headers: answer ? { ...auth, 'Content-Type': 'application/json' } : auth,
       ...(answer ? { body: JSON.stringify(answer) } : {}),
       ...connectDeadline(),
     });
+    return { res, rejected: solved === 'rejected' };
   }
 
   /** Ответ на задачу сервера — доказательство «я и есть этот участник» для
@@ -734,16 +749,20 @@ class FamilyEngine {
    *  исключение: решает сервер, вызывающий просто идёт без ответа. */
   private proof(c: FamilyConfig): Promise<{ challengeId: string; nonce: string } | null> {
     const base = `familyId=${c.familyId}&memberId=${encodeURIComponent(c.selfMemberId)}`;
-    return this.solveChallenge(c, base, { Authorization: `Bearer ${c.familyToken}` }).catch(() => null);
+    return this.solveChallenge(c, base, { Authorization: `Bearer ${c.familyToken}` })
+      .then((a) => (a === 'rejected' ? null : a))
+      .catch(() => null);
   }
 
   /** Открыть присланный сервером конверт своим ключом. null — задача не
-   *  выдана (у сервера нет нашего публичного ключа) или её нечем открыть. */
+   *  выдана (у сервера нет нашего публичного ключа или нет связи); 'rejected'
+   *  — выдана, но наш ключ её не открывает: пара на устройстве не та, что
+   *  закреплена за участником на сервере. */
   private async solveChallenge(
     c: FamilyConfig,
     base: string,
     auth: Record<string, string>,
-  ): Promise<{ challengeId: string; nonce: string } | null> {
+  ): Promise<{ challengeId: string; nonce: string } | 'rejected' | null> {
     if (!c.boxPriv) return null;
     const res = await fetch(`${WORKER_URL}/family/challenge?${base}`, {
       method: 'POST',
@@ -756,12 +775,16 @@ class FamilyEngine {
       challenge: { challengeId: string; ephPub: string; sealed: string } | null;
     };
     if (!challenge) return null;
-    const { nonce } = await openFrom<{ nonce: string }>(
-      await importBoxPublic(challenge.ephPub),
-      await importBoxPrivate(c.boxPriv),
-      challenge.sealed,
-    );
-    return { challengeId: challenge.challengeId, nonce };
+    try {
+      const { nonce } = await openFrom<{ nonce: string }>(
+        await importBoxPublic(challenge.ephPub),
+        await importBoxPrivate(c.boxPriv),
+        challenge.sealed,
+      );
+      return { challengeId: challenge.challengeId, nonce };
+    } catch {
+      return 'rejected';
+    }
   }
 
   // Регистрируем push-подписку этого участника в DO — чтобы получать

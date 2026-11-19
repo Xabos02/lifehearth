@@ -7,7 +7,7 @@ import { openApp, test } from './fixtures';
 // свёрнута, и баннер внутри неё был не виден — чат выглядел живым, а
 // сообщения в него уже не приходили.
 
-async function seedFamily(page: Page, gone: { groupDeletedAt?: string; removedAt?: string }) {
+async function seedFamily(page: Page, gone: { groupDeletedAt?: string; removedAt?: string; unverifiedAt?: string }) {
   await page.evaluate(async (g) => {
     const { db } = await import('/src/db/db.ts');
     const { generateKey } = await import('/src/lib/crypto.ts');
@@ -61,4 +61,19 @@ test('исключённый видит, что его исключили, бе�
   await expect.poll(() => seen(page.getByText('Вас исключили из этой группы.', { exact: false }))).toBe(true);
   await page.goto('/more/family');
   await expect(page.getByRole('button', { name: /Наши.*Вас исключили из группы/ })).toBeVisible();
+});
+
+// Сервер не признал ключ этого устройства (familyChat: unverifiedAt) — связь
+// сама не вернётся, и «нет связи» под названием было бы враньём. Выход —
+// новое приглашение, и кнопка ведёт к нему прямо из чата.
+test('устройство, которое сервер не признал, просит новое приглашение и ведёт ко входу', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await seedFamily(page, { unverifiedAt: new Date().toISOString() });
+  await expect.poll(() => seen(page.getByText('Это устройство не может подтвердить, что вы участник группы.', { exact: false }))).toBe(true);
+  await expect(page.getByText('Заберёшь колёса в субботу?')).toBeVisible();
+  await expect(page.locator('header').getByText(/нет связи|не в сети/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Ввести приглашение' }).click();
+  await expect(page.getByText('Войти по приглашению').last()).toBeVisible();
+  await page.goto('/more/family');
+  await expect(page.getByRole('button', { name: /Наши.*Нужно новое приглашение/ })).toBeVisible();
 });

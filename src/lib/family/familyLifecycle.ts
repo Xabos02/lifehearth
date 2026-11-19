@@ -58,7 +58,13 @@ export async function createFamily(familyName: string, displayName: string): Pro
 }
 
 /** Войти в существующую группу по коду приглашения (QR/строка). Если уже
- *  состоишь в этой группе — просто возвращаем её id (без дубля). */
+ *  состоишь в этой группе — просто возвращаем её id (без дубля).
+ *
+ *  Кроме устройства, которое сервер не признал участником (unverifiedAt): его
+ *  пара ключей не та, что закреплена, и доказать прежнее «я» ему нечем. Такое
+ *  входит заново, новым участником — переписка, курсоры и права владельца на
+ *  устройстве остаются, меняется только личность и пара ключей. Прежний
+ *  участник остаётся в списке у всех: убрать его может владелец. */
 export async function joinFamily(
   code: string,
   displayName: string,
@@ -69,7 +75,7 @@ export async function joinFamily(
   // любой нашедший входил в семью. С 25.09 (задача 33) не принимается.
   const p = await openInvite(code, word);
   const existing = await getFamilyConfig(p.familyId);
-  if (existing) {
+  if (existing && !existing.unverifiedAt) {
     connectFamily(p.familyId);
     return p.familyId;
   }
@@ -90,13 +96,21 @@ export async function joinFamily(
     familyKey: key,
     familyName: p.familyName,
     selfMemberId: newAccountId(),
-    lastSeq: 0,
-    lastReadSeq: 0,
+    lastSeq: existing?.lastSeq ?? 0,
+    lastReadSeq: existing?.lastReadSeq ?? 0,
     enabled: true,
-    joinedAt: new Date().toISOString(),
+    joinedAt: existing?.joinedAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(), // конфиг уедет на другие устройства аккаунта
     keyEpoch: epoch,
-    keyRing,
+    keyRing: { ...existing?.keyRing, ...keyRing },
+    // Секрет владельца НЕ переносим. Новая личность — не владелец для
+    // остальных: конверт с новым ключом они проверяют по публичному ключу
+    // ПРЕЖНЕГО участника-владельца (ownerMemberId), а у этого устройства пара
+    // уже другая. С секретом кнопка «Исключить» осталась бы, сервер исключение
+    // принял бы — и после смены ключа конверт не открыл бы никто: группа
+    // встала бы у всех. ownerMemberId оставляем: по нему проверяются конверты
+    // настоящего владельца.
+    ...(existing && { sortOrder: existing.sortOrder, ownerMemberId: existing.ownerMemberId }),
   });
   await ensureBoxKeys((await getFamilyConfig(p.familyId))!);
   await upsertSelfMember(p.familyId, displayName);

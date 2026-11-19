@@ -324,10 +324,12 @@ async function applyFamilyShare(c: SyncConfig, ciphertext: string, seen: boolean
     // свою неподтверждённую — чей бы конфиг ни был новее. Иначе устройство с
     // разошедшейся парой осталось бы снаружи: сервер держит за участником
     // первый зарегистрированный ключ и на чужую пару задачу не откроет.
-    // Подтверждённую свою не трогаем: она и есть закреплённая.
+    // Подтверждённую свою не трогаем: она и есть закреплённая. Пометка «сервер
+    // не признал» (unverifiedAt) снимается: с этой парой тикет дадут, и
+    // FamilyRunner переподключит группу.
     let adopted = false;
     if (p.boxVerifiedAt && p.boxPub && p.boxPriv && !local.boxVerifiedAt && p.boxPub !== local.boxPub) {
-      await db.family.update(p.familyId, { boxPub: p.boxPub, boxPriv: p.boxPriv, boxVerifiedAt: p.boxVerifiedAt });
+      await db.family.update(p.familyId, { boxPub: p.boxPub, boxPriv: p.boxPriv, boxVerifiedAt: p.boxVerifiedAt, unverifiedAt: undefined });
       adopted = true;
     }
     if (shouldApply(local.updatedAt, p.updatedAt)) {

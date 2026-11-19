@@ -93,6 +93,7 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
     // Группы больше нет — превью не должно выглядеть живым чатом.
     if (c.groupDeletedAt) return t('Группа удалена');
     if (c.removedAt) return t('Вас исключили из группы');
+    if (c.unverifiedAt) return t('Нужно новое приглашение');
     const last = sums[c.familyId]?.last;
     if (!last) {
       if (pair && !partner) return t('Ждём, пока войдёт по приглашению');

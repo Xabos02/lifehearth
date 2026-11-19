@@ -1713,6 +1713,9 @@ export const EN: Record<string, string> = {
     'You were removed from this group. The chat history stays on this device, but new messages will not arrive.',
   'Эту группу удалил её создатель. Переписка на этом устройстве осталась, но новые сообщения приходить не будут.':
     'This group was deleted by its creator. The chat history stays on this device, but new messages will not arrive.',
+  'Это устройство не может подтвердить, что вы участник группы. Попросите новое приглашение.':
+    'This device can’t confirm that you’re a member of the group. Ask for a new invitation.',
+  'Ввести приглашение': 'Enter invitation',
   'Пригласить участника': 'Invite a member',
   'Вместе с ним группу потеряют: {names}. У них старая версия приложения — новый ключ передать нечем. Попросите их открыть приложение и повторите.':
     'These members would lose the group too: {names}. They are on an older app version, so the new key cannot reach them. Ask them to open the app and try again.',
@@ -2204,6 +2207,7 @@ export const EN: Record<string, string> = {
   'Вас исключили из группы': 'You were removed from the group',
   'Вы': 'You',
   'Группа удалена': 'Group deleted',
+  'Нужно новое приглашение': 'New invitation needed',
   'Ждём, пока войдёт по приглашению': 'Waiting for them to join with the invite',
   'нет связи': 'no connection',
   'Личные': 'Personal',

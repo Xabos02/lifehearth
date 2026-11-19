@@ -500,9 +500,11 @@ describe('пара ключей группы между моими устрой�
 
   it('подтверждённая сервером пара с другого устройства заменяет свою неподтверждённую', async () => {
     const accountKey = await seedSync();
-    await localGroup({ boxPub: 'pub-своя', boxPriv: 'priv-своя' });
+    await localGroup({ boxPub: 'pub-своя', boxPriv: 'priv-своя', unverifiedAt: '2026-11-18T09:30:00.000Z' });
     const got = await pullShare(accountKey, { boxPub: 'pub-закреплённая', boxPriv: 'priv-закреплённая', boxVerifiedAt: '2026-11-18T10:00:00.000Z' });
     expect(got).toMatchObject({ boxPub: 'pub-закреплённая', boxPriv: 'priv-закреплённая', boxVerifiedAt: '2026-11-18T10:00:00.000Z' });
+    // Сервер эту пару признаёт — пометка «не признал» больше не держит группу.
+    expect(got?.unverifiedAt, 'пометка пережила подтверждённую пару').toBeUndefined();
   });
 
   it('своя подтверждённая пара не уступает ничьей, неподтверждённая чужая — своей', async () => {
