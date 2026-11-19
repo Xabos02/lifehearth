@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>А: «Поделиться» вместо «Сохранить»</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body{margin:0;background:#f6f6fa;font-family:-apple-system,system-ui,sans-serif}
+  </style>
+</helmet>
+<div style="width: 375px; background: #f6f6fa">
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 16px 16px 0; font-size: 12px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: #5f5f6b">А — «Поделиться» вместо «Сохранить»</p>
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 18px 16px 0; font-size: 13px; font-weight: 600; color: #26262f">Светлая</p>
+  <p style="height: 28px; box-sizing: border-box; margin: 0; padding: 10px 16px 0; font-size: 11px; color: #5f5f6b">Тот же ряд, шторка не выросла, слово на экране</p>
+  <img src="shots/invite-a-light.webp" alt="Вариант А: Скопировать код и Поделиться в одном ряду, светлая тема" style="display: block; width: 375px; height: 812px">
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 18px 16px 0; font-size: 13px; font-weight: 600; color: #26262f">Тёмная</p>
+  <p style="height: 28px; box-sizing: border-box; margin: 0; padding: 10px 16px 0; font-size: 11px; color: #5f5f6b">Нет системной шторки — на месте «Сохранить»</p>
+  <img src="shots/invite-a-dark.webp" alt="Вариант А, тёмная тема" style="display: block; width: 375px; height: 812px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":1800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

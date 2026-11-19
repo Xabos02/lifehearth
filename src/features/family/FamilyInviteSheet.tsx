@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import {
-  Download,
-} from 'lucide-react';
+import { Download, Share } from 'lucide-react';
 import {
   GCheck as Check,
   GCopy as Copy,
@@ -77,6 +75,20 @@ export function FamilyInviteSheet({ familyId, pair = false, open, onClose }: Pro
     });
   }
 
+  // Системное «Поделиться»: код с подсказкой — прямо в мессенджер собеседнику,
+  // без «скопировать → открыть Telegram → вставить». Где его нет (часть
+  // десктопных браузеров), остаётся «Сохранить» файлом.
+  const canShare = typeof navigator.share === 'function';
+  async function share() {
+    try {
+      await navigator.share({ text: message() });
+    } catch (err) {
+      // Закрыл шторку «Поделиться» — это ответ, а не сбой.
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      copyCode();
+    }
+  }
+
   function saveFile() {
     const file = new File([message()], 'life-hub-family-invite.txt', { type: 'text/plain' });
     const url = URL.createObjectURL(file);
@@ -100,16 +112,27 @@ export function FamilyInviteSheet({ familyId, pair = false, open, onClose }: Pro
             <img src={qrUrl} alt={t('QR-код приглашения')} className="rounded-2xl bg-white p-3" width={260} height={260} />
           </div>
         )}
+        {/* «Поделиться» на месте «Сохранить» (канва design/family-share, А):
+            шторка не растёт, и кодовое слово остаётся на экране целиком. */}
         <div className="flex gap-2">
-          <Button variant="secondary" className="flex-1" onClick={copyCode}>
+          {/* Пока код считается (PBKDF2), отдавать нечего: сообщение без кода
+              ушло бы собеседнику пустышкой. */}
+          <Button variant="secondary" className="flex-1" disabled={!code} onClick={copyCode}>
             {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
             {copied ? t('Скопировано') : t('Скопировать код')}
             <Haptic />
           </Button>
-          <Button variant="secondary" className="flex-1" onClick={saveFile}>
-            <Download size={ICON.base} />
-            {t('Сохранить')}
-          </Button>
+          {canShare ? (
+            <Button variant="secondary" className="flex-1" disabled={!code} onClick={() => void share()}>
+              <Share size={ICON.base} />
+              {t('Поделиться')}
+            </Button>
+          ) : (
+            <Button variant="secondary" className="flex-1" disabled={!code} onClick={saveFile}>
+              <Download size={ICON.base} />
+              {t('Сохранить')}
+            </Button>
+          )}
         </div>
         {/* Кодовое слово — второй фактор. Оно и есть то, что делает
             перехваченный код бесполезным, поэтому стоит крупно и отдельно. */}

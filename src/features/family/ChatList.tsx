@@ -196,8 +196,12 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
         configs={configs}
         // Личные — под именем собеседника, как в списке: три строки «Личный
         // чат» подряд не дали бы понять, из какого выходишь.
+        // Только там, где и карточка чата говорит «чат» (собеседник есть или
+        // ждём его): новая «Работа», где вы пока один, — группа, с названием.
         pairLabels={Object.fromEntries(
-          personal.map((c) => [c.familyId, partnerOf(c, members)?.displayName ?? pending[c.familyId] ?? (c.familyName || t('Семья'))]),
+          personal
+            .filter((c) => partnerOf(c, members) || awaitingPartner(c, members))
+            .map((c) => [c.familyId, partnerOf(c, members)?.displayName ?? pending[c.familyId] ?? (c.familyName || t('Семья'))]),
         )}
       />
       <NewChatSheet

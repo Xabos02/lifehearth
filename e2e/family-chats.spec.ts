@@ -156,7 +156,7 @@ test('карточка группы — по нажатию на названи�
 
 test('пригласить в личный чат можно, но сначала — правда: чат станет общим', async ({ page }) => {
   await page.goto('/more/family?g=p-mom&t=members');
-  await expect(page.getByRole('button', { name: 'Выйти из группы' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Выйти из чата' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Мама', level: 1, exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Пригласить' }).click();
   expect(await answerConfirm(page, false)).toContain('Чат станет общим');
@@ -275,6 +275,16 @@ test('новая обычная группа, где пока вы один, —
   await expect(page.getByText(/Ждём, пока/)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Показать QR' })).toHaveCount(0);
   await expect(chatHeader(page)).toContainText('1 участник');
+
+  // И в «Управлении группами» она группа: с названием, которое можно
+  // переименовать, и выходом «из группы», а не «из чата с собеседником».
+  await page.getByRole('link', { name: 'Назад' }).click();
+  await page.getByRole('button', { name: 'Управление группами' }).click();
+  const sheet = page.locator('body > div.fixed.inset-0.z-50');
+  await expect(sheet.getByRole('button', { name: 'Дача' })).toBeVisible();
+  // Наши и Дача — группы; Мама, Аня и Бабушка — чаты.
+  await expect(sheet.getByRole('button', { name: 'Выйти из группы' })).toHaveCount(2);
+  await expect(sheet.getByRole('button', { name: 'Выйти из чата' })).toHaveCount(3);
 });
 
 test('«Управление группами»: личные — под именем собеседника, без «Личный чат» подряд', async ({ page }) => {
@@ -351,4 +361,61 @@ test('вошёл по приглашению в личный чат, други�
   await expect(page.getByRole('heading', { name: 'Личные' })).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Групп/ })).toHaveCount(0);
   await expect(page.getByText(/Ждём, пока войдёт/)).toHaveCount(0);
+});
+
+test('«Поделиться» отдаёт код с подсказкой в системную шторку; без неё — «Сохранить»', async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { shared: string[] };
+    w.shared = [];
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (d: { text?: string }) => {
+        w.shared.push(d.text ?? '');
+      },
+    });
+  });
+  await page.goto('/more/family?g=p-wait');
+  await page.getByRole('button', { name: 'Показать QR' }).click();
+  await expect(page.getByAltText('QR-код приглашения')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Сохранить' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Поделиться', exact: true }).click();
+  const sent = await page.evaluate(() => (window as unknown as { shared: string[] }).shared);
+  expect(sent).toHaveLength(1);
+  // То же, что копирует «Скопировать код»: подсказка, куда вставить, и код,
+  // который разбирает экран входа.
+  expect(sent[0]).toContain('«Войти по приглашению»');
+  const parsed = await page.evaluate(async (text) => {
+    const { parsePastedInvite } = await import('/src/lib/crypto.ts');
+    return parsePastedInvite(text).kind;
+  }, sent[0]);
+  expect(parsed).toBe('v3');
+});
+
+test('без системной шторки «Поделиться» — на месте «Сохранить»', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'share', { configurable: true, value: undefined }));
+  await page.goto('/more/family?g=p-wait');
+  await page.getByRole('button', { name: 'Показать QR' }).click();
+  await expect(page.getByRole('button', { name: 'Сохранить' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Поделиться', exact: true })).toHaveCount(0);
+});
+
+test('карточка личного чата говорит «чат», а не «группа»; у общей — как было', async ({ page }) => {
+  // С собеседником: выход — из чата, и вопрос про собеседника.
+  await page.goto('/more/family?g=p-mom&t=members');
+  await expect(page.getByRole('button', { name: 'Выйти из чата' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Выйти из группы' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Выйти из чата' }).click();
+  expect(await answerConfirm(page, false)).toContain('Собеседник об этом не узнает');
+
+  // Заведённый личным (пометка pair), я создатель: переименовывать нечего —
+  // название никому не видно; удалить — «чат».
+  await page.goto('/more/family?g=p-wait&t=members');
+  await expect(page.getByRole('button', { name: /^Удалить чат/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Удалить группу/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Переименовать группу' })).toHaveCount(0);
+
+  // Общая группа — без перемен.
+  await page.goto('/more/family?g=f1&t=members');
+  await expect(page.getByRole('button', { name: 'Переименовать группу' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Выйти из группы' })).toBeVisible();
 });

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Б: большая «Поделиться кодом»</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body{margin:0;background:#f6f6fa;font-family:-apple-system,system-ui,sans-serif}
+  </style>
+</helmet>
+<div style="width: 375px; background: #f6f6fa">
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 16px 16px 0; font-size: 12px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: #5f5f6b">Б — большая «Поделиться кодом»</p>
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 18px 16px 0; font-size: 13px; font-weight: 600; color: #26262f">Светлая</p>
+  <p style="height: 28px; box-sizing: border-box; margin: 0; padding: 10px 16px 0; font-size: 11px; color: #5f5f6b">Заметнее всего, но шторка выше на 64 px</p>
+  <img src="shots/invite-b-light.webp" alt="Вариант Б: золотая кнопка Поделиться кодом под QR, светлая тема" style="display: block; width: 375px; height: 812px">
+  <p style="height: 40px; box-sizing: border-box; margin: 0; padding: 18px 16px 0; font-size: 13px; font-weight: 600; color: #26262f">Тёмная</p>
+  <p style="height: 28px; box-sizing: border-box; margin: 0; padding: 10px 16px 0; font-size: 11px; color: #5f5f6b">Кодовое слово уехало под край — надо долистать</p>
+  <img src="shots/invite-b-dark.webp" alt="Вариант Б, тёмная тема" style="display: block; width: 375px; height: 812px">
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":1800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
