@@ -11,7 +11,7 @@ export function ConfirmHost() {
   useEffect(() => subscribeConfirm(setReq), []);
   const close = () => req?.resolve(false);
   return (
-    <Sheet open={req !== null} onClose={close} title={req?.title}>
+    <Sheet open={req !== null} onClose={() => req?.resolve(null)} title={req?.title}>
       {req && (
         <div className="pb-2" role="alertdialog" aria-label={req.title} data-testid="confirm-sheet">
           {req.message && (

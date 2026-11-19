@@ -10,7 +10,7 @@ import { GChevronRight as ChevronRight } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { DEFAULT_WEEKLY_GOAL, resolveKind } from './workouts';
-import { formatMinutes, lastWorkout, todayAdvice, weekProgress } from './workoutStats';
+import { formatMinutes, lastSessionLead, lastWorkout, todayAdvice, weekProgress } from './workoutStats';
 import { adviceTitle, describeWorkout, relativeDay } from './workoutText';
 import { WorkoutSheet } from './WorkoutSheet';
 import { shownWorkouts } from './workoutRepo';
@@ -27,7 +27,10 @@ export function SportTodayLine() {
   const navigate = useNavigate();
   const today = todayKey();
   const rows = useLiveQuery(() => db.workouts.toArray(), []);
-  const [open, setOpen] = useState(false);
+  // Дата формы — на нажатии «Отметить», а не из отрисовки: «Сегодня»
+  // перерисовывается в полночь, и новая дата в ключе формы стирала набранное
+  // (аудит 1.64.0, H4). Тот же приём, что в HealthPage.
+  const [openOn, setOpenOn] = useState<string | null>(null);
 
   const workouts = useMemo(() => shownWorkouts(rows ?? []), [rows]);
   const goal = settings.workoutWeeklyGoal ?? DEFAULT_WEEKLY_GOAL;
@@ -78,14 +81,14 @@ export function SportTodayLine() {
         ) : (
           <button
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={() => setOpenOn(todayKey())}
             className={`shrink-0 rounded-full bg-lh-accent px-3.5 py-1.5 text-sm font-semibold text-lh-bg active:opacity-80 ${HIT_SLOP_44}`}
           >
             {t('Отметить')}
           </button>
         )}
       </div>
-      <WorkoutSheet open={open} onClose={() => setOpen(false)} workout={null} date={today} />
+      <WorkoutSheet open={openOn !== null} onClose={() => setOpenOn(null)} workout={null} date={openOn ?? today} last={lastSessionLead(workouts, today)} />
     </section>
   );
 }

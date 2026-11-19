@@ -35,7 +35,10 @@ export function QuickAddBar({
   defaultProjectId,
   onCreated,
 }: {
-  defaultDueDate?: string | null;
+  /** Срок, если в тексте его нет, — считается на отправке, а не при
+   *  отрисовке: «Сегодня» до минуты после полуночи ещё прежняя, а задача
+   *  должна уйти на новые сутки (аудит 1.64.0, NEW-H-1). */
+  defaultDueDate?: () => string | null;
   defaultProjectId?: string | null;
   /** Задача создана — родитель может прокрутить к ней: строка быстрого
    *  ввода бывает прокручена от «Без проекта», куда ложится новая. */
@@ -57,7 +60,7 @@ export function QuickAddBar({
       projectId: defaultProjectId ?? null,
       goalId: null,
       priority: p.priority,
-      dueDate: p.dueDate ?? defaultDueDate ?? null,
+      dueDate: p.dueDate ?? defaultDueDate?.() ?? null,
       startDate: p.startDate,
       dueTime: p.dueTime,
       duration: null,

@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Chip } from '../../components/ui/Chip';
 import { Button } from '../../components/ui/Button';
@@ -10,12 +10,13 @@ import { t } from '../../lib/i18n';
 import { todayKey } from '../../lib/dates';
 import type { Workout, WorkoutTemplate } from '../../db/types';
 import { EFFORT_LABELS } from './workouts';
-import { addWorkout, addWorkoutSession, removeWorkout, updateWorkout, type WorkoutDraft } from './workoutRepo';
+import { addWorkout, addWorkoutSession, removeWorkouts, sessionMates, updateWithMates, type WorkoutDraft } from './workoutRepo';
 import { addTemplate } from './templateRepo';
 import { TemplatesSheet } from './TemplatesSheet';
 import { ItemFields } from './ItemFields';
-import { itemFromSaved, kindPending, newItem, savedFromItem, type Item } from './workoutItem';
-import { confirmAction } from '../../components/ui/confirmStore';
+import { itemFromSaved, kindPending, newItem, newItemLike, savedFromItem, type Item } from './workoutItem';
+import { describeWorkout } from './workoutText';
+import { chooseAction, confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
   open: boolean;
@@ -26,6 +27,8 @@ interface Props {
   date: string;
   /** Новая тренировка сразу по шаблону — чип в карточке дня. */
   template?: WorkoutTemplate | null;
+  /** Прошлая тренировка: новая начинается с её вида, а не всегда с бега. */
+  last?: Workout | null;
 }
 
 /** Форма тренировки. Обязательное — дата и вид (минуты подставляются по
@@ -35,7 +38,7 @@ interface Props {
  *  Новая запись — это набор ИЗ ОДНОГО ИЛИ НЕСКОЛЬКИХ видов «в одно целое»:
  *  можно добавить ещё вид кнопкой, загрузить шаблон и убрать из него то, чего
  *  сегодня не делали. Правка уже сохранённой записи — как раньше, один вид. */
-export function WorkoutSheet({ open, onClose, workout, date, template = null }: Props) {
+export function WorkoutSheet({ open, onClose, workout, date, template = null, last = null }: Props) {
   const formKey = (workout?.id ?? 'new') + date + (template?.id ?? '');
   // Шаблон, загруженный «Из шаблона» уже в открытой форме: его имя встаёт в
   // заголовок так же, как у чипа. Помним его вместе с ключом формы: форма,
@@ -47,10 +50,22 @@ export function WorkoutSheet({ open, onClose, workout, date, template = null }: 
   // design/template-title, А): заголовок — имя, а то, что это новая запись,
   // — строкой под ним.
   const from = workout ? null : picked?.key === formKey ? picked.tpl : template;
+  // Набранное не пропадает молча (аудит 1.64.0, H20; PROTOCOL §5.5): крестик,
+  // свайп и тап мимо спрашивают, как у задачи и шаблона. Сохранение и
+  // удаление закрывают мимо вопроса.
+  const dirty = useRef(false);
+  const done = () => {
+    dirty.current = false;
+    onClose();
+  };
+  const close = async () => {
+    if (dirty.current && !(await confirmAction({ title: t('Закрыть без сохранения?'), confirmLabel: t('Закрыть без сохранения') }))) return;
+    done();
+  };
   return (
     <Sheet
       open={open}
-      onClose={onClose}
+      onClose={() => void close()}
       title={workout ? t('Тренировка') : from?.name || t('Новая тренировка')}
       subtitle={from ? t('Новая тренировка по шаблону') : undefined}
     >
@@ -60,8 +75,12 @@ export function WorkoutSheet({ open, onClose, workout, date, template = null }: 
           workout={workout}
           date={date}
           template={template}
+          last={last}
           onTemplate={(tpl) => setPicked({ key: formKey, tpl })}
-          onClose={onClose}
+          onDirty={(d) => {
+            dirty.current = d;
+          }}
+          onClose={done}
         />
       )}
     </Sheet>
@@ -78,23 +97,36 @@ function WorkoutForm({
   workout,
   date,
   template,
+  last,
   onTemplate,
+  onDirty,
   onClose,
 }: {
   workout: Workout | null;
   date: string;
   template: WorkoutTemplate | null;
+  last: Workout | null;
   onTemplate: (tpl: WorkoutTemplate) => void;
+  onDirty: (dirty: boolean) => void;
   onClose: () => void;
 }) {
   const [day, setDay] = useState(workout?.date ?? date);
   const [items, setItems] = useState<Item[]>(() =>
-    workout ? [itemFromSaved(workout)] : template ? itemsFromTemplate(template) : [newItem()],
+    workout ? [itemFromSaved(workout)] : template ? itemsFromTemplate(template) : [newItemLike(last)],
   );
   const [effort, setEffort] = useState<Workout['effort']>(workout?.effort ?? null);
   const [note, setNote] = useState(workout?.note ?? '');
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const savingRef = useRef(false);
+
+  // «Изменено» — по тому, что уйдёт в запись (savedFromItem), а не по
+  // касаниям: key у строки каждый раз новый, а раскрыл-свернул — та же
+  // тренировка. Загруженный шаблон становится новой точкой отсчёта видов.
+  const itemsSnap = JSON.stringify(items.map(savedFromItem));
+  const [base, setBase] = useState(() => ({ day, effort, note, items: itemsSnap }));
+  const itemsTouched = itemsSnap !== base.items || kindPending(items);
+  const dirty = itemsTouched || day !== base.day || effort !== base.effort || note !== base.note;
+  useEffect(() => onDirty(dirty), [dirty, onDirty]);
 
   // Минуты по желанию (задача 38): вид без времени — тоже тренировка.
   const validDay = /^\d{4}-\d{2}-\d{2}$/.test(day) && day <= todayKey();
@@ -105,8 +137,16 @@ function WorkoutForm({
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
   }
 
-  function applyTemplate(tpl: WorkoutTemplate) {
-    setItems(itemsFromTemplate(tpl));
+  async function applyTemplate(tpl: WorkoutTemplate) {
+    // Шаблон заменяет виды целиком: набранное поверх — только с вопросом
+    // (аудит 1.64.0, H13). Заметка и «как прошло» остаются.
+    if (itemsTouched && !(await confirmAction({ title: t('Заменить набранное шаблоном?'), confirmLabel: t('Заменить') }))) {
+      setTemplatesOpen(false);
+      return;
+    }
+    const next = itemsFromTemplate(tpl);
+    setItems(next);
+    setBase((b) => ({ ...b, items: JSON.stringify(next.map(savedFromItem)) }));
     onTemplate(tpl);
     setTemplatesOpen(false);
   }
@@ -128,12 +168,28 @@ function WorkoutForm({
         note: note.trim(),
         source: workout?.source ?? ('manual' as const),
         // Правка вида оставляет его в занятии: с null исправленные минуты
-        // превращали силовую + растяжку в две тренировки за месяц. Перенос
-        // на другой день — уже отдельное занятие.
-        groupId: workout && day === workout.date ? (workout.groupId ?? null) : null,
+        // превращали силовую + растяжку в две тренировки за месяц.
+        groupId: workout?.groupId ?? null,
       }));
-      if (workout) await updateWorkout(workout.id, drafts[0]);
-      else if (drafts.length === 1) await addWorkout(drafts[0]);
+      if (workout) {
+        // Перенос вида занятия на другой день — вопрос про всё занятие
+        // (аудит 1.64.0, H2). «Только этот вид» — как раньше: он уходит
+        // отдельной тренировкой; не обнулить groupId значило бы одно
+        // занятие на двух днях. Тап мимо вопроса — передумал: форма остаётся.
+        const mates = day !== workout.date ? await sessionMates(workout) : [];
+        const whole =
+          mates.length > 0 &&
+          (await chooseAction({
+            title: t('Перенести всё занятие?'),
+            message: t('В занятии ещё: {kinds}.', { kinds: mates.map(describeWorkout).join(', ') }),
+            confirmLabel: t('Перенести всё'),
+            cancelLabel: t('Только этот вид'),
+            danger: false,
+          }));
+        if (whole === null) return;
+        const moved = day !== workout.date && !whole;
+        await updateWithMates(workout.id, moved ? { ...drafts[0], groupId: null } : drafts[0], whole ? mates : []);
+      } else if (drafts.length === 1) await addWorkout(drafts[0]);
       else await addWorkoutSession(drafts);
       onClose();
     } finally {
@@ -144,7 +200,19 @@ function WorkoutForm({
   const del = async () => {
     if (!workout) return;
     if (!(await confirmAction(t('Удалить тренировку?')))) return;
-    await removeWorkout(workout.id);
+    // Вид занятия — следом вопрос, всё ли занятие (аудит 1.64.0, H2).
+    // «Только этот вид» — один; тап мимо — передумал, ничего не удаляется.
+    const mates = await sessionMates(workout);
+    const whole =
+      mates.length > 0 &&
+      (await chooseAction({
+        title: t('Удалить всё занятие?'),
+        message: t('В занятии ещё: {kinds}.', { kinds: mates.map(describeWorkout).join(', ') }),
+        confirmLabel: t('Удалить всё занятие'),
+        cancelLabel: t('Только этот вид'),
+      }));
+    if (whole === null) return;
+    await removeWorkouts(whole ? [workout.id, ...mates.map((m) => m.id)] : [workout.id]);
     onClose();
   };
 

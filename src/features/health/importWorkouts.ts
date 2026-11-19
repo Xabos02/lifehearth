@@ -224,6 +224,9 @@ export function parseWorkoutsCsv(text: string, today: string = todayKey()): Pars
   return { rows, skipped };
 }
 
+/** Метка ключа у записи из отменённого импорта (тост «Вернуть»). */
+export const UNDONE = 'undone|';
+
 type DupKey = Pick<Workout, 'date' | 'type' | 'minutes' | 'distanceKm'>;
 export const dupKey = (w: DupKey) =>
   `${w.date}|${w.type}|${w.minutes}|${w.distanceKm == null ? '' : Math.round(w.distanceKm)}`;
@@ -236,8 +239,11 @@ export const dupKey = (w: DupKey) =>
 export function withoutDuplicates(rows: ParsedWorkout[], existing: (DupKey & Pick<Workout, 'importKey'>)[]): ParsedWorkout[] {
   // Импортированная запись помнит ключ своей строки файла: поправленные
   // минуты по текущим полям уже не совпадали, и повтор файла возвращал
-  // исходную копию второй записью.
-  const seen = new Set(existing.flatMap((w) => (w.importKey ? [w.importKey, dupKey(w)] : [dupKey(w)])));
+  // исходную копию второй записью. Пачка, отменённая «Вернуть», — не «уже
+  // есть»: иначе тот же файл после отмены больше не импортировался.
+  const seen = new Set(
+    existing.flatMap((w) => (w.importKey?.startsWith(UNDONE) ? [] : w.importKey ? [w.importKey, dupKey(w)] : [dupKey(w)])),
+  );
   const out: ParsedWorkout[] = [];
   for (const r of rows) {
     const key = dupKey(r);
