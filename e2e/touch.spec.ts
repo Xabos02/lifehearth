@@ -100,6 +100,18 @@ async function seedForAudit(page: Page) {
     await db.notes.bulkPut([
       { ...base('an1'), title: 'Заметка', content: '<div>Заметка</div>', tags: [], pinned: false, folderId: null },
     ] as never[]);
+    // Ответ ИИ с карточкой «Изменения в данных»: строки-ссылки, «Отменить»,
+    // «Оставить»/«Удалить» у предложенного удаления (20.11.2026).
+    await db.llmChats.put({ ...base('ac1'), title: 'Чат', model: 'm', systemPrompt: '', lastMessageAt: now, dataTools: true } as never);
+    await db.llmMessages.put({
+      ...base('am1'), chatId: 'ac1', role: 'assistant', content: 'Готово.', model: 'm', tokensIn: 1, tokensOut: 1,
+      costRub: 0, status: 'done', error: null, finishReason: 'stop',
+      actions: [
+        { op: 'create', kind: 'task', ids: ['at4'], title: 'Задача без проекта', state: 'done' },
+        { op: 'create', kind: 'note', ids: ['an1'], title: 'Заметка', state: 'undone' },
+        { op: 'delete', kind: 'task', ids: ['at1'], title: 'Позвонить поставщику', state: 'pending' },
+      ],
+    } as never);
   });
 }
 

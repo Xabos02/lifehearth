@@ -39,6 +39,13 @@ async function seedAiReply(page: Page) {
       ...base('ai-m'), chatId: 'ai-c', role: 'assistant', content: 'Ответ', model: 'm',
       tokensIn: 1, tokensOut: 1, costRub: 0, status: 'done', error: null,
       finishReason: 'length', toolTrace: [{ tool: 'list_tasks', count: 3 }],
+      // Карточка «Изменения в данных» (20.11.2026) — все три состояния строки:
+      // сделано с «Отменить», отменено, удаление ждёт кнопки (красный).
+      actions: [
+        { op: 'create', kind: 'template', ids: ['x1'], title: 'Фулбоди А', state: 'done' },
+        { op: 'create', kind: 'task', ids: ['x2'], title: 'Купить протеин', state: 'undone' },
+        { op: 'delete', kind: 'task', ids: ['x3'], title: 'Старый план', state: 'pending' },
+      ],
     } as never);
     await db.llmMessages.put({
       ...base('ai-e'), chatId: 'ai-c', role: 'assistant', content: '', model: 'm',
