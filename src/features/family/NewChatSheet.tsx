@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import { ScanLine, UserPlus } from 'lucide-react';
 import type { FamilyConfig, FamilyMember } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
-import { GChevronRight, GFamily } from '../../components/ui/glyphs';
+import { GFaChevronRight, GFaUsers, GFaUserPlus, GFaQrcode } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { useToast } from '../../components/ui/toastContext';
 import { createFamily } from '../../lib/family/familyLifecycle';
@@ -101,7 +100,7 @@ export function NewChatSheet({
               design/family-new-pair, вариант А): раньше на его месте было
               «Пока не с кем», и личный чат без общей группы не начинался. */}
           <Row
-            icon={<RingIcon><UserPlus size={ICON.header} /></RingIcon>}
+            icon={<RingIcon><GFaUserPlus size={ICON.action} /></RingIcon>}
             title={t('Пригласить по QR')}
             hint={t('Для того, кого нет в ваших группах')}
             onClick={() => setMode('pair')}
@@ -127,7 +126,7 @@ export function NewChatSheet({
                 onClick={() => (chat ? onOpenChat(chat.id, chat.waiting) : void start(member, source))}
                 end={
                   chat && !chat.waiting ? (
-                    <GChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
+                    <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
                   ) : (
                     <span className="shrink-0 font-semibold text-lh-accent">
                       {busy === member.id ? t('Создаём…') : chat ? t('Показать QR') : t('Начать чат')}
@@ -140,13 +139,13 @@ export function NewChatSheet({
 
           <h3 className="mt-4 mb-1 px-1 text-sm font-semibold text-lh-text-secondary">{t('Ещё')}</h3>
           <Row
-            icon={<RingIcon><GFamily size={ICON.header} /></RingIcon>}
+            icon={<RingIcon><GFaUsers size={ICON.action} /></RingIcon>}
             title={t('Новая группа')}
             hint={t('Название, потом приглашение')}
             onClick={() => setMode('create')}
           />
           <Row
-            icon={<RingIcon><ScanLine size={ICON.header} /></RingIcon>}
+            icon={<RingIcon><GFaQrcode size={ICON.action} /></RingIcon>}
             title={t('Войти по приглашению')}
             hint={t('QR или код и кодовое слово')}
             onClick={() => setMode('join')}

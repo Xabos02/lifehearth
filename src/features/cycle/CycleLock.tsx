@@ -6,9 +6,7 @@ import type { CycleSettings } from '../../db/cycleTypes';
 import { unlockCycleSection } from './lockState';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
-import {
-  GLock as Lock,
-} from '../../components/ui/glyphs';
+import { GFaLock } from '../../components/ui/glyphs';
 
 /** Экран ввода кода перед разделом.
  *
@@ -46,7 +44,7 @@ export function CycleLock({
   return (
     <div className="flex min-h-[60dvh] flex-col items-center justify-center gap-4 px-6 text-center">
       <span className="flex size-14 items-center justify-center rounded-2xl bg-lh-surface-2 text-lh-text-secondary">
-        <Lock size={ICON.accent} />
+        <GFaLock size={ICON.accent} />
       </span>
       <div>
         <p className="text-lg font-light">{t('Раздел закрыт')}</p>

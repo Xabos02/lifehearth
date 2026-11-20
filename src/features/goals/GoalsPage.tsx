@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  GChevronDown as ChevronDown,
-  GChevronRight as ChevronRight,
-  GTarget as Target,
-} from '../../components/ui/glyphs';
+import { GFaChevronDown, GFaChevronRight } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Goal } from '../../db/types';
@@ -15,6 +11,9 @@ import { GoalCard } from './GoalCard';
 import { GoalEditSheet } from './GoalEditSheet';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+const GoalsIcon = SECTION_BY_ID.get('goals')!.icon;
 
 function bySortOrder(a: Goal, b: Goal): number {
   return a.sortOrder - b.sortOrder;
@@ -24,7 +23,7 @@ function bySortOrder(a: Goal, b: Goal): number {
 function CollapsibleSection({ title, goals }: { title: string; goals: Goal[] }) {
   const [expanded, setExpanded] = useState(false);
   if (goals.length === 0) return null;
-  const Icon = expanded ? ChevronDown : ChevronRight;
+  const Icon = expanded ? GFaChevronDown : GFaChevronRight;
   return (
     <section className="mt-5">
       <button
@@ -33,7 +32,7 @@ function CollapsibleSection({ title, goals }: { title: string; goals: Goal[] }) 
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full items-center gap-1 py-1 text-sm font-semibold text-lh-text-secondary"
       >
-        <Icon size={ICON.action} />
+        <Icon size={ICON.inline} />
         {title}
         <span className="font-normal">· {goals.length}</span>
       </button>
@@ -64,7 +63,7 @@ export function GoalsPage() {
       {goals !== undefined &&
         (goals.length === 0 ? (
           <EmptyState
-            icon={Target}
+            icon={GoalsIcon}
             title={t('Пока нет целей')}
             hint={t('Создайте цель и привяжите к ней задачи и привычки — прогресс будет считаться сам')}
           />

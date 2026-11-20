@@ -1,4 +1,4 @@
-import { GFamily } from '../../components/ui/glyphs';
+import { GFaUsers } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { isLightColor } from '../../lib/colors';
 import type { FamilyMember } from '../../db/types';
@@ -22,18 +22,18 @@ export function MemberAvatar({ member, className = 'size-11 text-lg' }: { member
   );
 }
 
-/** Круг общего чата: знак семьи золотом на золотой подложке. Глиф — ступень
+/** Круг общего чата: значок группы золотом на золотой подложке. Глиф — ступень
  *  ICON по стороне круга (icons.ts): 44 → header, 68 → display. */
 export function GroupAvatar({ className = 'size-11', glyph = ICON.header }: { className?: string; glyph?: number }) {
   return (
     <span aria-hidden className={`flex shrink-0 items-center justify-center rounded-full bg-lh-accent-dim text-lh-accent ${className}`}>
-      <GFamily size={glyph} />
+      <GFaUsers size={glyph} />
     </span>
   );
 }
 
 /** Шапка общего чата (макет): два круга собеседников внахлёст. Пока
- *  собеседников меньше двух — знак семьи. */
+ *  собеседников меньше двух — значок группы. */
 export function StackAvatar({ members }: { members: FamilyMember[] }) {
   if (members.length < 2) return <GroupAvatar className="size-10" glyph={ICON.base} />;
   return (

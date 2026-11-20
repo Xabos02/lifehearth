@@ -1,8 +1,5 @@
 import type { MouseEvent } from 'react';
-import { Minus } from 'lucide-react';
-import {
-  GPlus as Plus,
-} from '../../components/ui/glyphs';
+import { GFaMinus, GFaPlus } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { create, now, update } from '../../db/repo';
 import type { LearningItem } from '../../db/types';
@@ -56,7 +53,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
             disabled={item.progressCurrent <= 0}
             onClick={() => void setValue(item.progressCurrent - step)}
           >
-            <Minus size={ICON.base} />
+            <GFaMinus size={ICON.inline} />
             {/* Шаг прогресса щёлкает под пальцем (PROTOCOL §6.4); у упора кнопка
                 выключена и накладки нет. */}
             {item.progressCurrent > 0 && <Haptic />}
@@ -79,7 +76,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
             disabled={item.progressCurrent >= item.progressTarget}
             onClick={() => void setValue(item.progressCurrent + step)}
           >
-            <Plus size={ICON.base} />
+            <GFaPlus size={ICON.inline} />
             {item.progressCurrent < item.progressTarget && <Haptic />}
           </button>
         )}

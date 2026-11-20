@@ -130,7 +130,9 @@ test('серия переживает заморозку и разморозку
 
   await page.goto('/more/habits');
   const card = habitCard(page, 'Отжимания');
-  await expect(card).toContainText('🔥 2');
+  // Серия — значок огня (Font Awesome, как в макете Abacus) и число.
+  await expect(card.locator('.lucide-fa-fire')).toBeVisible();
+  await expect(card).toContainText('· 2');
 
   // Заморозить...
   await openHabitSheet(page, 'Отжимания');
@@ -141,7 +143,8 @@ test('серия переживает заморозку и разморозку
   // день), следа не остаётся, серия по-прежнему видна, а не сгорела до 0.
   await openHabitSheet(page, 'Отжимания');
   await page.getByRole('button', { name: 'Разморозить' }).click();
-  await expect(habitCard(page, 'Отжимания')).toContainText('🔥 2');
+  await expect(habitCard(page, 'Отжимания').locator('.lucide-fa-fire')).toBeVisible();
+  await expect(habitCard(page, 'Отжимания')).toContainText('· 2');
 });
 
 test('выключение раздела «Привычки» замораживает все разом, включение снимает только эти', async ({

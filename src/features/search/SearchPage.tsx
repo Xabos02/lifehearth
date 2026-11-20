@@ -1,6 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Bell, SearchX } from 'lucide-react';
 // Иконки разделов берём из РЕЕСТРА, а не держим свой список.
 //
 // Экран поиска рисовал их собственным набором на lucide, а таб-бар под ним —
@@ -11,7 +10,7 @@ import { Bell, SearchX } from 'lucide-react';
 //
 // Реестр — единственный источник: сменится глиф раздела, сменится везде.
 import { SECTION_BY_ID } from '../../lib/sections';
-import { GCheck, GSearch as Search } from '../../components/ui/glyphs';
+import { GFaBell, GFaCheck, GFaMagnifyingGlass } from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
@@ -105,7 +104,7 @@ function Row({ icon: Icon, hit, q }: { icon: LucideIcon; hit: Hit; q: string }) 
         aria-hidden="true"
         className={`flex size-8 shrink-0 items-center justify-center rounded-lg bg-lh-surface-2 ${hit.done ? 'text-success' : 'text-lh-accent'}`}
       >
-        {hit.done ? <GCheck size={ICON.action} /> : <Icon size={ICON.action} />}
+        {hit.done ? <GFaCheck size={ICON.action} /> : <Icon size={ICON.action} />}
       </span>
       <div className="min-w-0 flex-1">
         <p
@@ -262,7 +261,7 @@ export function SearchPage() {
       build('tasks', t('Задачи'), SECTION_BY_ID.get('tasks')!.icon, taskHits),
       build('notes', t('Заметки'), SECTION_BY_ID.get('notes')!.icon, noteHits),
       build('goals', t('Цели'), SECTION_BY_ID.get('goals')!.icon, goalHits),
-      build('reminders', t('Напоминания'), Bell, reminderHits),
+      build('reminders', t('Напоминания'), GFaBell, reminderHits),
       build('family', t('Семейный чат'), SECTION_BY_ID.get('family')!.icon, chatHits),
       build('places', t('Места'), SECTION_BY_ID.get('places')!.icon, placeHits),
       build('learning', t('Обучение'), SECTION_BY_ID.get('learning')!.icon, learningHits),
@@ -324,12 +323,12 @@ export function SearchPage() {
 
       {!q ? (
         <EmptyState
-          icon={Search}
+          icon={GFaMagnifyingGlass}
           title={t('Поиск по всему')}
           hint={t('Задачи, заметки, цели, финансы и обучение — всё найдётся здесь')}
         />
       ) : sections.length === 0 ? (
-        <EmptyState icon={SearchX} title={t('Ничего не найдено')} hint={t('Попробуйте другой запрос')} />
+        <EmptyState icon={GFaMagnifyingGlass} title={t('Ничего не найдено')} hint={t('Попробуйте другой запрос')} />
       ) : (
         <div className="mt-3 space-y-5">
           {shown.map((s) => {

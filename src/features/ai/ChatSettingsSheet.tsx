@@ -1,8 +1,4 @@
 import { useState } from 'react';
-import {
-  Database,
-  FileDown,
-} from 'lucide-react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea } from '../../components/ui/Input';
@@ -12,9 +8,7 @@ import type { LlmChat } from '../../db/types';
 import { chatMessages, exportChatMarkdown, patchChat, removeChat } from '../../lib/ai/llmRepo';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
-import {
-  GTrash as Trash2,
-} from '../../components/ui/glyphs';
+import { GFaDatabase, GFaFileArrowDown, GFaTrashCan } from '../../components/ui/glyphs';
 import { confirmAction } from '../../components/ui/confirmStore';
 
 interface Props {
@@ -98,7 +92,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
 
         <div className="space-y-2">
           <div className="flex min-w-0 items-center gap-2.5">
-            <Database size={ICON.base} className="shrink-0 text-lh-accent" />
+            <GFaDatabase size={ICON.inline} className="shrink-0 text-lh-accent" />
             <div className="min-w-0">
               <p className="font-medium">{t('Доступ к данным')}</p>
               <p className="text-xs text-lh-text-secondary">
@@ -118,7 +112,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
 
         <div className="space-y-2">
           <Button variant="secondary" className="w-full" onClick={() => void handleExport()}>
-            <FileDown size={ICON.base} />
+            <GFaFileArrowDown size={ICON.inline} />
             {t('Экспорт в markdown')}
           </Button>
           <Button className="w-full" onClick={() => void handleSave()}>
@@ -128,7 +122,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
             className="w-full py-2.5 text-center text-sm text-danger active:opacity-60"
             onClick={() => void handleRemove()}
           >
-            <Trash2 size={ICON.inline} className="mr-1.5 inline-block align-[-2px]" />
+            <GFaTrashCan size={ICON.inline} className="mr-1.5 inline-block align-[-2px]" />
             {t('Удалить чат')}
           </button>
         </div>

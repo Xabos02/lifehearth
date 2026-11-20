@@ -2,19 +2,17 @@ import { useEffect, useState, type ComponentType } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  UserPlus,
-  UserMinus,
-  MessageCircle as GChat,
-} from 'lucide-react';
-import {
-  GPhone as Phone,
-  GPencil,
-  GAlert,
-  GLock,
-  GCheck,
-  GPhoneOut,
-  GTrash,
-  GChevronRight,
+  GFaPhone as Phone,
+  GFaPen,
+  GFaCircleQuestionSolid,
+  GFaLock,
+  GFaCheck,
+  GFaArrowRightFromBracket,
+  GFaTrashCan,
+  GFaChevronRight,
+  GFaComments,
+  GFaUserMinus,
+  GFaPlus,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import type { FamilyMember } from '../../db/types';
@@ -78,7 +76,7 @@ function ActionRow({
         <span className="block text-sm">{label}</span>
         {hint && <span className="block text-xs text-lh-text-secondary">{hint}</span>}
       </span>
-      {chevron && <GChevronRight size={ICON.action} className="shrink-0 text-lh-text-secondary" />}
+      {chevron && <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />}
     </button>
   );
 }
@@ -239,7 +237,7 @@ export function MembersTab({
         {/* Быстрые действия плитками (макет «Карточка группы»): чат, звонок
             собеседнику и задачи — три главные причины открыть карточку. */}
         <div className={`mt-5 grid w-full gap-2 ${partner ? 'grid-cols-3' : 'grid-cols-2'}`}>
-          <QuickTile icon={GChat} label={t('Чат')} onClick={() => navigate(chatPath(familyId))} />
+          <QuickTile icon={GFaComments} label={t('Чат')} onClick={() => navigate(chatPath(familyId))} />
           {partner && (
             <QuickTile
               icon={Phone}
@@ -332,7 +330,7 @@ export function MembersTab({
                         aria-label={t('Исключить {name}', { name: m.displayName })}
                         className={`flex size-10 shrink-0 items-center justify-center rounded-full text-lh-text-secondary active:scale-95 active:text-danger ${HIT_SLOP_44}`}
                       >
-                        <UserMinus size={ICON.base} />
+                        <GFaUserMinus size={ICON.action} />
                       </button>
                     )}
                     <button
@@ -340,7 +338,7 @@ export function MembersTab({
                       aria-label={t('Позвонить {name}', { name: m.displayName })}
                       className={`flex size-10 shrink-0 items-center justify-center rounded-full text-lh-accent active:scale-95 ${HIT_SLOP_44}`}
                     >
-                      <Phone size={ICON.base} />
+                      <Phone size={ICON.action} />
                     </button>
                   </>
                 )}
@@ -367,7 +365,7 @@ export function MembersTab({
             className="flex min-h-14 w-full items-center gap-3 px-4 text-left text-lh-accent active:bg-lh-surface-2"
           >
             <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full border border-dashed border-lh-accent-border">
-              <UserPlus size={ICON.action} />
+              <GFaPlus size={ICON.inline} />
             </span>
             <span>{t('Пригласить')}</span>
           </button>
@@ -394,26 +392,26 @@ export function MembersTab({
               он под именем собеседника, переименование ничего бы не изменило.
               Обычная группа на двоих — другое дело: её название видит второй. */}
           {!(personal && (config?.pair || pendingPartners()[familyId])) && (
-            <ActionRow icon={GPencil} label={t('Переименовать группу')} onClick={() => setRenaming(true)} />
+            <ActionRow icon={GFaPen} label={t('Переименовать группу')} onClick={() => setRenaming(true)} />
           )}
           {/* Разбор последнего сорвавшегося звонка: сюда и приходят, когда «не дозвонился». */}
-          <ActionRow icon={GAlert} label={t('Почему звонок не вышел')} onClick={() => setDiag(true)} chevron />
+          <ActionRow icon={GFaCircleQuestionSolid} label={t('Почему звонок не вышел')} onClick={() => setDiag(true)} chevron />
           <div className="flex min-h-14 items-center gap-3 px-4 py-2.5">
-            <GLock size={ICON.action} aria-hidden className="w-5 shrink-0 text-lh-text-secondary" />
+            <GFaLock size={ICON.inline} aria-hidden className="w-5 shrink-0 text-lh-text-secondary" />
             <span className="min-w-0 flex-1">
               <span className="block text-sm">{t('Шифрование')}</span>
               <span className="block text-xs text-lh-text-secondary">{t('Ключи только на устройствах участников')}</span>
             </span>
-            <GCheck size={ICON.action} aria-hidden className="shrink-0 text-success" />
+            <GFaCheck size={ICON.inline} aria-hidden className="shrink-0 text-success" />
           </div>
         </div>
       </section>
 
       <section className="divide-y divide-lh-border card">
-        <ActionRow icon={GPhoneOut} label={personal ? t('Выйти из чата') : t('Выйти из группы')} onClick={() => void leave()} danger />
+        <ActionRow icon={GFaArrowRightFromBracket} label={personal ? t('Выйти из чата') : t('Выйти из группы')} onClick={() => void leave()} danger />
         {isOwner && (
           <ActionRow
-            icon={GTrash}
+            icon={GFaTrashCan}
             label={personal ? t('Удалить чат') : t('Удалить группу')}
             hint={
               personal

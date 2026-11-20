@@ -5,32 +5,31 @@ import type { LucideIcon } from 'lucide-react';
 import { useLoaded } from '../../hooks/useLoaded';
 import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 import {
-  ArrowRight,
-  CheckCheck,
-  ChevronsDown,
-  Clock,
-  Hand,
-  Heart,
-  Paperclip,
-  Mic,
-  Search as SearchIcon,
-  LoaderCircle,
-  Image as ImageIcon,
-  File as FileIcon,
-  FileText,
-  FileArchive,
-  FileSpreadsheet,
-} from 'lucide-react';
-import {
-  GCheck as Check,
-  GPencil as Pencil,
-  GTrash as Trash2,
-  GClose as X,
-  GCopy as Copy,
-  GSend as Send,
-  GReply as Reply,
-  GPlay as Play,
-  GPause as Pause,
+  GFaArrowRight,
+  GFaCheckDouble,
+  GFaAnglesDown,
+  GFaClock,
+  GFaHandPointer,
+  GFaHeartSolid,
+  GFaPaperclip,
+  GFaMicrophone,
+  GFaMagnifyingGlass,
+  GFaCircleNotch,
+  GFaImage,
+  GFaFile,
+  GFaFileLines,
+  GFaFilePdf,
+  GFaFileZipper,
+  GFaFileExcel,
+  GFaCheck,
+  GFaPen,
+  GFaTrashCan,
+  GFaXmark,
+  GFaCopy,
+  GFaArrowUp,
+  GFaReply,
+  GFaPlay,
+  GFaPause,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import type { FamilyMember, FamilyMessage } from '../../db/types';
@@ -136,7 +135,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
         aria-label={playing ? t('Пауза') : t('Воспроизвести')}
         className={`flex size-9 shrink-0 items-center justify-center rounded-full ${HIT_SLOP_44} ${own ? 'bg-lh-bg text-lh-accent' : 'bg-lh-accent-dim text-lh-accent'}`}
       >
-        {playing ? <Pause size={ICON.action} /> : <Play size={ICON.action} />}
+        {playing ? <GFaPause size={ICON.inline} /> : <GFaPlay size={ICON.inline} />}
       </button>
       {/* Полоса перематывает: голосовое на минуту без перемотки приходится
           слушать целиком, даже если нужен был конец. Дорожка тонкая, но зона
@@ -192,25 +191,25 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
   );
 }
 
-/** Иконка по короткой подписи из fileKindLabel — 4 значка на 5 подписей
- *  («Документ PDF» и «Текст» делят FileText), остальное — общий File.
+/** Иконка по короткой подписи из fileKindLabel — свой значок у каждой из
+ *  четырёх подписей, остальное — общий файл.
  *
  *  Реестр, а не функция с return: возврат компонента из вызова внутри рендера
  *  React считает созданием нового типа на каждый кадр (react-hooks/
  *  static-components), и карточка файла теряла бы поддерево при каждом
  *  обновлении списка сообщений. Тот же приём уже используется в разделе целей. */
 const FILE_ICONS: Record<string, LucideIcon> = {
-  'Архив': FileArchive,
-  'Таблица': FileSpreadsheet,
-  'Документ PDF': FileText,
-  'Текст': FileText,
+  'Архив': GFaFileZipper,
+  'Таблица': GFaFileExcel,
+  'Документ PDF': GFaFilePdf,
+  'Текст': GFaFileLines,
 };
 
 /** Карточка файла-манифеста: иконка типа, имя, подпись — тип+размер, когда
  *  файл на руках; прогресс сборки или «недоступен», пока нет. */
 function FileBubble({ m, own, received }: { m: FamilyMessage; own: boolean; received: number }) {
   const info = m.file!;
-  const Icon = FILE_ICONS[fileKindLabel(info.mime, info.name)] ?? FileIcon;
+  const Icon = FILE_ICONS[fileKindLabel(info.mime, info.name)] ?? GFaFile;
   const available = Boolean(m.fileData);
   // received===0 и своего fileData нет — либо чанки ещё даже не начали
   // приходить (маловероятно долго), либо это старая история и ретеншн
@@ -227,7 +226,7 @@ function FileBubble({ m, own, received }: { m: FamilyMessage; own: boolean; rece
       <div
         className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-lh-bg text-lh-accent' : 'bg-lh-accent-dim text-lh-accent'}`}
       >
-        <Icon size={ICON.base} />
+        <Icon size={ICON.action} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{info.name}</p>
@@ -502,11 +501,11 @@ function MessageRow({
       {timeLabel(m.createdAt)}
       {own &&
         (m.status === 'pending' ? (
-          <Clock size={ICON.inline} />
+          <GFaClock size={ICON.inline} />
         ) : m.seq != null && maxOtherRead >= m.seq ? (
-          <CheckCheck size={ICON.inline} />
+          <GFaCheckDouble size={ICON.inline} />
         ) : (
-          <Check size={ICON.inline} />
+          <GFaCheck size={ICON.inline} />
         ))}
     </>
   );
@@ -528,7 +527,7 @@ function MessageRow({
               className="flex shrink-0 items-center pr-2 text-lh-accent"
               style={{ opacity: Math.min(1, dragX / SWIPE_REPLY_PX) }}
             >
-              <Reply size={ICON.base} />
+              <GFaReply size={ICON.base} />
             </span>
           )}
           <div
@@ -904,7 +903,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
   useEffect(
     () =>
       setScreenAction({
-        icon: SearchIcon,
+        icon: GFaMagnifyingGlass,
         label: t('Искать в переписке'),
         onPress: () => setSearchOpen(true),
       }),
@@ -1248,7 +1247,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
       {searchOpen && (
         <div className="mb-2 shrink-0">
           <div className="flex items-center gap-2 rounded-2xl border border-lh-border-strong bg-lh-surface px-3 py-1.5 focus-within:border-lh-accent">
-            <SearchIcon size={ICON.action} className="shrink-0 text-lh-text-secondary" />
+            <GFaMagnifyingGlass size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
             <input
               autoFocus
               value={query}
@@ -1266,7 +1265,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               aria-label={t('Закрыть поиск')}
               className={`shrink-0 p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
-              <X size={ICON.action} />
+              <GFaXmark size={ICON.inline} />
             </button>
           </div>
           {query.trim().length >= 2 && (
@@ -1321,7 +1320,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             aria-label={t('Скрыть')}
             className={`shrink-0 p-1 opacity-70 active:opacity-40 ${HIT_SLOP_44}`}
           >
-            <X size={ICON.action} />
+            <GFaXmark size={ICON.inline} />
           </button>
         </div>
       )}
@@ -1358,7 +1357,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               {hasOlder && (
                 <div className="flex items-center justify-center py-2">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-lh-surface-2/70 px-3 py-1 text-2xs text-lh-text-secondary">
-                    <LoaderCircle size={ICON.inline} className="animate-spin" />
+                    <GFaCircleNotch size={ICON.inline} className="animate-spin" />
                     {t('Загружаю прошлые сообщения…')}
                   </span>
                 </div>
@@ -1454,14 +1453,14 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 items={
                   isTouch
                     ? [
-                        { icon: ArrowRight, text: <>{t('Проведите по сообщению вправо — ответить')}</> },
-                        { icon: Heart, text: <>{t('Двойное касание — быстрое ❤️')}</> },
-                        { icon: Hand, text: <>{t('Касание или удержание — меню: реакции, копировать, править')}</> },
+                        { icon: GFaArrowRight, text: <>{t('Проведите по сообщению вправо — ответить')}</> },
+                        { icon: GFaHeartSolid, text: <>{t('Двойное касание — быстрое ❤️')}</> },
+                        { icon: GFaHandPointer, text: <>{t('Касание или удержание — меню: реакции, копировать, править')}</> },
                       ]
                     : [
-                        { icon: ArrowRight, text: <>{t('Потяните сообщение мышью вправо — ответить')}</> },
-                        { icon: Heart, text: <>{t('Двойной клик — быстрое ❤️')}</> },
-                        { icon: Hand, text: <>{t('Клик — меню: реакции, копировать, править')}</> },
+                        { icon: GFaArrowRight, text: <>{t('Потяните сообщение мышью вправо — ответить')}</> },
+                        { icon: GFaHeartSolid, text: <>{t('Двойной клик — быстрое ❤️')}</> },
+                        { icon: GFaHandPointer, text: <>{t('Клик — меню: реакции, копировать, править')}</> },
                       ]
                 }
               />
@@ -1479,7 +1478,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             }}
             className="absolute bottom-3 right-2 flex size-10 items-center justify-center rounded-full border border-lh-border-strong bg-lh-surface-2/95 text-lh-text-secondary shadow-lg shadow-black/20 active:scale-95"
           >
-            <ChevronsDown size={ICON.header} />
+            <GFaAnglesDown size={ICON.action} />
           </button>
         )}
       </div>
@@ -1487,7 +1486,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
       <div className="shrink-0 border-t border-lh-border bg-lh-bg">
         {editingId && (
           <div className="flex items-center gap-2 px-1 pt-2 text-sm text-lh-text-secondary">
-            <Pencil size={ICON.inline} className="shrink-0 text-lh-accent" />
+            <GFaPen size={ICON.inline} className="shrink-0 text-lh-accent" />
             <span className="flex-1">{t('Редактирование сообщения')}</span>
             <button
               onClick={() => {
@@ -1497,13 +1496,13 @@ export function ChatTab({ familyId }: { familyId: string }) {
               aria-label={t('Отменить редактирование')}
               className={`p-1 active:opacity-60 ${HIT_SLOP_44}`}
             >
-              <X size={ICON.action} />
+              <GFaXmark size={ICON.inline} />
             </button>
           </div>
         )}
         {replyTo && (
           <div className="flex items-center gap-2 px-1 pt-2 text-sm">
-            <Reply size={ICON.inline} className="shrink-0 text-lh-accent" />
+            <GFaReply size={ICON.inline} className="shrink-0 text-lh-accent" />
             <div className="min-w-0 flex-1 border-l-2 border-lh-accent pl-2">
               <p className="text-xs font-semibold text-lh-accent">
                 {memberMap[replyTo.senderMemberId]?.displayName || t('Участник')}
@@ -1518,7 +1517,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               aria-label={t('Отменить ответ')}
               className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
-              <X size={ICON.action} />
+              <GFaXmark size={ICON.inline} />
             </button>
           </div>
         )}
@@ -1529,7 +1528,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               aria-label={t('Отменить запись')}
               className="flex size-11 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95"
             >
-              <Trash2 size={ICON.header} />
+              <GFaTrashCan size={ICON.action} />
             </button>
             <div className="flex flex-1 items-center gap-2 text-sm">
               <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-danger" />
@@ -1541,7 +1540,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               aria-label={t('Отправить голосовое')}
               className="flex size-11 shrink-0 items-center justify-center rounded-full bg-lh-accent text-lh-bg active:scale-95"
             >
-              <Send size={ICON.header} />
+              <GFaArrowUp size={ICON.action} />
             </button>
           </div>
         ) : (
@@ -1582,9 +1581,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-lh-text-secondary active:text-lh-accent disabled:opacity-50"
               >
                 {sendingAttachment ? (
-                  <LoaderCircle size={ICON.header} className="animate-spin motion-reduce:animate-none" />
+                  <GFaCircleNotch size={ICON.base} className="animate-spin motion-reduce:animate-none" />
                 ) : (
-                  <Paperclip size={ICON.header} />
+                  <GFaPaperclip size={ICON.base} />
                 )}
               </button>
               <textarea
@@ -1617,7 +1616,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   aria-label={t('Отправить')}
                   className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-lh-accent text-lh-bg disabled:opacity-40 active:scale-95 ${HIT_SLOP_44}`}
                 >
-                  <Send size={ICON.base} />
+                  <GFaArrowUp size={ICON.action} />
                 </button>
               ) : (
                 <button
@@ -1634,7 +1633,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   // появляется у «Отправить», когда есть что отправлять.
                   className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full text-lh-accent active:scale-95 active:opacity-70 ${HIT_SLOP_44}`}
                 >
-                  <Mic size={ICON.header} />
+                  <GFaMicrophone size={ICON.base} />
                 </button>
               )}
             </div>
@@ -1651,7 +1650,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             }}
             className="flex w-full items-center gap-3 rounded-xl bg-lh-surface-2 p-3.5 text-left active:opacity-80"
           >
-            <ImageIcon size={ICON.base} className="text-lh-accent" />
+            <GFaImage size={ICON.inline} className="text-lh-accent" />
             {t('Фото')}
           </button>
           <button
@@ -1661,7 +1660,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             }}
             className="flex w-full items-center gap-3 rounded-xl bg-lh-surface-2 p-3.5 text-left active:opacity-80"
           >
-            <FileIcon size={ICON.base} className="text-lh-accent" />
+            <GFaFile size={ICON.inline} className="text-lh-accent" />
             {t('Файл')}
           </button>
         </div>
@@ -1816,25 +1815,25 @@ function MessageMenu({
         <div className="w-60 divide-y divide-lh-border overflow-hidden rounded-2xl border border-lh-border bg-lh-surface-2 shadow-[var(--shadow-pop)]">
           <button type="button" onClick={onReply} className={row}>
             {t('Ответить')}
-            <Reply size={ICON.action} className="text-lh-text-secondary" />
+            <GFaReply size={ICON.inline} className="text-lh-text-secondary" />
           </button>
           {onCopy && (
             <button type="button" onClick={onCopy} className={`relative ${row}`}>
               {t('Копировать')}
-              <Copy size={ICON.action} className="text-lh-text-secondary" />
+              <GFaCopy size={ICON.inline} className="text-lh-text-secondary" />
               <Haptic />
             </button>
           )}
           {onEdit && (
             <button type="button" onClick={onEdit} className={row}>
               {t('Редактировать')}
-              <Pencil size={ICON.action} className="text-lh-text-secondary" />
+              <GFaPen size={ICON.inline} className="text-lh-text-secondary" />
             </button>
           )}
           {onDelete && (
             <button type="button" onClick={onDelete} className={`${row} text-danger`}>
               {t('Удалить')}
-              <Trash2 size={ICON.action} />
+              <GFaTrashCan size={ICON.inline} />
             </button>
           )}
         </div>

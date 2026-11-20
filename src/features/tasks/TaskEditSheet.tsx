@@ -2,14 +2,13 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  CircleX,
-  ImagePlus,
-  ListOrdered,
-} from 'lucide-react';
-import {
-  GClose as X,
-  GTimer as Timer,
-  GCopy as Copy,
+  GFaCircleXmarkSolid,
+  GFaCopy,
+  GFaHourglass,
+  GFaImage,
+  GFaListOl,
+  GFaPaperclip,
+  GFaXmark,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, create, remove, restore, uid, update } from '../../db/repo';
@@ -32,7 +31,6 @@ import { compressImage } from '../../lib/image';
 import { syncTaskPhotos } from '../../lib/taskPhotos';
 import { MAX_FILE_BYTES, formatFileSize, groupTaskAttachments, planTaskFileChunks } from '../../lib/taskFiles';
 import { NoteAttachments } from '../notes/NoteAttachments';
-import { GAttach as Paperclip } from '../../components/ui/glyphs';
 import { HIT_SLOP_44, HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 import { formatDuration } from '../../lib/duration';
 import { t } from '../../lib/i18n';
@@ -550,7 +548,7 @@ function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
               onClick={() => copyText(title)}
               className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
-              <Copy size={ICON.inline} />
+              <GFaCopy size={ICON.inline} />
               {title.length > 0 && <Haptic />}
             </button>
           </div>
@@ -585,7 +583,7 @@ function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
               onClick={() => copyText(notes)}
               className={`p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
             >
-              <Copy size={ICON.inline} />
+              <GFaCopy size={ICON.inline} />
               {notes.length > 0 && <Haptic />}
             </button>
           </div>
@@ -614,8 +612,8 @@ function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
             title={t('Удобный ввод')}
             className="mt-2"
             items={[
-              { icon: ListOrdered, text: <>{t('Начните строку с «1. » — Enter продолжит нумерацию сам')}</> },
-              { icon: CircleX, text: <>{t('Крестик в начале текста стирает всё поле')}</> },
+              { icon: GFaListOl, text: <>{t('Начните строку с «1. » — Enter продолжит нумерацию сам')}</> },
+              { icon: GFaCircleXmarkSolid, text: <>{t('Крестик в начале текста стирает всё поле')}</> },
             ]}
           />
           {/* Для простой задачи (без фото/файлов/чек-листа) незачем листать
@@ -652,7 +650,7 @@ function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
                   onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
                   className={`absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full border border-lh-border-strong bg-lh-surface-2 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
                 >
-                  <X size={ICON.inline} />
+                  <GFaXmark size={ICON.inline} />
                 </button>
               </div>
             ))}
@@ -662,7 +660,7 @@ function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
               onClick={() => photoInputRef.current?.click()}
               className="flex size-20 items-center justify-center rounded-xl border border-dashed border-lh-border-strong text-lh-text-secondary active:opacity-60"
             >
-              <ImagePlus size={ICON.header} />
+              <GFaImage size={ICON.header} />
             </button>
           </div>
           <input
@@ -689,7 +687,7 @@ function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
               {pendingFiles.map((f, i) => (
                 <div key={i} className="card flex items-center gap-3 p-3">
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
-                    <Paperclip size={ICON.header} />
+                    <GFaPaperclip size={ICON.action} />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-base font-medium">{f.name}</span>
@@ -701,7 +699,7 @@ function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
                     onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
                     className={`p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
                   >
-                    <X size={ICON.inline} />
+                    <GFaXmark size={ICON.inline} />
                   </button>
                 </div>
               ))}
@@ -712,7 +710,7 @@ function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
             onClick={() => fileInputRef.current?.click()}
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-lh-btn border border-dashed border-lh-border-strong py-3 text-sm font-medium text-lh-text-secondary active:opacity-60"
           >
-            <Paperclip size={ICON.action} />
+            <GFaPaperclip size={ICON.inline} />
             {t('Прикрепить файл')}
           </button>
           <input
@@ -1093,7 +1091,7 @@ function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
                   className={`shrink-0 p-1 text-lh-text-secondary ${HIT_SLOP_44}`}
                   onClick={() => setChecklist((arr) => arr.filter((i) => i.id !== item.id))}
                 >
-                  <X size={ICON.action} />
+                  <GFaXmark size={ICON.action} />
                 </button>
               </div>
             ))}
@@ -1114,7 +1112,7 @@ function TaskEditForm({ onClose, onCreated, task, defaults }: TaskEditProps) {
             className="w-full"
             onClick={handleFocus}
           >
-            <Timer size={ICON.action} /> {t('Запустить фокус')}
+            <GFaHourglass size={ICON.inline} /> {t('Запустить фокус')}
           </Button>
         )}
 

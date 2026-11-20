@@ -1,8 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { ImagePlus } from 'lucide-react';
-import {
-  GClose as X,
-} from '../../components/ui/glyphs';
+import { GFaImage, GFaXmark } from '../../components/ui/glyphs';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -190,7 +187,7 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
               onClick={() => setPhoto(null)}
               className={`absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white active:opacity-80 ${HIT_SLOP_44_POSITIONED}`}
             >
-              <X size={ICON.action} />
+              <GFaXmark size={ICON.inline} />
             </button>
           </div>
         ) : (
@@ -199,7 +196,7 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
             onClick={() => photoInputRef.current?.click()}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-lh-border-strong py-6 text-sm text-lh-text-secondary active:opacity-70"
           >
-            <ImagePlus size={ICON.base} />
+            <GFaImage size={ICON.base} />
             {t('Добавить фото')}
           </button>
         )}

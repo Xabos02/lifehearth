@@ -15,6 +15,8 @@ import { useNavLayout } from '../../hooks/useNavLayout';
 import type { EnergyLevel } from '../../db/types';
 import { getLang, t } from '../../lib/i18n';
 import { useEnergySplits } from './useEnergySplits';
+import { GFaArrowRightLong } from '../../components/ui/glyphs';
+import { ICON } from '../../components/ui/icons';
 
 /** Окно, по которому считаются спарклайн, дни недели и связки. */
 const WINDOW_DAYS = 28;
@@ -67,7 +69,7 @@ function LinkRow({
       <span className="shrink-0 text-xs">
         <span className="font-semibold">{format(low.avg)}</span>
         <span className="text-lh-text-secondary"> {t('({n} дн.)', { n: low.n })}</span>
-        <span className="text-lh-text-secondary"> → </span>
+        <span className="text-lh-text-secondary"> <GFaArrowRightLong size={ICON.inline} className="inline-block align-[-2px]" /> </span>
         <span className="font-semibold">{format(high.avg)}</span>
         <span className="text-lh-text-secondary"> {t('({n} дн.)', { n: high.n })}</span>
       </span>

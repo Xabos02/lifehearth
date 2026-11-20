@@ -1,8 +1,9 @@
-import { Mic } from 'lucide-react';
+import { GFaMicrophone } from './glyphs';
 import { isIOS, useSpeechInput } from '../../hooks/useSpeechInput';
 import { t } from '../../lib/i18n';
 import { useToast } from './toastContext';
 import { IconButton } from './IconButton';
+import { ICON } from './icons';
 import { askConsent, hasConsent } from '../../lib/consent';
 
 interface Props {
@@ -27,7 +28,8 @@ export function MicButton({ onText, className = '' }: Props) {
     if (isIOS()) {
       return (
         <IconButton
-          icon={Mic}
+          icon={GFaMicrophone}
+          size={ICON.action}
           label={t('Голосовой ввод')}
           tone="muted"
           onClick={() =>
@@ -52,7 +54,8 @@ export function MicButton({ onText, className = '' }: Props) {
 
   return (
     <IconButton
-      icon={Mic}
+      icon={GFaMicrophone}
+      size={ICON.action}
       label={listening ? t('Остановить') : t('Голосовой ввод')}
       onClick={listening ? stop : listen}
       tone={listening ? 'danger' : 'muted'}

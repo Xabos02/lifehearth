@@ -2,22 +2,20 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  Share,
-  ShieldAlert,
-} from 'lucide-react';
-import {
-  GCheck as Check,
-  GChevronRight as ChevronRight,
-  GClose as X,
-  GSparkle as Sparkles,
-  GCopy as Copy,
-  GExternalLink as ExternalLink,
+  GFaArrowUpFromBracket,
+  GFaArrowUpRightFromSquare,
+  GFaCheck,
+  GFaChevronRight,
+  GFaCopy,
+  GFaStar,
+  GFaTriangleExclamation,
+  GFaXmark,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { useCall } from '../../lib/family/familyCall';
 import { INSTALL_URL, REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
-import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
 import { HIT_SLOP_44, HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 import { Haptic } from '../../components/ui/Haptic';
@@ -75,7 +73,7 @@ export function ReinstallNotice() {
         {/* Шапка */}
         <div className="relative flex items-center gap-3 px-5 pt-5 pb-4">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl tile-lh text-lh-accent">
-            <Sparkles size={ICON.accent} strokeWidth={STROKE_STRONG} />
+            <GFaStar size={ICON.accent} />
           </div>
           <div className="min-w-0 pr-7">
             <h2 className="text-lg font-light leading-tight">{t('Новое имя и значок')}</h2>
@@ -87,7 +85,7 @@ export function ReinstallNotice() {
             onClick={dismiss}
             className={`absolute top-3.5 right-3.5 flex size-8 items-center justify-center rounded-full text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
           >
-            <X size={ICON.base} />
+            <GFaXmark size={ICON.base} />
           </button>
         </div>
 
@@ -100,7 +98,7 @@ export function ReinstallNotice() {
 
           {/* Главное предупреждение — данные */}
           <div className="flex gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-3.5">
-            <ShieldAlert size={ICON.header} className="mt-0.5 shrink-0 text-warning" />
+            <GFaTriangleExclamation size={ICON.header} className="mt-0.5 shrink-0 text-warning" />
             <p className="text-sm leading-relaxed">
               <span className="font-semibold">{t('Сначала сохраните данные.')}</span>{' '}
               {t('При удалении приложения задачи, заметки и всё остальное стираются с телефона. Сохраните копию — и вернёте всё за минуту, ровно с той же точки.')}
@@ -157,7 +155,7 @@ export function ReinstallNotice() {
           {/* Ссылка на сайт установки — открыть в Safari */}
           <div className="card p-3.5">
             <div className="mb-2 flex items-center gap-2 text-sm text-lh-text-secondary">
-              <Share size={ICON.action} className="shrink-0" />
+              <GFaArrowUpFromBracket size={ICON.action} className="shrink-0" />
               <span>{t('Откройте эту ссылку в Safari:')}</span>
             </div>
             <div className="flex items-center gap-2">
@@ -170,7 +168,7 @@ export function ReinstallNotice() {
                 aria-label={t('Скопировать ссылку')}
                 className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-lh-surface-2 text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
               >
-                {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
+                {copied ? <GFaCheck size={ICON.inline} /> : <GFaCopy size={ICON.inline} />}
                 <Haptic />
               </button>
             </div>
@@ -186,7 +184,7 @@ export function ReinstallNotice() {
             className="inline-flex items-center gap-1 text-sm font-semibold text-lh-accent active:opacity-70"
           >
             {t('Подробная инструкция и восстановление данных')}
-            <ChevronRight size={ICON.action} />
+            <GFaChevronRight size={ICON.inline} />
           </Link>
         </div>
 
@@ -205,7 +203,7 @@ export function ReinstallNotice() {
             rel="noopener noreferrer"
             className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-lh-accent px-5 py-3.5 font-semibold text-lh-bg active:opacity-90"
           >
-            <ExternalLink size={ICON.base} />
+            <GFaArrowUpRightFromSquare size={ICON.base} />
             {t('Открыть сайт установки')}
           </a>
         </div>

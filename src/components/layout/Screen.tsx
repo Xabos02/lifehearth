@@ -3,12 +3,10 @@ import { markFillScreen } from '../../lib/ui/fillScreen';
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useNavLayout } from '../../hooks/useNavLayout';
-import {
-  GChevronLeft as ChevronLeft,
-} from '../../components/ui/glyphs';
+import { GFaChevronLeft } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
 import { IconButton } from '../ui/IconButton';
-import { ICON, STROKE_STRONG } from '../ui/icons';
+import { ICON } from '../ui/icons';
 
 interface Props {
   title: string;
@@ -94,11 +92,10 @@ function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void
   if (!label) {
     return (
       <IconButton
-        icon={ChevronLeft}
+        icon={GFaChevronLeft}
         label={t('Назад')}
         {...(onClick ? { onClick } : { to })}
-        size={ICON.accent}
-        strokeWidth={STROKE_STRONG}
+        size={ICON.base}
       />
     );
   }
@@ -108,7 +105,7 @@ function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void
     'relative -ml-1 flex min-h-11 shrink-0 items-center gap-1 pr-1 text-base text-lh-accent active:opacity-60';
   const inner = (
     <>
-      <ChevronLeft size={ICON.accent} strokeWidth={STROKE_STRONG} className="shrink-0" />
+      <GFaChevronLeft size={ICON.base} className="shrink-0" />
       {/* max-w — чтобы длинное имя папки не съедало место у кнопок справа. */}
       <span className="max-w-[12rem] truncate">{label}</span>
     </>

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
-import { GChevronDown, GPencil, GPlus } from '../../components/ui/glyphs';
+import { GFaChevronDown, GFaPen, GFaPlus } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
@@ -37,7 +37,7 @@ interface Props {
   onPick: (tpl: WorkoutTemplate) => void;
 }
 
-/** Список шаблонов: тап — выбрать (загрузить в форму тренировки), карандаш —
+/** Список шаблонов: тап — выбрать (загрузить в форму тренировки), перо —
  *  открыть на правку, внизу — завести новый. Удаление — внутри шаблона, а не
  *  в списке: рядом с выбором его задевали бы случайно. Убрать лишние виды из
  *  выбранного — уже в самой форме тренировки: там видно, что сегодня реально
@@ -48,7 +48,7 @@ export function TemplatesSheet({ open, onClose, onPick }: Props) {
   const dirty = useRef(false);
   const list = useTemplates();
   // Список ↔ редактор — другой экран в той же шторке: начинается сверху.
-  // Иначе карандаш у нижнего шаблона открывал редактор с середины, а
+  // Иначе перо у нижнего шаблона открывал редактор с середины, а
   // название, время и памятка оставались за верхним краем.
   const top = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -266,7 +266,7 @@ function TemplateList({
         onClick={onNew}
         className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-lh-border-strong py-3 font-medium text-lh-accent active:opacity-70"
       >
-        <GPlus size={ICON.action} /> {t('Новый шаблон')}
+        <GFaPlus size={ICON.inline} /> {t('Новый шаблон')}
       </button>
       {/* Плашка у пальца — в body: у панели шторки свой transform, и fixed
           внутри неё считался бы от панели, а не от экрана. */}
@@ -290,7 +290,7 @@ function TemplateList({
   );
 }
 
-/** Строка шаблона: тап — выбрать, удержание — перенос, карандаш — правка.
+/** Строка шаблона: тап — выбрать, удержание — перенос, перо — правка.
  *  Хук удержания — на строку, поэтому строка отдельным компонентом. */
 function TemplateRow({
   tpl,
@@ -338,7 +338,7 @@ function TemplateRow({
           className="flex size-11 shrink-0 items-center justify-center text-lh-text-secondary active:opacity-60"
           aria-label={t('Изменить шаблон «{name}»', { name: tpl.name })}
         >
-          <GPencil size={ICON.base} />
+          <GFaPen size={ICON.inline} />
         </button>
       </div>
     </div>
@@ -454,7 +454,7 @@ function TemplateEditor({
           onClick={() => setItems((prev) => [...prev, newItem('strength', '')])}
           className={`flex items-center gap-1 self-start rounded-full border border-dashed border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
         >
-          <GPlus size={ICON.inline} /> {t('Другой вид тренировки')}
+          <GFaPlus size={ICON.inline} /> {t('Другой вид тренировки')}
         </button>
       </Step>
       <Step n={3} title={t('Дополнительно')} hint={t('по желанию')}>
@@ -472,7 +472,7 @@ function TemplateEditor({
           >
             <span className="flex-1 font-medium">{t('Общее время')}</span>
             <span className={`tabular-nums ${total > 0 ? 'text-lh-text-primary' : 'text-lh-text-secondary'}`}>{total > 0 ? formatDuration(total) : t('не задано')}</span>
-            <GChevronDown size={ICON.inline} className={`shrink-0 text-lh-text-secondary transition-transform ${wheelOpen ? 'rotate-180' : ''}`} />
+            <GFaChevronDown size={ICON.inline} className={`shrink-0 text-lh-text-secondary transition-transform ${wheelOpen ? 'rotate-180' : ''}`} />
           </button>
           {wheelOpen && <DurationWheel value={total} onChange={setTotal} />}
           {/* Общее время — время плана. Сводки считают минуты видов из записи:

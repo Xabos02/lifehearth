@@ -1,11 +1,7 @@
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
-import { FileText } from 'lucide-react';
-import {
-  GCheck as Check,
-  GChevronRight as ChevronRight,
-} from '../../components/ui/glyphs';
+import { GFaCheck, GFaChevronRight, GFaFileLines } from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
@@ -19,7 +15,7 @@ import { DEFAULT_CYCLE_SETTINGS, putDay, updateCycleSettings } from '../../lib/c
 import { parseCycleCsv, type ImportReport } from '../../lib/cycle/importCsv';
 import { formatRu } from '../../lib/dates';
 import { AUTO_TASK_TEMPLATES, MAX_ACTIVE_AUTO_TASKS } from '../../lib/cycle/autoTasks';
-import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
 import { confirmAction } from '../../components/ui/confirmStore';
 
@@ -59,7 +55,7 @@ function ToggleRow({
           checked ? 'border-lh-accent bg-lh-accent text-lh-bg' : 'border-lh-border-strong bg-lh-surface-2'
         }`}
       >
-        {checked && <Check size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
+        {checked && <GFaCheck size={ICON.inline} />}
       </span>
       {/* Щёлкает, как общий Switch (PROTOCOL §6.4); у выключенной строки тап
           ничего не меняет — накладки нет. */}
@@ -389,14 +385,14 @@ export function CycleSettingsPage() {
           <h2 className="mb-1.5 px-1 lh-section">{t('Врач')}</h2>
           <div className="card">
             <Link to="/more/cycle/report" className="flex items-center gap-3 p-4">
-              <FileText size={ICON.header} className="shrink-0 text-lh-text-secondary" />
+              <GFaFileLines size={ICON.action} className="shrink-0 text-lh-text-secondary" />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{t('Отчёт для врача')}</span>
                 <span className="mt-0.5 block text-sm leading-snug text-lh-text-secondary">
                   {t('Сводка по циклам за период — для показа или печати на приёме.')}
                 </span>
               </span>
-              <ChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
+              <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
             </Link>
           </div>
         </section>

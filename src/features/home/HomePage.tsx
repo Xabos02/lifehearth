@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { User } from 'lucide-react';
 import {
-  GChevronDown as ChevronDown,
-  GChevronRight as ChevronRight,
-  GCloud as Cloud,
-  GCloudOff as CloudOff,
-  GSearch as Search,
+  GFaChevronDown,
+  GFaChevronRight,
+  GFaCloud,
+  GFaCloudArrowUp,
+  GFaMagnifyingGlass,
+  GFaUserSolid,
 } from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
@@ -64,7 +64,7 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
           </p>
         )}
         </div>
-        <ChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
+        <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
       </div>
     </Link>
   );
@@ -119,7 +119,7 @@ function ProfileCard() {
         </div>
       ) : (
         <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-lh-text-secondary">
-          <User size={ICON.accent} />
+          <GFaUserSolid size={ICON.accent} />
         </div>
       )}
       <div className="min-w-0 flex-1">
@@ -130,7 +130,7 @@ function ProfileCard() {
           {facts.length > 0 ? facts.join(' · ') : t('Имя, фото, рост и вес')}
         </p>
       </div>
-      <ChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
+      <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
     </Link>
   );
 }
@@ -172,7 +172,7 @@ function DataStatusCard() {
           syncOn ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
         }`}
       >
-        {syncOn ? <Cloud size={ICON.header} /> : <CloudOff size={ICON.header} />}
+        {syncOn ? <GFaCloud size={ICON.inline} /> : <GFaCloudArrowUp size={ICON.inline} />}
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm">
@@ -185,7 +185,7 @@ function DataStatusCard() {
           {last ? t('Копия: {date}', { date: formatRu(last.slice(0, 10), 'd MMMM') }) : t('Резервную копию ещё не делали')}
         </p>
       </div>
-      <ChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
+      <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
     </Link>
   );
 }
@@ -215,7 +215,7 @@ export function HomePage() {
   const settingsSection = SECTION_BY_ID.get('settings');
 
   return (
-    <Screen title={t('Ещё')} right={<IconButton icon={Search} label={t('Поиск')} to="/search" />}>
+    <Screen title={t('Ещё')} right={<IconButton icon={GFaMagnifyingGlass} size={ICON.base} label={t('Поиск')} to="/search" />}>
       <div className="space-y-5">
         {/* Макет «Ещё»: профиль и состояние данных — одна карточка. */}
         <div className="card overflow-hidden">
@@ -253,7 +253,7 @@ export function HomePage() {
                 className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lh-btn border border-dashed border-lh-border-strong py-3 text-sm font-semibold text-lh-text-secondary active:opacity-70"
               >
                 {t('Показать ещё {n}', { n: Math.min(HOME_VISIBLE_STEP, sections.length - visibleCount) })}
-                <ChevronDown size={ICON.action} />
+                <GFaChevronDown size={ICON.inline} />
               </button>
             )}
           </section>

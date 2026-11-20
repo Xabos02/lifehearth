@@ -7,9 +7,7 @@ import { APP_VERSION, RELEASES, compareVersions } from '../../lib/changelog';
 import { formatRu } from '../../lib/dates';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
-import {
-  GSparkle as Sparkles,
-} from '../../components/ui/glyphs';
+import { GFaStar } from '../../components/ui/glyphs';
 
 /** «Что нового» после обновления.
  *
@@ -89,7 +87,7 @@ export function WhatsNew() {
               {r.items.map((it, i) => (
                 <li key={i} className="flex items-start gap-4">
                   <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-                    <Sparkles size={ICON.base} />
+                    <GFaStar size={ICON.action} />
                   </span>
                   <span className="min-w-0 flex-1 pt-1.5 text-sm leading-[1.45] text-lh-text-primary/90">{it}</span>
                 </li>

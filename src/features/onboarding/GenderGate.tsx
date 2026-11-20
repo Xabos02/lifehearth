@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, Flame, Lock, Mars, Venus } from 'lucide-react';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
-import { ICON, STROKE_HEAVY, STROKE_STRONG } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
+import { GFaCheck, GFaFireFlameCurved, GFaLock, GFaMars, GFaVenus } from '../../components/ui/glyphs';
 import { Haptic } from '../../components/ui/Haptic';
 import { getLang, t } from '../../lib/i18n';
 
@@ -28,8 +28,8 @@ export function GenderGate() {
   if (!settings || settings.gender) return null;
 
   const OPTIONS = [
-    { value: 'female' as const, label: t('Женский'), hint: t('Включает раздел «Женские дни»'), Icon: Venus },
-    { value: 'male' as const, label: t('Мужской'), hint: t('Все основные разделы'), Icon: Mars },
+    { value: 'female' as const, label: t('Женский'), hint: t('Включает раздел «Женские дни»'), Icon: GFaVenus },
+    { value: 'male' as const, label: t('Мужской'), hint: t('Все основные разделы'), Icon: GFaMars },
   ];
 
   return (
@@ -39,7 +39,7 @@ export function GenderGate() {
     <div className="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-lh-bg">
       <div className="mx-auto flex w-full max-w-md flex-1 animate-fade-in flex-col px-6 pt-[calc(env(safe-area-inset-top)+clamp(24px,6vh,64px))]">
         <div aria-hidden className="flex size-14 items-center justify-center rounded-2xl border border-lh-border bg-lh-surface text-lh-accent">
-          <Flame size={ICON.accent} strokeWidth={STROKE_STRONG} />
+          <GFaFireFlameCurved size={ICON.accent} />
         </div>
         <p className="mt-[clamp(16px,3vh,32px)] text-sm text-lh-text-secondary">{t('Перед началом')}</p>
         <h2 className="mt-1.5 text-[34px] font-light leading-[1.1] tracking-[-.8px]">{t('Ваш пол')}</h2>
@@ -82,7 +82,7 @@ export function GenderGate() {
                     sel ? 'bg-lh-accent text-lh-bg' : 'border-2 border-lh-border-strong'
                   }`}
                 >
-                  {sel && <Check size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
+                  {sel && <GFaCheck size={ICON.inline} />}
                 </span>
                 {/* Радио щёлкает (PROTOCOL §6.4); выбранный вариант — нет. */}
                 <Haptic off={sel} />
@@ -93,7 +93,7 @@ export function GenderGate() {
 
         <div className="mt-auto pb-[calc(env(safe-area-inset-bottom)+24px)] pt-6">
           <div className="mb-5 flex gap-2.5 px-1">
-            <Lock aria-hidden size={ICON.inline} className="mt-[2px] shrink-0 text-lh-text-secondary" />
+            <GFaLock aria-hidden size={ICON.inline} className="mt-[2px] shrink-0 text-lh-text-secondary" />
             {/* Настройки устройства не синхронизируются (sync.ts). Обещание
                 ровно такое — не шире: про резервные копии здесь не говорим. */}
             <p className="text-sm leading-[1.45] text-lh-text-secondary">

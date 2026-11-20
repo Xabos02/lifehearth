@@ -2,7 +2,6 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { FileText, Share2 } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Goal, LearningItem, Task } from '../../db/types';
@@ -20,7 +19,10 @@ import { IconButton } from '../../components/ui/IconButton';
 import { EnergyStatsCard } from '../energy/EnergyStatsCard';
 import { compactDuration, formatDuration } from '../../lib/duration';
 import { t } from '../../lib/i18n';
-import { GChevronDown, GStats as ChartColumnBig } from '../../components/ui/glyphs';
+import { GFaArrowUpFromBracket, GFaChevronDown, GFaFileLines } from '../../components/ui/glyphs';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+const StatsIcon = SECTION_BY_ID.get('stats')!.icon;
 
 interface TaskStats {
   /** последние 7 дней (старые → новые): подпись дня + число выполненных */
@@ -341,7 +343,7 @@ export function StatsPage() {
     return (
       <Screen title={t('Статистика')} backTo="/home">
         <EmptyState
-          icon={ChartColumnBig}
+          icon={StatsIcon}
           title={t('Пока нет данных')}
           hint={t('Добавьте задачи, цели или другие записи — здесь появится обзор продуктивности')}
         />
@@ -372,7 +374,7 @@ export function StatsPage() {
       title={t('Статистика')}
       backTo="/home"
       right={
-        <IconButton icon={Share2} label={t('Поделиться отчётом')} onClick={() => void handleShareReport()} />
+        <IconButton icon={GFaArrowUpFromBracket} size={ICON.base} label={t('Поделиться отчётом')} onClick={() => void handleShareReport()} />
       }
     >
       <div className="flex flex-col gap-6">
@@ -433,7 +435,7 @@ export function StatsPage() {
             <span className="min-w-0">
               {moreOpen ? t('Скрыть показатели') : t('Ещё 6 показателей — пропущено, в корзине, чек-листы…')}
             </span>
-            <GChevronDown
+            <GFaChevronDown
               size={ICON.inline}
               className={`shrink-0 transition-transform ${moreOpen ? 'rotate-180' : ''}`}
             />
@@ -533,7 +535,7 @@ export function StatsPage() {
         {/* Отчёт — тот же файл, что и кнопка в шапке */}
         <section className="card flex items-center gap-3 p-4">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-lh-surface-2 text-lh-accent">
-            <FileText size={ICON.action} />
+            <GFaFileLines size={ICON.action} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-base">{t('Отчёт по всем разделам')}</span>

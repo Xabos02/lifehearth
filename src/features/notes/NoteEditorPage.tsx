@@ -12,17 +12,19 @@ import { format } from 'date-fns';
 import { dateLocale } from '../../lib/dates';
 import { getLang, t } from '../../lib/i18n';
 import { marked } from 'marked';
-import { Pin, SlidersHorizontal, Type } from 'lucide-react';
 import {
-  GAttach,
-  GBold,
-  GBullets as List,
-  GChecklist as ListChecks,
-  GItalic,
-  GNumbers as ListOrdered,
-  GStrike,
-  GTrash as Trash2,
-  GUndo as Undo2,
+  GFaBold,
+  GFaFont,
+  GFaHeading,
+  GFaItalic,
+  GFaListOl,
+  GFaListUl,
+  GFaPaperclip,
+  GFaRotateLeft,
+  GFaSquareCheck,
+  GFaStrikethrough,
+  GFaThumbtack,
+  GFaTrashCan,
 } from '../../components/ui/glyphs';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
@@ -47,7 +49,7 @@ import { MAX_FILE_BYTES, formatFileSize, groupNoteAttachments, planNoteFileChunk
 import { ImageTooLargeError, MAX_INPUT_BYTES, compressImage } from '../../lib/image';
 import { useToast } from '../../components/ui/toastContext';
 import { create, remove, restore, uid, update } from '../../db/repo';
-import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { confirmAction } from '../../components/ui/confirmStore';
@@ -868,13 +870,14 @@ export function NoteEditorPage() {
         <div className="flex items-center gap-4">
           <MicButton onText={appendVoice} />
           <IconButton
-            icon={Pin}
+            icon={GFaThumbtack}
+            size={ICON.action}
             label={pinned ? t('Открепить') : t('Закрепить')}
             onClick={togglePin}
             tone={pinned ? 'accent' : 'muted'}
             filled={pinned}
           />
-          <IconButton icon={Trash2} label={t('Удалить')} onClick={() => void handleDelete()} tone="danger" />
+          <IconButton icon={GFaTrashCan} size={ICON.base} label={t('Удалить')} onClick={() => void handleDelete()} tone="danger" />
           <button
             onClick={() => void handleDone()}
             className={`pl-1 pr-1 font-semibold text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
@@ -907,9 +910,9 @@ export function NoteEditorPage() {
         title={t('Редактор заметок')}
         className="mb-3"
         items={[
-          { icon: Type, text: <>{t('Первая строка — заголовок заметки')}</> },
-          { icon: ListOrdered, text: <>{t('Начните строку с «1. » — Enter продолжит нумерацию сам')}</> },
-          { icon: SlidersHorizontal, text: <>{t('«Aa» внизу — стили текста; рядом чек-лист, фото и файл')}</> },
+          { icon: GFaHeading, text: <>{t('Первая строка — заголовок заметки')}</> },
+          { icon: GFaListOl, text: <>{t('Начните строку с «1. » — Enter продолжит нумерацию сам')}</> },
+          { icon: GFaFont, text: <>{t('«Aa» внизу — стили текста; рядом чек-лист, фото и файл')}</> },
         ]}
       />
 
@@ -1118,20 +1121,20 @@ export function NoteEditorPage() {
             </div>
             <div className="flex items-center justify-between gap-1">
               <ToolBtn onClick={() => exec('bold')} label={t('Жирный')} active={active.bold} className="flex-1">
-                <GBold size={ICON.header} strokeWidth={STROKE_STRONG} />
+                <GFaBold size={ICON.base} />
               </ToolBtn>
               <ToolBtn onClick={() => exec('italic')} label={t('Курсив')} active={active.italic} className="flex-1">
-                <GItalic size={ICON.header} strokeWidth={STROKE_STRONG} />
+                <GFaItalic size={ICON.base} />
               </ToolBtn>
               <ToolBtn onClick={() => exec('strikeThrough')} label={t('Зачёркнутый')} active={active.strike} className="flex-1">
-                <GStrike size={ICON.header} strokeWidth={STROKE_STRONG} />
+                <GFaStrikethrough size={ICON.base} />
               </ToolBtn>
               <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-lh-border" />
               <ToolBtn onClick={() => exec('insertUnorderedList')} label={t('Маркированный список')} active={active.ul} className="flex-1">
-                <List size={ICON.header} strokeWidth={STROKE_STRONG} />
+                <GFaListUl size={ICON.base} />
               </ToolBtn>
               <ToolBtn onClick={() => exec('insertOrderedList')} label={t('Нумерованный список')} active={active.ol} className="flex-1">
-                <ListOrdered size={ICON.header} strokeWidth={STROKE_STRONG} />
+                <GFaListOl size={ICON.base} />
               </ToolBtn>
             </div>
           </div>
@@ -1162,7 +1165,7 @@ export function NoteEditorPage() {
             active={active.checklist}
             bare
           >
-            <ListChecks size={ICON.header} strokeWidth={STROKE_STRONG} />
+            <GFaSquareCheck size={ICON.base} />
           </ToolBtn>
           <ToolBtn
             onClick={() => {
@@ -1175,10 +1178,10 @@ export function NoteEditorPage() {
             label={t('Вложить')}
             bare
           >
-            <GAttach size={ICON.header} strokeWidth={STROKE_STRONG} />
+            <GFaPaperclip size={ICON.base} />
           </ToolBtn>
           <ToolBtn onClick={() => exec('undo')} label={t('Отменить')} bare>
-            <Undo2 size={ICON.header} strokeWidth={STROKE_STRONG} />
+            <GFaRotateLeft size={ICON.base} />
           </ToolBtn>
         </div>
         <span

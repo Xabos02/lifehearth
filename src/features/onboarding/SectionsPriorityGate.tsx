@@ -7,7 +7,7 @@ import { computeNavLayout } from '../../lib/navLayout';
 import { ANCHOR_ID, DEFAULT_BOTTOM, HOME_VISIBLE_STEP, MAX_BOTTOM, SECTION_BY_ID, sectionsFor } from '../../lib/sections';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
-import { ArrowDown, ArrowUp, Eye, EyeOff } from 'lucide-react';
+import { GFaArrowDown, GFaArrowUp, GFaEye, GFaEyeSlash } from '../../components/ui/glyphs';
 
 const LAYOUT_OPTS = { maxBottom: MAX_BOTTOM, defaultBottom: DEFAULT_BOTTOM, anchorId: ANCHOR_ID };
 
@@ -127,7 +127,7 @@ export function SectionsPriorityGate() {
                         aria-label={t('Поднять «{name}»', { name: t(sec.label) })}
                         className={btn}
                       >
-                        <ArrowUp size={ICON.inline} />
+                        <GFaArrowUp size={ICON.inline} />
                       </button>
                       <button
                         type="button"
@@ -136,7 +136,7 @@ export function SectionsPriorityGate() {
                         aria-label={t('Опустить «{name}»', { name: t(sec.label) })}
                         className={btn}
                       >
-                        <ArrowDown size={ICON.inline} />
+                        <GFaArrowDown size={ICON.inline} />
                       </button>
                       {!sec.nonHideable && (
                         <button
@@ -145,7 +145,7 @@ export function SectionsPriorityGate() {
                           aria-label={t('Скрыть раздел {name}', { name: t(sec.label) })}
                           className={btn}
                         >
-                          <Eye size={ICON.action} />
+                          <GFaEye size={ICON.inline} />
                         </button>
                       )}
                     </div>
@@ -173,7 +173,7 @@ export function SectionsPriorityGate() {
                     aria-label={t('Показать раздел {name}', { name: t(sec.label) })}
                     className={`${btn} !text-lh-accent`}
                   >
-                    <EyeOff size={ICON.action} />
+                    <GFaEyeSlash size={ICON.inline} />
                   </button>
                 </div>
               );

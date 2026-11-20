@@ -1,18 +1,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import {
-  Car,
-  CircleEllipsis,
-  Gamepad2,
-  Repeat,
-  Shirt,
-  ShoppingBasket,
-  Smartphone,
-  Stethoscope,
-  TrendingUp,
-  type LucideIcon,
-} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -27,9 +16,20 @@ import { SavingsSection } from './SavingsSection';
 import { t, tPlur } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import {
-  GFinance as Wallet,
-  GHome,
+  GFaArrowTrendUp,
+  GFaBasketShopping,
+  GFaCarSide,
+  GFaEllipsis,
+  GFaGamepad,
+  GFaHouse,
+  GFaMobileScreen,
+  GFaRepeat,
+  GFaShirt,
+  GFaStethoscope,
 } from '../../components/ui/glyphs';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+const FinanceIcon = SECTION_BY_ID.get('finance')!.icon;
 
 const RECURRENCE_LABEL: Record<ExpenseRecurrence, string> = {
   monthly: 'Ежемесячно',
@@ -41,14 +41,14 @@ const RECURRENCE_LABEL: Record<ExpenseRecurrence, string> = {
 /** Значок категории в плитке строки. Категория — свободный текст, поэтому
  *  незнакомая получает нейтральный «прочее», а доход — свой знак. */
 const CATEGORY_ICON: Record<string, LucideIcon> = {
-  Жильё: GHome as LucideIcon,
-  Еда: ShoppingBasket,
-  Транспорт: Car,
-  Подписки: Repeat,
-  Здоровье: Stethoscope,
-  Связь: Smartphone,
-  Развлечения: Gamepad2,
-  Одежда: Shirt,
+  Жильё: GFaHouse,
+  Еда: GFaBasketShopping,
+  Транспорт: GFaCarSide,
+  Подписки: GFaRepeat,
+  Здоровье: GFaStethoscope,
+  Связь: GFaMobileScreen,
+  Развлечения: GFaGamepad,
+  Одежда: GFaShirt,
 };
 
 /** Оттенки золота для полосы категорий: от яркого к приглушённому. Полоса и
@@ -164,7 +164,7 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
 
 function ExpenseRow({ item, onOpen }: { item: ExpenseItem; onOpen: () => void }) {
   const isIncome = item.kind === 'income';
-  const Icon = isIncome ? TrendingUp : (CATEGORY_ICON[item.category ?? ''] ?? CircleEllipsis);
+  const Icon = isIncome ? GFaArrowTrendUp : (CATEGORY_ICON[item.category ?? ''] ?? GFaEllipsis);
   const meta = [
     !isIncome && item.category ? t(item.category) : null,
     RECURRENCE_LABEL[item.recurrence] ? t(RECURRENCE_LABEL[item.recurrence]).toLowerCase() : null,
@@ -178,7 +178,7 @@ function ExpenseRow({ item, onOpen }: { item: ExpenseItem; onOpen: () => void })
   return (
     <div onClick={onOpen} className="flex items-center gap-3 px-4 py-3 active:opacity-80">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-        <Icon size={ICON.action} />
+        <Icon size={ICON.inline} />
       </span>
       {/* Пол ширины вместо min-w-0: название — главное в строке, и оно не
           должно проигрывать сумме, иначе truncate ужимает его до буквы. */}
@@ -238,7 +238,7 @@ export function FinancePage() {
         {items.length === 0 ? (
           loaded && (
             <EmptyState
-              icon={Wallet}
+              icon={FinanceIcon}
               title={t('Пока нет трат и доходов')}
               hint={t('Добавьте ежемесячные траты — аренду, подписки, еду — и увидите, сколько уходит в месяц и в год.')}
             />

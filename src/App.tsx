@@ -6,7 +6,7 @@ import { db } from './db/db';
 import { t } from './lib/i18n';
 import { cycleAllowed } from './lib/sections';
 import { ICON, STROKE } from './components/ui/icons';
-import { GAlert, GRepeat } from './components/ui/glyphs';
+import { GFaArrowRotateRight, GFaTriangleExclamation } from './components/ui/glyphs';
 import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
 import { SyncRunner } from './components/SyncRunner';
@@ -123,7 +123,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
           <article className="card w-full max-w-sm p-5">
             <div className="flex gap-3.5">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-lh-surface-2 text-warning">
-                <GAlert size={ICON.header} />
+                <GFaTriangleExclamation size={ICON.action} />
               </span>
               <div className="min-w-0">
                 <p className="text-base font-semibold">{t('Что-то пошло не так')}</p>
@@ -136,7 +136,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
               onClick={() => window.location.reload()}
               className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-lh-surface-2 text-sm text-lh-text-primary active:opacity-80"
             >
-              <GRepeat size={ICON.inline} className="text-lh-accent" />
+              <GFaArrowRotateRight size={ICON.inline} className="text-lh-accent" />
               {t('Перезагрузить')}
             </button>
           </article>

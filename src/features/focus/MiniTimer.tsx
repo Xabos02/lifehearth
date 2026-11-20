@@ -1,9 +1,5 @@
 import { useLocation, useNavigate } from 'react-router';
-import {
-  GPause as Pause,
-  GPlay as Play,
-  GRepeat as RotateCcw,
-} from '../../components/ui/glyphs';
+import { GFaPause, GFaPlay, GFaRotateLeft } from '../../components/ui/glyphs';
 import { formatClock, usePomodoro } from './pomodoro';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
@@ -61,7 +57,7 @@ export function MiniTimer() {
         }}
         className={iconBtn}
       >
-        {p.running ? <Pause size={ICON.base} /> : <Play size={ICON.base} />}
+        {p.running ? <GFaPause size={ICON.action} /> : <GFaPlay size={ICON.action} />}
       </button>
       <button
         type="button"
@@ -72,7 +68,7 @@ export function MiniTimer() {
         }}
         className={iconBtn}
       >
-        <RotateCcw size={ICON.base} />
+        <GFaRotateLeft size={ICON.action} />
       </button>
     </div>
   );

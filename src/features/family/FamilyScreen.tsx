@@ -198,7 +198,7 @@ function ChatScreen({
               aria-label={action.label}
               className={`flex size-9 items-center justify-center rounded-full text-lh-text-secondary active:text-lh-accent ${HIT_SLOP_44}`}
             >
-              <ActionIcon size={ICON.header} />
+              <ActionIcon size={ICON.action} />
             </button>
           )}
         </div>

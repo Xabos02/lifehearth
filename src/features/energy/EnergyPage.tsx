@@ -7,7 +7,17 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { ICON } from '../../components/ui/icons';
 import type { LucideIcon } from 'lucide-react';
-import { Coffee, Dumbbell, Moon, Music, Palette, Trees, Users, Utensils } from 'lucide-react';
+import {
+  GFaBed,
+  GFaDumbbell,
+  GFaMugHot,
+  GFaMusic,
+  GFaPalette,
+  GFaTree,
+  GFaUsers,
+  GFaUtensils,
+} from '../../components/ui/glyphs';
+import { SECTION_BY_ID } from '../../lib/sections';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { levelByDate } from '../../lib/energy';
@@ -16,9 +26,8 @@ import { EnergyJournal } from './EnergyJournal';
 import { EnergySheet } from './EnergySheet';
 import { EnergySummary } from './EnergySummary';
 import { t } from '../../lib/i18n';
-import {
-  GEnergy as BatteryCharging,
-} from '../../components/ui/glyphs';
+
+const EnergyIcon = SECTION_BY_ID.get('energy')!.icon;
 
 type Filter = 'all' | EnergyEffort;
 
@@ -36,14 +45,14 @@ const EFFORT_LABEL: Record<EnergyEffort, string> = {
 };
 
 const CATEGORY_ICON: Record<string, LucideIcon> = {
-  Тело: Dumbbell,
-  Отдых: Coffee,
-  Сон: Moon,
-  Общение: Users,
-  Природа: Trees,
-  Творчество: Palette,
-  Музыка: Music,
-  Еда: Utensils,
+  Тело: GFaDumbbell,
+  Отдых: GFaMugHot,
+  Сон: GFaBed,
+  Общение: GFaUsers,
+  Природа: GFaTree,
+  Творчество: GFaPalette,
+  Музыка: GFaMusic,
+  Еда: GFaUtensils,
 };
 
 function EffectivenessDots({ value }: { value: number }) {
@@ -60,7 +69,7 @@ function EffectivenessDots({ value }: { value: number }) {
 }
 
 function EnergyRow({ item, onOpen }: { item: EnergyItem; onOpen: () => void }) {
-  const Icon = CATEGORY_ICON[item.category] ?? BatteryCharging;
+  const Icon = CATEGORY_ICON[item.category] ?? EnergyIcon;
   return (
     <button
       type="button"
@@ -68,12 +77,12 @@ function EnergyRow({ item, onOpen }: { item: EnergyItem; onOpen: () => void }) {
       className="flex w-full items-start gap-3 px-4 py-3.5 text-left active:bg-lh-surface-2"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-        <Icon size={ICON.base} aria-hidden />
+        <Icon size={ICON.action} aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate">{item.title}</span>
         {/* Категория — текстом: иконка есть только у предложенных, своя
-            категория получает общую батарейку, а читалке иконка не видна. */}
+            категория получает знак раздела, а читалке иконка не видна. */}
         {item.category && (
           <span className="block truncate text-xs text-lh-text-secondary">{t(item.category)}</span>
         )}
@@ -144,7 +153,7 @@ export function EnergyPage() {
             {items.length === 0 ? (
               loaded && (
                 <EmptyState
-                  icon={BatteryCharging}
+                  icon={EnergyIcon}
                   title={t('Пока нет способов')}
                   hint={t('Нажмите +, чтобы добавить то, что возвращает вам силы.')}
                 />

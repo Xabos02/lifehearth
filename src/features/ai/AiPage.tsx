@@ -1,22 +1,19 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  CircleAlert,
-  ArrowDown,
-  ArrowUp,
-  Database,
-  MessageSquarePlus,
-  PanelsTopLeft,
-  SlidersHorizontal,
-  Square,
-} from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { useToast } from '../../components/ui/toastContext';
 import {
-  GSparkle,
-  GChevronDown as ChevronDown,
-  GCopy as Copy,
-  GRepeat as RotateCcw,
+  GFaArrowDown,
+  GFaArrowUp,
+  GFaChevronDown,
+  GFaCircleExclamation,
+  GFaCopy,
+  GFaDatabase,
+  GFaListUl,
+  GFaPenToSquare,
+  GFaRotateRight,
+  GFaSliders,
+  GFaStop,
 } from '../../components/ui/glyphs';
 import { IconButton } from '../../components/ui/IconButton';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
@@ -44,6 +41,9 @@ import { Markdown } from './Markdown';
 import { ChatListSheet } from './ChatListSheet';
 import { ChatSettingsSheet } from './ChatSettingsSheet';
 import { ModelSheet } from './ModelSheet';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+const AiIcon = SECTION_BY_ID.get('ai')!.icon;
 
 // Акцент раздела — индиго дизайн-системы (--lh-ai-accent) вместо золота.
 // Перекрываем только акцентные переменные на обёртке: нейтрали остаются общими.
@@ -220,9 +220,9 @@ export function AiPage() {
           // gap-4: у IconButton -mx-1 и зона касания 44 — при gap-1 центры
           // соседей стояли в 32px, и зоны налезали друг на друга на 12px.
           <div className="flex items-center gap-4">
-            <IconButton icon={SlidersHorizontal} label={t('Настройки чата')} onClick={() => setSettingsOpen(true)} />
-            <IconButton icon={PanelsTopLeft} label={t('Список чатов')} onClick={() => setListOpen(true)} />
-            <IconButton icon={MessageSquarePlus} label={t('Новый чат')} onClick={() => void handleNewChat()} />
+            <IconButton icon={GFaSliders} size={ICON.action} label={t('Настройки чата')} onClick={() => setSettingsOpen(true)} />
+            <IconButton icon={GFaListUl} size={ICON.action} label={t('Список чатов')} onClick={() => setListOpen(true)} />
+            <IconButton icon={GFaPenToSquare} size={ICON.base} label={t('Новый чат')} onClick={() => void handleNewChat()} />
           </div>
         }
       >
@@ -260,7 +260,7 @@ export function AiPage() {
               className="absolute right-3 bottom-40 z-10 grid size-10 place-items-center rounded-full border border-lh-border bg-lh-surface-2 text-lh-accent shadow-[var(--shadow-card)] active:opacity-70"
               onClick={() => bottomRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })}
             >
-              <ArrowDown size={ICON.header} />
+              <GFaArrowDown size={ICON.action} />
             </button>
           )}
 
@@ -329,7 +329,7 @@ function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string
         className="mb-4 grid size-16 place-items-center rounded-[1.25rem] text-white shadow-[var(--shadow-accent)]"
         style={{ background: 'var(--app-accent-fill)' }}
       >
-        <GSparkle size={ICON.display} />
+        <AiIcon size={ICON.display} />
       </div>
       <p className="text-lg font-light tracking-tight">{t('Спросите о своём')}</p>
       <p className="mt-1 mb-5 max-w-[17rem] text-sm text-lh-text-secondary">
@@ -410,7 +410,7 @@ function AssistantBlock({
         // видно, что случилось, и что можно сделать прямо здесь.
         <div className="rounded-[12px] border border-danger/25 bg-danger/10 px-3.5 py-3">
           <p className="flex items-start gap-2 text-sm">
-            <CircleAlert size={ICON.action} className="mt-0.5 shrink-0 text-danger" />
+            <GFaCircleExclamation size={ICON.action} className="mt-0.5 shrink-0 text-danger" />
             <span className="min-w-0">{message.error}</span>
           </p>
           {/* Обводка, а не своя подложка: подложка поверх красной карточки
@@ -420,7 +420,7 @@ function AssistantBlock({
             disabled={busy}
             onClick={onRetry}
           >
-            <RotateCcw size={ICON.inline} />
+            <GFaRotateRight size={ICON.inline} />
             {t('Повторить')}
           </button>
         </div>
@@ -451,7 +451,7 @@ function AssistantBlock({
             className="inline-flex h-11 items-center gap-1.5 rounded-[8px] px-2.5 text-xs text-lh-text-secondary active:bg-lh-surface-2"
             onClick={onCopy}
           >
-            <Copy size={ICON.inline} />
+            <GFaCopy size={ICON.inline} />
             {t('Скопировать')}
             <Haptic />
           </button>
@@ -460,7 +460,7 @@ function AssistantBlock({
             disabled={busy}
             onClick={onRetry}
           >
-            <RotateCcw size={ICON.inline} />
+            <GFaRotateRight size={ICON.inline} />
             {t('Повторить')}
           </button>
           {message.tokensIn !== null && (
@@ -475,7 +475,7 @@ function AssistantBlock({
   );
 }
 
-/** Знак ассистента — индиговый кружок с искрой — и строка рядом. */
+/** Знак ассистента — индиговый кружок со знаком раздела «ИИ» — и строка рядом. */
 function AssistantHead({
   failed = false,
   pulse = false,
@@ -499,7 +499,7 @@ function AssistantHead({
             : 'border-lh-accent-border bg-lh-accent-dim text-lh-accent'
         } ${pulse ? 'animate-pulse' : ''}`}
       >
-        <GSparkle size={ICON.inline} />
+        <AiIcon size={ICON.inline} />
       </span>
       <span className={wrap ? 'min-w-0 break-words pt-1' : 'min-w-0 truncate'}>{children}</span>
     </div>
@@ -564,7 +564,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
           onClick={onModelTap}
         >
           <span className="truncate">{modelName}</span>
-          <ChevronDown size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
+          <GFaChevronDown size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
         </button>
         {/* Доступ модели к данным приложения. Выключен по умолчанию (решение
             25.09, задача 33): прочитанное уходит через наш воркер провайдеру
@@ -580,7 +580,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
           }`}
           onClick={() => onDataTools(!dataTools)}
         >
-          <Database size={ICON.inline} />
+          <GFaDatabase size={ICON.inline} />
           {t('Данные')}
           {/* Переключатель доступа — щёлкает (PROTOCOL §6.4). */}
           {!busy && <Haptic />}
@@ -614,7 +614,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
             className={`grid size-11 shrink-0 place-items-center rounded-full border border-lh-border bg-lh-surface-2 active:opacity-70 ${HIT_SLOP_44}`}
             onClick={onStop}
           >
-            <Square size={ICON.action} />
+            <GFaStop size={ICON.action} />
           </button>
         ) : (
           <button
@@ -627,7 +627,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
             }}
             onClick={onSend}
           >
-            <ArrowUp size={ICON.header} />
+            <GFaArrowUp size={ICON.action} />
           </button>
         )}
       </div>

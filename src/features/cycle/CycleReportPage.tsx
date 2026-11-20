@@ -1,5 +1,4 @@
 import { Fragment, useMemo, useState, useSyncExternalStore } from 'react';
-import { FileText, Printer } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLocation } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
@@ -12,6 +11,7 @@ import { useCycleData } from './useCycleData';
 import { CycleLock } from './CycleLock';
 import { isUnlocked, subscribeLock } from './lockState';
 import { ICON } from '../../components/ui/icons';
+import { GFaFileLines, GFaPrint } from '../../components/ui/glyphs';
 
 const WINDOW_OPTIONS: { value: DoctorReportWindow; label: string }[] = [
   { value: 'last2cycles', label: '2 цикла' },
@@ -120,7 +120,7 @@ export function CycleReportPage() {
                   </p>
                 </div>
                 <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-                  <FileText size={ICON.base} />
+                  <GFaFileLines size={ICON.action} />
                 </span>
               </div>
               <p className="mt-3 text-xs text-lh-text-secondary">
@@ -273,7 +273,7 @@ export function CycleReportPage() {
               onClick={() => window.print()}
               className="flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
             >
-              <Printer size={ICON.base} strokeWidth={2} />
+              <GFaPrint size={ICON.inline} />
               {t('Распечатать или сохранить в PDF')}
             </button>
             <p className="px-1 text-center text-xs leading-snug text-lh-text-secondary">

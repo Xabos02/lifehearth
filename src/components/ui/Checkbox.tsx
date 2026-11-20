@@ -1,6 +1,4 @@
-import {
-  GCheck as Check,
-} from '../../components/ui/glyphs';
+import { GFaCheck } from '../../components/ui/glyphs';
 import { isLightColor, ON_COLOR_DARK } from '../../lib/colors';
 import { t } from '../../lib/i18n';
 
@@ -31,7 +29,6 @@ interface Props {
 // им ни к чему. Определение — в hitSlop.ts.
 export { HIT_SLOP_44 } from './hitSlop';
 import { HIT_SLOP_44 } from './hitSlop';
-import { STROKE_HEAVY } from './icons';
 import { Haptic } from './Haptic';
 
 /** Чекбокс задачи — скруглённый квадрат (как в списках iOS). Пустой —
@@ -60,7 +57,7 @@ export function TaskCheck({ checked, onChange, color, size = 22 }: Props) {
         background: checked ? c : 'transparent',
       }}
     >
-      {checked && <Check size={size - 10} style={{ color: checkColor }} strokeWidth={STROKE_HEAVY} />}
+      {checked && <GFaCheck size={size - 10} style={{ color: checkColor }} />}
       {/* Отметка чувствуется под пальцем — и постановка, и снятие (§6.4). */}
       <Haptic />
     </button>

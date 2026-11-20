@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
-import { Download, FileArchive, FolderOpen, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getLang, t } from '../../lib/i18n';
 import { Screen } from '../../components/layout/Screen';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
-import { GAlert, GCheck, GChevronRight, GCloud } from '../../components/ui/glyphs';
-import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import {
+  GFaCheck,
+  GFaChevronRight,
+  GFaCloud,
+  GFaDownload,
+  GFaFileZipper,
+  GFaFolderOpenSolid,
+  GFaShieldHalved,
+  GFaTriangleExclamation,
+} from '../../components/ui/glyphs';
+import { ICON } from '../../components/ui/icons';
 import { useToast } from '../../components/ui/toastContext';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { db } from '../../db/db';
@@ -55,14 +63,13 @@ function StorageStatus() {
   const pct =
     state.usage !== undefined && state.quota ? Math.max(2, Math.min(100, (state.usage / state.quota) * 100)) : null;
   const ok = state.persisted;
-  const Icon = ok ? ShieldCheck : ShieldAlert;
 
   return (
     <section className="card flex gap-3.5 p-4">
       <span
         className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 ${ok ? 'text-success' : 'text-warning'}`}
       >
-        <Icon size={ICON.base} strokeWidth={STROKE_STRONG} />
+        <GFaShieldHalved size={ICON.action} />
       </span>
       <div className="min-w-0 flex-1">
         {ok ? (
@@ -326,7 +333,7 @@ export function BackupPage() {
           <div className="card">
             <div className="flex gap-3.5 p-4">
               <Tile className="text-lh-accent">
-                <GCloud size={ICON.base} />
+                <GFaCloud size={ICON.action} />
               </Tile>
               <div className="min-w-0 flex-1">
                 {syncOn ? (
@@ -337,7 +344,7 @@ export function BackupPage() {
                         <span
                           className={`flex items-center gap-1 text-sm ${cloudFresh ? 'text-success' : 'text-warning'}`}
                         >
-                          {cloudFresh && <GCheck size={ICON.inline} />}
+                          {cloudFresh && <GFaCheck size={ICON.inline} />}
                           {cloudFresh ? t('актуальна') : t('устарела')}
                         </span>
                       )}
@@ -444,12 +451,12 @@ export function BackupPage() {
           <div className="card">
             <div className="flex gap-3.5 p-4">
               <Tile className="text-lh-text-secondary">
-                <FileArchive size={ICON.base} />
+                <GFaFileZipper size={ICON.action} />
               </Tile>
               <div className="min-w-0 flex-1">
                 <p className="text-base">{t('Файл на телефоне или в iCloud')}</p>
                 <p className="mt-1 flex gap-1.5 text-sm leading-snug text-warning">
-                  <GAlert size={ICON.inline} className="mt-[3px] shrink-0" />
+                  <GFaTriangleExclamation size={ICON.inline} className="mt-[3px] shrink-0" />
                   <span>
                     {t(
                       'В файл входит всё: задачи, заметки, финансы, семейный чат и «Женские дни», если вы им пользуетесь. Файл НЕ зашифрован — храните там, куда нет доступа у посторонних.',
@@ -476,7 +483,7 @@ export function BackupPage() {
                 onClick={() => void handleExportTap()}
                 className="flex h-14 w-full items-center gap-3 px-4 text-left text-base text-lh-accent active:bg-lh-surface-2"
               >
-                <Download size={ICON.header} />
+                <GFaDownload size={ICON.action} />
                 <span className="min-w-0 flex-1 truncate">{t('Сохранить в файл')}</span>
               </button>
               <button
@@ -484,9 +491,9 @@ export function BackupPage() {
                 onClick={() => fileRef.current?.click()}
                 className="flex h-14 w-full items-center gap-3 px-4 text-left text-base active:bg-lh-surface-2"
               >
-                <FolderOpen size={ICON.header} className="text-lh-text-secondary" />
+                <GFaFolderOpenSolid size={ICON.action} className="text-lh-text-secondary" />
                 <span className="min-w-0 flex-1 truncate">{t('Восстановить из файла')}</span>
-                <GChevronRight size={ICON.action} className="text-lh-text-secondary" />
+                <GFaChevronRight size={ICON.inline} className="text-lh-text-secondary" />
               </button>
             </div>
             <input

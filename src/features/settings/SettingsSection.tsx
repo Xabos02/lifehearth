@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Link } from 'react-router';
-import { GChevronRight as ChevronRight } from '../../components/ui/glyphs';
+import { GFaChevronRight } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 
 /** Группа настроек: рубрика сверху, карточка со строками, сноска снизу.
@@ -91,7 +91,7 @@ export function LinkRow({
       {Icon && <IconTile icon={Icon} />}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {value != null && <span className="shrink-0 text-sm text-lh-text-secondary">{value}</span>}
-      <ChevronRight size={ICON.action} className="shrink-0 text-lh-text-secondary" />
+      <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
     </Link>
   );
 }

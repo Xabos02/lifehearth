@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowRight, ArrowUp } from 'lucide-react';
+import { GFaArrowDown, GFaArrowRightLong, GFaArrowUp } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import type { EnergyLevel } from '../../db/types';
 import { addDaysKey, todayKey } from '../../lib/dates';
@@ -49,7 +49,7 @@ function Compare({
       <span className="whitespace-nowrap tabular-nums text-lh-text-secondary">
         {format(low.avg)} <span className="text-xs">{t('({n} дн.)', { n: low.n })}</span>
       </span>
-      <ArrowRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" aria-hidden />
+      <GFaArrowRightLong size={ICON.inline} className="shrink-0 text-lh-text-secondary" aria-hidden />
       <span className="whitespace-nowrap tabular-nums">
         <span className="font-semibold text-lh-accent">{format(high.avg)}</span>{' '}
         <span className="text-xs text-lh-text-secondary">{t('({n} дн.)', { n: high.n })}</span>
@@ -71,7 +71,7 @@ export function EnergySummary({ byDate }: { byDate: Map<string, EnergyLevel> }) 
   const hasLinks =
     (habitSplit.low.n > 0 && habitSplit.high.n > 0) || (taskSplit.low.n > 0 && taskSplit.high.n > 0);
   const delta = enough ? trend.delta : null;
-  const DeltaIcon = delta !== null && delta < 0 ? ArrowDown : ArrowUp;
+  const DeltaIcon = delta !== null && delta < 0 ? GFaArrowDown : GFaArrowUp;
 
   return (
     <section className="card p-5">

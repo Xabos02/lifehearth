@@ -1,17 +1,4 @@
 import { useEffect, useState } from 'react';
-import {
-  Sun,
-  Moon,
-  CloudSun,
-  CloudMoon,
-  Cloud,
-  CloudFog,
-  CloudDrizzle,
-  CloudRain,
-  CloudSnow,
-  CloudRainWind,
-  CloudLightning,
-} from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
@@ -20,30 +7,43 @@ import { ENERGY_LABEL, levelByDate } from '../../lib/energy';
 import { useTodayHabits } from '../habits/useTodayHabits';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import {
-  // Те же знаки, что у разделов «Энергия» и «Привычки» в списке разделов:
-  // ячейка полосы ведёт именно туда, и знак должен совпадать.
-  GEnergy,
-  GHabits,
+  GFaCloud,
+  GFaCloudBolt,
+  GFaCloudMoon,
+  GFaCloudRain,
+  GFaCloudShowersHeavy,
+  GFaCloudShowersWater,
+  GFaCloudSun,
+  GFaMoonSolid,
+  GFaSmog,
+  GFaSnowflakeSolid,
+  GFaSunSolid,
 } from '../../components/ui/glyphs';
 import { getWeather, weatherLabel, type Weather } from '../../lib/weather';
-import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
 import { useConsent } from '../../lib/consent';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+// Те же знаки, что у разделов «Энергия» и «Привычки» в списке разделов:
+// ячейка полосы ведёт именно туда, и знак должен совпадать.
+const EnergyIcon = SECTION_BY_ID.get('energy')!.icon;
+const HabitsIcon = SECTION_BY_ID.get('habits')!.icon;
 
 // Готовый элемент, а не тип компонента: динамический <Icon/> в рендере ловит
 // eslint-правило react-hooks/static-components.
 function weatherIcon(code: number, isDay: boolean) {
-  const p = { size: ICON.header, strokeWidth: STROKE_STRONG };
-  if (code === 0) return isDay ? <Sun {...p} /> : <Moon {...p} />;
-  if (code <= 2) return isDay ? <CloudSun {...p} /> : <CloudMoon {...p} />;
-  if (code === 3) return <Cloud {...p} />;
-  if (code <= 48) return <CloudFog {...p} />;
-  if (code <= 57) return <CloudDrizzle {...p} />;
-  if (code <= 67) return <CloudRain {...p} />;
-  if (code <= 77) return <CloudSnow {...p} />;
-  if (code <= 82) return <CloudRainWind {...p} />;
-  if (code <= 86) return <CloudSnow {...p} />;
-  return <CloudLightning {...p} />;
+  const p = { size: ICON.inline };
+  if (code === 0) return isDay ? <GFaSunSolid {...p} /> : <GFaMoonSolid {...p} />;
+  if (code <= 2) return isDay ? <GFaCloudSun {...p} /> : <GFaCloudMoon {...p} />;
+  if (code === 3) return <GFaCloud {...p} />;
+  if (code <= 48) return <GFaSmog {...p} />;
+  if (code <= 57) return <GFaCloudRain {...p} />;
+  if (code <= 67) return <GFaCloudShowersHeavy {...p} />;
+  if (code <= 77) return <GFaSnowflakeSolid {...p} />;
+  if (code <= 82) return <GFaCloudShowersWater {...p} />;
+  if (code <= 86) return <GFaSnowflakeSolid {...p} />;
+  return <GFaCloudBolt {...p} />;
 }
 
 /** Ячейка полосы: подпись сверху, значение снизу. Кликабельна только там,
@@ -214,7 +214,7 @@ export function DayBand({
       )}
       {showEnergy && (
         <Cell
-          icon={<GEnergy size={ICON.inline} />}
+          icon={<EnergyIcon size={ICON.inline} />}
           tight={tight}
           label={t('Силы')}
           value={tight ? String(energy) : `${energy} — ${t(ENERGY_LABEL[energy])}`}
@@ -225,7 +225,7 @@ export function DayBand({
       )}
       {showHabits && (
         <Cell
-          icon={<GHabits size={ICON.inline} />}
+          icon={<HabitsIcon size={ICON.inline} />}
           tight={tight}
           label={t('Привычки')}
           value={t('{done} из {total}', { done: doneCount, total: planned.length })}

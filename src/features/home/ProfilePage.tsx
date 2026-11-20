@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Camera, User } from 'lucide-react';
-import { GLock, GTrash as Trash2 } from '../../components/ui/glyphs';
+import { GFaCamera, GFaLock, GFaTrashCan, GFaUserSolid } from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useToast } from '../../components/ui/toastContext';
@@ -17,7 +16,7 @@ import {
   ImageTooLargeError,
   MAX_INPUT_BYTES,
 } from '../../lib/image';
-import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
 import { ageFrom, bmiFrom, yearsLabel } from '../../lib/profile';
 
 /** Числовое поле профиля: пустая строка означает «не указано», а не ноль.
@@ -194,11 +193,11 @@ export function ProfilePage() {
               <img src={p.avatar} alt="" className="size-24 rounded-full object-cover" width={96} height={96} />
             ) : (
               <span className="flex size-24 items-center justify-center rounded-full border border-lh-border bg-lh-surface-2 text-[32px] font-light text-lh-accent">
-                {initials || <User size={ICON.display} />}
+                {initials || <GFaUserSolid size={ICON.display} />}
               </span>
             )}
             <span className="absolute -right-0.5 -bottom-0.5 flex size-11 items-center justify-center rounded-full border-[3px] border-lh-bg bg-lh-surface text-lh-accent">
-              <Camera size={ICON.inline} strokeWidth={STROKE_STRONG} />
+              <GFaCamera size={ICON.inline} />
             </span>
           </button>
           <p className="mt-3 max-w-full truncate text-xl font-semibold">{form.name.trim() || t('Без имени')}</p>
@@ -210,7 +209,7 @@ export function ProfilePage() {
               onClick={() => void patchProfile({ avatar: null })}
               className="flex h-11 items-center gap-1.5 px-3 text-base text-lh-text-secondary active:opacity-60"
             >
-              <Trash2 size={ICON.action} />
+              <GFaTrashCan size={ICON.action} />
               {t('Удалить фото')}
             </button>
           )}
@@ -352,7 +351,7 @@ export function ProfilePage() {
         {/* Куда попадут рост и вес — человек вправе знать до того, как напишет.
             Вес ещё и замер «Здоровья» (logMeasure), а замеры синхронизируются. */}
         <div className="flex gap-3 px-1">
-          <GLock size={ICON.inline} className="mt-0.5 shrink-0 text-lh-text-secondary" />
+          <GFaLock size={ICON.inline} className="mt-0.5 shrink-0 text-lh-text-secondary" />
           <p className="text-sm leading-snug text-lh-text-secondary">
             {t(
               'Эти данные хранятся на устройстве и в вашей резервной копии. Вес ещё записывается замером в «Здоровье» — с синхронизацией он зашифрованным идёт через наш сервер на ваши устройства; сервер видит дни замеров.',

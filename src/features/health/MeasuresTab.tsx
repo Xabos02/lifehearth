@@ -4,9 +4,9 @@ import { db } from '../../db/db';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
-import { Gauge, HeartPulse, Moon, Weight, type LucideIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { ICON } from '../../components/ui/icons';
-import { GPlus as Plus } from '../../components/ui/glyphs';
+import { GFaGaugeSimple, GFaHeart, GFaMoon, GFaPlus, GFaWeightScale } from '../../components/ui/glyphs';
 import { getLang, t } from '../../lib/i18n';
 import { formatRu, isDateKey, todayKey } from '../../lib/dates';
 import type { MetricLog } from '../../db/types';
@@ -57,7 +57,7 @@ export function MeasuresTab() {
   return (
     <div className="space-y-3">
       <MeasureCard
-        icon={Weight}
+        icon={GFaWeightScale}
         def={measureDef('weight')}
         value={weight.last ? formatMeasure(weight.last.value, measureDef('weight')) : null}
         sub={
@@ -74,7 +74,7 @@ export function MeasuresTab() {
         onAdd={() => setEditing('weight')}
       />
       <MeasureCard
-        icon={Moon}
+        icon={GFaMoon}
         def={measureDef('sleep')}
         value={sleep.avg7 !== null ? hours(sleep.avg7) : null}
         unitOverride=""
@@ -92,7 +92,7 @@ export function MeasuresTab() {
       <div className="grid grid-cols-2 gap-3">
       <MeasureCard
         compact
-        icon={HeartPulse}
+        icon={GFaHeart}
         def={measureDef('pulse')}
         value={pulse.last ? formatMeasure(pulse.last.value, measureDef('pulse')) : null}
         sub={
@@ -107,7 +107,7 @@ export function MeasuresTab() {
       />
       <MeasureCard
         compact
-        icon={Gauge}
+        icon={GFaGaugeSimple}
         def={{ ...measureDef('bpSys'), title: t('Давление') }}
         value={sys.last && dia.last ? `${Math.round(sys.last.value)} / ${Math.round(dia.last.value)}` : null}
         sub={sys.last ? formatRu(sys.last.date) : t('Замеров пока нет')}
@@ -237,7 +237,7 @@ function LabRow({ def, value, sub, onAdd }: { def: MeasureDef; value: string | n
         aria-label={`${t('+ замер')}: ${t(def.title)}`}
         className="flex size-11 shrink-0 items-center justify-center rounded-xl text-lh-accent active:opacity-60"
       >
-        <Plus size={ICON.action} />
+        <GFaPlus size={ICON.inline} />
       </button>
     </div>
   );

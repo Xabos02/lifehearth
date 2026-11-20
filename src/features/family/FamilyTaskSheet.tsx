@@ -9,7 +9,7 @@ import { createFamilyTask, updateFamilyTask, deleteFamilyTask } from '../../lib/
 import { addDaysKey, todayKey } from '../../lib/dates';
 import { PRESET_COLORS, isLightColor } from '../../lib/colors';
 import { ALLDAY_REMIND_TIME } from '../../lib/push';
-import { GCheck as Check } from '../../components/ui/glyphs';
+import { GFaCheck as Check } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';

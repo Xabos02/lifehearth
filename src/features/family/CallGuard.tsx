@@ -1,12 +1,10 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import {
-  ChevronsRight,
-} from 'lucide-react';
 import { clampKnob, slidUnlocked } from './callGuardMath';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import {
-  GLock as Lock,
+  GFaLock as Lock,
+  GFaAnglesRight as ChevronsRight,
 } from '../../components/ui/glyphs';
 
 /** Ширина ползунка (px) — синхронно с размером кнопки-ручки в разметке. */

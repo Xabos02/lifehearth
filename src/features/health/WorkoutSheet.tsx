@@ -3,7 +3,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Chip } from '../../components/ui/Chip';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
-import { GTrash as Trash2, GPlus } from '../../components/ui/glyphs';
+import { GFaPlus, GFaTrashCan } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
@@ -239,7 +239,7 @@ function WorkoutForm({
             onClick={() => setItems((prev) => [...prev, newItem()])}
             className={`flex items-center gap-1 rounded-full border border-dashed border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
           >
-            <GPlus size={ICON.inline} /> {t('Добавить ещё вид')}
+            <GFaPlus size={ICON.inline} /> {t('Добавить ещё вид')}
           </button>
           <button
             type="button"
@@ -290,7 +290,7 @@ function WorkoutForm({
           onClick={() => void del()}
           className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-lh-border-strong py-3 text-center font-medium text-danger active:opacity-70"
         >
-          <Trash2 size={ICON.action} /> {t('Удалить')}
+          <GFaTrashCan size={ICON.inline} /> {t('Удалить')}
         </button>
       )}
 

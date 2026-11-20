@@ -1,12 +1,5 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  RefreshCw,
-  QrCode,
-  Smartphone,
-  ShieldCheck,
-  KeyRound,
-} from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/toastContext';
 import { db } from '../../../db/db';
@@ -18,7 +11,12 @@ import { t } from '../../../lib/i18n';
 import { askConsent, useConsent } from '../../../lib/consent';
 import { ICON } from '../../../components/ui/icons';
 import {
-  GCopy as Copy,
+  GFaArrowsRotate,
+  GFaCopy,
+  GFaKey,
+  GFaLink,
+  GFaQrcode,
+  GFaShieldHalved,
 } from '../../../components/ui/glyphs';
 import { confirmAction } from '../../../components/ui/confirmStore';
 import { Haptic } from '../../../components/ui/Haptic';
@@ -160,7 +158,7 @@ export function SyncSection() {
         {config ? (
           <>
             <p className="flex items-center gap-2 text-sm">
-              <ShieldCheck size={ICON.base} className={`shrink-0 ${consent ? 'text-success' : 'text-warning'}`} />
+              <GFaShieldHalved size={ICON.inline} className={`shrink-0 ${consent ? 'text-success' : 'text-warning'}`} />
               <span>
                 {consent ? (
                   <>
@@ -211,14 +209,14 @@ export function SyncSection() {
                 className="flex w-full items-start gap-2 rounded-xl bg-warning/10 p-3 text-left text-sm text-warning active:opacity-60"
                 onClick={() => setKeySheet(true)}
               >
-                <KeyRound size={ICON.base} className="mt-0.5 shrink-0" />
+                <GFaKey size={ICON.action} className="mt-0.5 shrink-0" />
                 <span>
                   {t('Ключ восстановления не сохранён. Без него записи из облака не вернуть — сохраните файл сейчас.')}
                 </span>
               </button>
             )}
             <Button className="w-full" disabled={busy} onClick={() => void handleSyncNow()}>
-              <RefreshCw size={ICON.base} className={busy ? 'animate-spin' : ''} />
+              <GFaArrowsRotate size={ICON.action} className={busy ? 'animate-spin' : ''} />
               {t('Синхронизировать сейчас')}
             </Button>
             <Button
@@ -226,7 +224,7 @@ export function SyncSection() {
               className="w-full"
               onClick={() => setKeySheet(true)}
             >
-              <KeyRound size={ICON.base} />
+              <GFaKey size={ICON.action} />
               {keySavedAt ? t('Ключ восстановления · сохранён') : t('Сохранить ключ восстановления')}
             </Button>
             <Button
@@ -234,7 +232,7 @@ export function SyncSection() {
               className="w-full"
               onClick={() => openSheet('show')}
             >
-              <QrCode size={ICON.base} />
+              <GFaQrcode size={ICON.action} />
               {t('Показать QR для другого устройства')}
             </Button>
             <Button
@@ -242,7 +240,7 @@ export function SyncSection() {
               className="w-full"
               onClick={() => openSheet('connect')}
             >
-              <Smartphone size={ICON.base} className="shrink-0" />
+              <GFaLink size={ICON.action} className="shrink-0" />
               {t('У меня уже есть данные — подключить по ключу')}
             </Button>
             {/* min-h-11: зоны 26 и 30px нашёл сценарий пауз в touch.spec — прежний
@@ -264,7 +262,7 @@ export function SyncSection() {
                 <span className="block text-xs text-lh-text-secondary">{t('ID аккаунта')}</span>
                 <span className="block font-mono text-xs break-all">{config.accountId}</span>
               </span>
-              <Copy size={ICON.action} className="shrink-0 text-lh-text-secondary" />
+              <GFaCopy size={ICON.action} className="shrink-0 text-lh-text-secondary" />
               <Haptic />
             </button>
             {/* Самая частая причина «данные не появляются» — устройства в
@@ -295,7 +293,7 @@ export function SyncSection() {
               className="w-full"
               onClick={() => openSheet('connect')}
             >
-              <Smartphone size={ICON.base} className="shrink-0" />
+              <GFaLink size={ICON.action} className="shrink-0" />
               {t('У меня уже есть данные — подключить по ключу')}
             </Button>
           </>

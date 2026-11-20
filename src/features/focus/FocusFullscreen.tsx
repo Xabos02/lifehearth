@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { GPause as Pause, GPlay as Play, GRepeat as RotateCcw, GSun as Sun } from '../../components/ui/glyphs';
-import { Minimize2, SkipForward } from 'lucide-react';
+import { GFaCompress, GFaForwardStep, GFaPause, GFaPlay, GFaRotateLeft, GFaSun } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
 import { formatClock, usePomodoro } from './pomodoro';
@@ -67,7 +66,7 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           className="flex h-11 items-center gap-2 px-2 text-base text-lh-accent active:opacity-60"
         >
-          <Minimize2 size={ICON.action} /> {t('Свернуть')}
+          <GFaCompress size={ICON.action} /> {t('Свернуть')}
         </button>
         <span className="mr-2 flex h-8 items-center gap-2 rounded-full border border-lh-border bg-lh-surface px-3 text-xs text-lh-text-secondary">
           <span className="size-1.5 rounded-full" style={{ background: color }} />
@@ -113,7 +112,7 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
             aria-label={t('Сбросить')}
             className="flex size-14 items-center justify-center rounded-full border border-lh-border bg-lh-surface text-lh-text-primary active:scale-90"
           >
-            <RotateCcw size={ICON.header} />
+            <GFaRotateLeft size={ICON.base} />
           </button>
           <button
             type="button"
@@ -121,7 +120,7 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
             aria-label={p.running ? t('Пауза') : t('Старт')}
             className="flex size-20 items-center justify-center rounded-full bg-lh-accent text-lh-bg active:scale-90"
           >
-            {p.running ? <Pause size={ICON.hero} fill="currentColor" /> : <Play size={ICON.hero} fill="currentColor" className="ml-1" />}
+            {p.running ? <GFaPause size={ICON.display} /> : <GFaPlay size={ICON.display} className="ml-1" />}
           </button>
           <button
             type="button"
@@ -130,11 +129,11 @@ export function FocusFullscreen({ onClose }: { onClose: () => void }) {
             aria-label={isWork ? t('Завершить круг') : t('Пропустить перерыв')}
             className="flex size-14 items-center justify-center rounded-full border border-lh-border bg-lh-surface text-lh-text-primary active:scale-90 disabled:opacity-40"
           >
-            <SkipForward size={ICON.header} />
+            <GFaForwardStep size={ICON.base} />
           </button>
         </div>
         <p className="mt-8 flex items-center gap-2 text-xs text-lh-text-secondary">
-          <Sun size={ICON.inline} /> {t('Экран не гаснет, пока идёт круг')}
+          <GFaSun size={ICON.inline} /> {t('Экран не гаснет, пока идёт круг')}
         </p>
       </div>
     </div>

@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  GTrash as Trash2,
-} from '../../components/ui/glyphs';
+import { GFaTrashCan } from '../../components/ui/glyphs';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Haptic } from '../../components/ui/Haptic';
@@ -212,7 +210,7 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
           </Button>
           {existing && (
             <Button variant="ghost" onClick={() => void clear()} className="border-danger! text-danger!">
-              <Trash2 size={ICON.action} /> {t('Очистить день')}
+              <GFaTrashCan size={ICON.inline} /> {t('Очистить день')}
             </Button>
           )}
         </div>

@@ -1,8 +1,8 @@
 import { useEffect, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { t } from '../../lib/i18n';
-import { GTrash } from './glyphs';
+import { GFaTrashCan } from './glyphs';
 import { HIT_SLOP_44_POSITIONED } from './hitSlop';
-import { ICON, STROKE_STRONG } from './icons';
+import { ICON } from './icons';
 
 /** Снимок на весь экран.
  *
@@ -107,7 +107,7 @@ export function PhotoViewer({
           }}
           className={`absolute top-[calc(env(safe-area-inset-top)+8px)] left-3 flex size-9 items-center justify-center rounded-full bg-black/50 text-white active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
         >
-          <GTrash size={ICON.base} strokeWidth={STROKE_STRONG} aria-hidden />
+          <GFaTrashCan size={ICON.base} aria-hidden />
         </button>
       )}
     </div>

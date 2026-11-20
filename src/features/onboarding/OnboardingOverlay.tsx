@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { ComponentType } from 'react';
-import { ArrowRight } from 'lucide-react';
 import {
   DataIllo,
   FamilyIllo,
@@ -17,7 +16,8 @@ import { now } from '../../db/repo';
 import { updateSettings } from '../../hooks/useSettings';
 import { REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
 import { t } from '../../lib/i18n';
-import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
+import { GFaArrowRight } from '../../components/ui/glyphs';
 
 // Тексты слайдов — 11-16 слов каждый, одна мысль на слайд.
 //
@@ -207,7 +207,7 @@ export function OnboardingOverlay() {
               className="flex h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
             >
               {last ? t('Начать') : t('Далее')}
-              {!last && <ArrowRight size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
+              {!last && <GFaArrowRight size={ICON.inline} />}
             </button>
           </div>
 

@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { ShieldCheck } from 'lucide-react';
-import {
-  GChevronRight as ChevronRight,
-  GClose as X,
-} from '../../components/ui/glyphs';
+import { GFaChevronRight, GFaShieldHalved, GFaXmark } from '../../components/ui/glyphs';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { pushEnabled, pushPaused } from '../../lib/push';
@@ -72,7 +68,7 @@ export function ProtectDataCard() {
   return (
     <section className="mb-5">
       <div className="card flex items-center gap-2.5 p-3">
-        <ShieldCheck size={ICON.base} className="shrink-0 text-lh-accent" />
+        <GFaShieldHalved size={ICON.base} className="shrink-0 text-lh-accent" />
         {/* Две строки, а не truncate: на ширине телефона под текст остаётся
             ~140px, и «Данные только на этом устройстве» обрезалось до
             «Данные только н…» — строка переставала что-либо сообщать. */}
@@ -82,7 +78,7 @@ export function ProtectDataCard() {
           className="flex min-h-11 shrink-0 items-center gap-0.5 pl-1 text-sm font-semibold text-lh-accent active:opacity-70"
         >
           {t('Настроить')}
-          <ChevronRight size={ICON.action} />
+          <GFaChevronRight size={ICON.inline} />
         </Link>
         <button
           type="button"
@@ -93,7 +89,7 @@ export function ProtectDataCard() {
           }}
           className={`relative flex size-7 shrink-0 items-center justify-center rounded-full text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
         >
-          <X size={ICON.action} />
+          <GFaXmark size={ICON.inline} />
         </button>
       </div>
     </section>

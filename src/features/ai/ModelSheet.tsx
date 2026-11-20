@@ -2,9 +2,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { MODELS } from '../../lib/ai/models';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
-import {
-  GCheck as Check,
-} from '../../components/ui/glyphs';
+import { GFaCheck } from '../../components/ui/glyphs';
 
 /** Человеческое «зачем эта модель», а не только цена. */
 const MODEL_HINTS: Record<string, string> = {
@@ -43,7 +41,7 @@ export function ModelSheet({ open, value, onClose, onPick }: Props) {
                 <p className="truncate font-medium">{t(m.label)}</p>
                 <p className={`mt-0.5 text-xs ${sub}`}>{t(MODEL_HINTS[m.id] ?? '')}</p>
               </div>
-              {active && <Check size={ICON.base} className="shrink-0 text-lh-accent" />}
+              {active && <GFaCheck size={ICON.inline} className="shrink-0 text-lh-accent" />}
             </button>
           );
         })}

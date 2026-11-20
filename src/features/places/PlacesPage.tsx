@@ -1,12 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  Lightbulb,
-  Package,
-  Plane,
-  UtensilsCrossed,
-} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
@@ -21,16 +15,23 @@ import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import { APPLE_MAPS_URL } from '../../lib/consent';
 import {
-  GPlaces as MapPin,
-  GExternalLink as ExternalLink,
+  GFaArrowUpRightFromSquare,
+  GFaBox,
+  GFaLightbulb,
+  GFaLocationDot,
+  GFaPlane,
+  GFaUtensils,
 } from '../../components/ui/glyphs';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+const PlacesIcon = SECTION_BY_ID.get('places')!.icon;
 
 const KIND_ICONS: Record<PlaceKind, LucideIcon> = {
-  place: MapPin,
-  thing: Package,
-  tip: Lightbulb,
-  food: UtensilsCrossed,
-  travel: Plane,
+  place: GFaLocationDot,
+  thing: GFaBox,
+  tip: GFaLightbulb,
+  food: GFaUtensils,
+  travel: GFaPlane,
 };
 
 const KIND_LABELS: Record<PlaceKind, string> = {
@@ -77,7 +78,7 @@ function PlaceActions({ item }: { item: PlaceItem }) {
           }}
           className={ACTION}
         >
-          <MapPin size={ICON.inline} />
+          <GFaLocationDot size={ICON.inline} />
           {t('На карте')}
         </button>
       )}
@@ -89,7 +90,7 @@ function PlaceActions({ item }: { item: PlaceItem }) {
           onClick={(e) => e.stopPropagation()}
           className={ACTION}
         >
-          <ExternalLink size={ICON.inline} />
+          <GFaArrowUpRightFromSquare size={ICON.inline} />
           {t('Открыть ссылку')}
         </a>
       )}
@@ -264,7 +265,7 @@ export function PlacesPage() {
 
         {items.length === 0 ? (
           <EmptyState
-            icon={MapPin}
+            icon={PlacesIcon}
             title={t('Пока ничего нет')}
             hint={
               all.length === 0
