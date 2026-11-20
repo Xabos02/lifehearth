@@ -53,7 +53,6 @@ export type AiErrorCode =
   | 'bad_request'
   | 'rate_limit'
   | 'quota' // кончился дневной бесплатный лимит Workers AI
-  | 'personal_quota' // кончился личный суточный потолок на сервере
   | 'busy' // модель перегружена (Workers AI 3040) — пройдёт через минуту
   | 'provider' // ошибка на стороне провайдера
   | 'network'
@@ -84,8 +83,6 @@ export function aiErrorText(e: unknown): string {
         return t('Слишком часто. Подождите немного.');
       case 'quota':
         return t('Бесплатный лимит на сегодня исчерпан, обновится в {time}', { time: quotaResetTime() });
-      case 'personal_quota':
-        return t('Ваш лимит ассистента на сегодня исчерпан, обновится в {time}', { time: quotaResetTime() });
       case 'busy':
         return t('Модель сейчас перегружена — попробуйте через минуту.');
       case 'provider':
@@ -182,7 +179,6 @@ export async function requestChat(params: {
     if (res.status === 413) throw new AiError('bad_request', t('Чат слишком длинный — начните новый.'));
     if (res.status === 429) {
       if (body.error === 'quota') throw new AiError('quota', msg);
-      if (body.error === 'personal_quota') throw new AiError('personal_quota', msg);
       throw new AiError('rate_limit', msg);
     }
     if (body.error === 'busy') throw new AiError('busy', msg);

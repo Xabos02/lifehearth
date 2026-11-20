@@ -1885,7 +1885,6 @@ export const EN: Record<string, string> = {
   'Аккаунт не в списке разрешённых на сервере.': 'The account is not on the server allowlist.',
   'Слишком часто. Подождите немного.': 'Too many requests. Wait a moment.',
   'Бесплатный лимит на сегодня исчерпан, обновится в {time}': 'Today’s free limit is used up. It resets at {time}',
-  'Ваш лимит ассистента на сегодня исчерпан, обновится в {time}': 'Your assistant limit for today is used up; it resets at {time}',
   'Модель сейчас перегружена — попробуйте через минуту.': 'The model is overloaded right now — try again in a minute.',
   'Ответ остановлен.': 'Reply stopped.',
   'Чат слишком длинный — начните новый.': 'This chat is too long — start a new one.',

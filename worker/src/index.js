@@ -1028,50 +1028,19 @@ export default {
           const cf = CF_MODELS[model];
           if (!cf) return json({ error: 'bad_request', message: 'модель не поддерживается' }, 400, origin);
           if (!env.AI) return json({ error: 'provider', message: 'Workers AI не подключён' }, 500, origin);
-          // Личный суточный потолок (AI_NEURONS_PER_ACCOUNT, AI_NEURONS_PER_IP).
-          // Ошибка чтения или таблицы ещё нет — счётчик пуст: тормоз не должен
-          // запирать своих, как и hourlyQuota.
-          const day = Math.floor(Date.now() / 86_400_000);
-          const usageKeys = [`${day}:a:${accountId}`, `${day}:ip:${await clientKey(request)}`];
-          const [byAccount, byIp] = await Promise.all(
-            usageKeys.map((k) => env.DB.prepare('SELECT n FROM ai_usage WHERE k = ?').bind(k).first().catch(() => null)),
-          );
-          if (Number(byAccount?.n) >= AI_NEURONS_PER_ACCOUNT || Number(byIp?.n) >= AI_NEURONS_PER_IP) {
-            return json(
-              { error: 'personal_quota', message: 'личный лимит ассистента на сегодня исчерпан, сброс в 00:00 UTC' },
-              429,
-              origin,
-            );
-          }
-          // Резерв до запроса: цена ответа известна только в конце потока, а
-          // оборванный поток конца не увидит. Резерв — примерная цена ответа
-          // (CF_MODELS.reserve), в конце потока заменяется фактом. Ошибка
-          // записи — не запирать.
-          const { reserve, ...params } = cf;
-          const addUsage = (n) =>
-            usageKeys.map((k) =>
-              env.DB.prepare('INSERT INTO ai_usage (k, n) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET n = n + ?').bind(k, n, n),
-            );
-          await env.DB.batch([
-            env.DB.prepare('CREATE TABLE IF NOT EXISTS ai_usage (k TEXT PRIMARY KEY, n REAL NOT NULL)'),
-            ...addUsage(reserve),
-            // Прошлые сутки — долой: ключ начинается с номера суток (пять
-            // цифр до 2243 года), так что строковое сравнение чистит всё старше.
-            env.DB.prepare('DELETE FROM ai_usage WHERE k < ?').bind(`${day}:`),
-          ]).catch(() => {});
+          // Личного суточного потолка нет (решение Влада 20.11.2026: «убери
+          // лимиты для каждого пользователя»; ставили его в тот же день). Общие
+          // 10 000 Neurons в сутки — на всех, и один человек может их выбрать.
           let stream;
           try {
             stream = await env.AI.run(model, {
               messages: [...sys, ...clean],
               stream: true,
               stream_options: { include_usage: true },
-              ...params,
+              ...cf,
               ...(tools ? { tools } : {}),
             });
           } catch (e) {
-            // Модель не ответила — Neurons не потрачены, резерв возвращается:
-            // иначе пара повторов на перегрузке (3040) запирала бы человека до утра.
-            ctx?.waitUntil?.(env.DB.batch(addUsage(-reserve)));
             const msg = String(e?.message ?? e).slice(0, 500);
             // 3036 — кончились бесплатные 10 000 Neurons, сброс в 00:00 UTC.
             // 3040 (перегрузка) тоже приходит как 429, но ждать до утра не надо:
@@ -1082,36 +1051,7 @@ export default {
             }
             return json({ error: 'provider', message: msg }, 502, origin);
           }
-          // Поток уходит клиенту через TransformStream, а не tee: отмена клиента
-          // («Остановить», закрытый телефон) доходит до источника и гасит
-          // генерацию у Cloudflare. В transform — только проброс и два последних
-          // сырых куска, без строк: CPU-лимит Workers Free — 10 мс. usage с
-          // Neurons — последней строкой: data: {"response":"","usage":{…,"neurons":N}}
-          // (OpenAI-строка usage перед ней врёт нулями). Поток дошёл до конца —
-          // в flush резерв заменяется фактом; оборван — flush не зовётся, и
-          // остаётся резерв: обрывом лимит не обойти.
-          // ponytail: usage ищется в двух последних кусках; начнёт binding резать
-          // финальную строку мельче — поправки не будет, останется резерв;
-          // тогда держать хвост длиннее.
-          let prev;
-          let last;
-          const counted = stream.pipeThrough(
-            new TransformStream({
-              transform(chunk, c) {
-                prev = last;
-                last = chunk;
-                c.enqueue(chunk);
-              },
-              flush() {
-                const td = new TextDecoder();
-                const tail = (prev ? td.decode(prev, { stream: true }) : '') + (last ? td.decode(last) : '');
-                const i = tail.lastIndexOf('"neurons":');
-                const n = i < 0 ? NaN : parseFloat(tail.slice(i + '"neurons":'.length));
-                if (Number.isFinite(n)) ctx?.waitUntil?.(env.DB.batch(addUsage(n - reserve)));
-              },
-            }),
-          );
-          return new Response(counted, { status: 200, headers: sseHeaders });
+          return new Response(stream, { status: 200, headers: sseHeaders });
         }
 
         // Allowlist — единственный барьер между публичным workers.dev и платным
@@ -1210,46 +1150,12 @@ export default {
  * приложение» с «Данными» размышления и разбор по разделам упирались в него, и
  * ответ обрывался на полуслове (решение Влада — поднять; на том же вопросе с
  * описанием приложения в промпте — 2121 токен и 684 Neurons, замер 18.11.2026).
- *
- * reserve — примерная цена одного ответа в Neurons: столько списывается с
- * личных счётчиков до запроса и заменяется фактом в конце потока (см.
- * AI_NEURONS_PER_ACCOUNT). С запасом над замерами: Gemma 31–100, Qwen 190–684
- * за ответ. В env.AI.run не уходит.
  */
 const CF_MODELS = {
-  '@cf/google/gemma-4-26b-a4b-it': { max_tokens: 8192, reserve: 150 },
-  '@cf/qwen/qwen3.8-27b': { max_tokens: 8192, reasoning_effort: 'low', reserve: 700 },
+  '@cf/google/gemma-4-26b-a4b-it': { max_tokens: 8192 },
+  '@cf/qwen/qwen3.8-27b': { max_tokens: 8192, reasoning_effort: 'low' },
 };
 
-/**
- * Личный суточный потолок на бесплатные модели (решение Влада 20.11.2026).
- * Общие 10 000 Neurons в сутки — на весь аккаунт Cloudflare, сброс в 00:00
- * UTC, и без личного счётчика один человек выбирал их за всю семью.
- *
- * 2500 на аккаунт — четверть общего дня. Это 4–13 ответов Qwen (190–684
- * Neurons за ответ) или 25–80 ответов Gemma (31–100), и худший запрос Qwen
- * (≈2380) ещё влезает целиком.
- *
- * 7000 на адрес — потому что аккаунт телефон заводит сам и, почистив
- * хранилище, заведёт новый: одного счётчика аккаунта для тормоза мало. Но
- * адрес у семьи за одним Wi-Fi общий, и полный личный потолок там выберут
- * только двое-трое (7000 / 2500 = 2,8); остальным за тем же роутером в такой
- * день достанется меньше или ничего. 3000 дня остаются тем, кто с другого
- * адреса (мобильный интернет).
- *
- * Таблица своя (ai_usage), не quota: запись в quota чистит всё, что меньше
- * номера ТЕКУЩЕГО ЧАСА (шесть цифр), а номер суток — пять цифр, и при строковом
- * сравнении суточные ключи сносились бы при любой записи в quota (новый
- * аккаунт, напоминание, подписка). И Neurons дробные (REAL), а счётчик quota
- * целый.
- *
- * ponytail: потолок сверяется до запроса, а резерв — оценка: ответ дороже
- * резерва (у Qwen до ≈2380 против 700) перебирает потолок на разницу, а
- * параллельные запросы читают счётчик до чужого резерва. Тормоз, а не касса;
- * строгий учёт — счётчик в Durable Object.
- */
-const AI_NEURONS_PER_ACCOUNT = 2500;
-const AI_NEURONS_PER_IP = 7000;
 /** Тело /ai/chat в байтах: readJsonCapped сверяет Content-Length, а кириллица
  *  в UTF-8 — два байта на букву, так что это около 500 000 русских символов.
  *  Без заголовка readJsonCapped сверяет число символов, и потолок мягче.
