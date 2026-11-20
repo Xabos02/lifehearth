@@ -933,3 +933,54 @@ describe('серия «Входящий звонок», пока звонящи�
     expect(r.pushes, 'на виду — входящий покажет само приложение').toHaveLength(1);
   });
 });
+
+describe('кто звонит: в пуше номер звонящего, имени сервер не знает', () => {
+  // Имя телефон подставит сам из своей базы (push-sw.js): у сервера имён нет —
+  // они зашифрованы семейным ключом. Номер участника сервер и так видит.
+  it('«Входящий звонок» и «Пропущенный» несут номер звонящего — и от отмены, и от страховки', async () => {
+    const T = Date.UTC(2026, 10, 20, 12, 0, 0);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(T);
+    try {
+      const r = makeRoom();
+      const inner = r.room as unknown as {
+        ctx: { waitUntil: (p: Promise<unknown>) => void };
+        sendPushTo: (sub: unknown, payload: Record<string, unknown>, ttl: number) => Promise<boolean>;
+        alarm: () => Promise<void>;
+      };
+      const pending: Promise<unknown>[] = [];
+      inner.ctx.waitUntil = (p) => void pending.push(p);
+      const sent: Record<string, unknown>[] = [];
+      inner.sendPushTo = async (_sub, payload) => {
+        sent.push(payload);
+        return true;
+      };
+      r.room.sql.exec(
+        'INSERT INTO members (member_id, push_sub, joined_at) VALUES (?, ?, ?)',
+        'vlad',
+        JSON.stringify({ endpoint: 'https://web.push.apple.com/x' }),
+        new Date().toISOString(),
+      );
+      const caller = r.addSocket('mom');
+      caller.serializeAttachment({ memberId: 'mom', bound: true, at: Date.now() });
+      const sig = async (f: Record<string, unknown>) => {
+        await r.room.webSocketMessage(caller, JSON.stringify({ type: 'signal', to: 'vlad', data: null, ...f }));
+        await Promise.all(pending);
+      };
+      await sig({ call: 'c1', kind: 'offer', data: 'x' });
+      await sig({ call: 'c1', kind: 'cancel' }); // отменила сама
+      await sig({ call: 'c2', kind: 'offer', data: 'x' }); // а тут приложение звонящей умерло
+      vi.setSystemTime(T + 60_000);
+      await inner.alarm();
+      const kind = (p: Record<string, unknown>) => (p.call ? 'звонок' : p.missed ? 'пропущенный' : '?');
+      expect(sent.map((p) => [kind(p), p.tag, p.from])).toEqual([
+        ['звонок', 'family-call:c1', 'mom'],
+        ['пропущенный', 'family-call:c1', 'mom'],
+        ['звонок', 'family-call:c2', 'mom'],
+        ['пропущенный', 'family-call:c2', 'mom'],
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

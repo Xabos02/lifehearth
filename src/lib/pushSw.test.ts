@@ -222,3 +222,56 @@ describe('push-sw: карточки звонка на iPhone', () => {
     }
   });
 });
+
+// Кто звонит. Сервер шлёт только номер звонящего (имён он не видит), имя
+// подставляет сам телефон из своей базы — той же, что у приложения.
+describe('push-sw: в уведомлении о звонке — кто звонит', () => {
+  const SCOPE = 'https://xabos02.github.io/lifehearth/';
+  const call = { title: 'Входящий звонок', body: 'Откройте, чтобы ответить', family: true, call: true, tag: 'family-call:c1' };
+  const missed = { title: 'Пропущенный звонок', body: 'Откройте приложение', family: true, missed: true, tag: 'family-call:c1' };
+  const dropDb = () =>
+    new Promise<void>((resolve) => {
+      const r = indexedDB.deleteDatabase('life-hub');
+      r.onsuccess = r.onerror = () => resolve();
+    });
+  const seedDb = (members: { id: string; displayName: string }[]) =>
+    new Promise<void>((resolve, reject) => {
+      const r = indexedDB.open('life-hub', 10);
+      r.onupgradeneeded = () => r.result.createObjectStore('familyMembers', { keyPath: 'id' });
+      r.onerror = () => reject(r.error);
+      r.onsuccess = () => {
+        const tx = r.result.transaction('familyMembers', 'readwrite');
+        for (const m of members) tx.objectStore('familyMembers').put({ ...m, familyId: 'f1', seq: 1 });
+        tx.oncomplete = () => {
+          r.result.close();
+          resolve();
+        };
+      };
+    });
+  type Shown = { title: string; opts: { body: string } };
+
+  it('базы на телефоне ещё нет — прежний текст, и пустая база не появляется', async () => {
+    await dropDb();
+    const sw = bootSw(SCOPE);
+    await sw.fire('push', pushOf({ ...call, from: 'mom' }));
+    expect((sw.shown[0] as unknown as Shown).title).toBe('Входящий звонок');
+    expect((await indexedDB.databases()).map((d) => d.name)).not.toContain('life-hub');
+  });
+
+  it('«Мама звонит» и «Пропущенный звонок / Мама»; незнакомый номер — прежний текст', async () => {
+    await dropDb();
+    await seedDb([{ id: 'mom', displayName: ' Мама ' }]);
+    const sw = bootSw(SCOPE);
+    await sw.fire('push', pushOf({ ...call, from: 'mom' }));
+    await sw.fire('push', pushOf({ ...missed, from: 'mom' }));
+    await sw.fire('push', pushOf({ ...call, tag: 'family-call:c2', from: 'stranger' }));
+    await sw.fire('push', pushOf(call)); // сервер прежней версии номер не шлёт
+    const shown = sw.shown as unknown as Shown[];
+    expect(shown.map((n) => [n.title, n.opts.body])).toEqual([
+      ['Мама звонит', 'Откройте, чтобы ответить'],
+      ['Пропущенный звонок', 'Мама'],
+      ['Входящий звонок', 'Откройте, чтобы ответить'],
+      ['Входящий звонок', 'Откройте, чтобы ответить'],
+    ]);
+  });
+});
