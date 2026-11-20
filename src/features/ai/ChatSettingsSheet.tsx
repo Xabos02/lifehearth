@@ -5,7 +5,8 @@ import { Input, Textarea } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useToast } from '../../components/ui/toastContext';
 import type { LlmChat } from '../../db/types';
-import { chatMessages, exportChatMarkdown, patchChat, removeChat } from '../../lib/ai/llmRepo';
+import { chatMessages, chatTitle, exportChatMarkdown, patchChat, removeChat } from '../../lib/ai/llmRepo';
+import { stopTurn } from '../../lib/ai/turns';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import { GFaDatabase, GFaFileArrowDown, GFaTrashCan } from '../../components/ui/glyphs';
@@ -25,12 +26,14 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
   const toast = useToast();
   // key-remount от родителя при смене чата — инициализация состоянием
   // пропсов здесь законна (тот же паттерн, что RenameSheet семьи).
-  const [title, setTitle] = useState(chat.title);
+  // Поле — в языке интерфейса, а хранится служебная строка «Новый чат»
+  // (по ней даётся автоназвание): неизменённое поле её и оставляет.
+  const [title, setTitle] = useState(chatTitle(chat));
   const [prompt, setPrompt] = useState(chat.systemPrompt);
 
   async function handleSave() {
     await patchChat(chat.id, {
-      title: title.trim() || chat.title,
+      title: title.trim() && title.trim() !== chatTitle(chat) ? title.trim() : chat.title,
       systemPrompt: prompt.trim(),
     });
     onClose();
@@ -38,7 +41,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
 
   async function handleExport() {
     const md = exportChatMarkdown(chat, await chatMessages(chat.id));
-    const safe = chat.title.replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'chat';
+    const safe = chatTitle(chat).replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'chat';
     const file = new File([md], `${safe}.md`, { type: 'text/markdown' });
     // Тот же путь, что у отчёта статистики: iOS — share-шит (дорога в
     // «Файлы»), остальные — прямое скачивание.
@@ -64,7 +67,8 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
   }
 
   async function handleRemove() {
-    if (!(await confirmAction(t('Удалить чат «{title}» со всей перепиской?', { title: chat.title })))) return;
+    if (!(await confirmAction(t('Удалить чат «{title}» со всей перепиской?', { title: chatTitle(chat) })))) return;
+    stopTurn(chat.id);
     await removeChat(chat.id);
     onRemoved();
   }

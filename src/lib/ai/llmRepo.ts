@@ -12,6 +12,7 @@ import { now, uid, alive } from '../../db/repo';
 import type { LlmChat, LlmMessage } from '../../db/types';
 import { DEFAULT_MODEL, costRub } from './models';
 import type { AiReply } from './aiClient';
+import { t } from '../i18n';
 
 /** Заголовок чата из первого вопроса — короткая первая строка без хвостов. */
 export function autoTitle(text: string): string {
@@ -29,6 +30,13 @@ export async function listChats(): Promise<LlmChat[]> {
 export async function getChat(id: string): Promise<LlmChat | undefined> {
   const c = await db.llmChats.get(id);
   return c && !c.deletedAt ? c : undefined;
+}
+
+/** Название для показа. Новый чат хранится русской строкой — по ней
+ *  addUserMessage узнаёт, что пора дать автоназвание, — поэтому переводим её
+ *  только при показе, а не при записи. */
+export function chatTitle(chat: { title: string }): string {
+  return chat.title === 'Новый чат' ? t('Новый чат') : chat.title;
 }
 
 export async function createChat(model: string = DEFAULT_MODEL, dataTools = false): Promise<LlmChat> {
@@ -150,7 +158,7 @@ export function toContext(messages: LlmMessage[]): { role: 'user' | 'assistant';
 
 /** Экспорт диалога в markdown — единственная страховка, пока чат не синкается. */
 export function exportChatMarkdown(chat: LlmChat, messages: LlmMessage[]): string {
-  const head = `# ${chat.title}\n\n_${new Date(chat.createdAt).toLocaleString('ru-RU')}_\n`;
+  const head = `# ${chatTitle(chat)}\n\n_${new Date(chat.createdAt).toLocaleString('ru-RU')}_\n`;
   const body = messages
     .map((m) => {
       if (m.status === 'error') return `**Ошибка:** ${m.error ?? ''}`;

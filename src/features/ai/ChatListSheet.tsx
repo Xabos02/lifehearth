@@ -3,7 +3,8 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import type { LlmChat } from '../../db/types';
-import { removeChat } from '../../lib/ai/llmRepo';
+import { chatTitle, removeChat } from '../../lib/ai/llmRepo';
+import { stopTurn } from '../../lib/ai/turns';
 import { modelLabel } from '../../lib/ai/models';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
@@ -33,7 +34,9 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
   const [query, setQuery] = useState('');
 
   async function handleRemove(chat: LlmChat) {
-    if (!(await confirmAction(t('Удалить чат «{title}» со всей перепиской?', { title: chat.title })))) return;
+    if (!(await confirmAction(t('Удалить чат «{title}» со всей перепиской?', { title: chatTitle(chat) })))) return;
+    // Идущий ответ удалённого чата никто не увидит, а лимит он тратит.
+    stopTurn(chat.id);
     await removeChat(chat.id);
   }
 
@@ -42,7 +45,7 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
   const q = query.trim().toLowerCase();
   const shown = q
     ? chats.filter(
-        (c) => c.title.toLowerCase().includes(q) || (c.lastMessageText ?? '').toLowerCase().includes(q),
+        (c) => chatTitle(c).toLowerCase().includes(q) || (c.lastMessageText ?? '').toLowerCase().includes(q),
       )
     : chats;
 
@@ -72,7 +75,7 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
             }`}
           >
             <button className="min-w-0 flex-1 text-left active:opacity-60" onClick={() => onPick(c.id)}>
-              <span className="block truncate font-medium">{c.title}</span>
+              <span className="block truncate font-medium">{chatTitle(c)}</span>
               {/* У открытого чата подписи основным: серый на золотой подложке
                   поверх шторки — 4.40 в тёмной (канва design/muted-on-gold). */}
               {c.lastMessageText && (

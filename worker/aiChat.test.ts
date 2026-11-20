@@ -25,28 +25,76 @@ async function sha256hex(s: string): Promise<string> {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** Аккаунт acc-1 с токеном tok-1 уже зарегистрирован. */
-async function makeEnv(extra: Record<string, unknown> = {}) {
+type Stmt = { sql: string; args: unknown[] };
+
+/** Аккаунт acc-1 с токеном tok-1 уже зарегистрирован. usage — счётчики
+ *  ai_usage по ключу; пачки записей копятся в env.batches. */
+async function makeEnv(extra: Record<string, unknown> = {}, usage: Record<string, number> = {}) {
   const hash = await sha256hex('tok-1');
+  const batches: Stmt[][] = [];
+  const stmt = (sql: string, args: unknown[] = []) => ({
+    sql,
+    args,
+    bind: (...a: unknown[]) => stmt(sql, a),
+    first: async () =>
+      sql.includes('ai_usage') ? (String(args[0]) in usage ? { n: usage[String(args[0])] } : null) : { token_hash: hash },
+    run: async () => ({}),
+  });
   const DB = {
-    prepare: () => ({ bind: () => ({ first: async () => ({ token_hash: hash }), run: async () => ({}) }) }),
+    prepare: (sql: string) => stmt(sql),
+    batch: async (list: Stmt[]) => {
+      batches.push(list.map(({ sql, args }) => ({ sql, args })));
+      return [];
+    },
   };
-  return { ALLOW_ORIGIN: ORIGIN, DB, ...extra };
+  return { ALLOW_ORIGIN: ORIGIN, DB, batches, ...extra };
 }
 
-function chat(env: unknown, model: string, tools?: unknown[]) {
+/** Промисы ctx.waitUntil — тесты дожидаются учёта после ответа. */
+let waits: Promise<unknown>[] = [];
+
+function post(env: unknown, body: string, headers: Record<string, string> = {}) {
   return worker.default.fetch(
     new Request('https://life-hub-push.workers.dev/ai/chat', {
       method: 'POST',
-      headers: { Origin: ORIGIN, 'X-Account': 'acc-1', Authorization: 'Bearer tok-1' },
-      body: JSON.stringify({ model, messages: [{ role: 'user', content: 'привет' }], systemPrompt: 'кратко', tools }),
+      headers: { Origin: ORIGIN, 'X-Account': 'acc-1', Authorization: 'Bearer tok-1', ...headers },
+      body,
     }),
     env,
-    { waitUntil: () => {} },
+    { waitUntil: (p: Promise<unknown>) => waits.push(p) },
   );
 }
 
-afterEach(() => vi.unstubAllGlobals());
+function chat(env: unknown, model: string, tools?: unknown[]) {
+  return post(env, JSON.stringify({ model, messages: [{ role: 'user', content: 'привет' }], systemPrompt: 'кратко', tools }));
+}
+
+/** Ключи счётчиков acc-1: аккаунт и адрес (без CF-Connecting-IP — «unknown»). */
+async function usageKeys() {
+  const day = Math.floor(Date.now() / 86_400_000);
+  return [`${day}:a:acc-1`, `${day}:ip:${(await sha256hex('quota:unknown')).slice(0, 32)}`];
+}
+
+/** Прибавки к счётчикам по пачкам: [[ключ, n, n], …] на каждую пачку. */
+function usageWrites(env: { batches: Stmt[][] }) {
+  return env.batches.map((b) => b.filter((s) => s.sql.startsWith('INSERT INTO ai_usage')).map((s) => s.args));
+}
+
+/** Поток Workers AI — по куску на событие. Без close: поток висит открытым. */
+function aiStream(events: string[], { close = true, cancel }: { close?: boolean; cancel?: () => void } = {}) {
+  return new ReadableStream({
+    start(c) {
+      for (const e of events) c.enqueue(new TextEncoder().encode(e));
+      if (close) c.close();
+    },
+    cancel,
+  });
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  waits = [];
+});
 
 describe('/ai/chat', () => {
   it('пустой список разрешённых — платной модели отказ, бесплатная отвечает', async () => {
@@ -89,7 +137,7 @@ describe('/ai/chat', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it('дневной лимит Workers AI (3036) — 429 quota; прочий сбой — 502 provider', async () => {
+  it('дневной лимит Workers AI (3036) — 429 quota; перегрузка (3040) — 503 busy; прочий сбой — 502 provider; резерв возвращается', async () => {
     const env = await makeEnv({ AI: { run: vi.fn() } });
     env.AI.run.mockRejectedValueOnce(new Error('3036: You have used up your daily free allocation of 10,000 neurons.'));
     const limited = await chat(env, GEMMA);
@@ -98,7 +146,85 @@ describe('/ai/chat', () => {
 
     env.AI.run.mockRejectedValueOnce(new Error('3040: Capacity temporarily exceeded'));
     const busy = await chat(env, GEMMA);
-    expect(busy.status).toBe(502);
-    expect((await busy.json()).error).toBe('provider');
+    expect(busy.status).toBe(503);
+    expect((await busy.json()).error).toBe('busy');
+
+    env.AI.run.mockRejectedValueOnce(new Error('5007: No such model'));
+    const failed = await chat(env, GEMMA);
+    expect(failed.status).toBe(502);
+    expect((await failed.json()).error).toBe('provider');
+
+    // Модель не ответила ни разу — каждый резерв вернулся, счётчики по нулям.
+    await Promise.all(waits);
+    expect(usageWrites(env).flat().reduce((n, a) => n + Number(a[1]), 0)).toBe(0);
+  });
+
+  it('личный счётчик аккаунта дошёл до 2500 — 429 personal_quota, модель не зовётся', async () => {
+    const run = vi.fn();
+    const [accKey] = await usageKeys();
+    const env = await makeEnv({ AI: { run } }, { [accKey]: 2500 });
+    const res = await chat(env, GEMMA);
+    expect(res.status).toBe(429);
+    expect((await res.json()).error).toBe('personal_quota');
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('резерв Gemma 150 записан до вызова модели; после потока с "neurons":12.5 — поправка −137.5 в оба ключа', async () => {
+    const events = [
+      'data: {"choices":[{"delta":{"content":"привет, всё хорошо"}}]}\n\n',
+      'data: {"choices":[],"usage":{"prompt_tokens":0,"completion_tokens":0}}\n\n',
+      'data: {"response":"","usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15,"neurons":12.5}}\n\n',
+      'data: [DONE]\n\n',
+    ];
+    let atCall: unknown[][][] = [];
+    const env = await makeEnv({});
+    env.AI = {
+      run: vi.fn(async () => {
+        atCall = usageWrites(env);
+        return aiStream(events);
+      }),
+    };
+    const [acc, ip] = await usageKeys();
+
+    const res = await chat(env, GEMMA);
+    expect(atCall).toEqual([[[acc, 150, 150], [ip, 150, 150]]]);
+    // Одна пачка: таблица, резерв в оба ключа, чистка прошлых суток.
+    expect(env.batches[0].map((s) => s.sql.split(' ')[0])).toEqual(['CREATE', 'INSERT', 'INSERT', 'DELETE']);
+
+    expect(await res.text()).toBe(events.join(''));
+    expect(waits).toHaveLength(1); // поправка отдана рантайму, а не висит сама по себе
+    await Promise.all(waits);
+    expect(usageWrites(env)[1]).toEqual([
+      [acc, -137.5, -137.5],
+      [ip, -137.5, -137.5],
+    ]);
+  });
+
+  it('отмена клиента доходит до исходного потока; поправки нет, резерв остаётся', async () => {
+    const cancel = vi.fn();
+    const source = aiStream(['data: {"choices":[{"delta":{"content":"при"}}]}\n\n'], { close: false, cancel });
+    const env = await makeEnv({ AI: { run: vi.fn(async () => source) } });
+    const [acc, ip] = await usageKeys();
+
+    const res = await chat(env, GEMMA);
+    const reader = res.body!.getReader();
+    await reader.read();
+    await reader.cancel();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(cancel).toHaveBeenCalled();
+    expect(waits).toHaveLength(0);
+    expect(usageWrites(env)).toEqual([[[acc, 150, 150], [ip, 150, 150]]]);
+  });
+
+  it('тело больше 1 000 000 байт — 413, хотя символов меньше (кириллица — два байта)', async () => {
+    const run = vi.fn();
+    const env = await makeEnv({ AI: { run } });
+    const body = JSON.stringify({ model: GEMMA, messages: [{ role: 'user', content: 'я'.repeat(600_000) }] });
+    expect(body.length).toBeLessThan(1_000_000);
+    // Браузер ставит Content-Length сам, Request в Node — нет.
+    const res = await post(env, body, { 'Content-Length': String(new TextEncoder().encode(body).length) });
+    expect(res.status).toBe(413);
+    expect(run).not.toHaveBeenCalled();
   });
 });

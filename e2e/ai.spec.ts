@@ -107,6 +107,36 @@ test('живой провайдер: SSE-стрим печатается, выб
   expect(models).toEqual(['@cf/qwen/qwen3.8-27b']);
 });
 
+test('уход с экрана посреди ответа его не обрывает: вернулся — ответ на месте', async ({ page }) => {
+  // Раньше прогон жил в экране и обрывался вместе с ним: «Запрос отменён.»,
+  // напечатанное пропадало. Qwen думает до минуты — человек успевает уйти.
+  const sse = [
+    'data: {"choices":[{"delta":{"content":"Ответ дождался"},"finish_reason":"stop"}]}',
+    'data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":3}}',
+    'data: [DONE]',
+    '',
+  ].join('\n\n');
+  let release = () => {};
+  const gate = new Promise<void>((done) => (release = done));
+  await page.route('**/ai/chat', async (route) => {
+    await gate;
+    await route.fulfill({ contentType: 'text/event-stream', body: sse });
+  });
+  await openApp(page, '/more/ai');
+  await seedSyncAccount(page);
+  await page.getByPlaceholder('Сообщение…').fill('долгий вопрос');
+  await page.getByRole('button', { name: 'Отправить' }).click();
+  await expect(page.getByText('думает…')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Назад: Ещё' }).click();
+  await expect(page).toHaveURL(/\/home$/);
+  release();
+  await page.getByRole('link', { name: /ИИ/ }).first().click();
+
+  await expect(page.getByText('Ответ дождался')).toBeVisible();
+  await expect(page.getByText('Запрос отменён.')).toHaveCount(0);
+});
+
 test('сквозной тракт: вопрос → эхо-ответ с ценой → история переживает перезагрузку', async ({ page }) => {
   // Мок воркера: тот же формат, что отдаёт echoReply в worker/src/index.js.
   await page.route('**/ai/chat', (route) =>

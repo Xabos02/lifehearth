@@ -16,7 +16,12 @@ import { callManager } from './family/familyCall';
 //    и не заметит;
 //  · сохранения. Экран с несохранённым вводом регистрирует здесь «сохрани
 //    сейчас», и перезагрузка его дожидается. Сохранять на pagehide мало:
-//    запись в IndexedDB, начатая уходящей страницей, обрывается вместе с ней.
+//    запись в IndexedDB, начатая уходящей страницей, обрывается вместе с ней;
+//  · конца ответа ассистента (holdReload). Ответ печатается до минуты, и
+//    перезагрузка посреди него теряла ответ молча: в чате оставался вопрос без
+//    ответа и без «Повторить» (живой тест 20.11.2026 — выкатка 1.87.0 пришла
+//    через 15 с после вопроса). В фоне держим тоже: человек часто сворачивает
+//    приложение, пока модель думает.
 //
 // Вечно ждать набор нельзя: новый service worker уже управляет страницей и
 // чистит кэш старой версии, и её ленивые куски могут перестать грузиться.
@@ -42,6 +47,21 @@ export function saveBeforeReload(save: () => unknown): () => void {
 
 export const inCall = () => callManager.getSnapshot().status !== 'idle';
 
+const holds = new Set<symbol>();
+const holdListeners = new Set<() => void>();
+
+/** Придержать перезагрузку, пока идёт работа, которую она оборвёт (ответ
+ *  ассистента). Возвращает «отпустить»; отпущенная — перезагрузка, если она
+ *  ждала, идёт сразу. Потолок MAX_DEFER_MS действует и здесь. */
+export function holdReload(): () => void {
+  const key = Symbol('hold');
+  holds.add(key);
+  return () => {
+    if (!holds.delete(key)) return;
+    for (const listener of holdListeners) listener();
+  };
+}
+
 /** Фокус в поле, куда печатают. Без instanceof: так проверка работает и в тесте без DOM. */
 function typing(): boolean {
   const el = document.activeElement as HTMLElement | null;
@@ -65,8 +85,10 @@ export function reloadWhenIdle(): void {
   const stops: (() => void)[] = [];
   const check = () => {
     if (going || inCall()) return;
+    const early = Date.now() - since < MAX_DEFER_MS;
+    if (holds.size && early) return;
     const away = document.visibilityState === 'hidden';
-    if (!away && typing() && Date.now() - since < MAX_DEFER_MS) return;
+    if (!away && typing() && early) return;
     going = true;
     for (const stop of stops) stop();
     void saveAll().then(() => window.location.reload());
@@ -75,8 +97,10 @@ export function reloadWhenIdle(): void {
   document.addEventListener('focusout', onFocusOut);
   document.addEventListener('visibilitychange', check);
   const cap = setTimeout(check, MAX_DEFER_MS);
+  holdListeners.add(check);
   stops.push(
     callManager.subscribe(check),
+    () => holdListeners.delete(check),
     () => document.removeEventListener('focusout', onFocusOut),
     () => document.removeEventListener('visibilitychange', check),
     () => clearTimeout(cap),
