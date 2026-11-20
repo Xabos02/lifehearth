@@ -2,9 +2,7 @@ import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
 import { useDayRollover } from '../../hooks/useDayRollover';
-import {
-  GSearch as Search,
-} from '../../components/ui/glyphs';
+import { GFaMagnifyingGlass } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
@@ -25,6 +23,7 @@ import { EnergyTodayLine } from '../energy/EnergyTodayLine';
 import { SportTodayLine } from '../health/SportTodayLine';
 import { ProtectDataCard } from './ProtectDataCard';
 import { IconButton } from '../../components/ui/IconButton';
+import { ICON } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
 import { useSettings } from '../../hooks/useSettings';
 import { SECTION_BY_ID } from '../../lib/sections';
@@ -139,7 +138,7 @@ export function TodayPage() {
       titleHiddenPrefix={t('Сегодня')}
       eyebrow={formatHeaderDate()}
       right={
-        <IconButton icon={Search} label={t('Поиск')} to="/search" />
+        <IconButton icon={GFaMagnifyingGlass} size={ICON.base} label={t('Поиск')} to="/search" />
       }
     >
       {/* ПОРЯДОК ЭКРАНА: сначала день, потом всё про день.

@@ -1,8 +1,14 @@
 // Файлы-вложения под текстом заметки. Картинки сюда не попадают — они живут
 // инлайном в самом тексте; здесь всё остальное: PDF, архивы, таблицы.
 
-import { File as FileIcon, FileArchive, FileSpreadsheet, FileText } from 'lucide-react';
-import { GClose } from '../../components/ui/glyphs';
+import {
+  GFaFile,
+  GFaFileExcel,
+  GFaFileLines,
+  GFaFilePdf,
+  GFaFileZipper,
+  GFaXmark,
+} from '../../components/ui/glyphs';
 import type { NoteAttachment } from '../../lib/noteFiles';
 import { fileKindLabel, formatFileSize } from '../../lib/noteFiles';
 import { t } from '../../lib/i18n';
@@ -13,10 +19,11 @@ import { ICON } from '../../components/ui/icons';
  *  карточки файла в семейном чате (там она локальна для фичи, а общий дом ей
  *  выбрать негде: lib без React, а иконки — React-компоненты). */
 function iconFor(kindLabel: string) {
-  if (kindLabel === 'Архив') return FileArchive;
-  if (kindLabel === 'Таблица') return FileSpreadsheet;
-  if (kindLabel === 'Документ PDF' || kindLabel === 'Текст') return FileText;
-  return FileIcon;
+  if (kindLabel === 'Архив') return GFaFileZipper;
+  if (kindLabel === 'Таблица') return GFaFileExcel;
+  if (kindLabel === 'Документ PDF') return GFaFilePdf;
+  if (kindLabel === 'Текст') return GFaFileLines;
+  return GFaFile;
 }
 
 /** Скачивание по тапу: программный <a download> — как в чате. */
@@ -54,7 +61,7 @@ export function NoteAttachments({
               aria-label={t('Скачать {name}', { name: f.name })}
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-lh text-lh-accent">
-                <Icon size={ICON.header} />
+                <Icon size={ICON.action} />
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-base font-medium">{f.name}</span>
@@ -73,7 +80,7 @@ export function NoteAttachments({
               className={`shrink-0 rounded-lg p-2 text-lh-text-secondary active:bg-lh-surface-2 ${HIT_SLOP_44}`}
               onClick={() => onDelete(f.fileId)}
             >
-              <GClose size={ICON.action} />
+              <GFaXmark size={ICON.action} />
             </button>
           </div>
         );

@@ -2,24 +2,22 @@ import { useState, type ChangeEvent } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { differenceInCalendarDays } from 'date-fns';
+import type { LucideIcon } from 'lucide-react';
 import {
-  Book,
-  Flag,
-  FileText,
-  Link2,
-  Workflow,
-  FlaskConical,
-  Languages,
-  Minus,
-  Video,
-  type LucideIcon,
-} from 'lucide-react';
-import {
-  GPlus as Plus,
-  GClose as X,
-  GLearning as GraduationCap,
-  GCalendar as CalendarIcon,
-  GChevronDown as ChevronDown,
+  GFaBook,
+  GFaCalendar,
+  GFaChevronDown,
+  GFaDiagramProject,
+  GFaDisplay,
+  GFaFlagCheckered,
+  GFaFlask,
+  GFaLanguage,
+  GFaLink,
+  GFaMinus,
+  GFaNewspaperSolid,
+  GFaPlus,
+  GFaVideo,
+  GFaXmark,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, update } from '../../db/repo';
@@ -40,12 +38,12 @@ import { ICON } from '../../components/ui/icons';
 import { Haptic } from '../../components/ui/Haptic';
 
 const KIND_ICONS: Record<LearningKind, LucideIcon> = {
-  book: Book,
-  course: GraduationCap,
-  article: FileText,
-  video: Video,
-  research: FlaskConical,
-  language: Languages,
+  book: GFaBook,
+  course: GFaDisplay,
+  article: GFaNewspaperSolid,
+  video: GFaVideo,
+  research: GFaFlask,
+  language: GFaLanguage,
 };
 
 /** Заголовок секции с кнопкой действия справа. */
@@ -209,7 +207,7 @@ export function GoalDetailPage() {
         <h1 className="mt-2 break-words px-4 text-2xl font-light leading-tight tracking-tight">{goal.title}</h1>
         {goal.targetDate && (
           <p className="mt-2 flex items-center gap-1.5 text-sm tabular-nums text-lh-text-secondary">
-            <CalendarIcon size={ICON.inline} className="shrink-0" />
+            <GFaCalendar size={ICON.inline} className="shrink-0" />
             {t('Срок: {date}', { date: formatRu(goal.targetDate, 'd MMMM yyyy') })}
             {dueHint && ` · ${dueHint}`}
           </p>
@@ -225,7 +223,7 @@ export function GoalDetailPage() {
                 goal.description ? 'mt-4 border-t border-lh-border pt-3' : ''
               }`}
             >
-              <Workflow size={ICON.inline} className="shrink-0" />
+              <GFaDiagramProject size={ICON.inline} className="shrink-0" />
               {t('Прогресс считается по задачам ниже.')}
             </p>
           )}
@@ -271,7 +269,7 @@ export function GoalDetailPage() {
               }}
               className="flex size-11 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 active:opacity-70"
             >
-              <Minus size={ICON.base} />
+              <GFaMinus size={ICON.inline} />
               {/* Шаг прогресса щёлкает (PROTOCOL §6.4); на нуле тап ничего
                   не меняет, и накладка его пропускает. */}
               <Haptic off={current <= 0} />
@@ -299,7 +297,7 @@ export function GoalDetailPage() {
               }}
               className="flex size-11 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 active:opacity-70"
             >
-              <Plus size={ICON.base} />
+              <GFaPlus size={ICON.inline} />
               <Haptic />
             </button>
           </div>
@@ -314,7 +312,7 @@ export function GoalDetailPage() {
               : t('Задачи')
           }
           actionLabel={t('Задача')}
-          actionIcon={Plus}
+          actionIcon={GFaPlus}
           onAction={() => {
             setEditingTask(null);
             setTaskSheetOpen(true);
@@ -342,7 +340,7 @@ export function GoalDetailPage() {
               className="card mt-2 flex h-12 w-full items-center justify-between px-4 text-sm text-lh-text-secondary active:opacity-70"
             >
               <span>{t('Выполненные · {n}', { n: doneTasks.length })}</span>
-              <ChevronDown size={ICON.inline} className={`transition-transform ${showDone ? 'rotate-180' : ''}`} />
+              <GFaChevronDown size={ICON.inline} className={`transition-transform ${showDone ? 'rotate-180' : ''}`} />
             </button>
             {showDone && (
               <div className="mt-2 flex flex-col gap-2">
@@ -364,7 +362,7 @@ export function GoalDetailPage() {
         <SectionHeader
           title={t('Обучение')}
           actionLabel={t('Привязать')}
-          actionIcon={Link2}
+          actionIcon={GFaLink}
           onAction={() => setLinkLearningOpen(true)}
         />
         {linkedLearning.length === 0 ? (
@@ -380,7 +378,7 @@ export function GoalDetailPage() {
                     className="flex min-w-0 flex-1 items-center gap-3 active:opacity-70"
                   >
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-                      <Icon size={ICON.base} />
+                      <Icon size={ICON.action} />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{li.title}</span>
@@ -403,7 +401,7 @@ export function GoalDetailPage() {
                     onClick={() => update(db.learningItems, li.id, { goalId: null })}
                     className="flex size-11 shrink-0 items-center justify-center text-lh-text-secondary active:opacity-60"
                   >
-                    <X size={ICON.action} />
+                    <GFaXmark size={ICON.inline} />
                   </button>
                 </div>
               );
@@ -418,7 +416,7 @@ export function GoalDetailPage() {
           onClick={() => update(db.goals, goal.id, { status: 'completed' })}
           className="card flex min-h-14 w-full items-center justify-center gap-2 px-4 py-3 text-sm text-success active:opacity-70"
         >
-          <Flag size={ICON.action} className="shrink-0" />
+          <GFaFlagCheckered size={ICON.inline} className="shrink-0" />
           <span>
             {t('Цель достигнута?')} {t('Отметить завершённой')}
           </span>
@@ -459,7 +457,7 @@ export function GoalDetailPage() {
                   }}
                   className="flex items-center gap-3 rounded-xl bg-lh-surface-2 px-3.5 py-3 text-left active:opacity-70"
                 >
-                  <Icon size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+                  <Icon size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
                   <span className="min-w-0 flex-1 truncate font-medium">{li.title}</span>
                 </button>
               );

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { ScanLine, ImageUp } from 'lucide-react';
+import { ScanLine } from 'lucide-react';
 import {
-  GPlus as Plus,
+  GFaPlus,
+  GFaImage,
 } from '../../components/ui/glyphs';
 import { Sheet } from '../../components/ui/Sheet';
 import { Field, Input } from '../../components/ui/Input';
@@ -19,7 +20,7 @@ import {
   normalizeInviteWord,
   parsePastedInvite,
 } from '../../lib/crypto';
-import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
 
 const JOIN_TABS = [
   { value: 'scan' as const, label: 'Сканировать' },
@@ -43,7 +44,7 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string, inv
         aria-hidden
         className="flex size-20 items-center justify-center rounded-3xl tile-lh text-lh-accent"
       >
-        <Plus size={ICON.hero} strokeWidth={STROKE_HEAVY} />
+        <GFaPlus size={ICON.display} />
       </div>
       <div className="space-y-1.5">
         <p className="text-lg font-light tracking-tight">{t('Семейная группа')}</p>
@@ -475,7 +476,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
           className="w-full"
           onClick={() => fileRef.current?.click()}
         >
-          <ImageUp size={ICON.base} />
+          <GFaImage size={ICON.inline} />
           {t('Выбрать фото с QR-кодом')}
         </Button>
 

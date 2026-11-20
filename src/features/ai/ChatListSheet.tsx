@@ -1,7 +1,4 @@
 import { useState } from 'react';
-import {
-  MessageSquarePlus,
-} from 'lucide-react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -10,10 +7,7 @@ import { removeChat } from '../../lib/ai/llmRepo';
 import { modelLabel } from '../../lib/ai/models';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
-import {
-  GSearch as Search,
-  GTrash as Trash2,
-} from '../../components/ui/glyphs';
+import { GFaMagnifyingGlass, GFaPenToSquare, GFaTrashCan } from '../../components/ui/glyphs';
 import { confirmAction } from '../../components/ui/confirmStore';
 
 /** «26 июл, 18:40» — ISO-метка сообщения, а не дата-ключ (formatRu тут не подходит). */
@@ -56,12 +50,12 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
     <Sheet open={open} onClose={onClose} title={t('Чаты')}>
       <div className="space-y-2">
         <Button className="w-full" onClick={onNew}>
-          <MessageSquarePlus size={ICON.base} />
+          <GFaPenToSquare size={ICON.inline} />
           {t('Новый чат')}
         </Button>
         {chats.length > 5 && (
           <div className="relative">
-            <Search size={ICON.action} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-lh-text-secondary" />
+            <GFaMagnifyingGlass size={ICON.inline} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-lh-text-secondary" />
             <Input
               className="pl-9"
               placeholder={t('Поиск по чатам')}
@@ -96,7 +90,7 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
               className="p-2 text-lh-text-secondary active:opacity-60"
               onClick={() => void handleRemove(c)}
             >
-              <Trash2 size={ICON.base} />
+              <GFaTrashCan size={ICON.base} />
             </button>
           </div>
         ))}

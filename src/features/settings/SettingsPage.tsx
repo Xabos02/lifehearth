@@ -1,15 +1,16 @@
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import {
-  PhoneCall,
-  SlidersHorizontal,
-  Lightbulb,
-} from 'lucide-react';
-import {
-  GChevronRight as ChevronRight,
-  GTrash as Trash2,
-  GLearning as GraduationCap,
-  GBellRing as BellRing,
+  GFaArrowDownWideShort,
+  GFaBellSolid,
+  GFaChevronRight,
+  GFaComment,
+  GFaGraduationCap,
+  GFaLightbulb,
+  GFaPause,
+  GFaPhone,
+  GFaTableCellsLarge,
+  GFaTrashCan,
 } from '../../components/ui/glyphs';
 import { getLang, resolveLang, t } from '../../lib/i18n';
 import { APP_VERSION } from '../../lib/changelog';
@@ -25,7 +26,6 @@ import { alive } from '../../db/repo';
 import { enablePush, isIOS, isStandalone, pushEnabled, pushPaused, pushSupported, rescheduleAll } from '../../lib/push';
 import { showConsent, useConsent } from '../../lib/consent';
 import { EXTERNAL_LABELS, useExternalOn } from '../../hooks/useExternalOn';
-import { GPause } from '../../components/ui/glyphs';
 import { formatRu, toKey } from '../../lib/dates';
 import { HINT_IDS, resetSessionHints } from '../../hooks/useHint';
 import { SyncSection } from './sync/SyncSection';
@@ -81,7 +81,7 @@ function HintsResetRow() {
       }}
       className="flex w-full items-center gap-2 border-b border-lh-border p-4 text-left disabled:opacity-40"
     >
-      <Lightbulb size={ICON.header} className="shrink-0 text-lh-text-secondary" />
+      <GFaLightbulb size={ICON.action} className="shrink-0 text-lh-text-secondary" />
       <span className="min-w-0 flex-1">
         <span className="block truncate">{t('Показать подсказки заново')}</span>
         <span className="block text-sm text-lh-text-secondary">
@@ -90,7 +90,7 @@ function HintsResetRow() {
             : t('Скрыто {hidden} из {total}', { hidden, total: HINT_IDS.length })}
         </span>
       </span>
-      <ChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
+      <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
     </button>
   );
 }
@@ -117,7 +117,7 @@ function ConsentPausedBanner() {
   const list = on.map((k) => t(EXTERNAL_LABELS[k]).toLowerCase()).join(', ');
   return (
     <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3.5">
-      <GPause size={ICON.header} className="mt-0.5 shrink-0 text-warning" />
+      <GFaPause size={ICON.header} className="mt-0.5 shrink-0 text-warning" />
       <div className="min-w-0">
         <p className="text-sm font-semibold">{t('Внешнее на паузе')}</p>
         <p className="mt-0.5 text-xs leading-relaxed">
@@ -262,7 +262,7 @@ export function SettingsPage() {
           )}
         >
           <div className="card">
-            <Row icon={BellRing} label={t('Уведомления')}>
+            <Row icon={GFaBellSolid} label={t('Уведомления')}>
               {pushOn ? (
                 <span className="shrink-0 text-sm font-medium text-success">{t('Включены')}</span>
               ) : pushPaused() ? (
@@ -292,7 +292,7 @@ export function SettingsPage() {
                 доступных — чип уезжает на вторую строку целиком. На широких
                 экранах ничего не меняется: всё влезает в одну строку, и flex-1
                 подписи по-прежнему прижимает селект к правому краю. */}
-            <Row icon={BellRing} label={t('Сообщения')}>
+            <Row icon={GFaComment} label={t('Сообщения')}>
               {/* Выбор сразу проигрывает звук — слышно, что выбираешь. */}
               {/* compact-Select вместо голого <select>: он снимает системную
                   стрелку, съедавшую ~40px внутри поля, и берёт ширину по самому
@@ -315,7 +315,7 @@ export function SettingsPage() {
                 ))}
               </Select>
             </Row>
-            <Row icon={PhoneCall} label={t('Звонки')}>
+            <Row icon={GFaPhone} label={t('Звонки')}>
               {/* Выбор сразу проигрывает короткий фрагмент рингтона. */}
               <Select
                 compact
@@ -371,7 +371,7 @@ export function SettingsPage() {
             >
               <span className="flex-1">{t('Копии и восстановление')}</span>
               <BackupStatus />
-              <ChevronRight size={ICON.action} className="shrink-0 text-lh-text-secondary" />
+              <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
             </Link>
           </div>
         </Section>
@@ -381,12 +381,12 @@ export function SettingsPage() {
           footnote={t('Версия {v}', { v: APP_VERSION })}
         >
           <div className="card">
-            <LinkRow icon={SlidersHorizontal} label={t('Разделы')} to="/more/settings/sections" />
+            <LinkRow icon={GFaTableCellsLarge} label={t('Разделы')} to="/more/settings/sections" />
             {/* Тот же приём, что у «Обучение» ниже: сброс флага снова
                 показывает обязательный шаг расстановки приоритета разделов
                 поверх всего приложения (SectionsPriorityGate). */}
             <ButtonRow
-              icon={SlidersHorizontal}
+              icon={GFaArrowDownWideShort}
               label={t('Расстановка приоритетов')}
               action={t('Показать заново')}
               onClick={() => void updateSettings({ sectionsPriorityDone: null })}
@@ -402,14 +402,14 @@ export function SettingsPage() {
                 label={t('Временные задачи отдельно')}
               />
             </Row>
-            <LinkRow icon={Trash2} label={t('Корзина')} to="/more/trash" />
+            <LinkRow icon={GFaTrashCan} label={t('Корзина')} to="/more/trash" />
             {/* Только тур. Подсказки — отдельной строкой ниже: раньше одна
                 кнопка делала два дела, и человек, которому нужен был тур,
                 заодно получал обратно все скрытые советы.
                 «Обучение» — омоним: в словаре это раздел (Learning), здесь
                 вводный тур — английская ветка явная. */}
             <ButtonRow
-              icon={GraduationCap}
+              icon={GFaGraduationCap}
               label={getLang() === 'en' ? 'Intro tour' : 'Обучение'}
               action={t('Показать заново')}
               onClick={() => void updateSettings({ onboardingDone: null })}

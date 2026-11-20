@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Download, ShieldCheck } from 'lucide-react';
 import {
-  GCheck as Check,
-  GCopy as Copy,
-  GAlert as TriangleAlert,
+  GFaCheck,
+  GFaCircleCheckSolid,
+  GFaCopy,
+  GFaDownload,
+  GFaTriangleExclamation,
 } from '../../../components/ui/glyphs';
 import { Sheet } from '../../../components/ui/Sheet';
 import { Button } from '../../../components/ui/Button';
@@ -150,7 +151,7 @@ export function RecoveryKeySheet({ open, saved, onClose }: Props) {
         </div>
 
         <Button className="w-full" onClick={() => void saveFile()}>
-          <Download size={ICON.base} />
+          <GFaDownload size={ICON.action} />
           {t('Сохранить в файл')}
         </Button>
         <Button
@@ -158,13 +159,13 @@ export function RecoveryKeySheet({ open, saved, onClose }: Props) {
           className="w-full"
           onClick={() => void copyCode()}
         >
-          {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
+          {copied ? <GFaCheck size={ICON.action} /> : <GFaCopy size={ICON.action} />}
           {copied ? t('Скопировано') : t('Скопировать ключ')}
           <Haptic />
         </Button>
 
         <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
-          <TriangleAlert size={ICON.base} className="mt-0.5 shrink-0" />
+          <GFaTriangleExclamation size={ICON.inline} className="mt-0.5 shrink-0" />
           <span>
             {t('Храните файл НЕ на этом телефоне: облако, второе устройство, распечатка. Кто получит файл — получит все ваши записи.')}
           </span>
@@ -172,7 +173,7 @@ export function RecoveryKeySheet({ open, saved, onClose }: Props) {
 
         {confirmed ? (
           <p className="flex items-center justify-center gap-2 text-sm font-semibold text-success">
-            <ShieldCheck size={ICON.base} />
+            <GFaCircleCheckSolid size={ICON.base} />
             {t('Ключ сохранён и проверен')}
           </p>
         ) : (

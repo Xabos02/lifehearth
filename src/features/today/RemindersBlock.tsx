@@ -1,12 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import {
-  GChevronDown as ChevronDown,
-  GPlus as Plus,
-  GPencil as Pencil,
-  GTrash as Trash2,
-} from '../../components/ui/glyphs';
+import { GFaChevronDown, GFaPen, GFaPlus, GFaTrashCan } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, create, update, remove } from '../../db/repo';
 import type { ReminderItem, ReminderSection } from '../../db/types';
@@ -51,7 +46,7 @@ export function RemindersBlock() {
           onClick={() => setSectionSheet('new')}
           className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-lh-accent active:opacity-70"
         >
-          <Plus size={ICON.action} /> {t('раздел')}
+          <GFaPlus size={ICON.action} /> {t('раздел')}
         </button>
       </div>
 
@@ -119,15 +114,15 @@ function ReminderSectionCard({
     <div className="card overflow-hidden">
       <div className="flex items-center">
         <button onClick={onToggle} className="flex flex-1 items-center gap-2 px-4 py-3 text-left active:opacity-80">
-          <ChevronDown
-            size={ICON.base}
+          <GFaChevronDown
+            size={ICON.inline}
             className={`shrink-0 text-lh-text-secondary transition-transform ${section.collapsed ? '-rotate-90' : ''}`}
           />
           <span className="min-w-0 flex-1 truncate font-semibold">{section.title}</span>
           <span className="shrink-0 text-xs text-lh-text-secondary">{items.length}</span>
         </button>
         <button onClick={onEditSection} aria-label={t('Изменить раздел')} className={`px-3.5 py-3 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}>
-          <Pencil size={ICON.inline} />
+          <GFaPen size={ICON.inline} />
         </button>
       </div>
 
@@ -147,7 +142,7 @@ function ReminderSectionCard({
             aria-label={t('Добавить напоминание')}
             className={`inline-flex items-center justify-center px-1 pt-0.5 text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
           >
-            <Plus size={ICON.base} />
+            <GFaPlus size={ICON.action} />
           </button>
         </div>
       )}
@@ -192,7 +187,7 @@ function SectionSheet({
         <div className="flex gap-2">
           {section && (
             <Button variant="danger" onClick={() => void del()}>
-              <Trash2 size={ICON.action} /> {t('Удалить')}
+              <GFaTrashCan size={ICON.action} /> {t('Удалить')}
             </Button>
           )}
           <Button className="flex-1" disabled={!title.trim()} onClick={() => void save()}>
@@ -244,7 +239,7 @@ function ItemSheet({
         <div className="flex gap-2">
           {item && (
             <Button variant="danger" onClick={() => void del()}>
-              <Trash2 size={ICON.action} /> {t('Удалить')}
+              <GFaTrashCan size={ICON.action} /> {t('Удалить')}
             </Button>
           )}
           <Button className="flex-1" disabled={!text.trim()} onClick={() => void save()}>

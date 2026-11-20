@@ -252,7 +252,11 @@ test('один раздел — один рисунок, даже когда о�
     await expect(page.locator('header h1')).toBeVisible();
     await page.waitForTimeout(400);
     names = await namesOnPage();
-    expect(names, `на ${route} нет знака «Задач» из реестра — проверять нечего`).toContain('lucide-fa-square-check');
+    // На золотой кнопке «В задачи» знак залит (activeIcon), как в макете Abacus.
+    expect(
+      names.some((n) => n === 'lucide-fa-square-check' || n === 'lucide-fa-square-check-solid'),
+      `на ${route} нет знака «Задач» из реестра — проверять нечего`,
+    ).toBe(true);
     for (const [own, theirs] of PAIRS) {
       expect(
         names.includes(own) && names.includes(theirs),

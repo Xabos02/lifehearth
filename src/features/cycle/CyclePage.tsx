@@ -1,10 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
-import { Lightbulb, SlidersHorizontal, ChevronRight } from 'lucide-react';
-import {
-  GPlus as Plus,
-  GDrop as Droplet,
-} from '../../components/ui/glyphs';
+import { GFaChevronRight, GFaLightbulb, GFaPlus, GFaSliders } from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ensureCycleSetup } from '../../lib/cycle/cycleRepo';
@@ -20,6 +16,9 @@ import type { CyclePredictionResult } from '../../lib/cycle/predict';
 import { IconButton } from '../../components/ui/IconButton';
 import { ICON } from '../../components/ui/icons';
 import { buildPhases } from './phases';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+const CycleIcon = SECTION_BY_ID.get('cycle')!.icon;
 
 /** Как называем прогноз словами.
  *
@@ -109,7 +108,8 @@ export function CyclePage() {
       right={
         locked ? undefined : (
           <IconButton
-            icon={SlidersHorizontal}
+            icon={GFaSliders}
+            size={ICON.action}
             label={t('Настройки раздела')}
             to="/more/cycle/settings"
             tone="muted"
@@ -123,7 +123,7 @@ export function CyclePage() {
       <div className="space-y-6">
         {!data.hasAnyData && !data.loading ? (
           <EmptyState
-            icon={Droplet}
+            icon={CycleIcon}
             title={t('Пока нет ни одной отметки')}
             hint={t(
               'Отметьте дни последней менструации — и появится календарь. Прогноз включится, когда наберётся хотя бы один полный цикл.',
@@ -207,7 +207,7 @@ export function CyclePage() {
                 <div className="card divide-y divide-lh-border">
                   {anomalies.map((a) => (
                     <div key={a.kind} className="flex gap-3 px-4 py-3.5">
-                      <Lightbulb size={ICON.inline} className="mt-0.5 shrink-0 text-lh-accent" />
+                      <GFaLightbulb size={ICON.inline} className="mt-0.5 shrink-0 text-lh-accent" />
                       <div className="min-w-0 flex-1 text-sm leading-[1.45]">
                         <p className="font-semibold">{a.title}</p>
                         <p className="mt-0.5 text-lh-text-secondary">{a.detail}</p>
@@ -319,7 +319,7 @@ export function CyclePage() {
             onClick={() => setPickedDate(todayKey())}
             className="flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-lh-accent text-base font-semibold text-lh-bg active:opacity-80"
           >
-            <Plus size={ICON.base} /> {t('Отметить сегодня')}
+            <GFaPlus size={ICON.inline} /> {t('Отметить сегодня')}
           </button>
           {/* Обещание проверяется privacy.test.ts: таблицы раздела не входят
               в синхронизацию и не видны семье. */}
@@ -370,7 +370,7 @@ function LinkRow({ to, label }: { to: string; label: string }) {
       className="flex min-h-12 items-center justify-between gap-3 px-4 text-[15px] text-lh-accent active:opacity-60"
     >
       <span>{label}</span>
-      <ChevronRight size={ICON.inline} aria-hidden className="shrink-0" />
+      <GFaChevronRight size={ICON.inline} aria-hidden className="shrink-0" />
     </Link>
   );
 }

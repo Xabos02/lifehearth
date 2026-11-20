@@ -1,9 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
-import { Share } from 'lucide-react';
-import {
-  GClose as X,
-} from '../../components/ui/glyphs';
+import { GFaArrowUpFromBracket, GFaXmark } from '../../components/ui/glyphs';
 import { dismissInstallBanner, useInstallBannerVisible } from '../../hooks/useInstallBanner';
 import { t } from '../../lib/i18n';
 import { fillScreenOpen, subscribeFillScreen } from '../../lib/ui/fillScreen';
@@ -41,7 +38,7 @@ export function InstallBanner() {
       className="card print-hide mx-auto mt-3 flex w-[calc(100%-32px)] max-w-lg shrink-0 items-center gap-2.5 px-3 py-2"
     >
       <span className="flex size-7 shrink-0 items-center justify-center rounded-lg tile-lh text-lh-accent">
-        <Share size={ICON.action} />
+        <GFaArrowUpFromBracket size={ICON.action} />
       </span>
       {/* min-h-11: свернув баннер в строку, ссылку легко оставить ниже нормы —
           зона нажатия обязана держать 44px независимо от высоты текста. */}
@@ -59,7 +56,7 @@ export function InstallBanner() {
         className={`shrink-0 p-1 text-lh-text-secondary ${HIT_SLOP_44}`}
         onClick={dismissInstallBanner}
       >
-        <X size={ICON.base} />
+        <GFaXmark size={ICON.base} />
       </button>
     </div>
   );

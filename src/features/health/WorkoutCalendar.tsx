@@ -1,6 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type TouchEvent } from 'react';
 import { addMonths, format, startOfMonth } from 'date-fns';
-import { GChevronLeft as ChevronLeft, GChevronRight as ChevronRight } from '../../components/ui/glyphs';
+import { GFaChevronLeft as ChevronLeft, GFaChevronRight as ChevronRight } from '../../components/ui/glyphs';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';

@@ -16,11 +16,11 @@ import { t, tPlur } from '../../lib/i18n';
 import { toggleHabitDone } from './habitRepo';
 import { HabitSheet } from './HabitSheet';
 import { HabitLogSheet } from './HabitLogSheet';
-import {
-  GHabits as CalendarCheck,
-  GSparkle,
-} from '../../components/ui/glyphs';
+import { GFaFire, GFaLightbulb } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+const HabitsIcon = SECTION_BY_ID.get('habits')!.icon;
 
 type Filter = 'active' | 'archived';
 
@@ -82,7 +82,7 @@ export function HabitsPage() {
     <Screen title={t('Привычки')} backTo="/home">
       <div className="space-y-3">
         <div className="card flex items-start gap-3 p-4">
-          <GSparkle size={ICON.base} aria-hidden className="mt-0.5 shrink-0 text-lh-accent" />
+          <GFaLightbulb size={ICON.inline} aria-hidden className="mt-0.5 shrink-0 text-lh-accent" />
           <p className="text-sm leading-relaxed text-lh-text-secondary">
             {t(
               'Отмечайте выполнение каждый день — серия 🔥 растёт, пока не пропустите запланированный день.',
@@ -103,7 +103,7 @@ export function HabitsPage() {
 
         {rows.length === 0 ? (
           loaded && <EmptyState
-            icon={CalendarCheck}
+            icon={HabitsIcon}
             title={effFilter === 'archived' ? t('Архив пуст') : t('Пока нет привычек')}
             hint={
               effFilter === 'archived'
@@ -149,7 +149,12 @@ export function HabitsPage() {
                       <p className="mt-0.5 text-xs text-lh-text-secondary">
                         {scheduleLabel(habit.schedule)}
                         {counted && ` · ${target}${habit.unit ? ' ' + habit.unit : ''}`}
-                        {current > 0 && ` · 🔥 ${current}`}
+                        {current > 0 && (
+                          <>
+                            {' · '}
+                            <GFaFire size={ICON.inline} className="inline-block align-[-2px] text-lh-accent" /> {current}
+                          </>
+                        )}
                         {best > 1 && ` · ${t('рекорд {n}', { n: best })}`}
                       </p>
                       {frozenInCurrent > 0 && (

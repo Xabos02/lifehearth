@@ -1,8 +1,5 @@
 import { useState, type ComponentType, type ReactNode } from 'react';
-import { Lightbulb } from 'lucide-react';
-import {
-  GClose as X,
-} from '../../components/ui/glyphs';
+import { GFaLightbulb, GFaXmark } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
 import { useHint } from '../../hooks/useHint';
 import { HIT_SLOP_44 } from './Checkbox';
@@ -49,7 +46,7 @@ export function Hint({
     >
       <div className="flex items-center gap-2">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-lh-accent-dim text-lh-accent">
-          <Lightbulb size={ICON.inline} />
+          <GFaLightbulb size={ICON.inline} />
         </span>
         <span className="min-w-0 flex-1 font-semibold tracking-tight text-lh-text-primary">
           {title ?? t('Подсказка')}
@@ -67,7 +64,7 @@ export function Hint({
           // тап перехватывать нечего.
           className={`-m-1 shrink-0 p-1 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
         >
-          <X size={ICON.inline} />
+          <GFaXmark size={ICON.inline} />
         </button>
       </div>
       {items && items.length > 0 && (

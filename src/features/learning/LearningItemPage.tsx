@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { differenceInCalendarDays } from 'date-fns';
-import { AlertCircle, CheckCircle2, Clock, Pencil } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { db } from '../../db/db';
@@ -14,6 +13,7 @@ import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
 import { forecastPerWeek, pace, recentPace, unitLabel, weeksAtPace } from '../../lib/learningPace';
 import { ICON } from '../../components/ui/icons';
+import { GFaCircleCheckSolid, GFaCircleExclamation, GFaClock, GFaPen } from '../../components/ui/glyphs';
 import { KIND_ICONS, KIND_LABEL } from './kinds';
 import { ProgressStepper } from './ProgressStepper';
 import { LearningItemSheet } from './LearningItemSheet';
@@ -102,7 +102,7 @@ export function LearningItemPage() {
           aria-label={t('Изменить материал')}
           className="flex size-11 items-center justify-center text-lh-text-secondary active:opacity-60"
         >
-          <Pencil size={ICON.header} />
+          <GFaPen size={ICON.action} />
         </button>
       }
     >
@@ -161,7 +161,7 @@ export function LearningItemPage() {
         <Sessions logs={liveLogs} />
 
         <Button className="w-full" onClick={() => setLogOpen(true)}>
-          <Clock size={ICON.base} className="shrink-0" />
+          <GFaClock size={ICON.inline} className="shrink-0" />
           {t('Записать занятие')}
         </Button>
       </div>
@@ -291,7 +291,7 @@ function Chart({
   const todayPct = (x(gone) / W) * 100;
 
   const tone = sched.overdue ? 'text-danger' : sched.onTrack ? 'text-success' : 'text-warning';
-  const StatusIcon = sched.onTrack && !sched.overdue ? CheckCircle2 : AlertCircle;
+  const StatusIcon = sched.onTrack && !sched.overdue ? GFaCircleCheckSolid : GFaCircleExclamation;
 
   return (
     <section>

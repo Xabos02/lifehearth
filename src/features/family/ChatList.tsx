@@ -7,12 +7,12 @@ import type { FamilyConfig, FamilyMessage } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { IconButton } from '../../components/ui/IconButton';
 import {
-  GBellRing,
-  GChevronRight,
-  GClose,
-  GPhoto,
-  GPlus,
-  GSettings,
+  GFaBell,
+  GFaChevronRight,
+  GFaXmark,
+  GFaImage,
+  GFaPlus,
+  GFaLayerGroup,
 } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
@@ -105,7 +105,7 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
     return (
       <>
         {who && <span className="shrink-0 text-lh-text-primary">{who}:</span>}
-        {last.image && <GPhoto size={ICON.action} className="shrink-0" />}
+        {last.image && <GFaImage size={ICON.inline} className="shrink-0" />}
         <span className="truncate">{(last.sys || last.system ? systemMessageText(last) : snippetOf(last)).replace(/\s+/g, ' ')}</span>
       </>
     );
@@ -120,7 +120,7 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
     <Screen
       title={t('Семья')}
       backTo="/home"
-      right={<IconButton icon={GSettings} label={t('Управление группами')} onClick={() => setManageOpen(true)} />}
+      right={<IconButton icon={GFaLayerGroup} size={ICON.base} label={t('Управление группами')} onClick={() => setManageOpen(true)} />}
     >
       <PushBanner />
 
@@ -152,7 +152,7 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
                     {tPlur(s!.tasks, ['активная', 'активных', 'активных'])}
                   </span>
                 )}
-                <GChevronRight size={ICON.header} className="shrink-0 text-lh-text-secondary" />
+                <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
               </button>
             </div>
           );
@@ -184,7 +184,7 @@ export function ChatList({ configs }: { configs: FamilyConfig[] }) {
           {/* Пунктир — знак «пустого места под чат»; подпись рядом говорит то же
               словами, так что рамка декоративная и контраст 3:1 ей не нужен. */}
           <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-dashed border-lh-border-strong text-lh-accent">
-            <GPlus size={ICON.header} />
+            <GFaPlus size={ICON.inline} />
           </span>
           <span className={`flex min-h-16 flex-1 items-center text-base text-lh-accent ${personal.length > 0 ? 'border-t border-lh-border' : ''}`}>{t('Новый личный чат')}</span>
         </button>
@@ -306,7 +306,7 @@ function PushBanner() {
     // действие золотом справа.
     <div className="card mb-5 flex items-center gap-3 p-4">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-accent-dim text-lh-accent">
-        <GBellRing size={ICON.action} />
+        <GFaBell size={ICON.action} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm">{t('Уведомления выключены')}</span>
@@ -322,7 +322,7 @@ function PushBanner() {
         aria-label={t('Скрыть')}
         className={`ml-3 shrink-0 p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
       >
-        <GClose size={ICON.action} />
+        <GFaXmark size={ICON.inline} />
       </button>
     </div>
   );

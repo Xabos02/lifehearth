@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
 import {
-  GChevronRight as ChevronRight,
-  GPlus as Plus,
+  GFaChevronRight as ChevronRight,
+  GFaPlus as Plus,
+  GFaBell as Bell,
 } from '../../components/ui/glyphs';
-import { Bell } from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyTask } from '../../db/types';
 import { TaskCheck } from '../../components/ui/Checkbox';

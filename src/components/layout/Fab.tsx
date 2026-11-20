@@ -1,16 +1,16 @@
-import { useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
-import {
-  GPlus as Plus,
-} from '../../components/ui/glyphs';
+import { useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { GFaPlus } from '../../components/ui/glyphs';
 import { usePomodoroActions } from '../../features/focus/pomodoro';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { t } from '../../lib/i18n';
-import { ICON, STROKE_HEAVY } from '../ui/icons';
+import { ICON } from '../ui/icons';
 import { buzz } from '../../lib/feedback';
 
 interface Props {
   onClick: () => void;
   label?: string;
+  /** Значок кнопки, по умолчанию «+». */
+  icon?: ReactNode;
 }
 
 const FAB_SIZE = 56; // size-14 (3.5rem)
@@ -61,7 +61,11 @@ let mounted = 0;
  *  прокрутке вниз, которым это лечили раньше, снято: оно спасало наполовину
  *  (возвращаясь при движении вверх, кнопка вставала на то же место) и ценой
  *  того, что кнопка пропадала без причины. */
-export function Fab({ onClick, label }: Props) {
+export function Fab({
+  onClick,
+  label,
+  icon = <GFaPlus size={ICON.accent} className="pointer-events-none" />,
+}: Props) {
   // Без тикающего времени: кнопке нужен только флаг «идёт сеанс».
   const { active } = usePomodoroActions();
   const settings = useSettings();
@@ -254,7 +258,7 @@ export function Fab({ onClick, label }: Props) {
         dragging ? '' : 'transition-[transform,bottom,top] duration-200 motion-reduce:transition-none'
       }`}
     >
-      <Plus size={ICON.accent} strokeWidth={STROKE_HEAVY} className="pointer-events-none" />
+      {icon}
     </button>
   );
 }

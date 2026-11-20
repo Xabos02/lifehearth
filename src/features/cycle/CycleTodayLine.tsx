@@ -1,8 +1,6 @@
 import { Link } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  GChevronRight as ChevronRight,
-} from '../../components/ui/glyphs';
+import { GFaChevronRight } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { todayKey, formatDayRange } from '../../lib/dates';
 import { cycleDayFor } from '../../lib/cycle/derive';
@@ -61,7 +59,7 @@ export function CycleTodayLine() {
           <span className="mt-0.5 block text-sm text-lh-text-secondary">{t('Следующая менструация {range}', { range })}</span>
         )}
       </span>
-      <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+      <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
     </Link>
   );
 }

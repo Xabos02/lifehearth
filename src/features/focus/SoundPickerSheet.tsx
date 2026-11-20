@@ -1,5 +1,5 @@
 import { Sheet } from "../../components/ui/Sheet";
-import { GCheck as Check } from "../../components/ui/glyphs";
+import { GFaCheck } from "../../components/ui/glyphs";
 import { ICON } from "../../components/ui/icons";
 import { t } from "../../lib/i18n";
 import { FOCUS_VARS } from "./focusVars";
@@ -82,7 +82,7 @@ export function SoundPickerSheet<K extends string>({
                   )}
                 </span>
                 {active && (
-                  <Check size={ICON.base} className="shrink-0 text-lh-accent" />
+                  <GFaCheck size={ICON.inline} className="shrink-0 text-lh-accent" />
                 )}
               </button>
             );

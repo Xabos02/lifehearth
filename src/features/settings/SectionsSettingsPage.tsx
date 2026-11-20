@@ -21,8 +21,7 @@ import { computeNavLayout } from '../../lib/navLayout';
 import { freezeAllForSection, unfreezeSectionFrozen } from '../habits/habitRepo';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
-import { GripVertical } from 'lucide-react';
-import { GLock as Lock } from '../../components/ui/glyphs';
+import { GFaGripVertical, GFaLock } from '../../components/ui/glyphs';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { Haptic } from '../../components/ui/Haptic';
 import { buzz } from '../../lib/feedback';
@@ -318,7 +317,7 @@ export function SectionsSettingsPage() {
             значимой иконке нужно 3:1, tertiary давал 1.96 в тёмной и 2.74 в
             светлой, secondary — 5.12 и 5.53 на карточке. */}
         <span aria-hidden className="flex w-4 shrink-0 justify-center text-lh-text-secondary">
-          {draggable && <GripVertical size={ICON.inline} />}
+          {draggable && <GFaGripVertical size={ICON.inline} />}
         </span>
         {/* Номер приоритета — только у разделов «Ещё»: панель и так видна
             целиком. Число — позиция в списке экрана «Ещё», а не абстрактный
@@ -380,7 +379,7 @@ export function SectionsSettingsPage() {
   const anchorRow = anchor && (
     <div className="flex min-h-14 items-center gap-3 px-4 py-2 max-[375px]:gap-2 max-[375px]:px-3">
       <span aria-hidden className="flex w-4 shrink-0 justify-center text-lh-text-secondary">
-        <Lock size={ICON.inline} />
+        <GFaLock size={ICON.inline} />
       </span>
       <span className="w-5 shrink-0" />
       <span aria-hidden className="flex w-6 shrink-0 justify-center text-lh-text-secondary">

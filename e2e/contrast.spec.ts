@@ -244,7 +244,7 @@ test('семья: свои сообщения, участники, звонок 
   await expect(page.getByText('Во сколько выезжаем?')).toBeVisible();
   await expect(page.getByText('Билеты.pdf')).toBeVisible();
   // Связь поднялась — отметка «прочитано» дошла до своих сообщений.
-  await expect(page.locator('.lucide-check-check').first()).toBeVisible();
+  await expect(page.locator('.lucide-fa-check-double').first()).toBeVisible();
 
   // Подпись автора на цвете участника (лаймовый «Мама») — та, что проваливала
   // контраст; без неё скан чата прошёл бы мимо.

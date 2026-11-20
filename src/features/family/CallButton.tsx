@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import type { FamilyMember } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
-import { GPhone } from '../../components/ui/glyphs';
+import { GFaPhone } from '../../components/ui/glyphs';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import { subscribePresence } from '../../lib/family/familyChat';
@@ -66,7 +66,7 @@ export function CallButton({ familyId }: { familyId: string }) {
         onClick={() => (others.length === 1 ? call(others[0].id) : setPick(true))}
         className={`flex size-9 shrink-0 items-center justify-center rounded-full text-lh-accent active:scale-95 active:opacity-70 ${HIT_SLOP_44}`}
       >
-        <GPhone size={ICON.header} />
+        <GFaPhone size={ICON.action} />
       </button>
 
       <Sheet open={pick} onClose={() => setPick(false)} title={t('Кому позвонить')}>
@@ -111,7 +111,7 @@ function MemberRow({
           {online ? t('В сети') : t('Не в сети')}
         </span>
       </span>
-      <GPhone size={ICON.header} className="shrink-0 text-lh-accent" />
+      <GFaPhone size={ICON.action} className="shrink-0 text-lh-accent" />
     </button>
   );
 }

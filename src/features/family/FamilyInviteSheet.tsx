@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Download, Share } from 'lucide-react';
 import {
-  GCheck as Check,
-  GCopy as Copy,
-  GAlert as TriangleAlert,
+  GFaCheck,
+  GFaCopy,
+  GFaTriangleExclamation,
+  GFaArrowUpFromBracket,
+  GFaDownload,
 } from '../../components/ui/glyphs';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
@@ -118,18 +119,18 @@ export function FamilyInviteSheet({ familyId, pair = false, open, onClose }: Pro
           {/* Пока код считается (PBKDF2), отдавать нечего: сообщение без кода
               ушло бы собеседнику пустышкой. */}
           <Button variant="secondary" className="flex-1" disabled={!code} onClick={copyCode}>
-            {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
+            {copied ? <GFaCheck size={ICON.inline} /> : <GFaCopy size={ICON.inline} />}
             {copied ? t('Скопировано') : t('Скопировать код')}
             <Haptic />
           </Button>
           {canShare ? (
             <Button variant="secondary" className="flex-1" disabled={!code} onClick={() => void share()}>
-              <Share size={ICON.base} />
+              <GFaArrowUpFromBracket size={ICON.inline} />
               {t('Поделиться')}
             </Button>
           ) : (
             <Button variant="secondary" className="flex-1" disabled={!code} onClick={saveFile}>
-              <Download size={ICON.base} />
+              <GFaDownload size={ICON.inline} />
               {t('Сохранить')}
             </Button>
           )}
@@ -147,7 +148,7 @@ export function FamilyInviteSheet({ familyId, pair = false, open, onClose }: Pro
         </div>
 
         <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
-          <TriangleAlert size={ICON.base} className="mt-0.5 shrink-0" />
+          <GFaTriangleExclamation size={ICON.inline} className="mt-0.5 shrink-0" />
           <span className="min-w-0 leading-snug">
             {t('Кто войдёт по этому приглашению, увидит и прошлую переписку. Убрать его из группы может только её создатель.')}{' '}
             {expiresAt && t('Приглашение действует до {date}.', { date: formatRu(expiresAt.slice(0, 10), 'd MMMM') })}

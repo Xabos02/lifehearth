@@ -1,7 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import {
-  GCheck as Check,
-} from '../../components/ui/glyphs';
+import { GFaCheck } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, create, remove, update } from '../../db/repo';
 import type { Goal, GoalProgressMode, GoalStatus } from '../../db/types';
@@ -11,7 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
-import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
 import { confirmAction } from '../../components/ui/confirmStore';
 
 const MODE_OPTIONS: { value: GoalProgressMode; label: string }[] = [
@@ -143,7 +141,7 @@ function GoalEditForm({
                 style={{ background: c }}
               >
                 {color === c && (
-                  <Check size={ICON.base} color={isLightColor(c) ? ON_COLOR_DARK : '#fff'} strokeWidth={STROKE_HEAVY} />
+                  <GFaCheck size={ICON.inline} color={isLightColor(c) ? ON_COLOR_DARK : '#fff'} />
                 )}
               </button>
             ))}

@@ -1,10 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  GChevronLeft as ChevronLeft,
-  GChevronRight as ChevronRight,
-  GPlus as Plus,
-} from '../../components/ui/glyphs';
+import { GFaChevronLeft, GFaChevronRight, GFaPlus } from '../../components/ui/glyphs';
 import {
   addMonths,
   eachDayOfInterval,
@@ -173,7 +169,7 @@ export function CalendarPage() {
             onClick={() => shiftMonth(-1)}
             className="flex size-11 shrink-0 items-center justify-center rounded-lg text-lh-text-secondary active:opacity-60"
           >
-            <ChevronLeft size={ICON.action} />
+            <GFaChevronLeft size={ICON.inline} />
           </button>
           <div className="min-w-0 text-center">
             <h2 className="truncate font-semibold">{`${monthTitle} ${monthPrefix.slice(0, 4)}`}</h2>
@@ -189,7 +185,7 @@ export function CalendarPage() {
             onClick={() => shiftMonth(1)}
             className="flex size-11 shrink-0 items-center justify-center rounded-lg text-lh-text-secondary active:opacity-60"
           >
-            <ChevronRight size={ICON.action} />
+            <GFaChevronRight size={ICON.inline} />
           </button>
         </div>
 
@@ -294,7 +290,7 @@ export function CalendarPage() {
           onClick={() => openTask(null)}
           className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-lh-accent-border text-sm text-lh-accent active:opacity-60"
         >
-          <Plus size={ICON.inline} /> {t('Задача на этот день')}
+          <GFaPlus size={ICON.inline} /> {t('Задача на этот день')}
         </button>
       </section>
 

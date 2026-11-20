@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Eye, Mic, Smartphone } from 'lucide-react';
 import { db } from '../../db/db';
 import {
   answerConsent,
@@ -11,21 +10,27 @@ import {
   type ConsentChannel,
   type ConsentReason,
 } from '../../lib/consent';
-import { cycleAllowed } from '../../lib/sections';
+import { cycleAllowed, SECTION_BY_ID } from '../../lib/sections';
 import { t } from '../../lib/i18n';
 import { EXTERNAL_LABELS, useExternalOn } from '../../hooks/useExternalOn';
-import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
 import {
-  GBellRing,
-  GBot,
-  GChevronLeft,
-  GChevronRight,
-  GCloud,
-  GFamily,
-  GLock,
-  GPause,
-  GPhoneOut,
+  GFaArrowsRotate,
+  GFaBell,
+  GFaChevronLeft,
+  GFaChevronRight,
+  GFaCloudArrowUp,
+  GFaCloudSun,
+  GFaEyeSolid,
+  GFaLock,
+  GFaMicrophone,
+  GFaMobileScreen,
+  GFaPause,
+  GFaShieldHalved,
 } from '../../components/ui/glyphs';
+
+const FamilyIcon = SECTION_BY_ID.get('family')!.icon;
+const AiIcon = SECTION_BY_ID.get('ai')!.icon;
 
 /** Заголовок окна, открытого попыткой включить внешнее (артборд «Попытка
  *  включить»): человек видит, почему окно появилось посреди его действия. */
@@ -39,12 +44,12 @@ const REASON_TITLES: Record<ConsentReason, string> = {
 };
 
 const REASON_ICON: Record<ConsentReason, ReactNode> = {
-  sync: <GCloud size={ICON.accent} />,
-  backup: <GCloud size={ICON.accent} />,
-  push: <GBellRing size={ICON.accent} />,
-  family: <GFamily size={ICON.accent} />,
-  ai: <GBot size={ICON.accent} />,
-  voice: <Mic size={ICON.accent} />,
+  sync: <GFaArrowsRotate size={ICON.base} />,
+  backup: <GFaCloudArrowUp size={ICON.base} />,
+  push: <GFaBell size={ICON.base} />,
+  family: <FamilyIcon size={ICON.base} />,
+  ai: <AiIcon size={ICON.base} />,
+  voice: <GFaMicrophone size={ICON.base} />,
 };
 
 /** Подробный список — по каналу на строку (артборд Б, «Подробно»).
@@ -161,7 +166,7 @@ export function ConsentGate() {
               onClick={() => setDetails(false)}
               className="flex min-h-11 items-center gap-0.5 self-start pr-1 text-base text-lh-accent active:opacity-60"
             >
-              <GChevronLeft size={ICON.accent} strokeWidth={STROKE_STRONG} />
+              <GFaChevronLeft size={ICON.base} />
               {t('Коротко')}
             </button>
             <h2 id="consent-title" ref={titleRef} tabIndex={-1} className="mt-2 px-2 text-[30px] font-light leading-[1.15] tracking-[-.6px] outline-none">
@@ -171,13 +176,13 @@ export function ConsentGate() {
               {t('Всё, что вы записываете, хранится на этом телефоне и работает без интернета. Часть функций выходит в сеть. Согласие одно — на всё сразу.')}
             </p>
             <Group
-              icon={<GLock size={ICON.header} className="text-lh-accent" />}
+              icon={<GFaLock size={ICON.inline} className="text-lh-accent" />}
               title={t('Уходит зашифрованным')}
               subtitle={t('Ключ шифрования остаётся на ваших устройствах')}
               rows={ENCRYPTED.map((id) => ({ id, ...rows[id] }))}
             />
             <Group
-              icon={<Eye size={ICON.header} strokeWidth={STROKE_STRONG} className="text-warning" />}
+              icon={<GFaEyeSolid size={ICON.inline} className="text-warning" />}
               title={t('Видно другим')}
               subtitle={t('Открытый текст или ваш IP-адрес')}
               rows={VISIBLE.map((id) => ({ id, ...rows[id] }))}
@@ -191,7 +196,7 @@ export function ConsentGate() {
           <>
             <div className="px-2 pb-5 pt-2">
               <div className="flex size-14 items-center justify-center rounded-2xl border border-lh-border bg-lh-surface text-lh-accent">
-                {reason ? REASON_ICON[reason] : <GPhoneOut size={ICON.accent} />}
+                {reason ? REASON_ICON[reason] : <GFaShieldHalved size={ICON.base} />}
               </div>
               <h2
                 id="consent-title"
@@ -227,19 +232,19 @@ export function ConsentGate() {
               <ul className="card divide-y divide-lh-border">
                 <Point
                   tone="text-success"
-                  icon={<Smartphone size={ICON.base} strokeWidth={STROKE_STRONG} />}
+                  icon={<GFaMobileScreen size={ICON.action} />}
                   title={t('Записи хранятся на телефоне')}
                   text={t('и работают без интернета — задачи, заметки, цели, деньги, здоровье.')}
                 />
                 <Point
                   tone="text-lh-accent"
-                  icon={<GLock size={ICON.base} />}
+                  icon={<GFaLock size={ICON.action} />}
                   title={t('Синхронизация, напоминания и семья')}
                   text={t('передают записи на наш сервер зашифрованными. Сервер видит служебное: когда, из какого раздела, кто в сети, название семейной группы и ваш IP-адрес. При звонке IP-адрес виден ещё серверам связи и собеседнику.')}
                 />
                 <Point
                   tone="text-warning"
-                  icon={<Eye size={ICON.base} strokeWidth={STROKE_STRONG} />}
+                  icon={<GFaCloudSun size={ICON.action} />}
                   title={t('Ассистент, голосовой ввод и погода')}
                   text={t('передают то, что вы им даёте, открытым текстом — нашему серверу и сторонним службам: Cloudflare, Google, Apple, Microsoft, Open-Meteo.')}
                 />
@@ -251,7 +256,7 @@ export function ConsentGate() {
               className="mt-6 flex min-h-[52px] w-full items-center justify-between gap-2 card px-4 text-left text-sm active:bg-lh-surface-2"
             >
               {t('Подробно, по каждой функции')}
-              <GChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
+              <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
             </button>
           </>
         )}
@@ -351,9 +356,9 @@ export function ConsentPause({ reason, title, text }: { reason: ConsentReason; t
   return (
     <div className="flex flex-col items-center gap-3 px-4 pt-14 pb-8 text-center">
       <div className="relative flex size-20 items-center justify-center rounded-3xl tile-lh text-lh-accent">
-        <GFamily size={ICON.hero} />
+        <FamilyIcon size={ICON.hero} />
         <span className="absolute -right-1.5 -bottom-1.5 flex size-7 items-center justify-center rounded-full border-2 border-bg bg-lh-surface-2 text-warning">
-          <GPause size={ICON.inline} strokeWidth={STROKE_STRONG} />
+          <GFaPause size={ICON.inline} />
         </span>
       </div>
       <h2 className="mt-2 text-lg font-light tracking-tight">{title}</h2>

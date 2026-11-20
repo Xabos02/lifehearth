@@ -1,8 +1,5 @@
 import { useMemo } from 'react';
-import {
-  GChevronLeft as ChevronLeft,
-  GChevronRight as ChevronRight,
-} from '../../components/ui/glyphs';
+import { GFaChevronLeft, GFaChevronRight } from '../../components/ui/glyphs';
 import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { getLang, t } from '../../lib/i18n';
@@ -86,7 +83,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
             aria-label={t('Предыдущий месяц')}
             className={`shrink-0 rounded-lg p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
           >
-            <ChevronLeft size={ICON.header} />
+            <GFaChevronLeft size={ICON.header} />
           </button>
           {/* ml-1 поверх gap-2: зона касания 44px вылезает за кнопку на 5,6px с
               каждой стороны, значит между стрелками нужно не меньше 11,25px,
@@ -97,7 +94,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
             aria-label={t('Следующий месяц')}
             className={`ml-1 shrink-0 rounded-lg p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`}
           >
-            <ChevronRight size={ICON.header} />
+            <GFaChevronRight size={ICON.header} />
           </button>
         </div>
       </div>

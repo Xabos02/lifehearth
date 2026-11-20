@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  PhoneOff,
-  Mic,
-  MicOff,
-  Volume2,
-  Headphones,
-} from 'lucide-react';
-import {
-  GPhone as Phone,
-  GLock as Lock,
-  GChevronDown as ChevronDown,
+  GFaPhone as Phone,
+  GFaLock as Lock,
+  GFaChevronDown as ChevronDown,
+  GFaMicrophone as Mic,
+  GFaMicrophoneSlash as MicOff,
+  GFaVolumeHigh as Volume2,
+  GFaHeadphones as Headphones,
 } from '../../components/ui/glyphs';
 import { callManager, type CallSnapshot } from '../../lib/family/familyCall';
 import { getLang, t } from '../../lib/i18n';
@@ -135,7 +132,7 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
           className={`absolute left-3 flex size-11 items-center justify-center rounded-full text-lh-text-secondary active:opacity-70 ${HIT_SLOP_44_POSITIONED}`}
           style={{ top: 'calc(env(safe-area-inset-top) + 12px)' }}
         >
-          <ChevronDown size={ICON.accent} />
+          <ChevronDown size={ICON.base} />
         </button>
       )}
       {/* Шифрование — тихой строкой сверху, как в макете «Звонок». */}
@@ -181,7 +178,7 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
           {incoming ? (
             <>
               <CallButton color="danger" label={t('Отклонить')} onClick={() => callManager.decline()}>
-                <PhoneOff size={ICON.accent} />
+                <Phone size={ICON.accent} className="rotate-[135deg]" />
               </CallButton>
               {/* «Ответить» — омоним: в чате это Reply, на звонке — Answer.
                   Словарь держит один ключ, поэтому здесь явная ветка языка. */}
@@ -230,7 +227,7 @@ export function CallOverlay({ snap, onMinimize }: { snap: CallSnapshot; onMinimi
                 </CallButton>
               )}
               <CallButton color="danger" label={t('Завершить')} onClick={bump(() => callManager.hangup())}>
-                <PhoneOff size={ICON.accent} />
+                <Phone size={ICON.accent} className="rotate-[135deg]" />
               </CallButton>
             </>
           )}

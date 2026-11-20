@@ -1,9 +1,8 @@
 import { useMemo, useRef, type ChangeEvent, type ReactNode } from 'react';
 import { format } from 'date-fns';
 import { db } from '../../db/db';
-import { FileUp, Minus } from 'lucide-react';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { GChevronRight as ChevronRight, GEnergy as Activity, GPlus as Plus } from '../../components/ui/glyphs';
+import { GFaChevronRight as ChevronRight, GFaFileImport, GFaMinus, GFaPersonRunning, GFaPlus } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { Haptic } from '../../components/ui/Haptic';
 import { useToast } from '../../components/ui/toastContext';
@@ -154,13 +153,13 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <StepButton label={t('Цель: меньше')} onClick={() => setGoal(Math.max(1, goal - 1))}>
-              <Minus size={ICON.action} />
+              <GFaMinus size={ICON.inline} />
               {/* Шаг «−/+» щёлкает (PROTOCOL §6.4); на краю 1–7 шаг ничего не
                   меняет — накладка пропускает тап. */}
               <Haptic off={goal <= 1} />
             </StepButton>
             <StepButton label={t('Цель: больше')} onClick={() => setGoal(Math.min(7, goal + 1))}>
-              <Plus size={ICON.action} />
+              <GFaPlus size={ICON.inline} />
               <Haptic off={goal >= 7} />
             </StepButton>
           </div>
@@ -277,7 +276,7 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
         <h2 className="mb-2.5 px-1 lh-section">{t('Недавние')}</h2>
         {recent.length === 0 ? (
           <div className="card">
-            <EmptyState icon={Activity} title={t('Пока пусто')} hint={t('Нажмите «+», чтобы отметить тренировку.')} />
+            <EmptyState icon={GFaPersonRunning} title={t('Пока пусто')} hint={t('Нажмите «+», чтобы отметить тренировку.')} />
           </div>
         ) : (
           <div className="card divide-y divide-lh-border">
@@ -293,13 +292,13 @@ export function SportTab({ workouts, selected, onSelect, onEdit, onAddFor, onTem
           className="flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-80"
         >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-text-secondary">
-            <FileUp size={ICON.base} />
+            <GFaFileImport size={ICON.inline} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block">{t('Из других приложений')}</span>
             <span className="block text-xs text-lh-text-secondary">{t('Импорт из CSV — Strava, Garmin или своя таблица')}</span>
           </span>
-          <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+          <ChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
         </button>
         <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => void importCsv(e)} data-testid="workout-csv" />
       </section>
@@ -362,7 +361,7 @@ function WorkoutRow({ w, onClick, withDate = false }: { w: Workout; onClick: () 
         {w.minutes > 0 && formatMinutes(w.minutes, t)}
         {w.distanceKm != null && <span className="block text-xs text-lh-text-secondary">{formatKm(w.distanceKm)}</span>}
       </span>
-      <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+      <ChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
     </button>
   );
 }

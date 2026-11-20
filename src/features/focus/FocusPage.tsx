@@ -1,24 +1,23 @@
 import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import type { LucideIcon } from 'lucide-react';
 import {
-  AudioWaveform,
-  Bell,
-  BellOff,
-  Clock,
-  Coffee,
-  ListChecks,
-  Maximize2,
-  SkipForward,
-  type LucideIcon,
-} from 'lucide-react';
-import {
-  GChevronRight as ChevronRight,
-  GPencil as Pencil,
-  GPlus as Plus,
-  GTrash as Trash2,
-  GPause as Pause,
-  GPlay as Play,
-  GRepeat as RotateCcw,
+  GFaBell,
+  GFaBellSlash,
+  GFaChevronRight,
+  GFaClock,
+  GFaExpand,
+  GFaForwardStep,
+  GFaMinus,
+  GFaMugHot,
+  GFaPause,
+  GFaPen,
+  GFaPlay,
+  GFaPlus,
+  GFaRotateLeft,
+  GFaSquareCheck,
+  GFaTrashCan,
+  GFaWaveSquare,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
@@ -140,7 +139,7 @@ function DurationStepper({
           onClick={() => onChange(Math.max(1, value - 1))}
           className="flex size-11 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-lg text-lh-text-primary active:scale-90"
         >
-          −
+          <GFaMinus size={ICON.inline} />
           {/* Шаг меняет значение — щёлкает (PROTOCOL §6.4); на единице тап
               ничего не меняет, и накладка его пропускает. */}
           <Haptic off={value <= 1} />
@@ -177,7 +176,7 @@ function DurationStepper({
           disabled={value >= max}
           className="flex size-11 shrink-0 items-center justify-center rounded-full bg-lh-surface-2 text-lg text-lh-text-primary active:scale-90 disabled:opacity-40"
         >
-          +
+          <GFaPlus size={ICON.inline} />
           {/* У упора — off, а не убрать: значение пишется в состояние React,
               и шаг, дошедший до упора, снял бы накладку раньше щелчка. */}
           <Haptic off={value >= max} />
@@ -235,7 +234,7 @@ function PresetForm({
           onClick={onDelete}
           className="flex items-center justify-center gap-1.5 rounded-2xl border border-lh-border-strong py-3 text-center font-medium text-danger active:opacity-70"
         >
-          <Trash2 size={ICON.action} /> {t('Удалить')}
+          <GFaTrashCan size={ICON.action} /> {t('Удалить')}
         </button>
       )}
     </div>
@@ -260,11 +259,11 @@ function SoundRow({
       onClick={onClick}
       className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2.5 text-left active:bg-lh-surface-2"
     >
-      <Icon size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+      <Icon size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
       <span className="min-w-0 flex-1">{label}</span>
       <span className="flex min-w-0 items-center gap-1 text-lh-text-secondary">
         <span className="truncate">{value}</span>
-        <ChevronRight size={ICON.base} className="shrink-0" />
+        <GFaChevronRight size={ICON.inline} className="shrink-0" />
       </span>
     </button>
   );
@@ -500,7 +499,7 @@ export function FocusPage() {
           aria-label={t('На весь экран')}
           className="flex size-11 items-center justify-center rounded-full text-lh-text-secondary active:opacity-60"
         >
-          <Maximize2 size={ICON.header} />
+          <GFaExpand size={ICON.base} />
         </button>
       }
     >
@@ -581,7 +580,7 @@ export function FocusPage() {
 
         <div className="mt-6 flex items-start justify-center gap-6">
           <ControlButton label={t('Сбросить')} onClick={p.reset}>
-            <RotateCcw size={ICON.action} />
+            <GFaRotateLeft size={ICON.action} />
           </ControlButton>
           <button
             type="button"
@@ -593,7 +592,7 @@ export function FocusPage() {
               className="flex size-[72px] items-center justify-center rounded-full bg-lh-accent text-lh-bg"
               style={{ boxShadow: 'var(--shadow-focus)' }}
             >
-              {p.running ? <Pause size={ICON.hero} fill="currentColor" /> : <Play size={ICON.hero} fill="currentColor" className="ml-1" />}
+              {p.running ? <GFaPause size={ICON.accent} /> : <GFaPlay size={ICON.accent} className="ml-1" />}
             </span>
             <span className="text-xs font-semibold">{p.running ? t('Пауза') : t('Старт')}</span>
           </button>
@@ -602,7 +601,7 @@ export function FocusPage() {
             onClick={p.skip}
             disabled={!p.active}
           >
-            <SkipForward size={ICON.action} />
+            <GFaForwardStep size={ICON.action} />
           </ControlButton>
         </div>
         </section>
@@ -614,7 +613,7 @@ export function FocusPage() {
           className="card flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-80"
         >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-            <ListChecks size={ICON.base} />
+            <GFaSquareCheck size={ICON.action} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-xs text-lh-text-secondary">{t('Задача для фокуса')}</span>
@@ -625,7 +624,7 @@ export function FocusPage() {
           {p.taskTitle ? (
             <span className="shrink-0 text-sm text-lh-accent">{t('Сменить')}</span>
           ) : (
-            <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+            <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
           )}
         </button>
 
@@ -644,7 +643,7 @@ export function FocusPage() {
             таймер это переживёт, человек нет. Тот же баннер, что в семейном чате. */}
         {!pushOn && (
           <div className="flex w-full items-center gap-3 rounded-2xl border border-warning/30 bg-warning/[0.07] px-4 py-2 text-xs leading-snug">
-            <BellOff size={ICON.base} className="shrink-0 text-warning" />
+            <GFaBellSlash size={ICON.action} className="shrink-0 text-warning" />
             <span className="min-w-0 flex-1 text-lh-text-primary">
               {t('Уведомления выключены — о конце круга в свёрнутом приложении не узнать.')}
             </span>
@@ -664,11 +663,11 @@ export function FocusPage() {
         <section>
           <h2 className="lh-section mb-2.5 px-1">{t('Звуки')}</h2>
           <div className="card divide-y divide-lh-border">
-            <SoundRow icon={Bell} label={t('Конец фокуса')} value={t(alarmOption(p.alarmWork).label)} onClick={() => setSoundSheet('work')} />
-            <SoundRow icon={Coffee} label={t('Конец перерыва')} value={t(alarmOption(p.alarmBreak).label)} onClick={() => setSoundSheet('break')} />
-            <SoundRow icon={AudioWaveform} label={t('Фоновый шум')} value={t(noiseLabel(p.sound))} onClick={() => setSoundSheet('noise')} />
+            <SoundRow icon={GFaBell} label={t('Конец фокуса')} value={t(alarmOption(p.alarmWork).label)} onClick={() => setSoundSheet('work')} />
+            <SoundRow icon={GFaMugHot} label={t('Конец перерыва')} value={t(alarmOption(p.alarmBreak).label)} onClick={() => setSoundSheet('break')} />
+            <SoundRow icon={GFaWaveSquare} label={t('Фоновый шум')} value={t(noiseLabel(p.sound))} onClick={() => setSoundSheet('noise')} />
             <div className="flex min-h-[52px] items-center gap-3 px-4 py-2">
-              <Clock size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+              <GFaClock size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
               <span className="min-w-0 flex-1">
                 <span className="block">{t('Предупредить за 5 минут')}</span>
                 <span className="block text-xs text-lh-text-secondary">{t('Уведомление до конца фокуса')}</span>
@@ -725,7 +724,7 @@ export function FocusPage() {
                   }`}
                 >
                   <span className={`flex max-w-[12rem] items-center gap-1 text-sm ${active ? 'font-semibold text-lh-accent' : ''}`}>
-                    {managing && <Pencil size={ICON.inline} className="shrink-0" />}
+                    {managing && <GFaPen size={ICON.inline} className="shrink-0" />}
                     <span className="truncate">{pr.name}</span>
                   </span>
                   <span className="text-2xs tabular-nums text-lh-text">
@@ -742,7 +741,7 @@ export function FocusPage() {
               onClick={openNewPreset}
               className="flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-dashed border-lh-border-strong px-4 py-2.5 text-sm text-lh-text-secondary active:opacity-70"
             >
-              <Plus size={ICON.inline} /> {t('Новый шаблон')}
+              <GFaPlus size={ICON.inline} /> {t('Новый шаблон')}
             </button>
           </div>
         </section>
@@ -760,7 +759,7 @@ export function FocusPage() {
             {t('Без задачи')}
           </button>
           {tasks.length === 0 ? (
-            <EmptyState icon={ListChecks} title={t('Нет активных задач')} />
+            <EmptyState icon={GFaSquareCheck} title={t('Нет активных задач')} />
           ) : (
             tasks.map((task) => (
               <button

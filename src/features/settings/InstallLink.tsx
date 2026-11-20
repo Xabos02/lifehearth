@@ -1,9 +1,5 @@
 import { useState } from 'react';
-import {
-  GCheck as Check,
-  GCopy as Copy,
-  GExternalLink as ExternalLink,
-} from '../../components/ui/glyphs';
+import { GFaArrowUpRightFromSquare, GFaCheck, GFaCopy } from '../../components/ui/glyphs';
 import { INSTALL_URL } from '../../lib/appInstall';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
@@ -37,7 +33,7 @@ export function InstallLink() {
           aria-label={t('Скопировать ссылку')}
           className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-lh-surface-2 text-lh-accent active:opacity-60 ${HIT_SLOP_44}`}
         >
-          {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
+          {copied ? <GFaCheck size={ICON.inline} /> : <GFaCopy size={ICON.inline} />}
           <Haptic />
         </button>
       </div>
@@ -47,7 +43,7 @@ export function InstallLink() {
         rel="noopener noreferrer"
         className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-lh-accent active:opacity-70"
       >
-        <ExternalLink size={ICON.action} />
+        <GFaArrowUpRightFromSquare size={ICON.action} />
         {t('Открыть сайт установки')}
       </a>
     </div>

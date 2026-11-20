@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { PiggyBank } from 'lucide-react';
-import {
-  GPlus as Plus,
-} from '../../components/ui/glyphs';
+import { GFaPiggyBank, GFaPlus } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, now, update } from '../../db/repo';
 import type { SavingsDeposit, SavingsGoal } from '../../db/types';
@@ -168,7 +165,7 @@ export function SavingsSection() {
           onClick={openNew}
           className="-my-3 inline-flex min-h-11 items-center gap-1 text-xs text-lh-accent active:opacity-70"
         >
-          <Plus size={ICON.inline} />
+          <GFaPlus size={ICON.inline} />
           {goals.length === 0 ? t('Цель накопления') : t('Новая цель')}
         </button>
       </div>
@@ -197,7 +194,7 @@ export function SavingsSection() {
           className="card flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-80"
         >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-            <PiggyBank size={ICON.action} />
+            <GFaPiggyBank size={ICON.inline} />
           </span>
           <span className="min-w-0 flex-1 text-sm text-lh-text-secondary">
             {t('Отложите на подушку, отпуск или крупную покупку — прогресс будет виден здесь.')}

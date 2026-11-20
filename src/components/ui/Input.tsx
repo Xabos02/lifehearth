@@ -6,13 +6,9 @@ import type {
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react';
-import {
-  GChevronDown as ChevronDown,
-  GSearch as Search,
-  GClose as X,
-} from '../../components/ui/glyphs';
+import { GFaChevronDown, GFaCircleXmarkSolid, GFaMagnifyingGlass } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
-import { ICON, STROKE_STRONG } from './icons';
+import { ICON } from './icons';
 import { HIT_SLOP_44_POSITIONED } from './hitSlop';
 
 const base =
@@ -36,9 +32,9 @@ export function ClearFieldButton({
       onPointerDown={(e) => e.preventDefault()}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`absolute left-2 z-10 flex size-6 items-center justify-center rounded-full bg-lh-border-strong text-lh-text-secondary transition-transform active:scale-90 ${HIT_SLOP_44_POSITIONED} ${className}`}
+      className={`absolute left-2 z-10 flex size-6 items-center justify-center rounded-full text-lh-text-secondary transition-transform active:scale-90 ${HIT_SLOP_44_POSITIONED} ${className}`}
     >
-      <X size={ICON.inline} strokeWidth={STROKE_STRONG} />
+      <GFaCircleXmarkSolid size={ICON.action} />
     </button>
   );
 }
@@ -118,7 +114,7 @@ const compactBase =
  *  137px под текст оставалось 78px), поэтому длинные варианты обрезались
  *  многоточием задолго до правой границы. padding-right это не лечит — стрелка
  *  рисуется поверх. Отсюда же pr-* с запасом: 25.5px под 14px-шеврон у right-1.5
- *  (42.5px под 18px у right-3 в базовом виде).
+ *  (42.5px у right-3 в базовом виде).
  *
  *  compact — вариант для строки настроек: ширина по контенту (по самому
  *  длинному варианту), сжиматься нечему, поэтому текст не режется никогда. */
@@ -141,8 +137,8 @@ export function Select({
       >
         {children}
       </select>
-      <ChevronDown
-        size={compact ? 14 : 18}
+      <GFaChevronDown
+        size={ICON.inline}
         className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-lh-text-secondary ${compact ? 'right-1.5' : 'right-3'}`}
       />
     </div>
@@ -205,8 +201,8 @@ export function SearchField({
   const show = value.length > 0;
   return (
     <div className={`relative ${className}`}>
-      <Search
-        size={ICON.base}
+      <GFaMagnifyingGlass
+        size={ICON.inline}
         className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-lh-text-secondary"
       />
       <input
@@ -224,9 +220,9 @@ export function SearchField({
           onPointerDown={(e) => e.preventDefault()}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onChange('')}
-          className={`absolute top-1/2 right-2.5 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-lh-border-strong text-lh-text-secondary transition-transform active:scale-90 ${HIT_SLOP_44_POSITIONED}`}
+          className={`absolute top-1/2 right-2.5 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-lh-text-secondary transition-transform active:scale-90 ${HIT_SLOP_44_POSITIONED}`}
         >
-          <X size={ICON.inline} strokeWidth={STROKE_STRONG} />
+          <GFaCircleXmarkSolid size={ICON.action} />
         </button>
       )}
     </div>

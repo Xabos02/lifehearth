@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react';
-import { GCheck as Check } from './glyphs';
-import { ICON, STROKE_STRONG } from './icons';
+import { GFaCheck } from './glyphs';
+import { ICON } from './icons';
 import { ToastContext, type ToastOptions } from './toastContext';
 
 /** Сколько живёт плашка. С кнопкой «Вернуть» — дольше: человеку нужно успеть
@@ -41,7 +41,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             }`}
           >
             {toast.opts?.tone === 'success' && (
-              <Check size={ICON.inline} strokeWidth={STROKE_STRONG} className="shrink-0 text-success" />
+              <GFaCheck size={ICON.inline} className="shrink-0 text-success" />
             )}
             <span className="flex-1">{toast.message}</span>
             {action && (

@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  ClipboardPaste,
-} from 'lucide-react';
+import { GFaClipboard } from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
 import { AutoGrowTextarea } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/toastContext';
@@ -21,8 +19,10 @@ import { ICON } from '../../components/ui/icons';
 import { SECTION_BY_ID } from '../../lib/sections';
 
 // Знаки разделов «Задачи» и «Заметки» — из реестра (PROTOCOL §20): «в задачу» и
-// «в заметку» рисуются тем же значком, что раздел в меню.
+// «в заметку» рисуются тем же значком, что раздел в меню. На золотой кнопке
+// «В задачи» знак залит (activeIcon), как в макете Abacus.
 const TasksIcon = SECTION_BY_ID.get('tasks')!.icon;
+const TasksActiveIcon = SECTION_BY_ID.get('tasks')!.activeIcon!;
 const NotesIcon = SECTION_BY_ID.get('notes')!.icon;
 
 function firstLine(text: string): string {
@@ -160,7 +160,7 @@ export function SharePage() {
               onClick={() => void pasteFromClipboard()}
               className="flex h-11 items-center gap-2 px-1 text-sm text-lh-accent active:opacity-60"
             >
-              <ClipboardPaste size={ICON.inline} />
+              <GFaClipboard size={ICON.inline} />
               {t('Вставить из буфера')}
             </button>
             {lineCount > 0 && (
@@ -179,7 +179,7 @@ export function SharePage() {
               onClick={() => void createTask()}
               className="flex h-[104px] flex-col items-center justify-center gap-2.5 rounded-[16px] bg-lh-accent text-lh-bg active:opacity-80 disabled:opacity-40"
             >
-              <TasksIcon size={ICON.accent} />
+              <TasksActiveIcon size={ICON.accent} />
               <span className="text-base font-semibold">{t('В задачи')}</span>
             </button>
             <button

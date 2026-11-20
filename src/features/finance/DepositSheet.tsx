@@ -1,8 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  GTrash as Trash2,
-} from '../../components/ui/glyphs';
+import { GFaTrashCan } from '../../components/ui/glyphs';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -146,7 +144,7 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
                   aria-label="Удалить запись"
                   className={`p-1.5 text-lh-text-secondary active:text-danger ${HIT_SLOP_44}`}
                 >
-                  <Trash2 size={ICON.action} />
+                  <GFaTrashCan size={ICON.inline} />
                 </button>
               </div>
             ))}

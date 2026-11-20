@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  GClose as X,
-} from '../../components/ui/glyphs';
+import { GFaXmark } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
 import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 import { isTouch } from '../../lib/platform';
@@ -270,9 +268,9 @@ export function Sheet({ open, onClose, title, subtitle, children }: Props) {
               onClick={onClose}
               onPointerDown={(e) => e.stopPropagation()}
               aria-label={t('Закрыть')}
-              className={`ml-auto rounded-full bg-lh-surface-2 p-1.5 text-lh-text-secondary transition-transform active:scale-90 ${HIT_SLOP_44}`}
+              className={`ml-auto rounded-full bg-lh-surface-2 p-2 text-lh-text-secondary transition-transform active:scale-90 ${HIT_SLOP_44}`}
             >
-              <X size={ICON.base} />
+              <GFaXmark size={ICON.inline} />
             </button>
           </div>
         </div>

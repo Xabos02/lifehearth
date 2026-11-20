@@ -6,7 +6,7 @@ import { todayKey } from '../../lib/dates';
 import { t } from '../../lib/i18n';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import { useSettings } from '../../hooks/useSettings';
-import { GChevronRight as ChevronRight } from '../../components/ui/glyphs';
+import { GFaChevronRight as ChevronRight } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { DEFAULT_WEEKLY_GOAL, resolveKind } from './workouts';
@@ -77,7 +77,7 @@ export function SportTodayLine() {
           </span>
         </span>
         {done ? (
-          <ChevronRight size={ICON.base} className="shrink-0 text-lh-text-secondary" />
+          <ChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" />
         ) : (
           <button
             type="button"

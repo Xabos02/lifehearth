@@ -5,7 +5,7 @@ import { alive } from '../../db/repo';
 import { Chip } from '../../components/ui/Chip';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
-import { GChevronDown, GClose, GPlus } from '../../components/ui/glyphs';
+import { GFaChevronDown, GFaPlus, GFaXmark } from '../../components/ui/glyphs';
 import { ICON } from '../../components/ui/icons';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { getLang, t } from '../../lib/i18n';
@@ -157,7 +157,7 @@ export function ItemFields({
         >
           <span className="size-2.5 shrink-0 rounded-full" style={{ background: kind.color }} aria-hidden />
           <span className="truncate font-semibold">{kindName}</span>
-          <GChevronDown
+          <GFaChevronDown
             size={ICON.inline}
             className={`shrink-0 text-lh-text-secondary transition-transform ${item.collapsed ? '' : 'rotate-180'}`}
           />
@@ -169,7 +169,7 @@ export function ItemFields({
             убирается весь вид — английская ветка явная. */}
         {removable && (
           <button type="button" onClick={onRemove} className={`p-1.5 text-lh-text-secondary active:opacity-60 ${HIT_SLOP_44}`} aria-label={getLang() === 'en' ? 'Remove' : 'Убрать'}>
-            <GClose size={ICON.action} />
+            <GFaXmark size={ICON.action} />
           </button>
         )}
       </div>
@@ -279,7 +279,7 @@ export function ItemFields({
           onClick={() => addExercise()}
           className={`flex items-center gap-1 rounded-full border border-dashed border-lh-border-strong px-3.5 py-1.5 text-sm font-medium text-lh-accent active:opacity-70 ${HIT_SLOP_44}`}
         >
-          <GPlus size={ICON.inline} /> {t('Упражнение')}
+          <GFaPlus size={ICON.inline} /> {t('Упражнение')}
         </button>
       </div>
     </div>
@@ -413,7 +413,7 @@ function ExerciseEditor({
       >
         {t('Подробнее')}
         {!more && <span className="font-normal">{t('вес, отдых, заметка')}</span>}
-        <GChevronDown size={ICON.inline} className={`shrink-0 transition-transform ${more ? 'rotate-180' : ''}`} />
+        <GFaChevronDown size={ICON.inline} className={`shrink-0 transition-transform ${more ? 'rotate-180' : ''}`} />
       </button>
       {more && (
         <>
@@ -449,10 +449,10 @@ function ExerciseEditor({
         {!(first && last) && (
           <>
             <button type="button" onClick={() => !first && onMove(-1)} aria-disabled={first} aria-label={t('Поднять упражнение')} className={arrow}>
-              <GChevronDown size={ICON.base} className="rotate-180" />
+              <GFaChevronDown size={ICON.inline} className="rotate-180" />
             </button>
             <button type="button" onClick={() => !last && onMove(1)} aria-disabled={last} aria-label={t('Опустить упражнение')} className={arrow}>
-              <GChevronDown size={ICON.base} />
+              <GFaChevronDown size={ICON.inline} />
             </button>
           </>
         )}

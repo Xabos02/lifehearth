@@ -2,19 +2,17 @@ import { Fragment, useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
 import {
-  FolderInput,
-  Pin,
-  Trash2,
-} from 'lucide-react';
-import {
-  GSearch as Search,
-  GChevronLeft as ChevronLeft,
-  GChevronRight as ChevronRight,
-  GCheck as Check,
-  GFolderPlus as FolderPlus,
-  GMore as More,
-  GCheckCircle as CheckCircle,
-  GPencil as Pencil,
+  GFaCheck,
+  GFaChevronLeft,
+  GFaChevronRight,
+  GFaCircleCheck,
+  GFaEllipsis,
+  GFaFolder,
+  GFaFolderOpen,
+  GFaMagnifyingGlass,
+  GFaPen,
+  GFaThumbtack,
+  GFaTrashCan,
 } from '../../components/ui/glyphs';
 import { useNavigate } from 'react-router';
 import { Fab } from '../../components/layout/Fab';
@@ -34,7 +32,7 @@ import { checklistProgress } from './checklist';
 import { countNotesDeep, flattenTree, folderMoveTargets, reorderWithin } from './folderTree';
 import { useHoldToReorder } from '../tasks/useHoldToReorder';
 import { buzz } from '../../lib/feedback';
-import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { ICON } from '../../components/ui/icons';
 import { useToast } from '../../components/ui/toastContext';
 import { SECTION_BY_ID } from '../../lib/sections';
 
@@ -105,7 +103,7 @@ function FolderRow({
       </span>
       <span className="min-w-0 flex-1 break-words">{folder.name}</span>
       <span className="shrink-0 text-xs tabular-nums text-lh-text-secondary">{count}</span>
-      <ChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" aria-hidden />
+      <GFaChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" aria-hidden />
     </button>
   );
 }
@@ -253,10 +251,10 @@ function NoteRow({
               selected ? 'bg-lh-accent text-lh-bg' : 'border-2 border-lh-border-strong'
             }`}
           >
-            {selected && <Check size={ICON.inline} strokeWidth={STROKE_STRONG} />}
+            {selected && <GFaCheck size={ICON.inline} />}
           </span>
         )}
-        {note.pinned && !tile && <Pin size={ICON.inline} className="mt-1 shrink-0 text-lh-accent" fill="currentColor" />}
+        {note.pinned && !tile && <GFaThumbtack size={ICON.inline} className="mt-1 shrink-0 text-lh-accent" />}
         {tile ? (
           <div className="flex min-h-36 min-w-0 flex-1 flex-col">
             <p className="line-clamp-3 break-words text-sm font-semibold leading-snug">{title}</p>
@@ -493,7 +491,7 @@ export function NotesPage() {
       {pinned.length > 0 && (
         <div className="mb-4">
           <h2 className="lh-section mb-2 flex items-center gap-1.5 px-1">
-            <Pin size={ICON.inline} className="text-lh-accent" fill="currentColor" aria-hidden />
+            <GFaThumbtack size={ICON.inline} className="text-lh-accent" aria-hidden />
             {t('Закреплённые')}
           </h2>
           {renderList(pinned, !selecting)}
@@ -579,7 +577,7 @@ export function NotesPage() {
               📄
             </span>
             <span className="min-w-0 flex-1 font-medium">{t('Все заметки')}</span>
-            {movingParent === null && <Check size={ICON.base} className="shrink-0 text-lh-accent" />}
+            {movingParent === null && <GFaCheck size={ICON.inline} className="shrink-0 text-lh-accent" />}
           </button>
           {/* Всё дерево одним списком: вложенность показана отступом, как в
               «Куда перенести?» Apple Notes, — переносить можно на любой
@@ -598,7 +596,7 @@ export function NotesPage() {
                 {f.emoji}
               </span>
               <span className="min-w-0 flex-1 truncate font-medium">{f.name}</span>
-              {movingParent === f.id && <Check size={ICON.base} className="shrink-0 text-lh-accent" />}
+              {movingParent === f.id && <GFaCheck size={ICON.inline} className="shrink-0 text-lh-accent" />}
             </button>
           ))}
         </div>
@@ -666,7 +664,7 @@ export function NotesPage() {
           // действия по 17px занимали 208px, и имени папки оставалось 72px на
           // 320 и 145px на 393: «Документы и счета» резалось до «🏠 / Док…».
           // Как в Apple Notes: «Выбрать заметки» там тоже в меню «Ещё».
-          <IconButton icon={More} label={t('Ещё')} onClick={() => setMenuOpen(true)} />
+          <IconButton icon={GFaEllipsis} size={ICON.base} label={t('Ещё')} onClick={() => setMenuOpen(true)} />
         )
       }
     >
@@ -677,7 +675,7 @@ export function NotesPage() {
         >
           {/* Назад — на уровень выше, а не всегда в корень: внутри вложенной
               папки «Все заметки» перепрыгивал бы родителя. */}
-          <ChevronLeft size={ICON.action} /> {parent ? `${parent.emoji} ${parent.name}` : t('Все заметки')}
+          <GFaChevronLeft size={ICON.action} /> {parent ? `${parent.emoji} ${parent.name}` : t('Все заметки')}
         </button>
       )}
 
@@ -716,7 +714,7 @@ export function NotesPage() {
           индекса объявляет худшим, что может сделать раздел заметок. */}
       {q ? (
         filtered.length === 0 ? (
-          <EmptyState icon={Search} title={t('Ничего не найдено')} hint={t('Попробуйте другой запрос')} />
+          <EmptyState icon={GFaMagnifyingGlass} title={t('Ничего не найдено')} hint={t('Попробуйте другой запрос')} />
         ) : (
           renderFound()
         )
@@ -758,7 +756,7 @@ export function NotesPage() {
             onClick={() => setMoving({ kind: 'notes', ids: [...selected] })}
             className="flex flex-1 items-center justify-center gap-2 rounded-lh-btn bg-lh-surface-2 py-3 text-base font-semibold disabled:opacity-40 active:opacity-80"
           >
-            <FolderInput size={ICON.base} />
+            <GFaFolderOpen size={ICON.action} />
             {t('Переместить ({n})', { n: selected.size })}
           </button>
           <button
@@ -766,12 +764,15 @@ export function NotesPage() {
             onClick={() => void deleteSelected()}
             className="flex flex-1 items-center justify-center gap-2 rounded-lh-btn bg-lh-surface-2 py-3 text-base font-semibold text-danger disabled:opacity-40 active:opacity-80"
           >
-            <Trash2 size={ICON.base} />
+            <GFaTrashCan size={ICON.action} />
             {t('Удалить ({n})', { n: selected.size })}
           </button>
         </div>
       ) : (
-        <Fab onClick={() => navigate(current ? `/notes/new?folder=${current.id}` : '/notes/new')} />
+        <Fab
+          onClick={() => navigate(current ? `/notes/new?folder=${current.id}` : '/notes/new')}
+          icon={<GFaPen size={ICON.header} className="pointer-events-none" />}
+        />
       )}
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)}>
         <div className="card divide-y divide-lh-border">
@@ -784,7 +785,7 @@ export function NotesPage() {
               }}
               className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
             >
-              <CheckCircle size={ICON.base} className="shrink-0 text-lh-accent" />
+              <GFaCircleCheck size={ICON.inline} className="shrink-0 text-lh-accent" />
               <span className="min-w-0 flex-1 font-medium">{t('Выбрать заметки')}</span>
             </button>
           )}
@@ -797,7 +798,7 @@ export function NotesPage() {
             }}
             className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
           >
-            <FolderPlus size={ICON.base} className="shrink-0 text-lh-accent" />
+            <GFaFolder size={ICON.inline} className="shrink-0 text-lh-accent" />
             <span className="min-w-0 flex-1 font-medium">
               {current ? t('Новая вложенная папка') : t('Новая папка')}
             </span>
@@ -810,7 +811,7 @@ export function NotesPage() {
               }}
               className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
             >
-              <Pencil size={ICON.base} className="shrink-0 text-lh-accent" />
+              <GFaPen size={ICON.inline} className="shrink-0 text-lh-accent" />
               <span className="min-w-0 flex-1 font-medium">{t('Изменить папку')}</span>
             </button>
           )}

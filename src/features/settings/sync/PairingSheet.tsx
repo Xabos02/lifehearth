@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
-import {
-  GCheck as Check,
-  GCopy as Copy,
-} from '../../../components/ui/glyphs';
+import { GFaCheck, GFaCopy } from '../../../components/ui/glyphs';
 import { Sheet } from '../../../components/ui/Sheet';
 import { Button } from '../../../components/ui/Button';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
@@ -169,7 +166,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
           </p>
           {paired ? (
             <p className="flex items-center justify-center gap-2 text-sm font-semibold text-success">
-              <Check size={ICON.base} />
+              <GFaCheck size={ICON.base} />
               {t('Устройство подключено')}
             </p>
           ) : (
@@ -185,7 +182,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
               выглядели одинаково, хотя одна даёт 15 минут, а другая —
               вечный доступ ко всем данным. */}
           <Button variant="secondary" className="w-full" onClick={copyCode}>
-            {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
+            {copied ? <GFaCheck size={ICON.action} /> : <GFaCopy size={ICON.action} />}
             {copied ? t('Скопировано') : t('Скопировать код')}
             <Haptic />
           </Button>

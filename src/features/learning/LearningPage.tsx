@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -21,9 +20,10 @@ import { formatMinutes } from '../health/workoutStats';
 import { startOfWeek } from 'date-fns';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
-import {
-  GLearning as GraduationCap,
-} from '../../components/ui/glyphs';
+import { GFaCircleCheckSolid, GFaCircleExclamation, GFaClock } from '../../components/ui/glyphs';
+import { SECTION_BY_ID } from '../../lib/sections';
+
+const LearningIcon = SECTION_BY_ID.get('learning')!.icon;
 
 type Filter = 'inProgress' | 'planned' | 'done';
 
@@ -91,7 +91,7 @@ function LearningCard({
     <div onClick={onOpen} className="card p-4 active:opacity-90">
       <div className="flex items-start gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lh-surface-2 text-lh-accent">
-          <Icon size={ICON.header} />
+          <Icon size={ICON.action} />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-2xs text-lh-text-secondary">
@@ -127,11 +127,11 @@ function LearningCard({
             }`}
           >
             {sched.overdue ? (
-              <AlertCircle size={ICON.inline} />
+              <GFaCircleExclamation size={ICON.inline} />
             ) : sched.onTrack ? (
-              <CheckCircle2 size={ICON.inline} />
+              <GFaCircleCheckSolid size={ICON.inline} />
             ) : (
-              <AlertCircle size={ICON.inline} />
+              <GFaCircleExclamation size={ICON.inline} />
             )}
             {sched.overdue
               ? t('Срок прошёл')
@@ -166,7 +166,7 @@ function LearningCard({
             aria-label={t('Записать занятие')}
             className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-lh-surface-2 px-3.5 text-sm text-lh-accent active:opacity-70"
           >
-            <Clock size={ICON.action} />
+            <GFaClock size={ICON.inline} />
             {t('Записать занятие')}
           </button>
         </div>
@@ -227,7 +227,7 @@ export function LearningPage() {
         {items.length === 0 ? (
           loaded && (
             <EmptyState
-              icon={GraduationCap}
+              icon={LearningIcon}
               title={t('Пока ничего нет')}
               hint={t(EMPTY_HINTS[filter])}
             />
