@@ -20,4 +20,4 @@ jobs:
         working-directory: worker
         run: |
           ACC=$(cat ../.github/probe/test-account.txt)
-          npx --yes wrangler@4 d1 execute life-hub-sync --remote --json --command "SELECT n FROM ai_usage WHERE k LIKE '%:a:${ACC}'; SELECT COUNT(*) AS rows FROM ai_usage" | grep -E '"n"|"rows"|error|Error' || true
+          npx --yes wrangler@4 d1 execute life-hub-sync --remote --json --command "SELECT n FROM ai_usage WHERE k LIKE '%:a:${ACC}'; SELECT COUNT(*) AS rows FROM ai_usage" 2>&1 | grep -v '"k"' | head -40 || true
