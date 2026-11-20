@@ -95,7 +95,7 @@ function makeRoom() {
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       }),
     );
-  return { room, call, addSocket };
+  return { room, call, addSocket, ctx };
 }
 
 // Значения ASCII: токен и секрет владельца едут HTTP-заголовками, а туда
@@ -172,6 +172,11 @@ function frame(r: Room, ws: FakeSocket, f: Record<string, unknown>) {
   return (r.room as unknown as { webSocketMessage: (w: unknown, raw: string) => Promise<void> }).webSocketMessage(ws, JSON.stringify(f));
 }
 const framesOf = (ws: FakeSocket) => ws.sent.map((f) => JSON.parse(f) as Record<string, unknown>);
+/** Подписки участника на пуши — по одной на устройство. */
+const subsOf = (r: Room, id: string) =>
+  (r.room as unknown as { sql: { exec: (q: string, ...p: unknown[]) => { toArray: () => { endpoint: string; sub: string }[] } } }).sql
+    .exec('SELECT endpoint, sub FROM push_subs WHERE member_id=? ORDER BY endpoint', id)
+    .toArray();
 
 describe('владелец группы', () => {
   it('закрепляется за создателем и не переходит к следующему', async () => {
@@ -231,14 +236,14 @@ describe('исключение участника', () => {
     expect(res.status).toBe(403);
   });
 
-  it('пуши исключённому больше не уходят', async () => {
-    const proof = await answer(r, KICKED, r.keys[KICKED].priv);
-    await r.call('push-sub', { method: 'POST', token: TOKEN, body: { subscription: { endpoint: 'e' }, ...proof } });
+  it('пуши исключённому больше не уходят — ни на одно его устройство', async () => {
+    for (const endpoint of ['https://web.push.apple.com/phone', 'https://fcm.googleapis.com/mac']) {
+      const proof = await answer(r, KICKED, r.keys[KICKED].priv);
+      await r.call('push-sub', { method: 'POST', token: TOKEN, body: { subscription: { endpoint }, ...proof } });
+    }
+    expect(subsOf(r, KICKED)).toHaveLength(2);
     await remove(r, KICKED, 'token-group-2');
-    const row = (r.room as unknown as { sql: { exec: (q: string, ...p: unknown[]) => { toArray: () => { push_sub: string | null }[] } } }).sql
-      .exec('SELECT push_sub FROM members WHERE member_id=?', KICKED)
-      .toArray()[0];
-    expect(row.push_sub).toBeNull();
+    expect(subsOf(r, KICKED)).toEqual([]);
   });
 
   // Ревью 18.11: тикет живёт полминуты. Взятый за секунду до исключения не
@@ -564,10 +569,7 @@ describe('подтверждение личности при подключен�
 // Аудит 18.11, S6/F9: подписка одна на участника, и любой из группы подменял
 // или снимал чужую — человек переставал узнавать о сообщениях и звонках.
 describe('уведомления — по подтверждённой личности', () => {
-  const subOf = (r: Room, id: string) =>
-    (r.room as unknown as { sql: { exec: (q: string, ...p: unknown[]) => { toArray: () => { push_sub: string | null }[] } } }).sql
-      .exec('SELECT push_sub FROM members WHERE member_id=?', id)
-      .toArray()[0]?.push_sub ?? null;
+  const subOf = (r: Room, id: string) => subsOf(r, id)[0] ?? null;
 
   it('чужую подписку не подменить и не снять, назвав чужое имя', async () => {
     const r = await setup();
@@ -583,7 +585,7 @@ describe('уведомления — по подтверждённой личн�
     const mine = await answer(r, KICKED, r.keys[KICKED].priv);
     await r.call('push-unsub', { method: 'POST', token: TOKEN, body: { memberId: ALICE, ...mine } });
 
-    expect(JSON.parse(subOf(r, ALICE)!)).toEqual({ endpoint: 'alice' });
+    expect(JSON.parse(subOf(r, ALICE)!.sub)).toEqual({ endpoint: 'alice' });
   });
 
   it('свою подписку участник ставит и снимает ответом на задачу', async () => {
@@ -945,7 +947,7 @@ describe('кто звонит: в пуше номер звонящего, име
       const r = makeRoom();
       const inner = r.room as unknown as {
         ctx: { waitUntil: (p: Promise<unknown>) => void };
-        sendPushTo: (sub: unknown, payload: Record<string, unknown>, ttl: number) => Promise<boolean>;
+        sendPushTo: (sub: unknown, payload: Record<string, unknown>, ttl: number) => Promise<number>;
         alarm: () => Promise<void>;
       };
       const pending: Promise<unknown>[] = [];
@@ -953,13 +955,13 @@ describe('кто звонит: в пуше номер звонящего, име
       const sent: Record<string, unknown>[] = [];
       inner.sendPushTo = async (_sub, payload) => {
         sent.push(payload);
-        return true;
+        return 201;
       };
       r.room.sql.exec(
-        'INSERT INTO members (member_id, push_sub, joined_at) VALUES (?, ?, ?)',
+        'INSERT INTO push_subs (endpoint, member_id, sub) VALUES (?, ?, ?)',
+        'https://web.push.apple.com/x',
         'vlad',
         JSON.stringify({ endpoint: 'https://web.push.apple.com/x' }),
-        new Date().toISOString(),
       );
       const caller = r.addSocket('mom');
       caller.serializeAttachment({ memberId: 'mom', bound: true, at: Date.now() });
@@ -982,5 +984,177 @@ describe('кто звонит: в пуше номер звонящего, име
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// Влад, 20.11: LifeHearth открыт на маке — звонок уходит туда, iPhone молчит.
+// Подписка была одна на участника (её перезаписывало каждое устройство при
+// подключении), а живой сокет мака «доставлял» звонок за всех. Теперь
+// подписка у каждого устройства своя, и пуш получает каждое, где приложение
+// не открыто на виду.
+describe('уведомления на все устройства участника', () => {
+  const PHONE = 'https://web.push.apple.com/phone';
+  const MAC = 'https://fcm.googleapis.com/mac';
+  const OWNER_EP = 'https://fcm.googleapis.com/owner';
+  const T0 = Date.UTC(2026, 10, 20, 12, 0, 0);
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(T0);
+    return () => vi.useRealTimers();
+  });
+
+  async function subscribe(r: Awaited<ReturnType<typeof setup>>, memberId: string, endpoint: string) {
+    const proof = await answer(r, memberId, r.keys[memberId].priv);
+    return r.call('push-sub', { method: 'POST', token: TOKEN, body: { subscription: { endpoint, keys: { p256dh: 'p', auth: 'a' } }, ...proof } });
+  }
+
+  /** Алиса с маком и iPhone, звонит владелец. status — ответ службы пушей по адресу. */
+  async function family(status: Record<string, number> = {}) {
+    const r = await setup();
+    const inner = r.room as unknown as {
+      ctx: { waitUntil: (p: Promise<unknown>) => void };
+      sendPushTo: (sub: { endpoint: string }, payload: Record<string, unknown>, ttl: number) => Promise<number>;
+      alarm: () => Promise<void>;
+    };
+    const pending: Promise<unknown>[] = [];
+    inner.ctx.waitUntil = (p) => void pending.push(p);
+    const sent: { to: string; kind: string }[] = [];
+    inner.sendPushTo = async (sub, payload) => {
+      sent.push({ to: sub.endpoint, kind: payload.call ? 'звонок' : payload.missed ? 'пропущенный' : String(payload.body) });
+      return status[sub.endpoint] ?? 201;
+    };
+    for (const [id, ep] of [[ALICE, PHONE], [ALICE, MAC], [OWNER, OWNER_EP]]) {
+      expect((await subscribe(r, id, ep)).status).toBe(200);
+    }
+    const settle = () => Promise.all(pending);
+    const send = async (ws: FakeSocket, f: Record<string, unknown>) => {
+      await frame(r, ws, f);
+      await settle();
+    };
+    const caller = r.addSocket(OWNER);
+    await send(caller, { type: 'hello', lastSeq: 0, device: await sha256hex(OWNER_EP) });
+    return { ...r, inner, sent, send, caller };
+  }
+
+  /** Мак — на виду (устройство пришло кадром back: подписку завели после hello),
+   *  iPhone — свёрнут (устройство в hello, потом «в фоне»). */
+  async function macOpenPhoneAway(f: Awaited<ReturnType<typeof family>>) {
+    const mac = f.addSocket(ALICE);
+    await f.send(mac, { type: 'hello', lastSeq: 0 });
+    await f.send(mac, { type: 'back', device: await sha256hex(MAC) });
+    const phone = f.addSocket(ALICE);
+    await f.send(phone, { type: 'hello', lastSeq: 0, device: await sha256hex(PHONE) });
+    await f.send(phone, { type: 'away', device: await sha256hex(PHONE) });
+    return { mac, phone };
+  }
+
+  const offer = (f: Awaited<ReturnType<typeof family>>, call = 'c1') =>
+    f.send(f.caller, { type: 'signal', to: ALICE, call, kind: 'offer', data: 'x' });
+
+  it('мак открыт, iPhone в фоне — «Входящий звонок» и «Пропущенный» идут на iPhone, мак звонит сам', async () => {
+    const f = await family();
+    const { mac } = await macOpenPhoneAway(f);
+    await offer(f);
+    expect(framesOf(mac).some((x) => x.kind === 'offer'), 'мак не получил приглашение').toBe(true);
+    expect(f.sent, 'пуш ушёл не туда').toEqual([{ to: PHONE, kind: 'звонок' }]);
+    expect(framesOf(f.caller).filter((x) => x.kind === 'ringing'), 'iPhone звонит — звонящему гудки').toHaveLength(1);
+    await f.send(f.caller, { type: 'signal', to: ALICE, call: 'c1', kind: 'cancel', data: null });
+    expect(f.sent).toEqual([
+      { to: PHONE, kind: 'звонок' },
+      { to: PHONE, kind: 'пропущенный' },
+    ]);
+  });
+
+  it('все устройства на виду — пушей нет; закрыто всё — пуш на каждое', async () => {
+    const f = await family();
+    const { phone } = await macOpenPhoneAway(f);
+    await f.send(phone, { type: 'back' }); // устройство уже известно с hello
+    await offer(f, 'c1');
+    expect(f.sent).toEqual([]);
+    // Оба сокета замолчали (приложения закрыты, iOS их заморозила).
+    vi.setSystemTime(T0 + 60_000);
+    f.caller.serializeAttachment({ ...f.caller.att, at: Date.now() });
+    await offer(f, 'c2');
+    expect(f.sent.map((s) => s.to).sort()).toEqual([MAC, PHONE]);
+  });
+
+  it('сообщение семьи — на iPhone в фоне, не на открытый мак и не автору', async () => {
+    const f = await family();
+    await macOpenPhoneAway(f);
+    // У автора второе устройство, свёрнутое: о своём же сообщении оно не звенит.
+    expect((await subscribe(f, OWNER, 'https://web.push.apple.com/owner-phone')).status).toBe(200);
+    await f.send(f.caller, { type: 'send', channel: 'msg', clientMsgId: 'm1', createdAt: new Date().toISOString(), ciphertext: 'x' });
+    expect(f.sent).toEqual([{ to: PHONE, kind: 'Новое сообщение' }]);
+  });
+
+  it('подписку, которой служба больше не знает (410/404), сервер удаляет; живые остаются', async () => {
+    const f = await family({ [PHONE]: 410, [MAC]: 404 });
+    const NEW_PHONE = 'https://web.push.apple.com/phone-2';
+    expect((await subscribe(f, ALICE, NEW_PHONE)).status).toBe(200);
+    // Ни одного сокета у Алисы: пуш — на все три её подписки.
+    await f.send(f.caller, { type: 'send', channel: 'msg', clientMsgId: 'm1', createdAt: new Date().toISOString(), ciphertext: 'x' });
+    expect(f.sent.map((s) => s.to).sort()).toEqual([MAC, PHONE, NEW_PHONE].sort());
+    expect(subsOf(f, ALICE).map((s) => s.endpoint)).toEqual([NEW_PHONE]);
+    f.sent.length = 0;
+    await f.send(f.caller, { type: 'send', channel: 'msg', clientMsgId: 'm2', createdAt: new Date().toISOString(), ciphertext: 'y' });
+    expect(f.sent.map((s) => s.to)).toEqual([NEW_PHONE]);
+  });
+
+  it('ответили на маке — серия на iPhone кончилась, «пропущенного» нет', async () => {
+    const f = await family();
+    const { mac, phone } = await macOpenPhoneAway(f);
+    for (let t = 0; t <= 5000; t += 2500) {
+      vi.setSystemTime(T0 + t);
+      for (const ws of [f.caller, mac]) ws.serializeAttachment({ ...ws.att, at: Date.now() }); // пингуют
+      await offer(f);
+    }
+    expect(f.sent.map((s) => s.to), 'серия на iPhone, раз в 5 с').toEqual([PHONE, PHONE]);
+    await f.send(mac, { type: 'signal', to: OWNER, call: 'c1', kind: 'accepted', data: null });
+    expect(framesOf(phone).some((x) => x.kind === 'cancel'), 'iPhone звонит дальше').toBe(true);
+    // Хвост повторов, пока звонящий не узнал об ответе.
+    for (let t = 7500; t <= 12_500; t += 2500) {
+      vi.setSystemTime(T0 + t);
+      await offer(f);
+    }
+    await f.send(f.caller, { type: 'signal', to: ALICE, call: 'c1', kind: 'cancel', data: null });
+    vi.setSystemTime(T0 + 60_000);
+    await f.inner.alarm();
+    expect(f.sent.map((s) => s.to), 'после ответа — ни звонка, ни «пропущенного»').toEqual([PHONE, PHONE]);
+  });
+
+  it('вышли из группы на одном устройстве — снимается его подписка; прежняя версия без адреса снимает все', async () => {
+    const r = await setup();
+    for (const ep of [PHONE, MAC, PHONE]) await subscribe(r, ALICE, ep); // переподписка — та же запись
+    expect(subsOf(r, ALICE).map((s) => s.endpoint)).toEqual([MAC, PHONE]);
+    const unsub = async (extra: Record<string, unknown>) =>
+      (await r.call('push-unsub', { method: 'POST', token: TOKEN, body: { ...(await answer(r, ALICE, r.keys[ALICE].priv)), ...extra } })).json();
+    expect(await unsub({ endpoint: PHONE })).toEqual({ ok: true, cleared: true });
+    expect(subsOf(r, ALICE).map((s) => s.endpoint)).toEqual([MAC]);
+    await subscribe(r, ALICE, PHONE);
+    expect(await unsub({})).toEqual({ ok: true, cleared: true });
+    expect(subsOf(r, ALICE)).toEqual([]);
+  });
+
+  it('подписок у участника не больше 10 — уходят давно не подключавшиеся', async () => {
+    const r = await setup();
+    for (let i = 0; i < 11; i++) {
+      vi.setSystemTime(T0 + i * 1000);
+      await subscribe(r, ALICE, `https://fcm.googleapis.com/d${String(i).padStart(2, '0')}`);
+    }
+    const left = subsOf(r, ALICE).map((s) => s.endpoint);
+    expect(left).toHaveLength(10);
+    expect(left).not.toContain('https://fcm.googleapis.com/d00');
+    expect(left).toContain('https://fcm.googleapis.com/d10');
+  });
+
+  it('прежняя подписка участника переезжает в подписки устройств один раз', async () => {
+    const r = makeRoom();
+    const sql = (r.room as unknown as { sql: { exec: (q: string, ...p: unknown[]) => { toArray: () => Record<string, unknown>[] } } }).sql;
+    sql.exec('INSERT INTO members (member_id, push_sub) VALUES (?, ?)', 'vlad', JSON.stringify({ endpoint: PHONE }));
+    sql.exec('INSERT INTO members (member_id, push_sub) VALUES (?, ?)', 'broken', '{битая');
+    new FamilyRoom(r.ctx, {}); // следующее пробуждение объекта — уже новый код
+    new FamilyRoom(r.ctx, {});
+    expect(sql.exec('SELECT member_id, endpoint FROM push_subs').toArray()).toEqual([{ member_id: 'vlad', endpoint: PHONE }]);
+    expect(sql.exec('SELECT push_sub FROM members WHERE push_sub IS NOT NULL').toArray()).toEqual([]);
   });
 });

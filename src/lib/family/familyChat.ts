@@ -17,7 +17,7 @@ import { assembleFile, splitDataUrl } from './fileTransfer';
 import { PRESET_COLORS } from '../colors';
 import { systemEventText } from './systemMessage';
 import { t } from '../i18n';
-import { importBoxPrivate, importBoxPublic, openFrom } from '../crypto';
+import { importBoxPrivate, importBoxPublic, openFrom, sha256hex } from '../crypto';
 import {
   WORKER_URL,
   adoptSealedKey,
@@ -585,6 +585,7 @@ class FamilyEngine {
       // ключей прямо здесь, и без перечитывания тикет просили бы без неё.
       await registerMember(this.familyId, connectDeadline());
       c = (await this.cfg()) ?? c;
+      await refreshDevice().catch(() => {}); // уйдёт в hello — см. refreshDevice
       let { res: tr, rejected } = await this.fetchTicket(c);
       // 401 после смены ключа группы — обычное дело: пока нас не было, кого-то
       // исключили, и токен сменился. Новый лежит в личном конверте.
@@ -642,7 +643,7 @@ class FamilyEngine {
       sock.onopen = () => {
         if (this.ws !== sock) return; // нас уже заменили — этот сокет осиротел
         this.connecting = false;
-        sock.send(JSON.stringify({ type: 'hello', lastSeq: c.lastSeq, memberId: c.selfMemberId }));
+        sock.send(JSON.stringify({ type: 'hello', lastSeq: c.lastSeq, memberId: c.selfMemberId, device: deviceHash }));
       };
       sock.onmessage = async (ev) => {
         if (this.ws !== sock) return; // событие осиротевшего сокета — игнор
@@ -662,7 +663,7 @@ class FamilyEngine {
           if (Array.isArray(m.reads)) this.setAllReads(m.reads);
           if (m.name) void patchFamilyConfig(this.familyId, { familyName: String(m.name) });
           this.startPing(sock);
-          if (away) this.trySendFrame({ type: 'away' }); // новый сокет поднялся в фоне
+          if (away) this.sendAway(); // новый сокет поднялся в фоне
           this.flushSignals(); // сигналы звонка — первыми: звонок ждёт их секунды, а не минуты
           // Ключ на сервере уже зарегистрирован — до тикета, см. connect().
           await publishBoxPub(this.familyId);
@@ -820,6 +821,10 @@ class FamilyEngine {
         headers: { Authorization: `Bearer ${cfg.familyToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ memberId: cfg.selfMemberId, subscription: sub, ...(answer ?? {}) }),
       });
+      // Подписку могли завести уже после hello (включили уведомления) — сервер
+      // узнаёт устройство этого сокета из кадра away/back.
+      await refreshDevice();
+      this.sendAway();
     } catch {
       /* офлайн — переедет при следующем ready */
     }
@@ -832,10 +837,13 @@ class FamilyEngine {
     if (!cfg) return;
     try {
       const answer = await this.proof(cfg);
+      // Подписка этого устройства, а не всех устройств участника: вышли из
+      // группы здесь — остальные его устройства уведомления получают дальше.
+      const endpoint = (getPushSubscription() as { endpoint?: string } | null)?.endpoint ?? null;
       await fetch(`${WORKER_URL}/family/push-unsub?familyId=${cfg.familyId}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${cfg.familyToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memberId: cfg.selfMemberId, ...(answer ?? {}) }),
+        body: JSON.stringify({ memberId: cfg.selfMemberId, endpoint, ...(answer ?? {}) }),
       });
     } catch {
       /* нет сети — уведомления перестанут доходить сами, когда истечёт
@@ -1084,7 +1092,7 @@ class FamilyEngine {
   }
 
   sendAway(): void {
-    this.trySendFrame({ type: away ? 'away' : 'back' });
+    this.trySendFrame({ type: away ? 'away' : 'back', device: deviceHash });
   }
 
   /** Возвращает, ушёл ли кадр прямо сейчас: вызывающий решает, помечать ли повтор. */
@@ -1115,6 +1123,22 @@ export function setAway(v: boolean): void {
   if (away === v) return;
   away = v;
   for (const [, e] of engines) e.sendAway();
+}
+
+// Какое это устройство для сервера — sha256 адреса его push-подписки. По нему
+// сервер не шлёт пуш туда, где приложение открыто на виду, и шлёт остальным
+// устройствам того же участника: открытый мак больше не глушит iPhone. Сам
+// адрес в каждый кадр не кладём — для сверки хватает хэша. Без подписки — null.
+let deviceEndpoint: string | null = null;
+let deviceHash: string | null = null;
+async function refreshDevice(): Promise<void> {
+  const ep = (getPushSubscription() as { endpoint?: unknown } | null)?.endpoint;
+  if (typeof ep !== 'string' || !ep) {
+    deviceEndpoint = deviceHash = null;
+  } else if (ep !== deviceEndpoint) {
+    deviceHash = await sha256hex(ep);
+    deviceEndpoint = ep;
+  }
 }
 
 // === Реестр движков (по одному на семью) ===
