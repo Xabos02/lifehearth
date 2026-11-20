@@ -82,6 +82,18 @@ export function getPushSubscription(): unknown | null {
   return storedSub();
 }
 
+/** Адрес push-подписки этого устройства — и без согласия: по нему семейный
+ *  сервер снимает подписку именно этого устройства при выходе из группы, а
+ *  снятие ничего нового наружу не отдаёт. null — подписки на устройстве нет. */
+export function pushEndpoint(): string | null {
+  try {
+    const ep = (JSON.parse(localStorage.getItem(SUB_KEY) ?? 'null') as { endpoint?: unknown } | null)?.endpoint;
+    return typeof ep === 'string' && ep ? ep : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Запрос разрешения + подписка. Возвращает причину отказа для UI. */
 export async function enablePush(): Promise<{ ok: boolean; reason?: string }> {
   if (!pushSupported()) return { ok: false, reason: 'unsupported' };

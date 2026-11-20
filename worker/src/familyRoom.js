@@ -96,6 +96,14 @@ function boundMember(ws) {
   return att?.bound && att.memberId ? att.memberId : null;
 }
 
+/** Какое устройство за сокетом: sha256 адреса его подписки на пуши, как его
+ *  прислало приложение в hello или away/back. По нему сервер не шлёт пуш тому
+ *  устройству, где приложение открыто на виду, — и шлёт остальным. Сам адрес
+ *  в сокет не кладём: хэша для сверки хватает. */
+function deviceOf(msg) {
+  return typeof msg.device === 'string' && /^[0-9a-f]{64}$/.test(msg.device) ? { device: msg.device } : {};
+}
+
 export class FamilyRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -135,6 +143,38 @@ export class FamilyRoom extends DurableObject {
       } catch {
         /* колонка уже есть */
       }
+    }
+    // Подписки на пуши — по устройствам, а не одна на участника. Одну
+    // (members.push_sub) перезаписывало каждое его устройство при каждом
+    // подключении, и уведомления уходили туда, что подключилось последним:
+    // открытый на маке LifeHearth забирал себе звонки, iPhone молчал (20.11).
+    this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS push_subs (
+        endpoint TEXT PRIMARY KEY,
+        member_id TEXT NOT NULL,
+        sub TEXT NOT NULL,
+        updated_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_push_subs_member ON push_subs(member_id);
+    `);
+    // Прежняя подписка участника переезжает в новую таблицу один раз: колонку
+    // за собой чистим, и следующему запуску переносить нечего.
+    for (const r of this.sql.exec('SELECT member_id, push_sub FROM members WHERE push_sub IS NOT NULL').toArray()) {
+      try {
+        const endpoint = JSON.parse(r.push_sub)?.endpoint;
+        if (typeof endpoint === 'string' && endpoint) {
+          this.sql.exec(
+            'INSERT OR IGNORE INTO push_subs (endpoint, member_id, sub, updated_at) VALUES (?, ?, ?, ?)',
+            endpoint,
+            r.member_id,
+            r.push_sub,
+            new Date().toISOString(),
+          );
+        }
+      } catch {
+        /* битая запись — её устройство подпишется заново при следующем подключении */
+      }
+      this.sql.exec('UPDATE members SET push_sub = NULL WHERE member_id = ?', r.member_id);
     }
     this.insertsSincePrune = 0;
   }
@@ -375,6 +415,9 @@ export class FamilyRoom extends DurableObject {
         new Date().toISOString(),
         memberId,
       );
+      // Подписки всех его устройств, а не одного: иначе второй телефон
+      // исключённого звенел бы звонками группы дальше.
+      this.sql.exec('DELETE FROM push_subs WHERE member_id = ?', memberId);
       // Конверт исключённого выкидываем: иначе он бы забрал из него новый ключ.
       this.sql.exec('DELETE FROM items WHERE channel=? AND item_id=?', 'key', memberId);
       this.metaSet('token_hash', newTokenHash);
@@ -420,6 +463,7 @@ export class FamilyRoom extends DurableObject {
       }
       this.sql.exec('DELETE FROM items');
       this.sql.exec('DELETE FROM members');
+      this.sql.exec('DELETE FROM push_subs');
       // Невыкупленные тикеты и незавершённые дозвоны — тоже: будильник по
       // дозвону иначе отправил бы «пропущенный звонок» уже из удалённой группы.
       this.sql.exec("DELETE FROM meta WHERE k LIKE 'ticket:%' OR k LIKE 'callpend:%'");
@@ -453,20 +497,40 @@ export class FamilyRoom extends DurableObject {
       return this.json(await this.iceServers());
     }
 
-    // Чья подписка — решает ответ на задачу, а не memberId в теле. Подписка
-    // одна на участника, и раньше любой из группы подменял чужую своей или
-    // снимал её: человек переставал узнавать о сообщениях и звонках, пока сам
-    // не откроет приложение (аудит 18.11, S6).
+    // Чья подписка — решает ответ на задачу, а не memberId в теле. Раньше
+    // любой из группы подменял чужую своей или снимал её: человек переставал
+    // узнавать о сообщениях и звонках, пока сам не откроет приложение (аудит
+    // 18.11, S6). Подписка — устройства: у участника их столько, сколько
+    // устройств, и уведомление уходит на каждое (см. pushMember).
     if (path.endsWith('/push-sub') && request.method === 'POST') {
       const body = await request.json();
       const memberId = this.takeChallenge(body);
       if (!memberId) return this.json({ error: 'unverified' }, 409);
       if (this.isRemoved(memberId)) return this.json({ error: 'removed' }, 403);
+      const endpoint = body.subscription?.endpoint;
+      if (typeof endpoint !== 'string' || !endpoint) return this.json({ error: 'bad request' }, 400);
+      const now = new Date().toISOString();
       this.sql.exec(
-        'INSERT INTO members (member_id, push_sub, joined_at) VALUES (?, ?, ?) ON CONFLICT(member_id) DO UPDATE SET push_sub=excluded.push_sub',
+        'INSERT INTO members (member_id, joined_at) VALUES (?, ?) ON CONFLICT(member_id) DO NOTHING',
+        memberId,
+        now,
+      );
+      // Адрес подписки — устройство. Переехал к другому участнику (на этом
+      // устройстве вошли заново) — переезжает и подписка.
+      this.sql.exec(
+        'INSERT INTO push_subs (endpoint, member_id, sub, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET member_id=excluded.member_id, sub=excluded.sub, updated_at=excluded.updated_at',
+        endpoint,
         memberId,
         JSON.stringify(body.subscription),
-        new Date().toISOString(),
+        now,
+      );
+      // ponytail: 10 устройств на участника с запасом; лишние — давно не
+      // подключавшиеся. Без потолка один участник набивал бы подписками
+      // каждый звонок и сообщение группы — сервер шифрует пуш на каждую.
+      this.sql.exec(
+        'DELETE FROM push_subs WHERE member_id=? AND endpoint NOT IN (SELECT endpoint FROM push_subs WHERE member_id=? ORDER BY updated_at DESC LIMIT 10)',
+        memberId,
+        memberId,
       );
       return this.json({ ok: true });
     }
@@ -478,15 +542,20 @@ export class FamilyRoom extends DurableObject {
     if (path.endsWith('/push-unsub') && request.method === 'POST') {
       // Снять подписку может только её хозяин — по ответу на задачу, как и
       // поставить (см. /push-sub).
-      const memberId = this.takeChallenge(await request.json());
+      const body = await request.json();
+      const memberId = this.takeChallenge(body);
       if (!memberId) return this.json({ error: 'unverified' }, 409);
-      const had = this.sql
-        .exec('SELECT push_sub FROM members WHERE member_id=?', memberId)
-        .toArray()[0];
-      this.sql.exec('UPDATE members SET push_sub=NULL WHERE member_id=?', memberId);
+      // Из группы выходят на одном устройстве — снимается подписка этого
+      // устройства, остальные его устройства звонят дальше. Без адреса
+      // (приложение прежней версии) — все подписки участника, как раньше:
+      // остальные устройства подпишутся снова при следующем подключении.
+      const ep = typeof body.endpoint === 'string' && body.endpoint ? body.endpoint : null;
+      const where = 'FROM push_subs WHERE member_id=? AND endpoint=COALESCE(?, endpoint)';
+      const had = this.sql.exec(`SELECT COUNT(*) AS n ${where}`, memberId, ep).toArray()[0].n;
+      this.sql.exec(`DELETE ${where}`, memberId, ep);
       // cleared говорит вызывающему, была ли подписка снята на самом деле —
       // без этого «200 OK» неотличим от «ничего не сделал».
-      return this.json({ ok: true, cleared: Boolean(had?.push_sub) });
+      return this.json({ ok: true, cleared: had > 0 });
     }
 
     return this.json({ error: 'not found' }, 404);
@@ -690,7 +759,9 @@ export class FamilyRoom extends DurableObject {
       // соединение без подтверждения переназывалось кем угодно (аудит 18.11,
       // S2); история при этом тоже уходила заново.
       if (att.hello) return;
-      ws.serializeAttachment({ ...att, hello: true, at: Date.now() });
+      // tellsDevice — приложение знает про устройства и шлёт device всегда (null —
+      // подписки нет). Прежняя версия поля не шлёт вовсе — см. visibleDevices.
+      ws.serializeAttachment({ ...att, ...deviceOf(msg), tellsDevice: 'device' in msg, hello: true, at: Date.now() });
       this.sql.exec(
         'INSERT INTO members (member_id, joined_at) VALUES (?, ?) ON CONFLICT(member_id) DO NOTHING',
         who,
@@ -766,8 +837,10 @@ export class FamilyRoom extends DurableObject {
     // примет, а входящий не покажет и не зазвонит — звонить ему будет пуш.
     // Без пометки сервер считал бы его живым до 40 с после пинга (SOCKET_STALE_MS),
     // и звонок, пришедший в это время, проходил бы в тишине.
+    // Тот же кадр несёт устройство (device): подписку на пуши приложение могло
+    // завести уже после hello.
     if (msg.type === 'away' || msg.type === 'back') {
-      ws.serializeAttachment({ ...att, away: msg.type === 'away' });
+      ws.serializeAttachment({ ...att, ...deviceOf(msg), away: msg.type === 'away' });
       return;
     }
     // Сигналинг звонков (WebRTC): эфемерный релей — НЕ пишем в БД. data —
@@ -798,11 +871,15 @@ export class FamilyRoom extends DurableObject {
           /* сокет закрывается */
         }
       }
-      // На доставленное приглашение «звонит» не говорим: «свежим» сервер считает
-      // сокет до 40 с после последнего пинга, и телефон, только что потерявший
-      // сеть, дал бы звонящему гудки, хотя у него не звонит ничего. Живое
-      // приложение собеседника скажет «звонит» само, показав входящий.
-      if (!delivered && msg.kind === 'offer' && msg.to) {
+      // Доставка в сокет покрывает только своё устройство. Раньше открытый на
+      // маке LifeHearth считал звонок доставленным, и iPhone в кармане того же
+      // участника пуша не получал (Влад, 20.11). Теперь пуш звонит каждому его
+      // устройству, где приложение не открыто на виду (hiddenSubs).
+      // На одно доставленное приглашение «звонит» сервер не говорит: «свежим»
+      // он считает сокет до 40 с после последнего пинга, и телефон, только что
+      // потерявший сеть, дал бы звонящему гудки, хотя у него не звонит ничего.
+      // Живое приложение собеседника скажет «звонит» само, показав входящий.
+      if (msg.kind === 'offer' && msg.to && (!delivered || (await this.hiddenSubs(msg.to)).length)) {
         // Серия пушей, а не пуш на каждый повтор: trackPendingCall отдаёт TTL
         // очередного пуша только раз в CALL_PUSH_EVERY_MS, остальные повторы
         // приглашения (каждые 2.5 с) пуш не дублируют.
@@ -823,9 +900,13 @@ export class FamilyRoom extends DurableObject {
           this.sendRinging(ws, from, msg.to, msg.call);
         }
       }
-      // Звонящий отменил (в т.ч. по таймауту «не ответили»), адресат так и не
-      // подключился — заменяем «звонит» на «пропущенный звонок».
-      if (!delivered && msg.kind === 'cancel' && msg.to) {
+      // Звонящий отменил (в т.ч. по таймауту «не ответили») — устройствам, куда
+      // звонил пуш, «пропущенный звонок». Признак — живая страховка дозвона:
+      // её нет, если пушей не было (звонок видели в открытом приложении), если
+      // отказали или «пропущенный» уже послал alarm; ответили на другом
+      // устройстве — она с пометкой «отвечен».
+      const pend = msg.kind === 'cancel' && msg.to ? this.pendingOf(msg.call) : null;
+      if (pend && !pend.answered) {
         this.ctx.waitUntil(this.pushMissedCall(msg.to, msg.call, from));
       }
       // Трубку сняли на одном устройстве — остальные устройства того же
@@ -917,22 +998,11 @@ export class FamilyRoom extends DurableObject {
     this.broadcastPresence(); // участник ушёл — обновить статус у остальных
   }
 
-  // === Web Push оффлайн-участникам (сигнал, не транспорт) ===
+  // === Web Push устройствам, где приложение не на виду (сигнал, не транспорт) ===
+  // Раньше участник с любым сокетом считался «в сети», и пуш не уходил ни на
+  // одно его устройство: открытый мак глушил iPhone, а свёрнутое приложение
+  // (iOS его замораживает, сокет живёт ещё долго) молчало о новых сообщениях.
   async pushOffline(item, senderMemberId, kind = 'msg') {
-    const online = new Set();
-    for (const ws of this.ctx.getWebSockets()) {
-      const id = boundMember(ws);
-      if (id) online.add(id);
-    }
-    const vapid = {
-      publicKey: this.env.VAPID_PUBLIC,
-      privateKey: this.env.VAPID_PRIVATE,
-      subject: this.env.VAPID_SUBJECT || 'mailto:noreply@life-hub.app',
-    };
-    if (!vapid.privateKey) return;
-    const subs = this.sql
-      .exec('SELECT member_id, push_sub FROM members WHERE push_sub IS NOT NULL AND member_id != ?', senderMemberId || '')
-      .toArray();
     // Заголовок нейтральный, без названия группы. Название лежит на сервере
     // открытым текстом и попадает в уведомление на экран блокировки — то есть
     // видно любому, кто взял телефон в руки, и известно тому, кто держит
@@ -940,7 +1010,7 @@ export class FamilyRoom extends DurableObject {
     // не стоит различать группы в шторке.
     // Тег с familyId остаётся: он не осмыслен для стороннего наблюдателя, но
     // не даёт уведомлениям двух групп схлопнуться в одно.
-    const familyId = this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]?.v || '';
+    const familyId = this.familyIdMeta();
     const name = 'Семья';
     // Тег у каждого типа события свой: с общим тегом «задача выполнена» затирала
     // бы уведомление о новой задаче, и человек не узнал бы, что ему её поставили.
@@ -950,24 +1020,64 @@ export class FamilyRoom extends DurableObject {
       'task-done': { body: 'Общая задача выполнена', tag: 'family-task-done:' },
     };
     const k = KIND[kind] || KIND.msg;
-    const bodyText = k.body;
-    const tag = k.tag + (familyId || 'all');
-    for (const m of subs) {
-      if (online.has(m.member_id)) continue;
+    const payload = { title: name, body: k.body, family: true, familyId, tag: k.tag + (familyId || 'all') };
+    // Своему же автору — ни на одно его устройство.
+    const members = this.sql
+      .exec('SELECT DISTINCT member_id FROM push_subs WHERE member_id != ?', senderMemberId || '')
+      .toArray();
+    await Promise.all(members.map((m) => this.pushMember(m.member_id, payload, 3600)));
+  }
+
+  /** Хэши устройств участника, где приложение открыто на виду: сокет живой
+   *  (пинговал недавно) и не помечен «в фоне». Такому устройству пуш не нужен
+   *  — входящий покажет и зазвонит само приложение. null — на виду приложение
+   *  прежней версии: своего устройства оно не называет, и, как раньше, его
+   *  живой сокет прикрывает все устройства участника. Иначе до своего
+   *  обновления оно получало бы «Входящий звонок» поверх открытого экрана. */
+  visibleDevices(memberId) {
+    const out = new Set();
+    for (const ws of this.ctx.getWebSockets()) {
+      if (boundMember(ws) !== memberId || !this.isFresh(ws)) continue;
+      const att = ws.deserializeAttachment();
+      if (att.away) continue;
+      if (!att.tellsDevice) return null;
+      if (att.device) out.add(att.device);
+    }
+    return out;
+  }
+
+  /** Подписки участника, кроме устройств с приложением на виду. Сокет, где
+   *  не включали уведомления (device: null), ничьих подписок не покрывает:
+   *  иначе мак без уведомлений снова глушил бы iPhone. */
+  async hiddenSubs(memberId) {
+    const visible = this.visibleDevices(memberId);
+    if (!visible) return [];
+    const out = [];
+    for (const r of this.sql.exec('SELECT endpoint, sub FROM push_subs WHERE member_id=?', memberId).toArray()) {
+      if (visible.size && visible.has(await sha256hex(r.endpoint))) continue;
       try {
-        const sub = JSON.parse(m.push_sub);
-        const { endpoint, headers, body } = await buildPushRequest({
-          subscription: sub,
-          payload: JSON.stringify({ title: name, body: bodyText, family: true, familyId, tag }),
-          vapid,
-          ttl: 3600,
-          urgency: 'high',
-        });
-        await fetch(endpoint, { method: 'POST', headers, body });
+        out.push({ endpoint: r.endpoint, sub: JSON.parse(r.sub) });
       } catch {
-        /* мёртвая подписка — игнор */
+        this.sql.exec('DELETE FROM push_subs WHERE endpoint=?', r.endpoint); // не читается — не отправится никогда
       }
     }
+    return out;
+  }
+
+  /** Пуш на каждое устройство участника, где приложение не на виду. true —
+   *  хоть одно уведомление принято службой пушей. Подписку, которой служба
+   *  больше не знает (404/410: удалили приложение, отозвали разрешение, iOS
+   *  сняла подписку), удаляем — иначе каждый пуш стучался бы в неё вечно. */
+  async pushMember(memberId, payload, ttl) {
+    const subs = await this.hiddenSubs(memberId);
+    const sent = await Promise.all(
+      subs.map(async (s) => {
+        const status = await this.sendPushTo(s.sub, payload, ttl);
+        if (status === 404 || status === 410) this.sql.exec('DELETE FROM push_subs WHERE endpoint=?', s.endpoint);
+        return status >= 200 && status < 300;
+      }),
+    );
+    return sent.includes(true);
   }
 
   // ICE-серверы. STUN бесплатен и безлимитен. TURN (relay для сетей за
@@ -1042,24 +1152,14 @@ export class FamilyRoom extends DurableObject {
     return { iceServers: servers, turnError };
   }
 
-  // Пуш о входящем звонке участнику, которого нет онлайн (WS мёртв или
-  // приложение в фоне). Серия — такт решает trackPendingCall; у всех пушей
-  // серии один tag — карточка одна, заменяется. Исход решает alarm/cancel
-  // («пропущенный» с тем же tag).
+  // Пуш о входящем звонке — каждому устройству участника, где приложение не
+  // на виду (закрыто, в фоне или его сокет замолчал). Серия — такт решает
+  // trackPendingCall; у всех пушей серии один tag (Android заменяет карточку,
+  // iOS — нет). Исход решает alarm/cancel («пропущенный» с тем же tag).
   // from — номер звонящего: имя по нему телефон подставит сам из своей базы
   // (push-sw.js), сервер имён не знает — они зашифрованы семейным ключом.
   async pushCall(toMemberId, callId, ttl = 40, fromMemberId = null) {
-    const row = this.sql
-      .exec('SELECT push_sub FROM members WHERE member_id=? AND push_sub IS NOT NULL', toMemberId)
-      .toArray()[0];
-    if (!row) return false;
-    let sub;
-    try {
-      sub = JSON.parse(row.push_sub);
-    } catch {
-      return false;
-    }
-    return this.sendPushTo(sub, {
+    return this.pushMember(toMemberId, {
       // Без названия группы: экран блокировки виден любому, кто рядом, а само
       // название хранится на сервере открытым текстом — двойная утечка ради
       // строки, которую всё равно видно уже в приложении.
@@ -1075,17 +1175,7 @@ export class FamilyRoom extends DurableObject {
 
   // «Пропущенный звонок»: тот же tag — на Android заменяет карточку «звонит».
   async pushMissedCall(toMemberId, callId, fromMemberId = null) {
-    const row = this.sql
-      .exec('SELECT push_sub FROM members WHERE member_id=? AND push_sub IS NOT NULL', toMemberId)
-      .toArray()[0];
-    if (!row) return;
-    let sub;
-    try {
-      sub = JSON.parse(row.push_sub);
-    } catch {
-      return;
-    }
-    await this.sendPushTo(sub, {
+    await this.pushMember(toMemberId, {
       title: 'Пропущенный звонок',
       body: 'Откройте приложение',
       family: true,
@@ -1157,13 +1247,15 @@ export class FamilyRoom extends DurableObject {
     if (nextInMs != null) await this.ctx.storage.setAlarm(Date.now() + nextInMs + 1000);
   }
 
+  /** Пуш одной подписке. Возвращает HTTP-статус службы пушей (201 — принято,
+   *  404/410 — подписки больше нет) или 0, если до службы не дошло. */
   async sendPushTo(sub, payload, ttl) {
     const vapid = {
       publicKey: this.env.VAPID_PUBLIC,
       privateKey: this.env.VAPID_PRIVATE,
       subject: this.env.VAPID_SUBJECT || 'mailto:noreply@life-hub.app',
     };
-    if (!vapid.privateKey) return false;
+    if (!vapid.privateKey) return 0;
     try {
       const { endpoint, headers, body } = await buildPushRequest({
         subscription: sub,
@@ -1173,9 +1265,9 @@ export class FamilyRoom extends DurableObject {
         urgency: 'high',
       });
       const r = await fetch(endpoint, { method: 'POST', headers, body });
-      return r.ok; // служба приняла уведомление (201); 404/410 — подписка мертва
+      return r.status;
     } catch {
-      return false; /* мёртвая подписка — игнор */
+      return 0; // подписка не собралась или сеть — попробуем на следующем пуше
     }
   }
 
@@ -1209,11 +1301,16 @@ export class FamilyRoom extends DurableObject {
   }
 
   callPushed(callId) {
-    const row = this.sql.exec('SELECT v FROM meta WHERE k=?', `callpend:${callId}`).toArray()[0];
+    return Boolean(this.pendingOf(callId)?.pushed);
+  }
+
+  /** Запись страховки дозвона (callpend) или null. */
+  pendingOf(callId) {
+    const row = callId ? this.sql.exec('SELECT v FROM meta WHERE k=?', `callpend:${callId}`).toArray()[0] : null;
     try {
-      return Boolean(row && JSON.parse(row.v).pushed);
+      return row ? JSON.parse(row.v) : null;
     } catch {
-      return false;
+      return null;
     }
   }
 
