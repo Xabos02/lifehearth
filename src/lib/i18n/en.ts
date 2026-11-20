@@ -1397,8 +1397,13 @@ export const EN: Record<string, string> = {
   'Попробуйте другой запрос': 'Try a different search',
   'В папке пусто': 'This folder is empty',
   'Пока нет заметок': 'No notes yet',
-  'Перенесите сюда заметку долгим нажатием на неё в общем списке':
-    'Press and hold a note in the main list to move it here',
+  'Нажмите +, чтобы создать заметку здесь, или перенесите существующую долгим нажатием':
+    'Tap + to create a note here, or press and hold an existing one to move it',
+  'Удерживайте папку, чтобы поменять порядок': 'Press and hold a folder to reorder',
+  'Закреплена': 'Pinned',
+  'Найдено: {n}': 'Found: {n}',
+  'Последние 7 дней': 'Previous 7 days',
+  'Последние 30 дней': 'Previous 30 days',
   'Нажмите +, чтобы создать первую': 'Tap + to create your first one',
   'Удалить папку «{name}»? Содержимое останется — заметки и вложенные папки поднимутся на уровень выше.':
     'Delete the “{name}” folder? Its contents will stay — notes and subfolders move up one level.',

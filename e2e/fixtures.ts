@@ -85,6 +85,15 @@ export async function openApp(page: Page, path = '', extraSettings: SeedSettings
 /** Ошибки в консоли и необработанные исключения за время теста. */
 /** Карточка группы (участники и управление) — нажатием на название в шапке
  *  чата, как в мессенджерах. Вкладок «Чат / Задачи / Участники» больше нет. */
+/** Заметки: открыть папку (или «Все заметки») через заголовок «Заметки ⌄».
+ *  Папок над лентой больше нет — они в шторке «Папки» за заголовком. */
+export async function openNotesFolder(page: Page, name: string | RegExp) {
+  await page.locator('header h1 button').click();
+  const sheet = page.locator('body > div.fixed.inset-0.z-50').last();
+  await sheet.getByRole('button', { name: typeof name === 'string' ? new RegExp(name) : name }).first().click();
+  await expect(page.locator('body > div.fixed.inset-0.z-50')).toHaveCount(0);
+}
+
 export async function openFamilyCard(page: Page) {
   await page.getByRole('button', { name: /участники и настройки|members and settings/ }).click();
   await expect(page.getByRole('button', { name: /^(Выйти из группы|Leave the group)$/ })).toBeVisible();

@@ -1,5 +1,6 @@
-import { Fragment, useMemo, useRef, useState, type PointerEvent } from 'react';
+import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { format } from 'date-fns';
 import { useLoaded } from '../../hooks/useLoaded';
 import {
   FolderInput,
@@ -8,8 +9,6 @@ import {
 } from 'lucide-react';
 import {
   GSearch as Search,
-  GChevronLeft as ChevronLeft,
-  GChevronRight as ChevronRight,
   GCheck as Check,
   GNotes as NotebookText,
   GFolderPlus as FolderPlus,
@@ -27,13 +26,14 @@ import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
 import { alive, remove, restore, update } from '../../db/repo';
 import type { Note, NoteFolder } from '../../db/types';
-import { formatRu, toKey } from '../../lib/dates';
+import { addDaysKey, dateLocale, formatRu, toKey, todayKey } from '../../lib/dates';
 import { t, tPlur } from '../../lib/i18n';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { FolderSheet } from './FolderSheet';
 import { checklistProgress } from './checklist';
-import { countNotesDeep, flattenTree, folderMoveTargets, reorderWithin } from './folderTree';
-import { useHoldToReorder } from '../tasks/useHoldToReorder';
+import { countNotesDeep, flattenTree, folderMoveTargets, withDescendants } from './folderTree';
+import { FolderPicker } from './FolderPicker';
+import { groupNotesByDate } from './noteGroups';
 import { buzz } from '../../lib/feedback';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { useToast } from '../../components/ui/toastContext';
@@ -60,57 +60,25 @@ function htmlToText(html: string | null | undefined): string {
     .trim();
 }
 
+/** Когда правили — с точностью, которой не дублирует заголовок группы, как в
+ *  Apple Notes: сегодня и вчера — время («12:40»), на этой неделе — день
+ *  («среда»), раньше — дата. «19 ноября» под заголовком «Вчера» — шум. */
+function whenLabel(iso: string, grouped = true): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const key = toKey(d);
+  const today = todayKey();
+  if (key === today) return format(d, 'HH:mm');
+  // Плитки закреплённых и результаты поиска стоят вне групп по дням — там
+  // одно время без даты читалось бы как «сегодня».
+  if (!grouped) return formatRu(key);
+  if (key === addDaysKey(today, -1)) return format(d, 'HH:mm');
+  if (key > addDaysKey(today, -7)) return format(d, 'EEEE', { locale: dateLocale() });
+  return formatRu(key);
+}
+
 /** Строка заметки со свайпом влево для удаления (pointer events — тач и мышь). */
 const EMPTY_SET: ReadonlySet<string> = new Set();
-
-/** Строка папки: тап открывает, удержание — берёт для перестановки.
- *
- *  Та же машина удержания, что у проектов в «Задачах» (400 мс без движения,
- *  сжатие как отклик). Перестановка — только внутри уровня, как в Apple
- *  Notes; «бросить папку на папку = вложить» не делаем: на тачскрине в вебе
- *  «между» и «на» ловятся плохо, а вложение уже есть через «Переместить
- *  папку» в шите. Удержание без движения ничего не меняет. */
-function FolderRow({
-  folder,
-  count,
-  onOpen,
-  onReorderStart,
-  dimmed,
-}: {
-  folder: NoteFolder;
-  count: number;
-  onOpen: () => void;
-  onReorderStart: (at: { x: number; y: number; pointerId: number }) => void;
-  dimmed: boolean;
-}) {
-  const { headerProps } = useHoldToReorder(onReorderStart, onOpen);
-  return (
-    <button
-      {...headerProps}
-      // Узел строки для замера при переносе ищется по этому атрибуту:
-      // второй ref на кнопку не повесить — ref уже принадлежит хуку.
-      data-folder-id={folder.id}
-      className={`flex w-full items-center gap-3 px-4 py-3 text-left select-none active:opacity-80 [-webkit-touch-callout:none] [-webkit-user-select:none] ${
-        dimmed ? 'opacity-40' : ''
-      }`}
-    >
-      <span
-        className="flex size-9 shrink-0 items-center justify-center rounded-xl text-lg"
-        style={{ background: `${folder.color}26` }}
-      >
-        {folder.emoji}
-      </span>
-      <span className="min-w-0 flex-1 break-words">{folder.name}</span>
-      <span className="shrink-0 text-xs tabular-nums text-lh-text-secondary">{count}</span>
-      <ChevronRight size={ICON.inline} className="shrink-0 text-lh-text-secondary" aria-hidden />
-    </button>
-  );
-}
-
-/** Линия «встанет сюда» между строками папок. */
-function FolderDropLine() {
-  return <div className="mx-4 my-0.5 h-0.5 rounded-full bg-lh-accent" aria-hidden />;
-}
 
 function NoteRow({
   note,
@@ -121,9 +89,17 @@ function NoteRow({
   selected = false,
   onToggle,
   tile = false,
+  folderLabel,
+  grouped = true,
 }: {
+  /** Строка стоит под заголовком дня («Сегодня», «Вчера») — дату не повторяем. */
+  grouped?: boolean;
   /** Плитка закреплённой заметки (макет: две в ряд, превью в несколько строк). */
   tile?: boolean;
+  /** Где лежит заметка — «💼 Работа» в мета-строке. Показывается, когда лента
+   *  шире одной папки («Все заметки» или папка с подпапками): иначе человек не
+   *  отличит, перенеслась заметка или скопировалась. */
+  folderLabel?: string;
   note: Note;
   onOpen: () => void;
   onDelete: () => void;
@@ -205,7 +181,7 @@ function NoteRow({
   };
 
   return (
-    <div className={`relative overflow-hidden rounded-lh-card ${tile ? 'h-full' : ''}`}>
+    <div className={`relative overflow-hidden ${tile ? 'h-full rounded-lh-card' : ''}`}>
       {/* Кнопку рендерим ТОЛЬКО при свайпе. В покое (dx=0) её нет в DOM —
           значит ничему просвечивать в скруглённых углах карточки (на iOS
           overflow:hidden не клипает строку с transform, и красный угол торчал
@@ -214,7 +190,7 @@ function NoteRow({
         <button
           type="button"
           onClick={onDelete}
-          className="absolute inset-y-0 right-0 flex w-[88px] items-center justify-center rounded-r-lh-card bg-danger-fill text-sm font-medium text-white"
+          className={`absolute inset-y-0 right-0 flex w-[88px] items-center justify-center bg-danger-fill text-sm font-medium text-white ${tile ? 'rounded-r-lh-card' : ''}`}
         >
           {t('Удалить')}
         </button>
@@ -228,9 +204,13 @@ function NoteRow({
         // select-none — саму подсветку.
         role={selecting ? 'checkbox' : undefined}
         aria-checked={selecting ? selected : undefined}
-        className={`card relative flex touch-pan-y items-start gap-2 p-4 select-none ${tile ? 'h-full' : ''} [-webkit-touch-callout:none] [-webkit-user-select:none] ${
-          selecting && selected ? 'ring-1 ring-lh-accent/45' : ''
-        }`}
+        // Строка ленты — не отдельная карточка, а ряд внутри общей (макет
+        // notes.html, «card dv»): восемь карточек подряд читались как плитка,
+        // а не как список. Свой фон обязателен — при свайпе ряд накрывает
+        // красную кнопку под собой.
+        className={`relative flex touch-pan-y items-start gap-3 select-none [-webkit-touch-callout:none] [-webkit-user-select:none] ${
+          tile ? 'card h-full p-4' : 'bg-lh-surface px-4 py-3.5'
+        } ${selecting && selected ? (tile ? 'ring-1 ring-lh-accent/45' : 'bg-lh-accent-dim') : ''}`}
         style={{
           // transform только во время свайпа: translateX(0px) в покое сам по
           // себе ломал обрезку по скруглению на WebKit.
@@ -253,7 +233,6 @@ function NoteRow({
             {selected && <Check size={ICON.inline} strokeWidth={STROKE_STRONG} />}
           </span>
         )}
-        {note.pinned && !tile && <Pin size={ICON.inline} className="mt-1 shrink-0 text-lh-accent" fill="currentColor" />}
         {tile ? (
           <div className="flex min-h-36 min-w-0 flex-1 flex-col">
             <p className="line-clamp-3 break-words text-sm font-semibold leading-snug">{title}</p>
@@ -264,13 +243,19 @@ function NoteRow({
             ) : (
               preview && <p className="mt-2 line-clamp-5 break-words text-xs leading-relaxed text-lh-text-secondary">{preview}</p>
             )}
-            <p className="mt-auto pt-3 text-2xs text-lh-text-secondary">{formatRu(toKey(new Date(note.updatedAt)))}</p>
+            <p className="mt-auto pt-3 text-2xs tabular-nums text-lh-text-secondary">{whenLabel(note.updatedAt, false)}</p>
           </div>
         ) : (
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 break-words leading-snug">{title}</p>
-          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-lh-text-secondary">
-            <span className="shrink-0">{formatRu(toKey(new Date(note.updatedAt)))}</span>
+          <p className="flex items-start gap-1.5 leading-snug">
+            {note.pinned && <Pin size={ICON.inline} className="mt-1 shrink-0 text-lh-accent" fill="currentColor" aria-label={t('Закреплена')} />}
+            <span className={`line-clamp-2 min-w-0 break-words ${note.title || text ? '' : 'text-lh-text-secondary'}`}>{title}</span>
+          </p>
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-lh-text-secondary">
+            <span className="shrink-0 tabular-nums">{whenLabel(note.updatedAt, grouped)}</span>
+            {folderLabel && (
+              <span className="max-w-[45%] shrink-0 truncate rounded-full bg-lh-surface-2 px-2 py-px text-xs">{folderLabel}</span>
+            )}
             {/* У списка задач важно не начало текста, а сколько осталось —
                 ради этого в него и заглядывают из общего списка. */}
             {progress ? (
@@ -307,6 +292,8 @@ export function NotesPage() {
     setOpenFolderState(id);
   };
   const [folderSheet, setFolderSheet] = useState<NoteFolder | 'new' | null>(null);
+  // Где заводить новую папку: из «Папок» — в корне, из «⋯» открытой папки — внутри.
+  const [newFolderParent, setNewFolderParent] = useState<string | null>(null);
   // Режим переноса: выбрана заметка или папка, дальше человек тыкает в цель.
   // Один экран на обоих — «Куда перенести?» не должен выглядеть по-разному
   // в зависимости от того, что именно несут.
@@ -337,10 +324,8 @@ export function NotesPage() {
   // Меню «⋯» шапки: «Выбрать заметки», новая папка, правка открытой папки.
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Перестановка папок удержанием — внутри текущего уровня.
-  const [reorderFolder, setReorderFolder] = useState<NoteFolder | null>(null);
-  const [folderInsertIndex, setFolderInsertIndex] = useState<number | null>(null);
-  const insertRef = useRef<number | null>(null);
+  // Шторка «Папки» за заголовком «Заметки ⌄».
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const rows = useLiveQuery(() => db.notes.toArray(), []);
   const folderRows = useLiveQuery(() => db.noteFolders.toArray(), []);
@@ -355,22 +340,23 @@ export function NotesPage() {
   // были в редакторе) — тогда работаем от корня, а не от призрака: иначе
   // экран показывал бы вечное «пусто» без кнопки назад.
   const level = current ? openFolder : null;
-  // Что показывать списком: в папке — её заметки, в корне — те, что НЕ
-  // разложены. Иначе заметка видна и в папке, и в общем списке, и человек не
-  // понимает, перенеслась она или скопировалась.
+  // Что показывать лентой. «Все заметки» — действительно все, с меткой папки
+  // у разложенных (раньше корень показывал только неразложенные, и заметка,
+  // убранная в папку, «пропадала» с главного экрана). В папке — её заметки
+  // вместе с подпапками: столько же, сколько обещает счётчик в «Папках».
+  const scopeIds = useMemo(() => (level ? withDescendants(folders, level) : null), [folders, level]);
   const notes = useMemo(
-    () =>
-      level ? allNotes.filter((n) => n.folderId === level) : allNotes.filter((n) => !n.folderId),
-    [allNotes, level],
+    () => (scopeIds ? allNotes.filter((n) => n.folderId && scopeIds.has(n.folderId)) : allNotes),
+    [allNotes, scopeIds],
   );
   const countIn = (id: string) => countNotesDeep(allNotes, folders, id);
-  // Папки ТЕКУЩЕГО уровня: подпапки открытой папки, в корне — корневые.
-  // Вложенность как в Apple Notes: каждый экран показывает один уровень.
-  const levelFolders = useMemo(
-    () => folders.filter((f) => (f.parentId ?? null) === level),
-    [folders, level],
-  );
-  const parent = current ? (folders.find((f) => f.id === current.parentId) ?? null) : null;
+  const folderById = useMemo(() => new Map(folders.map((f) => [f.id, f])), [folders]);
+  /** Метка «💼 Работа» — только когда заметка лежит не прямо в открытой папке. */
+  const folderLabelOf = (n: Note) => {
+    if (!n.folderId || n.folderId === level) return undefined;
+    const f = folderById.get(n.folderId);
+    return f ? `${f.emoji} ${f.name}` : undefined;
+  };
 
   // Индекс поиска считаем один раз на изменение заметок, а не на каждый ввод.
   // Индекс — по ВСЕМ заметкам, а не по текущему списку: искать надо везде.
@@ -401,61 +387,13 @@ export function NotesPage() {
   const pinned = filtered.filter((n) => n.pinned);
   const rest = filtered.filter((n) => !n.pinned);
 
-  const onFolderReorderStart = (f: NoteFolder, at: { pointerId: number }) => {
-    buzz(); // «взял» — только Android, PROTOCOL §6.4
-    setReorderFolder(f);
-    const level = levelFolders;
-    const indexAt = (y: number) => {
-      let idx = 0;
-      for (const sib of level) {
-        const el = document.querySelector<HTMLElement>(`[data-folder-id="${sib.id}"]`);
-        if (!el) continue;
-        const r = el.getBoundingClientRect();
-        if (y > r.top + r.height / 2) idx++;
-      }
-      return idx;
-    };
-    const move = (e: globalThis.PointerEvent) => {
-      if (e.pointerId !== at.pointerId) return; // чужой палец не ведёт чужой жест
-      e.preventDefault();
-      const idx = indexAt(e.clientY);
-      if (idx !== insertRef.current) {
-        insertRef.current = idx;
-        setFolderInsertIndex(idx);
-      }
-    };
-    const finish = (e: globalThis.PointerEvent) => {
-      if (e.pointerId !== at.pointerId) return;
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', finish);
-      window.removeEventListener('pointercancel', finish);
-      const idx = insertRef.current;
-      insertRef.current = null;
-      setReorderFolder(null);
-      setFolderInsertIndex(null);
-      if (idx == null) return; // удержание без движения — ничего
-      const changes = reorderWithin(level, f.id, idx);
-      if (changes.length === 0) return;
-      // «Положил» — только Android и только от пальца: этот же finish ловит
-      // pointercancel, а системный обрыв жеста отклика не получает (PROTOCOL §6.4).
-      if (e.type === 'pointerup') buzz();
-      void (async () => {
-        for (const c of changes) await update(db.noteFolders, c.id, { sortOrder: c.sortOrder });
-        toast(t('Порядок папок обновлён'));
-      })();
-    };
-    window.addEventListener('pointermove', move, { passive: false });
-    window.addEventListener('pointerup', finish);
-    window.addEventListener('pointercancel', finish);
-  };
-
   function del(note: Note) {
     void remove(db.notes, note.id);
     toast(t('Заметка удалена'), { action: { label: t('Вернуть'), onClick: () => void restore(db.notes, note.id) } });
   }
 
-  const renderList = (items: Note[], tile = false) => (
-    <div className={tile ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2'}>
+  const renderList = (items: Note[], tile = false, grouped = true) => (
+    <div className={tile ? 'grid grid-cols-2 gap-3' : 'card divide-y divide-lh-border overflow-hidden'}>
       {items.map((n) => (
         <NoteRow
           key={n.id}
@@ -464,6 +402,8 @@ export function NotesPage() {
           onOpen={() => navigate(`/notes/${n.id}`)}
           onDelete={() => del(n)}
           onMoveToFolder={() => setMoving({ kind: 'note', note: n })}
+          folderLabel={folderLabelOf(n)}
+          grouped={grouped}
           selecting={selecting}
           selected={selected.has(n.id)}
           onToggle={() =>
@@ -479,33 +419,35 @@ export function NotesPage() {
     </div>
   );
 
-  /** Список заметок: сначала закреплённые, потом остальные.
-   *
-   *  Заголовок «Вне папок» появляется только в корне и только когда папки
-   *  вообще есть, — иначе он объясняет разделение, которого человек не видит.
-   *  При поиске заголовков нет вовсе: найденное лежит где угодно, и делить
-   *  результат на «вне папок» и остальное значило бы врать о том, где оно. */
+  /** Лента: закреплённые плитками, дальше — по времени («Сегодня», «Вчера»,
+   *  «Последние 7 дней»…), как в Apple Notes. При поиске — одним списком без
+   *  разбивки: важнее найденное, чем когда его правили. */
   const renderFound = () => (
     <>
       {pinned.length > 0 && (
-        <div className="mb-4">
-          <h2 className="lh-section mb-2 flex items-center gap-1.5 px-1">
+        <section className="mb-6">
+          <h2 className="lh-section mb-2.5 flex items-center gap-1.5 px-1">
             <Pin size={ICON.inline} className="text-lh-accent" fill="currentColor" aria-hidden />
             {t('Закреплённые')}
           </h2>
           {renderList(pinned, !selecting)}
-        </div>
+        </section>
       )}
-      {rest.length > 0 && (
-        <div className="mb-4">
-          {!q && (pinned.length > 0 || levelFolders.length > 0) && (
-            <h2 className="lh-section mb-2 px-1">
-              {!current && levelFolders.length > 0 ? t('Вне папок') : t('Заметки')}
-            </h2>
-          )}
-          {renderList(rest)}
-        </div>
-      )}
+      {q
+        ? rest.length > 0 && (
+            <section className="mb-6">
+              <h2 className="lh-section mb-2.5 px-1">
+                {t('Найдено: {n}', { n: filtered.length })}
+              </h2>
+              {renderList(rest, false, false)}
+            </section>
+          )
+        : groupNotesByDate(rest).map((g) => (
+            <section key={g.key} className="mb-6">
+              <h2 className="lh-section mb-2.5 px-1">{g.label}</h2>
+              {renderList(g.notes)}
+            </section>
+          ))}
     </>
   );
 
@@ -619,17 +561,15 @@ export function NotesPage() {
             ? `${current.emoji} ${current.name}`
             : t('Заметки')
       }
+      // Заголовок — он же выбор папки (вместо карточки папок над лентой).
+      // В режиме выбора переключатель молчит: «Выбрать все» привязано к ленте.
+      onTitleMenu={selecting ? undefined : () => setPickerOpen(true)}
+      titleMenuOpen={pickerOpen}
       subtitle={
         // В режиме выбора подпись остаётся: без неё шапка становилась ниже
-        // и лента прыгала при входе в выбор.
-        !current && allNotes.length > 0
-          ? [
-              tPlur(allNotes.length, ['заметка', 'заметки', 'заметок']),
-              folders.length > 0 ? tPlur(folders.length, ['папка', 'папки', 'папок']) : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')
-          : undefined
+        // и лента прыгала при входе в выбор. Подпись — одна на любом уровне,
+        // чтобы шапка не меняла высоту при смене папки.
+        notes.length > 0 ? tPlur(notes.length, ['заметка', 'заметки', 'заметок']) : undefined
       }
       right={
         selecting ? (
@@ -667,41 +607,7 @@ export function NotesPage() {
         )
       }
     >
-      {current && (
-        <button
-          onClick={() => setOpenFolder(current.parentId ?? null)}
-          className="mb-3 -ml-1 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-lh-accent active:opacity-60"
-        >
-          {/* Назад — на уровень выше, а не всегда в корень: внутри вложенной
-              папки «Все заметки» перепрыгивал бы родителя. */}
-          <ChevronLeft size={ICON.action} /> {parent ? `${parent.emoji} ${parent.name}` : t('Все заметки')}
-        </button>
-      )}
-
-      <SearchField value={query} onChange={setQuery} className="mb-3" />
-
-      {/* Папки текущего уровня — и только когда не ищут: во время поиска нужен
-          результат по всем заметкам, а не разбивка по хранилищам. */}
-      {!q && levelFolders.length > 0 && (
-        <h2 className="lh-section mb-2 px-1">{t('Папки')}</h2>
-      )}
-      {!q && levelFolders.length > 0 && (
-        <div className="card mb-5 divide-y divide-lh-border">
-          {levelFolders.map((f, i) => (
-            <Fragment key={f.id}>
-              {reorderFolder && folderInsertIndex === i && <FolderDropLine />}
-              <FolderRow
-                folder={f}
-                count={countIn(f.id)}
-                onOpen={() => setOpenFolder(f.id)}
-                onReorderStart={(at) => onFolderReorderStart(f, at)}
-                dimmed={reorderFolder?.id === f.id}
-              />
-            </Fragment>
-          ))}
-          {reorderFolder && folderInsertIndex === levelFolders.length && <FolderDropLine />}
-        </div>
-      )}
+      <SearchField value={query} onChange={setQuery} className="mb-5" />
 
       {/* Поиск проверяется ПЕРВЫМ, и это не вкусовщина.
           Раньше первой стояла ветка «notes.length === 0», а notes — срез только
@@ -718,16 +624,13 @@ export function NotesPage() {
           renderFound()
         )
       ) : notes.length === 0 ? (
-        // Пустой уровень — это когда нет НИ заметок, НИ подпапок: экран с
-        // одними папками не «пуст», и говорить так — врать о содержимом.
-        loaded &&
-        levelFolders.length === 0 && (
+        loaded && (
           <EmptyState
             icon={NotebookText}
             title={current ? t('В папке пусто') : t('Пока нет заметок')}
             hint={
               current
-                ? t('Перенесите сюда заметку долгим нажатием на неё в общем списке')
+                ? t('Нажмите +, чтобы создать заметку здесь, или перенесите существующую долгим нажатием')
                 : t('Нажмите +, чтобы создать первую')
             }
           />
@@ -790,6 +693,7 @@ export function NotesPage() {
           <button
             onClick={() => {
               setMenuOpen(false);
+              setNewFolderParent(level);
               setFolderSheet('new');
             }}
             className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
@@ -813,11 +717,28 @@ export function NotesPage() {
           )}
         </div>
       </Sheet>
+      <FolderPicker
+        open={pickerOpen}
+        folders={folders}
+        current={level}
+        totalCount={allNotes.length}
+        countIn={countIn}
+        onPick={(id) => {
+          setPickerOpen(false);
+          setOpenFolder(id);
+        }}
+        onNewFolder={() => {
+          setPickerOpen(false);
+          setNewFolderParent(null);
+          setFolderSheet('new');
+        }}
+        onClose={() => setPickerOpen(false)}
+      />
       <FolderSheet
         key={folderSheet === 'new' ? 'new' : (folderSheet?.id ?? 'closed')}
         open={folderSheet !== null}
         folder={folderSheet === 'new' ? null : folderSheet}
-        parentId={level}
+        parentId={newFolderParent}
         onClose={() => setFolderSheet(null)}
         onDeleted={() => {
           // С удалённой папки уходим к её родителю — там теперь лежит её

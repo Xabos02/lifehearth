@@ -5,6 +5,7 @@ import { Link, useLocation } from 'react-router';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import {
   GChevronLeft as ChevronLeft,
+  GChevronDown as ChevronDown,
 } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
 import { IconButton } from '../ui/IconButton';
@@ -58,6 +59,11 @@ interface Props {
    *  Не aria-label: он заменил бы всё имя кнопки, и диктор перестал бы
    *  читать подзаголовок (статус связи). */
   titlePressHint?: string;
+  /** Крупный заголовок-переключатель со стрелкой ⌄ (заметки: «Заметки ⌄» —
+   *  выбор папки). Место в шапке не тратится: переключатель и есть заголовок,
+   *  как выбор альбома в «Фото» или папок в Telegram. */
+  onTitleMenu?: () => void;
+  titleMenuOpen?: boolean;
   children: ReactNode;
 }
 
@@ -139,6 +145,8 @@ export function Screen({
   titleLead,
   onTitlePress,
   titlePressHint,
+  onTitleMenu,
+  titleMenuOpen = false,
   children,
 }: Props) {
   // Раздел, вынесенный в нижнее меню, — экран первого уровня: стрелка «‹ Ещё»
@@ -233,11 +241,33 @@ export function Screen({
                 className={
                   compact
                     ? 'truncate text-base leading-tight font-semibold tracking-tight text-lh-text-primary'
-                    : 'lh-heading line-clamp-2 break-words max-[359px]:text-[7.5vw]'
+                    : // У переключателя обрезку несёт имя внутри кнопки: line-clamp на h1
+                      // с inline-flex внутри срезал бы стрелку вместе со второй строкой.
+                      `lh-heading break-words max-[359px]:text-[7.5vw] ${onTitleMenu ? '' : 'line-clamp-2'}`
                 }
               >
                 {titleHiddenPrefix && <span className="sr-only">{titleHiddenPrefix}. </span>}
-                {title}
+                {onTitleMenu && !compact ? (
+                  <button
+                    type="button"
+                    onClick={onTitleMenu}
+                    aria-haspopup="dialog"
+                    aria-expanded={titleMenuOpen}
+                    // Зона 44px — псевдоэлементом: min-h-11 раздувал шапку на 12px,
+                    // и лента прыгала бы при входе в режим выбора.
+                    className="relative flex max-w-full items-center gap-1.5 text-left after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-[''] active:opacity-70"
+                  >
+                    <span className="line-clamp-2 min-w-0 break-words">{title}</span>
+                    <ChevronDown
+                      size={ICON.header}
+                      strokeWidth={STROKE_STRONG}
+                      aria-hidden
+                      className={`shrink-0 text-lh-accent transition-transform duration-200 ${titleMenuOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                ) : (
+                  title
+                )}
               </h1>
             )}
             {subtitle && (

@@ -57,7 +57,9 @@ test('кегли и радиусы — только из шкалы', async ({ p
           const cls = (el.getAttribute('class') || '').slice(0, 60);
           const size = Math.round(parseFloat(cs.fontSize) * 100) / 100;
           // Заголовок экрана масштабируется по ширине окна — у него диапазон.
-          const isTitle = el.tagName === 'H1';
+          // Включая кнопку-переключатель внутри h1 («Заметки ⌄»): она наследует
+          // кегль заголовка, своего не задаёт.
+          const isTitle = el.tagName === 'H1' || el.closest('h1') != null;
           // 12px — ступень типографики дизайн-системы (.lh-section / .lh-label,
           // PROTOCOL.md §1.9 и §2.2), и только внутри неё, а не где угодно.
           const isLh12 = Math.abs(size - 12) < 0.6 && el.closest('.lh-section, .lh-label') != null;

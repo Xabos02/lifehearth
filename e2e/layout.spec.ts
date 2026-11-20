@@ -1,4 +1,4 @@
-import { test, expect, openApp } from './fixtures';
+import { test, expect, openApp, openNotesFolder } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // Дефекты вёрстки, которые уже случались и вернутся при любой правке отступов.
@@ -61,14 +61,18 @@ for (const width of [320, 375, 393]) {
       ] as never[]);
     });
     await page.goto('./notes');
-    await page.getByText('Документы и счета', { exact: true }).click();
+    await openNotesFolder(page, 'Документы и счета');
 
     const title = page.locator('header h1');
     const shape = () =>
-      title.evaluate((el) => ({
-        clamped: el.scrollHeight > el.clientHeight + 1,
-        lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
-      }));
+      title.evaluate((el) => {
+        // У «Заметки ⌄» обрезку несёт имя внутри кнопки-переключателя.
+        const text = el.querySelector('button > span') ?? el;
+        return {
+          clamped: text.scrollHeight > text.clientHeight + 1,
+          lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
+        };
+      });
     await expect(title).toHaveText('🏠 Документы и счета');
     expect((await shape()).clamped, 'имя папки обрезано').toBe(false);
 

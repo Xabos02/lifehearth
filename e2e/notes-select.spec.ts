@@ -1,4 +1,4 @@
-import { test, expect, openApp } from './fixtures';
+import { test, expect, openApp, openNotesFolder } from './fixtures';
 
 // Заметки: выбрать несколько или все, переместить и удалить группой.
 //
@@ -66,16 +66,26 @@ test('вне режима тап открывает заметку; «Выбра
   await expect(page.getByRole('checkbox')).toHaveCount(0);
 });
 
-test('«Выбрать все» берёт только текущий уровень и превращается в «Снять все»', async ({ page }) => {
+test('«Выбрать все» берёт всю ленту и превращается в «Снять все»', async ({ page }) => {
   await openApp(page, '/notes');
   await seed(page);
   await startSelect(page);
   await page.getByRole('button', { name: 'Выбрать все' }).click();
-  // В корне три заметки; четвёртая лежит в папке и в выбор не попадает.
-  await expect(page.getByRole('heading', { name: 'Выбрано: 3' })).toBeVisible();
+  // «Все заметки» — действительно все, вместе с разложенной по папке.
+  await expect(page.getByRole('heading', { name: 'Выбрано: 4' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Снять все' })).toBeVisible();
   await page.getByRole('button', { name: 'Снять все' }).click();
   await expect(page.getByRole('heading', { name: 'Выбрано: 0' })).toBeVisible();
+});
+
+test('в папке «Выбрать все» берёт только её заметки', async ({ page }) => {
+  await openApp(page, '/notes');
+  await seed(page);
+  await openNotesFolder(page, 'Быт');
+  await startSelect(page);
+  await page.getByRole('button', { name: 'Выбрать все' }).click();
+  await expect(page.getByRole('heading', { name: 'Выбрано: 1' })).toBeVisible();
+  await expect(rowOf(page, 'В папке')).toHaveAttribute('aria-checked', 'true');
 });
 
 test('группа переезжает в папку через «Куда перенести?»', async ({ page }) => {
@@ -94,8 +104,12 @@ test('группа переезжает в папку через «Куда пе
   await expect.poll(() => idsWhere(page, "n.folderId === 'f1' && !n.deletedAt")).toEqual(['n1', 'n2', 'n4']);
   // Вышли из режима, третья осталась в корне.
   await expect(page.getByRole('checkbox')).toHaveCount(0);
+  // «Все заметки» показывают и разложенные — теперь с меткой папки.
   await expect(page.getByText('Книги')).toBeVisible();
-  await expect(page.getByText('Покупки')).toHaveCount(0);
+  await expect(page.locator('main').getByText('🏠 Быт')).toHaveCount(3);
+  await openNotesFolder(page, 'Быт');
+  await expect(page.getByText('Покупки')).toBeVisible();
+  await expect(page.getByText('Книги')).toHaveCount(0);
 });
 
 test('группа удаляется в Корзину без вопроса, плашка «Вернуть» отменяет', async ({ page }) => {
@@ -118,14 +132,16 @@ test('группа удаляется в Корзину без вопроса, �
   await expect(page.getByText('Покупки')).toBeVisible();
 });
 
-test('смена уровня снимает выбор сама', async ({ page }) => {
+test('в режиме выбора заголовок не переключает папку; после «Готово» — без отметок', async ({ page }) => {
   await openApp(page, '/notes');
   await seed(page);
   await startSelect(page);
   await rowOf(page, 'Покупки').click();
   await expect(page.getByRole('heading', { name: 'Выбрано: 1' })).toBeVisible();
-  // Зашли в папку — режима нет, отметок нет.
-  await page.getByRole('button', { name: /Быт/ }).click();
+  // Сменить папку посреди выбора нельзя: отмеченное не уедет незаметно.
+  await expect(page.locator('header h1 button')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Готово' }).click();
+  await openNotesFolder(page, 'Быт');
   await expect(page.getByText('В папке')).toBeVisible();
   await expect(page.getByRole('checkbox')).toHaveCount(0);
 });

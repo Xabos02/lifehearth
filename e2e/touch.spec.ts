@@ -1,4 +1,4 @@
-import { test, expect, openApp, openFamilyCard, seedFamilyChats } from './fixtures';
+import { test, expect, openApp, openFamilyCard, openNotesFolder, seedFamilyChats } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // Зона касания меньше 44×44 — самый частый дефект мобильной вёрстки и
@@ -460,7 +460,7 @@ test('заметки: шторка «⋯» и режим выбора на 320px
     await db.notes.put({ id: 'tn1', createdAt: ts, updatedAt: ts, deletedAt: null, title: 'Счёт за свет', content: '<p>Счёт за свет</p>', tags: [], pinned: false, folderId: 'tf1' } as never);
   });
   await page.goto('/notes');
-  await page.getByText('Документы и счета', { exact: true }).click();
+  await openNotesFolder(page, 'Документы и счета');
   await page.getByRole('button', { name: 'Ещё', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Изменить папку' })).toBeVisible();
   await check('меню «⋯» папки', SHEET);
@@ -519,7 +519,7 @@ test('текстовые кнопки шторок исключения и па�
     const ts = new Date().toISOString();
     await db.noteFolders.put({ id: 'nf1', name: 'Быт', emoji: '🏠', color: '#5b7cfa', parentId: null, sortOrder: 1000, createdAt: ts, updatedAt: ts, deletedAt: null } as never);
   });
-  await page.getByText('Быт', { exact: true }).click();
+  await openNotesFolder(page, 'Быт');
   await page.getByRole('button', { name: 'Ещё', exact: true }).click();
   await page.getByRole('button', { name: 'Изменить папку' }).click();
   await expect(page.getByRole('button', { name: 'Удалить папку' })).toBeVisible();

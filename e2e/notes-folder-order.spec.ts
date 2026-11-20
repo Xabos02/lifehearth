@@ -20,7 +20,15 @@ async function seed(page: Page) {
     ] as never[]);
   });
   await page.reload();
+  // Папки живут в шторке «Папки» за заголовком «Заметки ⌄».
+  await page.locator('header h1 button').click();
   await expect(page.getByText('Здоровье', { exact: true })).toBeVisible();
+  // Шторка ещё въезжает: координаты, снятые на ходу, промахиваются мимо строк.
+  await page.evaluate(async () => {
+    await Promise.all(
+      [...document.querySelectorAll('[class*="animate-sheet-up"]')].flatMap((el) => el.getAnimations()).map((a) => a.finished),
+    );
+  });
 }
 
 async function order(page: Page): Promise<string[]> {
@@ -69,8 +77,8 @@ test('удержание без движения ничего не меняет,
   await page.waitForTimeout(200);
   expect(await order(page)).toEqual(before);
   // Папка не открылась — удержание не тап.
-  await expect(page.getByRole('heading', { name: /Бизнес/ })).toHaveCount(0);
+  await expect(page.locator('header h1')).toHaveText('Заметки');
 
   await page.getByText('Бизнес', { exact: true }).first().click();
-  await expect(page.getByRole('heading', { name: /Бизнес/ })).toBeVisible();
+  await expect(page.locator('header h1')).toHaveText('💼 Бизнес');
 });
