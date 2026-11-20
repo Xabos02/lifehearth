@@ -104,4 +104,23 @@ describe('feedStream', () => {
       { id: 'b', name: 'list_goals', arguments: '{}' },
     ]);
   });
+
+  it('два вызова под одним index с разными id — два вызова, а не склейка «{…}{…}»', () => {
+    // Так шлёт Gemma на Workers AI (живой тест 20.11.2026): склейка уходила
+    // в историю, и модель отвечала 8007 «arguments must be valid JSON».
+    const st = newStreamState();
+    const call = (id: string | null, name: string | null, args: string) =>
+      ev({ choices: [{ delta: { tool_calls: [{ id, index: 1, type: 'function', function: { name, arguments: args } }] } }] });
+    feedStream(
+      st,
+      call('call_a', 'search_notes', '') +
+        call(null, null, '{"query": "идеи"}') +
+        call('call_b', 'search_notes', '') +
+        call(null, null, '{"query": "список"}'),
+    );
+    expect(st.toolCalls).toEqual([
+      { id: 'call_a', name: 'search_notes', arguments: '{"query": "идеи"}' },
+      { id: 'call_b', name: 'search_notes', arguments: '{"query": "список"}' },
+    ]);
+  });
 });

@@ -33,6 +33,8 @@ export interface StreamState {
    *  Так делает часть агрегаторов: без этого поля событие молча пропускалось,
    *  и человек видел «пустой ответ 0→0» вместо причины. */
   error: string | null;
+  /** index провайдера → место в toolCalls. Не равенство: см. feedStream. */
+  slots: Record<number, number>;
 }
 
 export function newStreamState(): StreamState {
@@ -40,6 +42,7 @@ export function newStreamState(): StreamState {
     buffer: '',
     content: '',
     toolCalls: [],
+    slots: {},
     finishReason: null,
     tokensIn: null,
     tokensOut: null,
@@ -106,9 +109,19 @@ export function feedStream(st: StreamState, chunk: string): string {
       added += delta;
     }
     for (const tc of choice?.delta?.tool_calls ?? []) {
-      const i = typeof tc.index === 'number' ? tc.index : 0;
-      while (st.toolCalls.length <= i) st.toolCalls.push({ id: '', name: '', arguments: '' });
-      const slot = st.toolCalls[i];
+      // Вызов узнаём по index, но новый id под уже занятым index — это новый
+      // вызов: Gemma на Workers AI шлёт параллельные вызовы под одним index
+      // (живой тест 20.11.2026: два search_notes, оба index 1, разные id).
+      // Без этого аргументы склеивались в «{…}{…}», и модель отвергала всю
+      // историю разговора (8007 «arguments must be valid JSON»).
+      const key = typeof tc.index === 'number' ? tc.index : 0;
+      let at = st.slots[key];
+      if (at === undefined || (tc.id && st.toolCalls[at].id && st.toolCalls[at].id !== tc.id)) {
+        at = st.toolCalls.length;
+        st.toolCalls.push({ id: '', name: '', arguments: '' });
+        st.slots[key] = at;
+      }
+      const slot = st.toolCalls[at];
       if (tc.id) slot.id = tc.id;
       if (tc.function?.name) slot.name = tc.function.name;
       if (typeof tc.function?.arguments === 'string') slot.arguments += tc.function.arguments;
