@@ -743,6 +743,35 @@ describe('права в комнате: клиент несёт доказате
     else expect(nonce).toBeTruthy(); // сервер уже погасил задачу, приняв ответ
   });
 
+  // Подписки на пуши — по устройству. Вышли из группы на маке, где не включали
+  // уведомления, — у iPhone того же участника подписка должна остаться: запрос
+  // без адреса сервер понимает как прежнюю версию и снимает все подписки.
+  it('выход из группы снимает подписку только этого устройства, а без своей подписки не трогает ничьих', async () => {
+    const me = await makeMember({ owner: true, token: TOKEN });
+    const sql = (room as unknown as { sql: { exec: (q: string, ...p: unknown[]) => { toArray: () => { endpoint: string }[] } } }).sql;
+    for (const ep of ['https://push.example/phone', 'https://push.example/mac']) {
+      sql.exec('INSERT INTO push_subs (endpoint, member_id, sub) VALUES (?, ?, ?)', ep, me, JSON.stringify({ endpoint: ep }));
+    }
+    const left = () => sql.exec('SELECT endpoint FROM push_subs ORDER BY endpoint').toArray().map((r) => r.endpoint);
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    });
+    const { unregisterFamilyPush } = await import('./familyChat');
+
+    seen = [];
+    await unregisterFamilyPush(FAMILY_ID); // мак без уведомлений
+    expect(seen.some((s) => s.path.endsWith('/push-unsub')), 'запрос ушёл без адреса').toBe(false);
+    expect(left()).toEqual(['https://push.example/mac', 'https://push.example/phone']);
+
+    store.set('life-hub-push-sub', JSON.stringify({ endpoint: 'https://push.example/mac' }));
+    await unregisterFamilyPush(FAMILY_ID); // мак с уведомлениями
+    expect(seen.find((s) => s.path.endsWith('/push-unsub'))?.body).toMatchObject({ endpoint: 'https://push.example/mac' });
+    expect(left()).toEqual(['https://push.example/phone']);
+  });
+
   // Аудит 18.11, S1/F1 — проба keyhijack: участник подменяет профиль Алисы
   // своим вторым публичным ключом. Владелец после его исключения печатает
   // «конверт Алисы» на этот ключ: исключённый читает дальше, Алиса молча

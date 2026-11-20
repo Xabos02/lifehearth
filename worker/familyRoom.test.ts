@@ -1040,7 +1040,7 @@ describe('уведомления на все устройства участни
    *  iPhone — свёрнут (устройство в hello, потом «в фоне»). */
   async function macOpenPhoneAway(f: Awaited<ReturnType<typeof family>>) {
     const mac = f.addSocket(ALICE);
-    await f.send(mac, { type: 'hello', lastSeq: 0 });
+    await f.send(mac, { type: 'hello', lastSeq: 0, device: null });
     await f.send(mac, { type: 'back', device: await sha256hex(MAC) });
     const phone = f.addSocket(ALICE);
     await f.send(phone, { type: 'hello', lastSeq: 0, device: await sha256hex(PHONE) });
@@ -1076,6 +1076,24 @@ describe('уведомления на все устройства участни
     f.caller.serializeAttachment({ ...f.caller.att, at: Date.now() });
     await offer(f, 'c2');
     expect(f.sent.map((s) => s.to).sort()).toEqual([MAC, PHONE]);
+  });
+
+  it('на виду приложение без уведомлений — не прикрывает других устройств; прежней версии — прикрывает все, как раньше', async () => {
+    // Мак без уведомлений (device: null): iPhone и второй закрытый компьютер звонят.
+    const f = await family();
+    const bare = f.addSocket(ALICE);
+    await f.send(bare, { type: 'hello', lastSeq: 0, device: null });
+    await offer(f, 'c1');
+    expect(f.sent.map((s) => s.to).sort()).toEqual([MAC, PHONE]);
+    // Приложение прежней версии устройства не называет: пока оно не обновилось,
+    // его живой сокет глушит пуши, как до этой правки, — иначе «Входящий
+    // звонок» ложился бы поверх его открытого экрана.
+    const g = await family();
+    const legacy = g.addSocket(ALICE);
+    await g.send(legacy, { type: 'hello', lastSeq: 0 });
+    await offer(g, 'c1');
+    await g.send(g.caller, { type: 'send', channel: 'msg', clientMsgId: 'm1', createdAt: new Date().toISOString(), ciphertext: 'x' });
+    expect(g.sent).toEqual([]);
   });
 
   it('сообщение семьи — на iPhone в фоне, не на открытый мак и не автору', async () => {

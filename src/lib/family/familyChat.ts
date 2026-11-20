@@ -11,7 +11,7 @@ import { db } from '../../db/db';
 import { noteUndecrypted } from './undecrypted';
 import { decryptBatch } from './decryptBatch';
 import type { FamilyConfig, FamilyMessage, FamilySystemEvent, FamilyTask, FamilyMember } from '../../db/types';
-import { getPushSubscription } from '../push';
+import { getPushSubscription, pushEndpoint } from '../push';
 import { getFamilyConfig, patchFamilyConfig, listFamilyConfigs } from './familyState';
 import { assembleFile, splitDataUrl } from './fileTransfer';
 import { PRESET_COLORS } from '../colors';
@@ -834,12 +834,15 @@ class FamilyEngine {
    *  локальные данные (а с ними токен) будут стёрты. */
   async unregisterPush(c?: FamilyConfig) {
     const cfg = c ?? (await this.cfg());
-    if (!cfg) return;
+    // Снимаем подписку этого устройства, а не всех устройств участника: вышли
+    // из группы здесь — остальные его устройства уведомления получают дальше.
+    // Своей подписки нет (на маке не включали уведомления) — снимать нечего.
+    // Запрос без адреса сервер понял бы как прежнюю версию приложения и снял
+    // бы подписки ВСЕХ устройств участника, iPhone в том числе.
+    const endpoint = pushEndpoint();
+    if (!cfg || !endpoint) return;
     try {
       const answer = await this.proof(cfg);
-      // Подписка этого устройства, а не всех устройств участника: вышли из
-      // группы здесь — остальные его устройства уведомления получают дальше.
-      const endpoint = (getPushSubscription() as { endpoint?: string } | null)?.endpoint ?? null;
       await fetch(`${WORKER_URL}/family/push-unsub?familyId=${cfg.familyId}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${cfg.familyToken}`, 'Content-Type': 'application/json' },
@@ -1132,8 +1135,8 @@ export function setAway(v: boolean): void {
 let deviceEndpoint: string | null = null;
 let deviceHash: string | null = null;
 async function refreshDevice(): Promise<void> {
-  const ep = (getPushSubscription() as { endpoint?: unknown } | null)?.endpoint;
-  if (typeof ep !== 'string' || !ep) {
+  const ep = pushEndpoint();
+  if (!ep) {
     deviceEndpoint = deviceHash = null;
   } else if (ep !== deviceEndpoint) {
     deviceHash = await sha256hex(ep);

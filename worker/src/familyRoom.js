@@ -759,7 +759,9 @@ export class FamilyRoom extends DurableObject {
       // соединение без подтверждения переназывалось кем угодно (аудит 18.11,
       // S2); история при этом тоже уходила заново.
       if (att.hello) return;
-      ws.serializeAttachment({ ...att, ...deviceOf(msg), hello: true, at: Date.now() });
+      // tellsDevice — приложение знает про устройства и шлёт device всегда (null —
+      // подписки нет). Прежняя версия поля не шлёт вовсе — см. visibleDevices.
+      ws.serializeAttachment({ ...att, ...deviceOf(msg), tellsDevice: 'device' in msg, hello: true, at: Date.now() });
       this.sql.exec(
         'INSERT INTO members (member_id, joined_at) VALUES (?, ?) ON CONFLICT(member_id) DO NOTHING',
         who,
@@ -1028,23 +1030,28 @@ export class FamilyRoom extends DurableObject {
 
   /** Хэши устройств участника, где приложение открыто на виду: сокет живой
    *  (пинговал недавно) и не помечен «в фоне». Такому устройству пуш не нужен
-   *  — входящий покажет и зазвонит само приложение. */
+   *  — входящий покажет и зазвонит само приложение. null — на виду приложение
+   *  прежней версии: своего устройства оно не называет, и, как раньше, его
+   *  живой сокет прикрывает все устройства участника. Иначе до своего
+   *  обновления оно получало бы «Входящий звонок» поверх открытого экрана. */
   visibleDevices(memberId) {
     const out = new Set();
     for (const ws of this.ctx.getWebSockets()) {
       if (boundMember(ws) !== memberId || !this.isFresh(ws)) continue;
       const att = ws.deserializeAttachment();
-      if (!att.away && att.device) out.add(att.device);
+      if (att.away) continue;
+      if (!att.tellsDevice) return null;
+      if (att.device) out.add(att.device);
     }
     return out;
   }
 
-  /** Подписки участника, кроме устройств с приложением на виду. Сокет без
-   *  устройства (приложение прежней версии, или на нём не включали
-   *  уведомления) ничьих подписок не покрывает: иначе мак без уведомлений
-   *  снова глушил бы iPhone. */
+  /** Подписки участника, кроме устройств с приложением на виду. Сокет, где
+   *  не включали уведомления (device: null), ничьих подписок не покрывает:
+   *  иначе мак без уведомлений снова глушил бы iPhone. */
   async hiddenSubs(memberId) {
     const visible = this.visibleDevices(memberId);
+    if (!visible) return [];
     const out = [];
     for (const r of this.sql.exec('SELECT endpoint, sub FROM push_subs WHERE member_id=?', memberId).toArray()) {
       if (visible.size && visible.has(await sha256hex(r.endpoint))) continue;
