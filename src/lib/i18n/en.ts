@@ -1866,6 +1866,7 @@ export const EN: Record<string, string> = {
   'Удалить доход?': 'Delete the income?',
   'Оставить': 'Keep',
   'Не удалено': 'Not deleted',
+  'Запись меняли после ассистента. Всё равно отменить?': 'This entry was changed after the assistant. Undo anyway?',
   'Доступ к данным': 'Data access',
   'Поиск заметок': 'Note search',
   'Настройки чата': 'Chat settings',

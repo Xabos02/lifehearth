@@ -19,7 +19,8 @@ import type { AiAction } from '../../db/types';
 const MAX_ROUNDS = 8;
 
 /** Потолок изменений за ответ — решение Влада 20.11: подменённая инструкция в
- *  заметке не должна суметь переписать полприложения за один ответ. Сверх
+ *  заметке не должна суметь переписать полприложения за один ответ. Считаются
+ *  записи (тренировка из трёх видов — три), неудачный вызов — как одна. Сверх
  *  потолка вызов не исполняется, модель получает отказ текстом. */
 export const MAX_WRITES = 20;
 
@@ -92,7 +93,7 @@ export async function runAgent(params: {
         write && writes >= MAX_WRITES
           ? { text: JSON.stringify({ error: `не больше ${MAX_WRITES} изменений за ответ — остальное в следующем сообщении` }), count: 0 }
           : await runTool(name, call.function.arguments);
-      if (write) writes++;
+      if (write) writes += Math.max(1, (result.actions ?? []).reduce((n, a) => n + a.ids.length, 0));
       for (const a of result.actions ?? []) params.onAction?.(a);
       // След — только чтение: что ушло провайдеру. Записанное видно карточкой.
       if (!write) trace.push({ tool: name, count: result.count });

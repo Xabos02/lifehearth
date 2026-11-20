@@ -37,7 +37,7 @@ import { cleanExercises } from '../../features/health/exercises';
 import { workoutKind } from '../../features/health/workouts';
 import { PRESET_COLORS } from '../colors';
 import { isDateKey, todayKey } from '../dates';
-import { cancelReminder } from '../push';
+import { cancelReminder, scheduleReminder } from '../push';
 import { t } from '../i18n';
 
 /** Короткий id для модели — 8 символов UUID. Полный id на 300 задач — это
@@ -95,6 +95,22 @@ function timeArg(v: unknown): string | null {
 
 const PRIORITY: Record<string, Priority> = { none: 0, low: 1, medium: 2, high: 3 };
 
+/** Потолки одного вызова: потолок изменений за ответ (agentLoop) считает
+ *  записи, но один вызов не должен развернуться в сотни строк (ревью 20.11:
+ *  log_workout на 60 видов прошёл бы целиком). */
+const MAX_ITEMS = 12;
+const MAX_EXERCISES = 40;
+const MAX_CHECKLIST = 50;
+
+function capped(list: string[], max: number, what: string): string[] {
+  if (list.length > max) throw new ArgError(`${what}: не больше ${max} за раз`);
+  return list;
+}
+
+/** Напоминания «за N дней» живут без времени — как REMIND_PRESETS_ALLDAY в
+ *  TaskEditSheet; прочие без времени задачи смысла не имеют. */
+const REMIND_ALLDAY = [1440, 2880, 4320, 10080];
+
 /** Повтор от модели → Recurrence. Без дней недели — день срока (или
  *  сегодняшний), без числа месяца — число срока: как подставляет форма. */
 function recurrenceArg(v: unknown, due: string | null): Recurrence | null {
@@ -125,11 +141,17 @@ function recurrenceArg(v: unknown, due: string | null): Recurrence | null {
   }
 }
 
-/** Запись по короткому id (или полному). Совпадений два — просим уточнить. */
-async function findById<T extends BaseEntity>(table: Table<T, string>, raw: unknown): Promise<T> {
+/** Запись по короткому id (или полному). Совпадений два — просим уточнить.
+ *  Меньше 8 символов не принимаем: выдуманный моделью id «0» попадал в чужую
+ *  запись (ревью 20.11). Автозадачи «Женских дней» (origin 'cycle') не находятся
+ *  вовсе — раздел вне доступа ассистента и на чтение, и на запись; `visible` —
+ *  тот же отбор, что у инструмента чтения (архивная копилка в выдаче не видна). */
+async function findById<T extends BaseEntity>(table: Table<T, string>, raw: unknown, visible?: (r: T) => boolean): Promise<T> {
   const sid = str(raw);
-  if (!sid) throw new ArgError('нужен id записи — возьми его из инструмента чтения');
-  const hits = alive(await table.where(':id').startsWith(sid).toArray());
+  if (sid.length < 8) throw new ArgError('нужен id записи (8 символов) — возьми его из инструмента чтения');
+  const hits = alive(await table.where(':id').startsWith(sid).toArray()).filter(
+    (r) => (r as { origin?: string }).origin !== 'cycle' && (!visible || visible(r)),
+  );
   if (!hits.length) throw new ArgError(`запись с id ${sid} не найдена`);
   if (hits.length > 1) throw new ArgError(`id ${sid} подходит к нескольким записям — дай больше символов`);
   return hits[0];
@@ -181,7 +203,7 @@ async function createTask(args: Record<string, unknown>): Promise<WriteResult> {
     duration: null,
     remindBefore: null,
     completedAt: null,
-    checklist: strList(args.checklist).map((text) => ({ id: uid(), text, done: false })),
+    checklist: capped(strList(args.checklist), MAX_CHECKLIST, 'чек-лист').map((text) => ({ id: uid(), text, done: false })),
     recurrence,
     tags: strList(args.tags),
     sortOrder: await newTaskSortOrder(projectId, priority),
@@ -209,8 +231,11 @@ async function updateTask(args: Record<string, unknown>): Promise<WriteResult> {
   const start = changes.startDate !== undefined ? changes.startDate : (task.startDate ?? null);
   if (start && (!due || start > due)) throw new ArgError('начало периода должно быть не позже срока');
   if (has(args, 'time')) changes.dueTime = timeArg(args.time);
-  // Время и напоминание без срока не значат ничего — как в форме задачи.
+  // Время и напоминание без срока не значат ничего — как в форме задачи; без
+  // времени остаются только напоминания «за N дней».
   if (!due) Object.assign(changes, { dueTime: null, remindBefore: null, startDate: null });
+  const time = changes.dueTime !== undefined ? changes.dueTime : task.dueTime;
+  if (!time && task.remindBefore != null && !REMIND_ALLDAY.includes(task.remindBefore)) changes.remindBefore = null;
   if (has(args, 'priority')) {
     changes.priority = PRIORITY[str(args.priority)] ?? task.priority;
     if (changes.priority === 3 && task.priority !== 3) changes.sortOrder = newSortOrder();
@@ -220,7 +245,7 @@ async function updateTask(args: Record<string, unknown>): Promise<WriteResult> {
   if (has(args, 'checklist')) {
     // Пункт с тем же текстом сохраняет свою галочку.
     const was = new Map(task.checklist.map((c) => [c.text, c]));
-    changes.checklist = strList(args.checklist).map((text) => was.get(text) ?? { id: uid(), text, done: false });
+    changes.checklist = capped(strList(args.checklist), MAX_CHECKLIST, 'чек-лист').map((text) => was.get(text) ?? { id: uid(), text, done: false });
   }
   if (has(args, 'project')) changes.projectId = str(args.project) ? await projectArg(args.project, actions) : null;
 
@@ -229,6 +254,8 @@ async function updateTask(args: Record<string, unknown>): Promise<WriteResult> {
   if (!changed.length) return { text: JSON.stringify({ ok: true, note: 'менять нечего' }), count: 0 };
   const before = Object.fromEntries(changed.map((k) => [k, task[k] ?? null]));
   await update(db.tasks, task.id, Object.fromEntries(changed.map((k) => [k, changes[k]])));
+  // Перенос срока переносит и пуш — как сохранение шторки задачи.
+  if (task.remindBefore != null) void rescheduleReminder(task.id);
   actions.push({ op: 'update', kind: 'task', ids: [task.id], title: changes.title ?? task.title, state: 'done', before });
   return done(actions);
 }
@@ -316,14 +343,17 @@ const BUILTIN: WorkoutType[] = ['run', 'strength', 'boxing', 'kettlebell', 'stre
 
 /** Вид от модели → строка вида шаблона или тренировки. Вида нет в списке, но
  *  есть название — своё упражнение, через тот же справочник, что «+ Своё». */
-async function itemArg(raw: unknown): Promise<WorkoutTemplateItem> {
+async function itemArg(raw: unknown, newDefs: string[]): Promise<WorkoutTemplateItem> {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const name = str(r.name);
   let type = (BUILTIN as string[]).includes(str(r.type)) ? (str(r.type) as WorkoutType) : null;
   let customLabel: string | null = null;
   let customColor: string | null = null;
   if ((!type || type === 'other') && name) {
+    const had = new Set(alive(await db.exerciseDefs.toArray()).map((d) => d.id));
     const def = await addExerciseDef(name);
+    // Новый вид в справочнике — часть изменения: отмена убирает и его.
+    if (!had.has(def.id)) newDefs.push(def.id);
     type = 'custom';
     customLabel = def.label;
     customColor = def.color;
@@ -332,6 +362,7 @@ async function itemArg(raw: unknown): Promise<WorkoutTemplateItem> {
   const hasDistance = type !== 'custom' && workoutKind(type).hasDistance;
   const km = num(r.distance_km);
   const list = Array.isArray(r.exercises) ? r.exercises : [];
+  if (list.length > MAX_EXERCISES) throw new ArgError(`упражнений в виде — не больше ${MAX_EXERCISES}`);
   return {
     type,
     customLabel,
@@ -357,11 +388,12 @@ async function itemArg(raw: unknown): Promise<WorkoutTemplateItem> {
   };
 }
 
-async function itemsArg(v: unknown): Promise<WorkoutTemplateItem[]> {
+async function itemsArg(v: unknown, newDefs: string[]): Promise<WorkoutTemplateItem[]> {
   const raw = Array.isArray(v) ? v : [];
   if (!raw.length) throw new ArgError('нужен хотя бы один вид в items');
+  if (raw.length > MAX_ITEMS) throw new ArgError(`видов — не больше ${MAX_ITEMS}`);
   const out: WorkoutTemplateItem[] = [];
-  for (const r of raw) out.push(await itemArg(r));
+  for (const r of raw) out.push(await itemArg(r, newDefs));
   return out;
 }
 
@@ -371,15 +403,18 @@ const kindsTitle = (items: WorkoutTemplateItem[]) =>
 async function createTemplate(args: Record<string, unknown>): Promise<WriteResult> {
   const name = str(args.name);
   if (!name) throw new ArgError('нет названия шаблона');
-  const items = await itemsArg(args.items);
+  const newDefs: string[] = [];
+  const items = await itemsArg(args.items, newDefs);
   const total = Math.round(num(args.total_minutes) ?? 0);
   const tpl = await addTemplate({ name, items, totalMinutes: total > 0 ? total : undefined, note: str(args.note) || undefined });
-  return done([{ op: 'create', kind: 'template', ids: [tpl.id], title: name, state: 'done' }], { id: shortId(tpl.id) });
+  return done([{ op: 'create', kind: 'template', ids: [tpl.id], title: name, state: 'done', ...(newDefs.length ? { defIds: newDefs } : {}) }], { id: shortId(tpl.id) });
 }
 
 async function logWorkout(args: Record<string, unknown>): Promise<WriteResult> {
-  const items = await itemsArg(args.items);
+  // Дата — до видов: неверная дата не должна успеть завести упражнения в справочник.
   const date = dateArg(args.date, 'дата') ?? todayKey();
+  const newDefs: string[] = [];
+  const items = await itemsArg(args.items, newDefs);
   const e = Math.round(num(args.effort) ?? 0);
   const drafts: WorkoutDraft[] = items.map((it) => ({
     ...it,
@@ -390,7 +425,7 @@ async function logWorkout(args: Record<string, unknown>): Promise<WriteResult> {
     groupId: null,
   }));
   const rows = drafts.length === 1 ? [await addWorkout(drafts[0])] : await addWorkoutSession(drafts);
-  return done([{ op: 'create', kind: 'workout', ids: rows.map((r) => r.id), title: `${kindsTitle(items)}, ${date}`, state: 'done' }]);
+  return done([{ op: 'create', kind: 'workout', ids: rows.map((r) => r.id), title: `${kindsTitle(items)}, ${date}`, state: 'done', ...(newDefs.length ? { defIds: newDefs } : {}) }]);
 }
 
 // ─── Финансы ──────────────────────────────────────────────────────────────
@@ -438,7 +473,7 @@ async function createSavings(args: Record<string, unknown>): Promise<WriteResult
 }
 
 async function addDeposit(args: Record<string, unknown>): Promise<WriteResult> {
-  const goal = await findById(db.savingsGoals, args.savings_id);
+  const goal = await findById(db.savingsGoals, args.savings_id, (g) => !g.archivedAt);
   const amount = num(args.amount);
   if (!amount) throw new ArgError('сумма не может быть нулевой');
   if (amount < 0) {
@@ -600,7 +635,10 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set(Object.keys(WRITERS));
 /** Исполнить инструмент записи. Ошибка аргументов — текстом для модели. */
 export async function runWriteTool(name: string, args: Record<string, unknown>): Promise<WriteResult> {
   try {
-    return await WRITERS[name](args);
+    const r = await WRITERS[name](args);
+    // Метка — после записи: всё, что правили позже, — правка человека (editedSince).
+    const at = now();
+    return { ...r, actions: r.actions?.map((a) => ({ ...a, at })) };
   } catch (e) {
     return { text: JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), count: 0 };
   }
@@ -608,15 +646,32 @@ export async function runWriteTool(name: string, args: Record<string, unknown>):
 
 // ─── Отмена и подтверждение (кнопки карточки) ────────────────────────────
 
+/** Пуш задачи по её текущему состоянию — как после сохранения шторки:
+ *  scheduleReminder сам снимает пуш, если срок, время или напоминание убраны. */
+async function rescheduleReminder(id: string): Promise<void> {
+  const t = await db.tasks.get(id);
+  if (t && !t.deletedAt) await scheduleReminder(t);
+}
+
 async function revert(a: AiAction): Promise<void> {
   const table = tableOf(a.kind);
   switch (a.op) {
     case 'create':
       // Мягко, одной записью: тренировка из нескольких видов уходит целиком.
       await updateMany(table, a.ids.map((id) => ({ id, changes: { deletedAt: now() } })));
+      // Новые виды справочника, заведённые этим изменением, — туда же.
+      if (a.defIds?.length) await updateMany(db.exerciseDefs, a.defIds.map((id) => ({ id, changes: { deletedAt: now() } })));
+      // Напоминание мог успеть поставить человек.
+      if (a.kind === 'task') {
+        for (const id of a.ids) {
+          const t = await db.tasks.get(id);
+          if (t?.remindBefore != null) void cancelReminder(id, true);
+        }
+      }
       return;
     case 'update':
       await update(table, a.ids[0], a.before ?? {});
+      if (a.kind === 'task') void rescheduleReminder(a.ids[0]);
       return;
     case 'complete': {
       // Снятие отметки убирает и заведённый ею следующий повтор (toggleTask).
@@ -625,7 +680,10 @@ async function revert(a: AiAction): Promise<void> {
       return;
     }
     case 'delete':
-      for (const id of a.ids) await restore(table, id);
+      for (const id of a.ids) {
+        await restore(table, id);
+        if (a.kind === 'task') void rescheduleReminder(id);
+      }
   }
 }
 
@@ -639,22 +697,51 @@ async function erase(a: AiAction): Promise<void> {
   }
 }
 
-/** Кнопка карточки: «Отменить» / «Вернуть» (undo), «Удалить» (confirm),
- *  «Оставить» (keep). Состояние пишется в само сообщение — карточка
- *  переживает перезагрузку. Сообщения чата — мимо repo, как в llmRepo. */
-export async function settleAction(messageId: string, i: number, how: 'undo' | 'confirm' | 'keep'): Promise<void> {
+/** Человек менял запись после ассистента: отмена молча затёрла бы его работу
+ *  (неделю дописанная заметка, задачи, добавленные в созданный проект). */
+async function editedSince(a: AiAction): Promise<boolean> {
+  if (!a.at || a.op === 'delete') return false;
+  for (const id of a.ids) {
+    const r = await tableOf(a.kind).get(id);
+    if (r && !r.deletedAt && r.updatedAt > a.at) return true;
+  }
+  if (a.kind === 'project') {
+    const ids = new Set(a.ids);
+    return alive(await db.tasks.toArray()).some((t) => t.projectId && ids.has(t.projectId) && t.updatedAt > a.at!);
+  }
+  return false;
+}
+
+async function settleNow(messageId: string, i: number, how: 'undo' | 'confirm' | 'keep', force: boolean): Promise<'ok' | 'edited'> {
   const m = await db.llmMessages.get(messageId);
   const a = m?.actions?.[i];
-  if (!m?.actions || !a) return;
+  if (!m?.actions || !a) return 'ok';
   let state: AiAction['state'] | null = null;
   if (how === 'undo' && a.state === 'done') {
+    if (!force && (await editedSince(a))) return 'edited';
     await revert(a);
     state = 'undone';
   } else if (how === 'confirm' && a.state === 'pending') {
     await erase(a);
     state = 'done';
   } else if (how === 'keep' && a.state === 'pending') state = 'undone';
-  if (!state) return;
+  if (!state) return 'ok';
   const actions = m.actions.map((x, j) => (j === i ? { ...x, state } : x));
   await db.llmMessages.update(messageId, { actions, updatedAt: now() });
+  return 'ok';
+}
+
+// Нажатия — строго по очереди: две быстрые кнопки одной карточки читали один
+// снимок сообщения, и вторая запись затирала состояние первой строки (ревью 20.11).
+let queue: Promise<unknown> = Promise.resolve();
+
+/** Кнопка карточки: «Отменить» / «Вернуть» (undo), «Удалить» (confirm),
+ *  «Оставить» (keep). Состояние пишется в само сообщение — карточка
+ *  переживает перезагрузку. Сообщения чата — мимо repo, как в llmRepo.
+ *  'edited' — человек правил запись после ассистента: экран спрашивает и
+ *  повторяет с force. */
+export function settleAction(messageId: string, i: number, how: 'undo' | 'confirm' | 'keep', force = false): Promise<'ok' | 'edited'> {
+  const run = queue.then(() => settleNow(messageId, i, how, force));
+  queue = run.catch(() => {});
+  return run;
 }
