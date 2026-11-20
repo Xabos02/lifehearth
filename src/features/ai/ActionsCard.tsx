@@ -57,7 +57,7 @@ const CONFIRM_LABELS: Record<string, string> = {
   income: 'Удалить доход?',
 };
 
-export const actionLabel = (a: AiAction) => t(ACTION_LABELS[`${a.op}.${a.kind}`] ?? a.kind);
+const actionLabel = (a: AiAction) => t(ACTION_LABELS[`${a.op}.${a.kind}`] ?? a.kind);
 
 function actionLink(a: AiAction): string {
   if (a.kind === 'note') return `/notes/${a.ids[0]}`;

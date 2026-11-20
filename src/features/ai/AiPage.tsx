@@ -34,6 +34,7 @@ import {
 } from '../../lib/ai/llmRepo';
 import { t } from '../../lib/i18n';
 import { askConsent } from '../../lib/consent';
+import { confirmAction } from '../../components/ui/confirmStore';
 import { Markdown } from './Markdown';
 import { ChatListSheet } from './ChatListSheet';
 import { ChatSettingsSheet } from './ChatSettingsSheet';
@@ -378,6 +379,10 @@ function AssistantBlock({
   const failed = message.status === 'error';
   const cost = formatCost(message.costRub);
   const trace = !failed ? (message.toolTrace ?? []) : [];
+  // «Повторить» снял бы ответ вместе с карточкой: изменения остались бы без
+  // отмены, а новый прогон сделал бы их второй раз (ревью 20.11). Пока в
+  // карточке есть сделанное или ждущее кнопки — повтора нет.
+  const changedData = (message.actions ?? []).some((a) => a.state !== 'undone');
   return (
     <article className="cc-msg-in min-w-0 space-y-3">
       {/* Шапка ответа: знак ассистента, какая модель ответила и что она читала
@@ -430,7 +435,7 @@ function AssistantBlock({
       {message.actions?.length ? (
         <ActionsCard
           actions={message.actions}
-          onUndo={(i) => void settleAction(message.id, i, 'undo')}
+          onUndo={(i) => void undoAction(message.id, i)}
           onConfirm={(i) => void settleAction(message.id, i, 'confirm')}
           onKeep={(i) => void settleAction(message.id, i, 'keep')}
         />
@@ -464,14 +469,16 @@ function AssistantBlock({
             {t('Скопировать')}
             <Haptic />
           </button>
-          <button
-            className="inline-flex h-11 items-center gap-1.5 rounded-[8px] px-2.5 text-xs text-lh-text-secondary active:bg-lh-surface-2 disabled:opacity-40"
-            disabled={busy}
-            onClick={onRetry}
-          >
-            <GFaRotateRight size={ICON.inline} />
-            {t('Повторить')}
-          </button>
+          {!changedData && (
+            <button
+              className="inline-flex h-11 items-center gap-1.5 rounded-[8px] px-2.5 text-xs text-lh-text-secondary active:bg-lh-surface-2 disabled:opacity-40"
+              disabled={busy}
+              onClick={onRetry}
+            >
+              <GFaRotateRight size={ICON.inline} />
+              {t('Повторить')}
+            </button>
+          )}
           {/* У остановленного ответа токенов провайдер не сообщил — 0→0 врал бы. */}
           {message.tokensIn !== null && message.finishReason !== 'aborted' && (
             <span className="ml-auto shrink-0 text-2xs tabular-nums text-lh-text-secondary">
@@ -483,6 +490,13 @@ function AssistantBlock({
       )}
     </article>
   );
+}
+
+/** «Отменить» в карточке. Запись правили после ассистента — спросить: отмена
+ *  затёрла бы чужую работу (заметку дописывали неделю). */
+async function undoAction(messageId: string, i: number) {
+  if ((await settleAction(messageId, i, 'undo')) !== 'edited') return;
+  if (await confirmAction(t('Запись меняли после ассистента. Всё равно отменить?'))) await settleAction(messageId, i, 'undo', true);
 }
 
 /** Знак ассистента — индиговый кружок со знаком раздела «ИИ» — и строка рядом. */

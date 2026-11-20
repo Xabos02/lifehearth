@@ -14,6 +14,8 @@ vi.mock('../push', () => ({
 const { db } = await import('../../db/db');
 const { runTool } = await import('./tools');
 const { settleAction, shortId } = await import('./actions');
+const { toContext } = await import('./llmRepo');
+const push = await import('../push');
 const { alive } = await import('../../db/repo');
 type AiAction = import('../../db/types').AiAction;
 
@@ -76,7 +78,10 @@ describe('задачи', () => {
 
     await saved(r.actions!);
     await settleAction('m1', 1, 'undo');
-    await settleAction('m1', 0, 'undo');
+    // В проект после ассистента легла ещё задача — отмена проекта спрашивает.
+    expect(await settleAction('m1', 0, 'undo')).toBe('edited');
+    expect(alive(await db.projects.toArray())).toHaveLength(1);
+    await settleAction('m1', 0, 'undo', true);
     expect(alive(await db.tasks.toArray()).map((t) => t.title)).toEqual(['Ещё']);
     expect(alive(await db.projects.toArray())).toHaveLength(0);
     expect(await stateOf(1)).toBe('undone');
@@ -129,13 +134,43 @@ describe('задачи', () => {
     expect(alive(await db.tasks.toArray())).toHaveLength(1);
   });
 
-  it('короткий id: не найден и неоднозначный — ошибка модели, а не правка наугад', async () => {
+  it('короткий id: короче 8, не найден, неоднозначный, задача «Женских дней» — ошибка модели, а не правка наугад', async () => {
     const ts = new Date().toISOString();
     const row = { createdAt: ts, updatedAt: ts, deletedAt: null, title: 'a', notes: '', projectId: null, goalId: null, priority: 0, dueDate: null, dueTime: null, duration: null, remindBefore: null, completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: 1 };
-    await db.tasks.bulkAdd([{ ...row, id: 'abcd1111-x' }, { ...row, id: 'abcd2222-y' }] as never[]);
-    expect(String((await run('complete_task', { id: 'abcd' })).json.error)).toContain('нескольким');
-    expect(String((await run('complete_task', { id: 'ffff' })).json.error)).toContain('не найдена');
-    expect(alive(await db.tasks.toArray()).every((t) => !t.completedAt)).toBe(true);
+    await db.tasks.bulkAdd([
+      { ...row, id: 'abcd1234-x' },
+      { ...row, id: 'abcd1234-y' },
+      { ...row, id: '0aaaaaaa-c', origin: 'cycle', title: 'Скоро начнутся' },
+    ] as never[]);
+    // Выдуманный моделью id «0» не попадает в запись, начинающуюся с нуля.
+    expect(String((await run('complete_task', { id: '0' })).json.error)).toContain('8 символов');
+    expect(String((await run('complete_task', { id: 'abcd1234' })).json.error)).toContain('нескольким');
+    expect(String((await run('complete_task', { id: 'ffffffff' })).json.error)).toContain('не найдена');
+    // Раздел вне доступа: ни отметить, ни переименовать, ни предложить удалить.
+    expect(String((await run('complete_task', { id: '0aaaaaaa' })).json.error)).toContain('не найдена');
+    expect(String((await run('update_task', { id: '0aaaaaaa', title: 'x' })).json.error)).toContain('не найдена');
+    expect(String((await run('delete_record', { type: 'task', id: '0aaaaaaa' })).json.error)).toContain('не найдена');
+    expect(alive(await db.tasks.toArray()).every((t) => !t.completedAt && t.title !== 'x')).toBe(true);
+  });
+
+  it('перенос срока переносит напоминание; снятое время снимает напоминание «за минуты»', async () => {
+    const { json } = await run('create_task', { title: 'Врач', due: '2026-12-01', time: '10:00' });
+    const t0 = (await db.tasks.toArray())[0];
+    await db.tasks.update(t0.id, { remindBefore: 15 });
+    vi.mocked(push.scheduleReminder).mockClear();
+    await run('update_task', { id: json.id, due: '2026-12-03' });
+    await vi.waitFor(() => expect(push.scheduleReminder).toHaveBeenCalledWith(expect.objectContaining({ dueDate: '2026-12-03', remindBefore: 15 })));
+    await run('update_task', { id: json.id, time: '' });
+    expect((await db.tasks.get(t0.id))!.remindBefore).toBeNull();
+  });
+
+  it('потолки одного вызова: чек-лист и виды тренировки', async () => {
+    const big = await run('create_task', { title: 'X', checklist: Array.from({ length: 51 }, (_, i) => `п${i}`) });
+    expect(String(big.json.error)).toContain('не больше 50');
+    const many = await run('log_workout', { items: Array.from({ length: 13 }, () => ({ type: 'run' })) });
+    expect(String(many.json.error)).toContain('не больше 12');
+    expect(await db.tasks.count()).toBe(0);
+    expect(await db.workouts.count()).toBe(0);
   });
 });
 
@@ -219,6 +254,56 @@ describe('финансы', () => {
     const out = await run('add_deposit', { savings_id: json.id, amount: -6000 });
     expect(String(out.json.error)).toContain('5000');
     expect((await db.savingsDeposits.toArray()).map((d) => d.amount)).toEqual([5000]);
+  });
+});
+
+describe('кнопки карточки', () => {
+  it('две быстрые кнопки одной карточки не затирают состояние друг друга', async () => {
+    const a = await run('create_note', { title: 'Первая', text: 'x' });
+    const b = await run('create_note', { title: 'Вторая', text: 'y' });
+    const d1 = await run('delete_record', { type: 'note', id: a.json.id });
+    const d2 = await run('delete_record', { type: 'note', id: b.json.id });
+    await saved([...d1.actions!, ...d2.actions!]);
+    await Promise.all([settleAction('m1', 0, 'confirm'), settleAction('m1', 1, 'confirm')]);
+    expect([await stateOf(0), await stateOf(1)]).toEqual(['done', 'done']);
+    expect(alive(await db.notes.toArray())).toHaveLength(0);
+  });
+
+  it('запись правили после ассистента — отмена спрашивает; с force — отменяет', async () => {
+    const r = await run('create_note', { title: 'Дневник', text: 'день 1' });
+    await db.notes.update(r.actions![0].ids[0], { content: '<div>неделя записей</div>', updatedAt: '2999-01-01T00:00:00.000Z' });
+    await saved(r.actions!);
+    expect(await settleAction('m1', 0, 'undo')).toBe('edited');
+    expect(alive(await db.notes.toArray())).toHaveLength(1);
+    expect(await stateOf(0)).toBe('done');
+    expect(await settleAction('m1', 0, 'undo', true)).toBe('ok');
+    expect(alive(await db.notes.toArray())).toHaveLength(0);
+  });
+
+  it('отмена шаблона убирает и новый вид, заведённый им в справочнике; старый вид не трогает', async () => {
+    await run('create_workout_template', { name: 'Старый', items: [{ name: 'Йога' }] });
+    const r = await run('create_workout_template', { name: 'Новый', items: [{ name: 'Йога' }, { name: 'Скалолазание' }] });
+    expect(r.actions![0].defIds).toHaveLength(1);
+    await saved(r.actions!);
+    await settleAction('m1', 0, 'undo');
+    expect(alive(await db.exerciseDefs.toArray()).map((d) => d.label)).toEqual(['Йога']);
+  });
+
+  it('история для модели несёт сводку изменений и их состояние — и у ответа без текста', () => {
+    const base = { createdAt: 't', updatedAt: 't', deletedAt: null, chatId: 'c', model: 'm', tokensIn: 0, tokensOut: 0, costRub: 0, status: 'done' as const, error: null };
+    const ctx = toContext([
+      { ...base, id: '1', role: 'user', content: 'сделай' },
+      {
+        ...base, id: '2', role: 'assistant', content: '',
+        actions: [
+          { op: 'create', kind: 'task', ids: ['a'], title: 'Купить', state: 'undone' },
+          { op: 'delete', kind: 'note', ids: ['b'], title: 'Черновик', state: 'pending' },
+        ],
+      },
+    ]);
+    expect(ctx).toHaveLength(2);
+    expect(ctx[1].content).toContain('задача «Купить» — отменено пользователем');
+    expect(ctx[1].content).toContain('заметка «Черновик» — ждёт кнопки пользователя');
   });
 });
 

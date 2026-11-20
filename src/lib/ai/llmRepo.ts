@@ -148,13 +148,33 @@ export async function removeMessage(id: string): Promise<void> {
  *  до бесконечности. 30 сообщений ≈ 15 обменов: за глаза для связности. */
 const CONTEXT_LIMIT = 30;
 
+const KIND_WORD: Record<string, string> = {
+  task: 'задача', project: 'проект', note: 'заметка', habit: 'привычка', goal: 'цель', workout: 'тренировка',
+  template: 'шаблон тренировки', expense: 'расход', income: 'доход', savings: 'копилка', deposit: 'пополнение копилки',
+};
+const OP_WORD: Record<string, string> = { create: 'создано', update: 'изменено', complete: 'выполнено', delete: 'удалено' };
+
+/** Что ответ изменил в данных — служебной строкой для модели. Без неё в
+ *  следующем ходе модель не знала ни о сделанном, ни об отменённом, ни о
+ *  ждущем кнопки удалении и могла повторить запись (ревью 20.11). */
+export function actionsNote(actions: AiAction[]): string {
+  const parts = actions.map((a) => {
+    const what = `${KIND_WORD[a.kind] ?? a.kind} «${a.title}»`;
+    if (a.state === 'pending') return `удаление: ${what} — ждёт кнопки пользователя`;
+    if (a.state === 'undone') return a.op === 'delete' ? `${what} — пользователь не стал удалять` : `${OP_WORD[a.op]}: ${what} — отменено пользователем`;
+    return `${OP_WORD[a.op]}: ${what}`;
+  });
+  return `(служебная строка приложения: ${parts.join('; ')})`;
+}
+
 /** Контекст для отправки в модель: только успешные непустые сообщения,
- *  не больше CONTEXT_LIMIT последних. */
+ *  не больше CONTEXT_LIMIT последних. Ответ, изменивший данные, несёт
+ *  служебную сводку — даже оборванный без текста. */
 export function toContext(messages: LlmMessage[]): { role: 'user' | 'assistant'; content: string }[] {
   return messages
-    .filter((m) => m.status === 'done' && m.content.trim())
+    .filter((m) => m.status === 'done' && (m.content.trim() || m.actions?.length))
     .slice(-CONTEXT_LIMIT)
-    .map((m) => ({ role: m.role, content: m.content }));
+    .map((m) => ({ role: m.role, content: m.actions?.length ? `${m.content}\n\n${actionsNote(m.actions)}`.trim() : m.content }));
 }
 
 /** Экспорт диалога в markdown — единственная страховка, пока чат не синкается. */
