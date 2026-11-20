@@ -1,13 +1,13 @@
 name: Probe Workers AI (temporary)
-# Временная проверка Workers AI через binding: tools + stream. Воркер
-# lifehearth-ai-probe живёт только время прогона, ветка удаляется после.
+# Временная проверка учёта личного лимита: читает из D1 только строку тестового
+# ключа (не чужие), ветка удаляется после.
 on:
   push:
     branches: [probe/workers-ai]
 jobs:
   probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 10
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -16,24 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Key
+      - name: Read test row
+        working-directory: worker
         run: |
-          K=$(openssl rand -hex 24); echo "::add-mask::$K"; echo "PROBE_KEY=$K" >> "$GITHUB_ENV"
-      - name: Deploy probe worker
-        working-directory: .github/probe/worker
-        # Новый воркер: шаг workers.dev сразу после загрузки ловит 10007
-        # «does not exist» — повтор через паузу находит его.
-        run: |
-          for i in 1 2 3 4; do npx --yes wrangler@4 deploy --var "PROBE_KEY:$PROBE_KEY" && exit 0; sleep 15; done; exit 1
-      - name: Probe
-        run: node .github/probe/probe.mjs
-        env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          PROBE_URL: https://lifehearth-ai-probe.xabos161rus.workers.dev
-          PROBE_MODE: all
-          MAX_TOKENS: '8192'
-      - name: Delete probe worker
-        if: always()
-        working-directory: .github/probe/worker
-        run: npx --yes wrangler@4 delete --force || npx --yes wrangler@4 delete --name lifehearth-ai-probe --force
+          ACC=$(cat ../.github/probe/test-account.txt)
+          npx --yes wrangler@4 d1 execute life-hub-sync --remote --json --command "SELECT n FROM ai_usage WHERE k LIKE '%:a:${ACC}'; SELECT COUNT(*) AS rows FROM ai_usage" | grep -E '"n"|"rows"|error|Error' || true
