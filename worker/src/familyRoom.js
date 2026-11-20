@@ -810,10 +810,10 @@ export class FamilyRoom extends DurableObject {
         // звонящему «звонит» от его имени, у него пойдут гудки. Открытое
         // приложение собеседника скажет это само. Повторы приглашения получают
         // «звонит» снова — одиночный кадр мог потеряться.
-        const ttl = this.trackPendingCall(msg.to, msg.call);
+        const ttl = this.trackPendingCall(msg.to, msg.call, from);
         if (ttl) {
           this.ctx.waitUntil(
-            this.pushCall(msg.to, msg.call, ttl).then((ok) => {
+            this.pushCall(msg.to, msg.call, ttl, from).then((ok) => {
               if (!ok) return;
               this.markCallPushed(msg.call);
               this.sendRinging(ws, from, msg.to, msg.call);
@@ -826,7 +826,7 @@ export class FamilyRoom extends DurableObject {
       // Звонящий отменил (в т.ч. по таймауту «не ответили»), адресат так и не
       // подключился — заменяем «звонит» на «пропущенный звонок».
       if (!delivered && msg.kind === 'cancel' && msg.to) {
-        this.ctx.waitUntil(this.pushMissedCall(msg.to, msg.call));
+        this.ctx.waitUntil(this.pushMissedCall(msg.to, msg.call, from));
       }
       // Трубку сняли на одном устройстве — остальные устройства того же
       // участника (синхронизация копирует его на все) перестают звонить. От
@@ -1046,7 +1046,9 @@ export class FamilyRoom extends DurableObject {
   // приложение в фоне). Серия — такт решает trackPendingCall; у всех пушей
   // серии один tag — карточка одна, заменяется. Исход решает alarm/cancel
   // («пропущенный» с тем же tag).
-  async pushCall(toMemberId, callId, ttl = 40) {
+  // from — номер звонящего: имя по нему телефон подставит сам из своей базы
+  // (push-sw.js), сервер имён не знает — они зашифрованы семейным ключом.
+  async pushCall(toMemberId, callId, ttl = 40, fromMemberId = null) {
     const row = this.sql
       .exec('SELECT push_sub FROM members WHERE member_id=? AND push_sub IS NOT NULL', toMemberId)
       .toArray()[0];
@@ -1066,12 +1068,13 @@ export class FamilyRoom extends DurableObject {
       family: true,
       familyId: this.familyIdMeta(),
       call: true,
+      from: fromMemberId,
       tag: 'family-call:' + (callId || this.familyIdMeta() || 'all'),
     }, ttl); // TTL в пределах ринга (45 с): опоздавший «звонит» после его конца не нужен
   }
 
   // «Пропущенный звонок»: тот же tag — на Android заменяет карточку «звонит».
-  async pushMissedCall(toMemberId, callId) {
+  async pushMissedCall(toMemberId, callId, fromMemberId = null) {
     const row = this.sql
       .exec('SELECT push_sub FROM members WHERE member_id=? AND push_sub IS NOT NULL', toMemberId)
       .toArray()[0];
@@ -1088,6 +1091,7 @@ export class FamilyRoom extends DurableObject {
       family: true,
       familyId: this.familyIdMeta(),
       missed: true,
+      from: fromMemberId,
       tag: 'family-call:' + (callId || this.familyIdMeta() || 'all'),
     }, 3600);
   }
@@ -1103,7 +1107,7 @@ export class FamilyRoom extends DurableObject {
   // сейчас положен — первое приглашение или CALL_PUSH_EVERY_MS с прошлого, —
   // иначе 0. Отметку ставим сразу, до отправки: следующий повтор приглашения
   // придёт раньше, чем служба пушей ответит.
-  trackPendingCall(toMemberId, callId) {
+  trackPendingCall(toMemberId, callId, fromMemberId = null) {
     if (!callId) return 0;
     const k = `callpend:${callId}`;
     const now = Date.now();
@@ -1117,7 +1121,7 @@ export class FamilyRoom extends DurableObject {
     }
     if (p?.answered) return 0; // приглашение переподключения, а не дозвон
     if (!p) {
-      this.sql.exec('INSERT INTO meta (k, v) VALUES (?, ?)', k, JSON.stringify({ to: toMemberId, at: now, lastPush: now }));
+      this.sql.exec('INSERT INTO meta (k, v) VALUES (?, ?)', k, JSON.stringify({ to: toMemberId, from: fromMemberId, at: now, lastPush: now }));
       return 40;
     }
     const age = now - (p.at || now);
@@ -1143,7 +1147,7 @@ export class FamilyRoom extends DurableObject {
       if (p.answered) continue; // разговор, а не дозвон — «пропущенного» нет
       if (age >= CALL_PENDING_TTL_MS) {
         this.sql.exec('DELETE FROM meta WHERE k=?', r.k);
-        await this.pushMissedCall(p.to, r.k.slice('callpend:'.length));
+        await this.pushMissedCall(p.to, r.k.slice('callpend:'.length), p.from ?? null);
       } else {
         const rem = CALL_PENDING_TTL_MS - age;
         nextInMs = nextInMs == null ? rem : Math.min(nextInMs, rem);

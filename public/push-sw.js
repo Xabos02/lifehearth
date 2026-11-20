@@ -80,6 +80,46 @@ async function closeCallCards(tag) {
     /* getNotifications недоступен — карточки останутся */
   }
 }
+// Имя участника из базы этого телефона (Dexie 'life-hub', таблица
+// familyMembers): в пуше о звонке сервер шлёт только номер звонящего — имён он
+// не видит, они зашифрованы семейным ключом. null — имени нет или база молчит.
+function memberName(id) {
+  return new Promise((resolve) => {
+    if (typeof id !== 'string' || !id) return resolve(null);
+    let req;
+    try {
+      req = indexedDB.open('life-hub');
+    } catch (e) {
+      return resolve(null);
+    }
+    // Базы ещё нет (приложение не открывали) — не создаём пустую вместо неё.
+    req.onupgradeneeded = () => req.transaction.abort();
+    req.onerror = () => resolve(null);
+    req.onsuccess = () => {
+      const db = req.result;
+      try {
+        const get = db.transaction('familyMembers').objectStore('familyMembers').get(id);
+        get.onsuccess = () => {
+          db.close();
+          const name = get.result && typeof get.result.displayName === 'string' ? get.result.displayName.trim() : '';
+          resolve(name || null);
+        };
+        get.onerror = () => {
+          db.close();
+          resolve(null);
+        };
+      } catch (e) {
+        db.close();
+        resolve(null);
+      }
+    };
+  });
+}
+// Уведомление о звонке не ждёт базу дольше полутора секунд — покажется без имени.
+function withTimeout(p, ms) {
+  return Promise.race([p, new Promise((r) => setTimeout(() => r(null), ms))]);
+}
+
 self.addEventListener('push', (event) => {
   let data = {};
   try {
@@ -108,6 +148,12 @@ self.addEventListener('push', (event) => {
       }
       // До показа, не после: на Android tag и так заменяет карточку, и закрытие
       // после показа сняло бы только что показанную.
+      // Кто звонит — как у телефона: «Мама звонит», «Пропущенный звонок / Мама».
+      if ((isCall || isMissed) && data.from) {
+        const name = await withTimeout(memberName(data.from), 1500);
+        if (name && isCall) title = name + ' звонит';
+        if (name && isMissed) body = name;
+      }
       if (tag && (isCall || isMissed)) await closeCallCards(tag);
       // Показ — всегда: пуш без уведомления iOS считает тихим и после трёх
       // таких отзывает подписку.
