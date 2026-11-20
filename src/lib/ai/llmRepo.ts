@@ -9,7 +9,7 @@
 
 import { db } from '../../db/db';
 import { now, uid, alive } from '../../db/repo';
-import type { LlmChat, LlmMessage } from '../../db/types';
+import type { AiAction, LlmChat, LlmMessage } from '../../db/types';
 import { DEFAULT_MODEL, costRub } from './models';
 import type { AiReply } from './aiClient';
 import { t } from '../i18n';
@@ -104,7 +104,7 @@ export async function addUserMessage(chat: LlmChat, content: string): Promise<Ll
 
 export async function addAssistantMessage(
   chatId: string,
-  reply: AiReply & { toolTrace?: { tool: string; count: number }[] },
+  reply: AiReply & { toolTrace?: { tool: string; count: number }[]; actions?: AiAction[] },
 ): Promise<LlmMessage> {
   return addMessage({
     chatId,
@@ -118,6 +118,7 @@ export async function addAssistantMessage(
     error: null,
     finishReason: reply.finishReason ?? null,
     toolTrace: reply.toolTrace?.length ? reply.toolTrace : null,
+    actions: reply.actions?.length ? reply.actions : null,
   });
 }
 

@@ -88,7 +88,7 @@ describe('runAgent', () => {
     expect(reply.content).toBe('У тебя 2 задачи.');
     expect(reply.usage).toEqual({ in: 150, out: 30 });
     expect(reply.toolTrace).toEqual([{ tool: 'list_tasks', count: 2 }]);
-    expect(onTool).toHaveBeenCalledWith('Задачи');
+    expect(onTool).toHaveBeenCalledWith('list_tasks');
 
     // Второй запрос обязан нести и ответ-с-вызовом, и результат инструмента.
     const follow = seen[1];
@@ -126,8 +126,8 @@ describe('runAgent', () => {
       request: request as never,
     });
     // MAX_ROUNDS + финальный принудительный: запросов конечное число.
-    expect(request.mock.calls.length).toBe(7);
-    expect(reply.toolTrace.length).toBe(6);
+    expect(request.mock.calls.length).toBe(9);
+    expect(reply.toolTrace.length).toBe(8);
   });
 
   it('текст перед вызовом не теряется в финальной записи', async () => {
@@ -148,5 +148,31 @@ describe('runAgent', () => {
       request: request as never,
     });
     expect(reply.content).toBe('Сейчас посмотрю.\n\nГотово: 2 задачи.');
+  });
+
+  it('запись: действия уходят наружу сразу, в след не попадают; сверх потолка — отказ без записи', async () => {
+    // Модель за один круг просит 21 задачу: подменённая инструкция в заметке
+    // не должна суметь переписать полприложения за ответ (решение Влада 20.11).
+    const calls = Array.from({ length: 21 }, (_, i) => ({
+      id: `c${i}`,
+      type: 'function' as const,
+      function: { name: 'create_task', arguments: JSON.stringify({ title: `Задача ${i}` }) },
+    }));
+    let n = 0;
+    const request = vi.fn(async () =>
+      ++n === 1 ? { ...toolReply('create_task', '{}'), toolCalls: calls } : textReply('Создал.'),
+    );
+    const actions: unknown[] = [];
+    const reply = await runAgent({
+      messages: [{ role: 'user', content: 'создай задачи' }],
+      dataTools: true,
+      request: request as never,
+      onAction: (a) => actions.push(a),
+    });
+    expect(actions).toHaveLength(20);
+    expect(reply.toolTrace).toEqual([]);
+    const titles = (await db.tasks.toArray()).map((t) => t.title);
+    expect(titles).toContain('Задача 19');
+    expect(titles).not.toContain('Задача 20');
   });
 });

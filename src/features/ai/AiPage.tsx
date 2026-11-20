@@ -22,6 +22,7 @@ import { ICON } from '../../components/ui/icons';
 import type { LlmChat, LlmMessage } from '../../db/types';
 import { startTurn, stopTurn, useTurn } from '../../lib/ai/turns';
 import { TOOL_LABELS } from '../../lib/ai/tools';
+import { WRITE_TOOLS, settleAction } from '../../lib/ai/actions';
 import { effectiveModel, formatCost, modelLabel } from '../../lib/ai/models';
 import {
   chatMessages,
@@ -37,6 +38,7 @@ import { Markdown } from './Markdown';
 import { ChatListSheet } from './ChatListSheet';
 import { ChatSettingsSheet } from './ChatSettingsSheet';
 import { ModelSheet } from './ModelSheet';
+import { ActionsCard } from './ActionsCard';
 import { SECTION_BY_ID } from '../../lib/sections';
 
 const AiIcon = SECTION_BY_ID.get('ai')!.icon;
@@ -89,7 +91,7 @@ export function AiPage() {
   const turn = useTurn(chatId);
   const busy = turn !== null;
   const streamText = turn?.text ?? null;
-  const toolLabel = turn?.tool ?? null;
+  const toolName = turn?.tool ?? null;
   // Вопрос без ответа: страница перезагрузилась или закрылась посреди ответа.
   // Без «Повторить» под ним человеку оставалось набирать вопрос заново.
   const last = messages[messages.length - 1];
@@ -230,8 +232,8 @@ export function AiPage() {
               ),
             )}
             {busy && streamText ? <StreamingBlock text={streamText} /> : null}
-            {busy && toolLabel ? (
-              <ToolLine label={toolLabel} />
+            {busy && toolName ? (
+              <ToolLine tool={toolName} />
             ) : busy && !streamText ? (
               <Thinking />
             ) : null}
@@ -318,8 +320,8 @@ function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string
       <p className="text-lg font-light tracking-tight">{t('Спросите о своём')}</p>
       <p className="mt-1 mb-5 max-w-[17rem] text-sm text-lh-text-secondary">
         {dataTools
-          ? t('Ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.')
-          : t('Включите «Данные» под полем ввода — и ассистент ответит по вашим задачам, заметкам, финансам и привычкам.')}
+          ? t('Ассистент читает ваши задачи, заметки, финансы и привычки, отвечает по фактам и может сам создать задачу, заметку или шаблон тренировки.')
+          : t('Включите «Данные» под полем ввода — и ассистент ответит по вашим задачам, заметкам, финансам и привычкам и сможет их вести.')}
       </p>
       {/* Все подсказки — вопросы о своих записях. Без «Данных» тап отправил бы
           платный вопрос, на который модели нечем ответить. */}
@@ -425,6 +427,14 @@ function AssistantBlock({
       ) : (
         <Markdown text={message.content} />
       )}
+      {message.actions?.length ? (
+        <ActionsCard
+          actions={message.actions}
+          onUndo={(i) => void settleAction(message.id, i, 'undo')}
+          onConfirm={(i) => void settleAction(message.id, i, 'confirm')}
+          onKeep={(i) => void settleAction(message.id, i, 'keep')}
+        />
+      ) : null}
       {!failed && message.finishReason === 'length' && (
         <div className="flex items-center gap-2.5">
           <p className="text-xs text-warning">{t('Ответ обрезан лимитом токенов.')}</p>
@@ -524,11 +534,12 @@ function Thinking() {
   return <AssistantHead pulse>{t('думает…')}</AssistantHead>;
 }
 
-/** Исполняется инструмент: «читаю: Задачи…» вместо безликого «думает». */
-function ToolLine({ label }: { label: string }) {
+/** Исполняется инструмент: «читаю: Задачи…» / «делаю: Новая задача…»
+ *  вместо безликого «думает». */
+function ToolLine({ tool }: { tool: string }) {
   return (
     <AssistantHead pulse>
-      {t('читаю:')} <span className="text-lh-accent">{t(label)}</span>…
+      {WRITE_TOOLS.has(tool) ? t('делаю:') : t('читаю:')} <span className="text-lh-accent">{t(TOOL_LABELS[tool] ?? tool)}</span>…
     </AssistantHead>
   );
 }

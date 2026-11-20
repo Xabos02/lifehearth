@@ -12,7 +12,7 @@
 // (потолок отсрочки), перед перезагрузкой сохраняется напечатанное.
 
 import { useSyncExternalStore } from 'react';
-import type { LlmChat } from '../../db/types';
+import type { AiAction, LlmChat } from '../../db/types';
 import { holdReload, saveBeforeReload } from '../updateReload';
 import { runAgent } from './agentLoop';
 import { AiError, aiErrorText } from './aiClient';
@@ -22,7 +22,7 @@ import { addAssistantMessage, addErrorMessage, addUserMessage, chatMessages, toC
 export interface Turn {
   /** Напечатанное к этому моменту; '' — ждём первый токен или пишем ответ в базу. */
   text: string;
-  /** Инструмент, который исполняется сейчас, — строка «читаю…». */
+  /** Инструмент (машинное имя), который исполняется сейчас, — строка «читаю…». */
   tool: string | null;
 }
 
@@ -78,10 +78,13 @@ export async function startTurn(chat: LlmChat, question?: string): Promise<void>
     const cur = live.get(chat.id);
     if (cur?.ac === ac) put(chat.id, { ...cur, ...patch });
   };
+  // Сделанное в данных копится по ходу: при обрыве оно уходит в сохранённый
+  // кусок ответа — иначе изменения остались бы без карточки и без отмены.
+  const actions: AiAction[] = [];
   let partialSaved = false;
   const savePartial = async () => {
     const text = mine() ? (live.get(chat.id)?.text ?? '') : '';
-    if (partialSaved || !text.trim()) return false;
+    if (partialSaved || (!text.trim() && !actions.length)) return false;
     partialSaved = true;
     // Токенов обрыв не сообщает: счётчик у такого ответа скрыт (finishReason).
     await addAssistantMessage(chat.id, {
@@ -89,6 +92,7 @@ export async function startTurn(chat: LlmChat, question?: string): Promise<void>
       model: effectiveModel(chat.model),
       usage: { in: 0, out: 0 },
       finishReason: 'aborted',
+      actions,
     });
     return true;
   };
@@ -106,16 +110,17 @@ export async function startTurn(chat: LlmChat, question?: string): Promise<void>
         update({ text: prev + (newRound && prev ? '\n\n' : '') + piece, tool: null });
         newRound = false;
       },
-      onTool: (label) => {
+      onTool: (name) => {
         newRound = true;
-        update({ tool: label });
+        update({ tool: name });
       },
+      onAction: (a) => actions.push(a),
     });
     // Поток прячем ДО записи (иначе ответ на мгновение виден дважды), но
     // прогон не снимаем, пока ответ не в базе: снятый раньше открывал окно,
     // где под вопросом мелькало «Повторить» и вторая отправка шла невидимо.
     update({ text: '', tool: null });
-    await addAssistantMessage(chat.id, reply);
+    await addAssistantMessage(chat.id, { ...reply, actions });
   } catch (e) {
     // Обрыв посреди текста — оставляем напечатанное, а не одну карточку.
     const kept = await savePartial();

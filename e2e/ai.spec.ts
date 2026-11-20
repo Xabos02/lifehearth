@@ -376,3 +376,49 @@ test('настройки чата: переименование и инстру�
   await expect(page.getByText('ок', { exact: true })).toBeVisible();
   expect(bodies[0]).toContain('отвечай одним предложением');
 });
+
+test('запись: попросил — задача появилась в «Задачах», под ответом карточка, «Отменить» её убирает', async ({ page }) => {
+  // Первый круг — модель просит create_task, второй — финальный текст.
+  // Запись настоящая: та же функция, что у формы задачи, поверх Dexie.
+  const sse = (events: string[]) => [...events, 'data: [DONE]', ''].join('\n\n');
+  const callRound = sse([
+    'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_w","function":{"name":"create_task","arguments":"{\\"title\\":\\"Купить протеин\\"}"}}]},"finish_reason":null}]}',
+    'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
+    'data: {"choices":[],"usage":{"prompt_tokens":40,"completion_tokens":8}}',
+  ]);
+  const finalRound = sse([
+    'data: {"choices":[{"delta":{"content":"Создал задачу «Купить протеин»."},"finish_reason":"stop"}]}',
+    'data: {"choices":[],"usage":{"prompt_tokens":90,"completion_tokens":9}}',
+  ]);
+  const bodies: string[] = [];
+  await page.route('**/ai/chat', (route) => {
+    bodies.push(route.request().postData() ?? '');
+    return route.fulfill({ contentType: 'text/event-stream', body: bodies.length === 1 ? callRound : finalRound });
+  });
+
+  await openApp(page, '/more/ai');
+  await seedSyncAccount(page);
+  await page.getByRole('button', { name: 'Доступ к данным' }).click();
+  await page.getByPlaceholder('Сообщение…').fill('создай задачу купить протеин');
+  await page.getByRole('button', { name: 'Отправить' }).click();
+
+  await expect(page.getByText('Создал задачу «Купить протеин».')).toBeVisible();
+  const card = page.locator('[data-ai-actions]');
+  await expect(card.getByText('Новая задача')).toBeVisible();
+  // Инструменты записи уходят модели в том же списке, что чтение.
+  expect(bodies[0]).toContain('create_task');
+  expect(JSON.parse(bodies[1]).messages.find((m: { role: string }) => m.role === 'tool').content).toContain('"ok":true');
+
+  // Тап по строке ведёт в раздел записи — задача там.
+  await card.getByRole('link', { name: /Купить протеин/ }).click();
+  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(page.getByRole('button', { name: 'Купить протеин', exact: true })).toBeVisible();
+
+  await page.goBack();
+  await page.locator('[data-ai-actions]').getByRole('button', { name: 'Отменить' }).click();
+  await expect(page.locator('[data-ai-actions]').getByText('Отменено')).toBeVisible();
+  await page.goto('/tasks');
+  await expect(page.getByPlaceholder('Что нужно сделать?')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Купить протеин', exact: true })).toHaveCount(0);
+});
+
