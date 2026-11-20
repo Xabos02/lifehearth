@@ -1855,8 +1855,8 @@ export const EN: Record<string, string> = {
   'Экспорт в markdown': 'Export as markdown',
   'Диалог экспортирован': 'Chat exported',
   'Не удалось поделиться. Попробуйте ещё раз': 'Could not share. Try again',
-  'Бесплатно, с дневным лимитом на всех. Проще Claude, но с обычными вопросами справляется.':
-    'Free, with a daily limit shared by everyone. Simpler than Claude, but fine for everyday questions.',
+  'Бесплатно, с дневным лимитом на всех. Проще Qwen, зато бережёт общий лимит; с обычными вопросами справляется.':
+    'Free, with a daily limit shared by everyone. Simpler than Qwen, but easy on the shared limit; fine for everyday questions.',
   'Бесплатно и умнее Gemma, но отвечает дольше и тратит общий лимит раз в шесть быстрее.':
     'Free and smarter than Gemma, but slower, and it uses up the shared limit about six times faster.',
   'Спросите о своём': 'Ask about your own data',
@@ -1885,6 +1885,10 @@ export const EN: Record<string, string> = {
   'Аккаунт не в списке разрешённых на сервере.': 'The account is not on the server allowlist.',
   'Слишком часто. Подождите немного.': 'Too many requests. Wait a moment.',
   'Бесплатный лимит на сегодня исчерпан, обновится в {time}': 'Today’s free limit is used up. It resets at {time}',
+  'Ваш лимит ассистента на сегодня исчерпан, обновится в {time}': 'Your assistant limit for today is used up; it resets at {time}',
+  'Модель сейчас перегружена — попробуйте через минуту.': 'The model is overloaded right now — try again in a minute.',
+  'Ответ остановлен.': 'Reply stopped.',
+  'Чат слишком длинный — начните новый.': 'This chat is too long — start a new one.',
   'Провайдер отказал: {msg}': 'Provider refused: {msg}',
   'Нет связи с сервером.': 'No connection to the server.',
   'Запрос отменён.': 'Request cancelled.',
@@ -2207,8 +2211,8 @@ export const EN: Record<string, string> = {
   'Принимаю': 'I agree',
   'Не принимать — поставить на паузу': 'Don’t agree — pause them',
   'Не сейчас': 'Not now',
-  'Без согласия работает всё, что на телефоне, кроме семьи. Перечитать: Настройки → Что уходит с телефона':
-    'Without consent, everything on the phone still works except family. To reread: Settings → What leaves your phone',
+  'Без согласия работает всё, что хранится на телефоне. Не работают семья, синхронизация, напоминания, ассистент, голосовой ввод и погода. Перечитать: Настройки → Что уходит с телефона':
+    'Without consent, everything stored on the phone still works. Family, sync, reminders, the assistant, voice input and weather do not. To reread: Settings → What leaves your phone',
   'Прочитать и принять': 'Read and agree',
   'Семья на паузе': 'Family is paused',
   'Чат, общие задачи и звонки выходят в сеть — для них нужно ваше согласие. Группа и переписка остаются на телефоне.':

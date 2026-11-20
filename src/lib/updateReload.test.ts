@@ -107,6 +107,21 @@ describe('reloadWhenIdle', () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  it('идущий ответ ассистента держит перезагрузку и в фоне; отпустили — перезагрузка сразу', async () => {
+    // Живой тест 20.11.2026: выкатка пришла посреди ответа, страница
+    // перезагрузилась, и ответ пропал без следа.
+    const { reloadWhenIdle, holdReload } = await load();
+    const release = holdReload();
+    doc.visibilityState = 'hidden';
+    reloadWhenIdle();
+    doc.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(reload).not.toHaveBeenCalled();
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
   it('звонок по-прежнему откладывает перезагрузку до конца', async () => {
     const { reloadWhenIdle } = await load();
     call.status = 'active';

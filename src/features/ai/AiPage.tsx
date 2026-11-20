@@ -20,20 +20,16 @@ import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { Haptic } from '../../components/ui/Haptic';
 import { ICON } from '../../components/ui/icons';
 import type { LlmChat, LlmMessage } from '../../db/types';
-import { aiErrorText } from '../../lib/ai/aiClient';
-import { runAgent } from '../../lib/ai/agentLoop';
+import { startTurn, stopTurn, useTurn } from '../../lib/ai/turns';
 import { TOOL_LABELS } from '../../lib/ai/tools';
 import { effectiveModel, formatCost, modelLabel } from '../../lib/ai/models';
 import {
-  addAssistantMessage,
-  addErrorMessage,
-  addUserMessage,
   chatMessages,
+  chatTitle,
   createChat,
   listChats,
   patchChat,
   removeMessage,
-  toContext,
 } from '../../lib/ai/llmRepo';
 import { t } from '../../lib/i18n';
 import { askConsent } from '../../lib/consent';
@@ -62,19 +58,11 @@ export function AiPage() {
   const toast = useToast();
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-  const [busy, setBusy] = useState(false);
-  // Текст, печатающийся прямо сейчас. Живёт в React-состоянии, а НЕ в Dexie:
-  // запись чанков в наблюдаемую таблицу перечитывала бы весь чат дважды в
-  // секунду (§4.1 плана). null — стрима нет; '' — ждём первый токен.
-  const [streamText, setStreamText] = useState<string | null>(null);
-  // Имя инструмента, который исполняется прямо сейчас, — строка «читаю…».
-  const [toolLabel, setToolLabel] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   // Кнопка «вниз к последнему» — появляется, когда лента прокручена вверх.
   const [awayFromBottom, setAwayFromBottom] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -94,6 +82,18 @@ export function AiPage() {
     [chatId],
     [] as LlmMessage[],
   );
+  // Идущий ответ живёт вне экрана (lib/ai/turns): уход в другой раздел его не
+  // обрывает, а при возврате поток снова виден. Текст потока — НЕ в Dexie:
+  // запись чанков в наблюдаемую таблицу перечитывала бы весь чат дважды в
+  // секунду (§4.1 плана). '' — ждём первый токен.
+  const turn = useTurn(chatId);
+  const busy = turn !== null;
+  const streamText = turn?.text ?? null;
+  const toolLabel = turn?.tool ?? null;
+  // Вопрос без ответа: страница перезагрузилась или закрылась посреди ответа.
+  // Без «Повторить» под ним человеку оставалось набирать вопрос заново.
+  const last = messages[messages.length - 1];
+  const dangling = !busy && last?.role === 'user';
 
   // Пустой раздел: заводим первый чат. Запись идёт в Dexie — внешнюю систему,
   // результат придёт через useLiveQuery, поэтому setState здесь не нужен.
@@ -112,47 +112,19 @@ export function AiPage() {
     bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [messages.length, busy, streamText]);
 
-  // Отмена запроса при уходе с экрана — иначе платим за токены впустую и
-  // пишем в состояние размонтированного компонента.
-  useEffect(() => () => abortRef.current?.abort(), []);
+  // Прогон переживает смену чата: фокус возвращаем, только если человек всё
+  // ещё в этом чате и ничего другого не открыл (иначе ввод в шторке уходил бы
+  // в композер).
+  const chatIdRef = useRef(chatId);
+  useEffect(() => {
+    chatIdRef.current = chatId;
+  }, [chatId]);
 
-  /** Общий прогон: история текущего чата → цикл агента → запись ответа.
-   *  Един для отправки и повтора — прежде логика жила в двух копиях. */
-  async function runTurn(target: LlmChat) {
-    setBusy(true);
-    setStreamText('');
-    const ac = new AbortController();
-    abortRef.current = ac;
-    try {
-      const history = toContext(await chatMessages(target.id));
-      const reply = await runAgent({
-        messages: history,
-        systemPrompt: target.systemPrompt,
-        model: effectiveModel(target.model),
-        signal: ac.signal,
-        dataTools: target.dataTools === true,
-        onDelta: (piece) => {
-          setToolLabel(null);
-          setStreamText((prev) => (prev ?? '') + piece);
-        },
-        onTool: (label) => setToolLabel(label),
-      });
-      // Поток гасим ДО записи в базу. Иначе между «ответ сохранён» и
-      // «finally снял busy» лента показывает его дважды: сохранённым
-      // сообщением и всё ещё живым потоком. Человек видит короткое двоение,
-      // а на медленной машине окно достаточно заметное, чтобы в него попадал
-      // и глаз, и тест.
-      setStreamText(null);
-      await addAssistantMessage(target.id, reply);
-    } catch (e) {
-      await addErrorMessage(target.id, aiErrorText(e));
-    } finally {
-      abortRef.current = null;
-      setBusy(false);
-      setStreamText(null);
-      setToolLabel(null);
-      inputRef.current?.focus();
-    }
+  /** Общий прогон для отправки и повтора — сам прогон в lib/ai/turns. */
+  async function runTurn(target: LlmChat, question?: string) {
+    await startTurn(target, question);
+    const free = !document.activeElement || document.activeElement === document.body;
+    if (chatIdRef.current === target.id && free) inputRef.current?.focus();
   }
 
   /** Отправка. textArg — программная (чипы-подсказки, «Продолжить»). */
@@ -164,8 +136,7 @@ export function AiPage() {
     // уходит сам.
     if (!(await askConsent('ai'))) return;
     if (!textArg) setDraft('');
-    await addUserMessage(chat, text);
-    await runTurn(chat);
+    await runTurn(chat, text);
   }
 
   /** Повтор: снимаем прошлый ответ и спрашиваем заново тем же контекстом. */
@@ -173,6 +144,13 @@ export function AiPage() {
     if (busy || !chat) return;
     if (!(await askConsent('ai'))) return;
     await removeMessage(m.id);
+    await runTurn(chat);
+  }
+
+  /** Повтор вопроса, оставшегося без ответа: история уже содержит его. */
+  async function handleRetryQuestion() {
+    if (busy || !chat) return;
+    if (!(await askConsent('ai'))) return;
     await runTurn(chat);
   }
 
@@ -207,7 +185,7 @@ export function AiPage() {
   return (
     <div style={CC_THEME} className="h-full">
       <Screen
-        title={chat?.title ?? t('ИИ')}
+        title={chat ? chatTitle(chat) : t('ИИ')}
         subtitle={[
           modelLabel(effectiveModel(chat?.model)),
           chatCost > 0 ? t('за чат: {cost}', { cost: formatCost(chatCost) }) : '',
@@ -233,14 +211,20 @@ export function AiPage() {
             )}
             {messages.map((m) =>
               m.role === 'user' ? (
-                <UserBubble key={m.id} message={m} />
+                <UserBubble
+                  key={m.id}
+                  message={m}
+                  onRetry={dangling && m === last ? () => void handleRetryQuestion() : undefined}
+                />
               ) : (
                 <AssistantBlock
                   key={m.id}
                   message={m}
                   onCopy={() => void copyText(m.content)}
                   onRetry={() => void handleRetry(m)}
-                  onContinue={() => void handleSend(t('Продолжи с места обрыва.'))}
+                  // «Дописать» — только у последнего ответа: повторное нажатие
+                  // под старым слало ещё одно «Продолжи…» с конца разговора.
+                  onContinue={m === last ? () => void handleSend(t('Продолжи с места обрыва.')) : undefined}
                   busy={busy}
                 />
               ),
@@ -274,7 +258,7 @@ export function AiPage() {
             onDataTools={(v) => chat && void patchChat(chat.id, { dataTools: v })}
             onChange={setDraft}
             onSend={() => void handleSend()}
-            onStop={() => abortRef.current?.abort()}
+            onStop={() => chatId && stopTurn(chatId)}
           />
         </div>
       </Screen>
@@ -356,12 +340,21 @@ function AiWelcome({ dataTools, onAsk }: { dataTools: boolean; onAsk: (q: string
 
 /** Вопрос — пузырь справа. Ответ пузырём не оформляем: в Claude Code это поток
  *  на всю ширину, и такая асимметрия узнаётся сразу. */
-function UserBubble({ message }: { message: LlmMessage }) {
+function UserBubble({ message, onRetry }: { message: LlmMessage; onRetry?: () => void }) {
   return (
-    <div className="cc-msg-in flex justify-end">
+    <div className="cc-msg-in flex flex-col items-end gap-1">
       <div className="max-w-[80%] rounded-[24px] rounded-br-[6px] border border-lh-accent-border bg-[color-mix(in_oklab,var(--lh-ai-accent)_14%,var(--lh-surface))] px-4 py-2.5 text-base leading-snug whitespace-pre-wrap">
         {message.content}
       </div>
+      {onRetry && (
+        <button
+          className="inline-flex h-11 items-center gap-1.5 rounded-[8px] px-2.5 text-xs text-lh-text-secondary active:bg-lh-surface-2"
+          onClick={onRetry}
+        >
+          <GFaRotateRight size={ICON.inline} />
+          {t('Повторить')}
+        </button>
+      )}
     </div>
   );
 }
@@ -376,7 +369,8 @@ function AssistantBlock({
   message: LlmMessage;
   onCopy: () => void;
   onRetry: () => void;
-  onContinue: () => void;
+  /** Только у последнего ответа; у прочих кнопки «Дописать» нет. */
+  onContinue?: () => void;
   busy: boolean;
 }) {
   const failed = message.status === 'error';
@@ -434,14 +428,19 @@ function AssistantBlock({
       {!failed && message.finishReason === 'length' && (
         <div className="flex items-center gap-2.5">
           <p className="text-xs text-warning">{t('Ответ обрезан лимитом токенов.')}</p>
-          <button
-            className="inline-flex h-11 items-center rounded-[8px] bg-lh-accent-dim px-3 text-xs font-medium text-lh-accent active:opacity-70 disabled:opacity-40"
-            disabled={busy}
-            onClick={onContinue}
-          >
-            {t('Дописать')}
-          </button>
+          {onContinue && (
+            <button
+              className="inline-flex h-11 items-center rounded-[8px] bg-lh-accent-dim px-3 text-xs font-medium text-lh-accent active:opacity-70 disabled:opacity-40"
+              disabled={busy}
+              onClick={onContinue}
+            >
+              {t('Дописать')}
+            </button>
+          )}
         </div>
+      )}
+      {!failed && message.finishReason === 'aborted' && (
+        <p className="text-xs text-lh-text-secondary">{t('Ответ остановлен.')}</p>
       )}
       {!failed && (
         // Переносится: на 320px две кнопки со словами и счётчик в строку не
@@ -463,7 +462,8 @@ function AssistantBlock({
             <GFaRotateRight size={ICON.inline} />
             {t('Повторить')}
           </button>
-          {message.tokensIn !== null && (
+          {/* У остановленного ответа токенов провайдер не сообщил — 0→0 врал бы. */}
+          {message.tokensIn !== null && message.finishReason !== 'aborted' && (
             <span className="ml-auto shrink-0 text-2xs tabular-nums text-lh-text-secondary">
               {message.tokensIn}→{message.tokensOut}
               {cost && ` · ${cost}`}

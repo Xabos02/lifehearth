@@ -47,7 +47,8 @@ export const TOOL_DEFS = [
     type: 'function',
     function: {
       name: 'search_notes',
-      description: 'Поиск по заметкам (заголовок и текст). Возвращает заголовки и фрагменты.',
+      description:
+        'Поиск по заметкам (заголовок и текст). Возвращает заголовки и короткие обрезанные фрагменты — чтобы ответить по содержанию заметки, прочитай её целиком через read_note.',
       parameters: {
         type: 'object',
         properties: { query: { type: 'string', description: 'что искать' } },
